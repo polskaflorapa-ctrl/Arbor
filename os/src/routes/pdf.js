@@ -157,6 +157,44 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
       [id]
     );
     const rRes = await pool.query('SELECT * FROM rozliczenia WHERE task_id = $1', [id]);
+    let payment = null;
+    let materialUsage = [];
+    let operationalCosts = [];
+    try {
+      const payRes = await pool.query(
+        `SELECT forma_platnosc, kwota_odebrana, faktura_vat, nip, notatki, recorded_at
+         FROM task_client_payments
+         WHERE task_id = $1`,
+        [id]
+      );
+      payment = payRes.rows[0] || null;
+    } catch {
+      payment = null;
+    }
+    try {
+      const usageRes = await pool.query(
+        `SELECT nazwa, ilosc, jednostka, koszt_laczny, notatka
+         FROM task_finish_material_usage
+         WHERE task_id = $1
+         ORDER BY id`,
+        [id]
+      );
+      materialUsage = usageRes.rows;
+    } catch {
+      materialUsage = [];
+    }
+    try {
+      const costRes = await pool.query(
+        `SELECT category, label, amount, source, recorded_at
+         FROM task_operational_costs
+         WHERE task_id = $1
+         ORDER BY id`,
+        [id]
+      );
+      operationalCosts = costRes.rows;
+    } catch {
+      operationalCosts = [];
+    }
     let signature = null;
     try {
       const sRes = await pool.query(
@@ -268,6 +306,38 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
       doc.text('Szacowana marża:', 50, startY + 60); doc.text(`${formatCurrency(marza)} (${((marza / wartosc) * 100).toFixed(1)}%)`, 250, startY + 60);
     }
     doc.moveDown(6);
+
+    if (payment || materialUsage.length > 0 || operationalCosts.length > 0) {
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveDown();
+      doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Rozliczenie z terenu');
+      doc.moveDown(0.5);
+      if (payment) {
+        doc.fontSize(9).fillColor('#374151').font('Helvetica')
+          .text(`Platnosc: ${payment.forma_platnosc || '-'} | Odebrano: ${formatCurrency(payment.kwota_odebrana)} | Faktura VAT: ${payment.faktura_vat ? 'tak' : 'nie'}`, { width: 450 });
+        if (payment.nip) doc.fontSize(8).fillColor('#6B7280').text(`   NIP: ${payment.nip}`, { width: 450 });
+        if (payment.notatki) doc.fontSize(8).fillColor('#6B7280').text(`   Notatka platnosci: ${payment.notatki}`, { width: 450 });
+      }
+      if (materialUsage.length > 0) {
+        doc.moveDown(0.3);
+        doc.fontSize(9).fillColor('#374151').font('Helvetica-Bold').text('Materialy zuzyte:');
+        materialUsage.forEach((row, i) => {
+          const qty = row.ilosc ? ` | ${row.ilosc} ${row.jednostka || ''}` : '';
+          const cost = row.koszt_laczny ? ` | koszt ${formatCurrency(row.koszt_laczny)}` : '';
+          doc.fontSize(8).fillColor('#374151').font('Helvetica').text(`   ${i + 1}. ${row.nazwa || '-'}${qty}${cost}`, { width: 450 });
+          if (row.notatka) doc.fontSize(7).fillColor('#6B7280').text(`      ${row.notatka}`, { width: 450 });
+        });
+      }
+      if (operationalCosts.length > 0) {
+        doc.moveDown(0.3);
+        doc.fontSize(9).fillColor('#374151').font('Helvetica-Bold').text('Koszty operacyjne:');
+        operationalCosts.forEach((row, i) => {
+          doc.fontSize(8).fillColor('#374151').font('Helvetica')
+            .text(`   ${i + 1}. ${row.label || row.category || '-'}: ${formatCurrency(row.amount)}${row.source ? ` (${row.source})` : ''}`, { width: 450 });
+        });
+      }
+      doc.moveDown();
+    }
 
     if (helpers.length > 0) {
       doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();

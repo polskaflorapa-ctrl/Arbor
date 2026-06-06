@@ -14,6 +14,51 @@ function saveState(state) {
   fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
 }
 
+const MOJIBAKE_REPLACEMENTS = [
+  ['KrakÄw', 'Kraków'],
+  ['KrakĂłw', 'Kraków'],
+  ['Ä…', 'ą'],
+  ['Ä‡', 'ć'],
+  ['Ä™', 'ę'],
+  ['Ĺ‚', 'ł'],
+  ['Ĺ„', 'ń'],
+  ['Ăł', 'ó'],
+  ['Ĺ›', 'ś'],
+  ['Ĺş', 'ź'],
+  ['ĹĽ', 'ż'],
+  ['Ä„', 'Ą'],
+  ['Ä†', 'Ć'],
+  ['Ä', 'Ę'],
+  ['Ĺ', 'Ł'],
+  ['Ă“', 'Ó'],
+  ['Ĺš', 'Ś'],
+  ['Ĺą', 'Ź'],
+  ['Ĺ»', 'Ż'],
+  ['Â·', '·'],
+  ['Â', ''],
+  ['â€”', '—'],
+  ['â€“', '–'],
+  ['â€¦', '...'],
+  ['â€‘', '-'],
+];
+
+function normalizeMojibakeText(value) {
+  if (typeof value !== 'string') return value;
+  return MOJIBAKE_REPLACEMENTS.reduce(
+    (text, [broken, fixed]) => text.replaceAll(broken, fixed),
+    value,
+  );
+}
+
+function normalizeRuntimeEncoding(value) {
+  if (Array.isArray(value)) return value.map(normalizeRuntimeEncoding);
+  if (!value || typeof value !== 'object') return normalizeMojibakeText(value);
+  for (const key of Object.keys(value)) {
+    value[key] = normalizeRuntimeEncoding(value[key]);
+  }
+  return value;
+}
+
 function loadState() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(STATE_PATH)) {
@@ -21,7 +66,11 @@ function loadState() {
     fs.writeFileSync(STATE_PATH, JSON.stringify(seed, null, 2), 'utf8');
   }
   const state = readJson(STATE_PATH);
-  return migrateState(state, saveState);
+  const beforeNormalize = JSON.stringify(state);
+  normalizeRuntimeEncoding(state);
+  const migrated = migrateState(state, saveState);
+  if (JSON.stringify(migrated) !== beforeNormalize) saveState(migrated);
+  return migrated;
 }
 
 function withStore(fn) {

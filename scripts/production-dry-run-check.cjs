@@ -5,6 +5,7 @@ const root = path.resolve(__dirname, "..");
 
 const requiredFiles = [
   "docs/PRODUCTION-DEPLOY-DRY-RUN.md",
+  "docs/PRODUCTION-READINESS-CHECKLIST.md",
   "docs/ENVIRONMENT-RUNBOOK.md",
   "docs/backup-restore.md",
   "docs/render-deploy.md",
@@ -20,11 +21,13 @@ const requiredFiles = [
   "os/scripts/smoke-production-check.js",
   "scripts/run-production-bootstrap.cjs",
   "scripts/deploy-ready-check.cjs",
+  "scripts/production-readiness.cjs",
 ];
 
 const requiredScripts = {
   "package.json": [
     "check",
+    "prod:ready",
     "deploy:prod:dry-run",
     "deploy:ready:check",
     "deploy:env:print",
@@ -51,6 +54,7 @@ const requiredScripts = {
 
 const dryRunNeedles = [
   "deploy:prod:dry-run",
+  "prod:ready",
   "deploy:ready:check",
   "deploy:env:print",
   "deploy:prod:doctor",
@@ -67,6 +71,7 @@ const dryRunNeedles = [
   "UPLOAD_STORAGE=s3",
   "GO",
   "NO-GO",
+  "PRODUCTION-READINESS-CHECKLIST.md",
 ];
 
 const runbookNeedles = [

@@ -117,6 +117,17 @@ interface WorkflowStep {
   path: string;
 }
 
+interface OwnerKpiOverview {
+  period_days?: number;
+  tasks_overdue?: number;
+  tasks_unassigned?: number;
+  completion_pct?: number;
+  revenue_planned?: number;
+  revenue_actual?: number;
+  revenue_delta_pct?: number | null;
+  conversion_pct?: number;
+}
+
 type QuickCategoryId =
   | 'start'
   | 'sales'
@@ -191,6 +202,14 @@ function dashboardNumber(value: unknown) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function dashboardMoney(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0 PLN';
+  if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M PLN`;
+  if (Math.abs(n) >= 1000) return `${Math.round(n / 1000)}k PLN`;
+  return `${Math.round(n)} PLN`;
+}
+
 function dashboardOpenProblemCount(task: any) {
   const direct = dashboardNumber(
     task?.problem_open ??
@@ -235,6 +254,7 @@ export default function DashboardScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [recentContexts, setRecentContexts] = useState<RecentContextItem[]>([]);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('focus');
+  const [ownerKpi, setOwnerKpi] = useState<OwnerKpiOverview | null>(null);
 
   const loadDataRef = useRef<() => Promise<void>>(async () => {});
 
@@ -248,15 +268,20 @@ export default function DashboardScreen() {
       const endpoint = (u.rola === 'Brygadzista' || u.rola === 'Pomocnik')
         ? `${API_URL}/tasks/moje` : `${API_URL}/tasks/wszystkie`;
       const shouldLoadStats = !isEstimatorRoleValue(u.rola);
+      const shouldLoadOwnerKpi = ['Dyrektor', 'Administrator', 'Kierownik'].includes(String(u.rola || ''));
 
-      const [zRes, sRes] = await Promise.all([
+      const [zRes, sRes, biRes] = await Promise.all([
         fetchJsonWithStatus(endpoint, h),
         shouldLoadStats
           ? fetchJsonWithStatus(`${API_URL}/tasks/stats`, h)
           : Promise.resolve({ ok: true, status: 200, data: stats }),
+        shouldLoadOwnerKpi
+          ? fetchJsonWithStatus(`${API_URL}/bi/overview?days=30`, h)
+          : Promise.resolve({ ok: true, status: 200, data: null }),
       ]);
       const nextOrders = zRes.ok ? filterDashboardOrdersForUser(readArrayPayload(zRes.data), u) : zlecenia;
       const nextStats: DashboardStats = sRes.ok && sRes.data && typeof sRes.data === 'object' ? (sRes.data as DashboardStats) : stats;
+      setOwnerKpi(biRes.ok && biRes.data && typeof biRes.data === 'object' ? biRes.data as OwnerKpiOverview : null);
       // Najpierw twarde błędy HTTP — wcześniej szły bezgłośnie.
       if (!zRes.ok && !sRes.ok) {
         const cached = await AsyncStorage.getItem(DASHBOARD_CACHE_KEY);
@@ -426,6 +451,37 @@ export default function DashboardScreen() {
         : isMagazynier
           ? { title: 'Tryb magazynu', text: 'Sprzet, rezerwacje i wydania pod dzisiejsze ekipy.', action: 'Rezerwacje', icon: 'cube-outline' as IoniconName, path: '/rezerwacje-sprzetu' }
           : { title: 'Tryb dyspozytorni', text: 'Kontroluj przeplyw od telefonu do ekipy i zamkniecia raportu.', action: 'Harmonogram', icon: 'calendar-outline' as IoniconName, path: '/harmonogram' };
+  const showOwnerKpi = !!ownerKpi && (isDyrektor || isKierownik);
+  const ownerKpiRows = ownerKpi ? [
+    {
+      key: 'planned',
+      label: 'Plan 30d',
+      value: dashboardMoney(ownerKpi.revenue_planned),
+      tone: ARBOR_UI.forest,
+      icon: 'trending-up-outline' as IoniconName,
+    },
+    {
+      key: 'actual',
+      label: 'Wykonane',
+      value: dashboardMoney(ownerKpi.revenue_actual),
+      tone: ARBOR_UI.leaf,
+      icon: 'cash-outline' as IoniconName,
+    },
+    {
+      key: 'conversion',
+      label: 'Konwersja',
+      value: `${dashboardNumber(ownerKpi.conversion_pct)}%`,
+      tone: theme.info,
+      icon: 'funnel-outline' as IoniconName,
+    },
+    {
+      key: 'risk',
+      label: 'Zalegle',
+      value: String(dashboardNumber(ownerKpi.tasks_overdue) + dashboardNumber(ownerKpi.tasks_unassigned)),
+      tone: (dashboardNumber(ownerKpi.tasks_overdue) + dashboardNumber(ownerKpi.tasks_unassigned)) > 0 ? ARBOR_UI.danger : ARBOR_UI.leaf,
+      icon: 'warning-outline' as IoniconName,
+    },
+  ] : [];
 
   const statusKolor = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
 
@@ -722,9 +778,9 @@ export default function DashboardScreen() {
               <Ionicons name="leaf-outline" size={22} color={ARBOR_UI.forest} />
             </View>
             <View style={S.opsHeroText}>
-              <Text style={S.opsEyebrow}>ARBOR-OS MOBILE</Text>
-              <Text style={S.opsTitle}>Centrum operacji terenowych</Text>
-              <Text style={S.opsSubtitle}>{oddzialConfig.name} / {rolaLabel}</Text>
+              <Text style={S.opsEyebrow}>{oddzialConfig.name} / {rolaLabel}</Text>
+              <Text style={S.opsTitle}>{roleBrief.title}</Text>
+              <Text style={S.opsSubtitle}>{roleBrief.text}</Text>
             </View>
           </View>
           <View style={S.opsHeroMetrics}>
@@ -745,6 +801,37 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {showOwnerKpi ? (
+          <TouchableOpacity
+            style={S.ownerKpi}
+            onPress={() => void openWithContext('/raporty-mobilne', 'Raport wlascicielski', 'dashboard-owner-kpi')}
+          >
+            <View style={S.ownerKpiHead}>
+              <View>
+                <Text style={S.ownerKpiTitle}>Raport wlascicielski</Text>
+                <Text style={S.ownerKpiSub}>Ostatnie {ownerKpi?.period_days || 30} dni</Text>
+              </View>
+              <View style={S.ownerKpiDelta}>
+                <Ionicons name="analytics-outline" size={15} color={ARBOR_UI.forest} />
+                <Text style={S.ownerKpiDeltaText}>
+                  {ownerKpi?.revenue_delta_pct == null ? 'trend -' : `${ownerKpi.revenue_delta_pct > 0 ? '+' : ''}${ownerKpi.revenue_delta_pct}%`}
+                </Text>
+              </View>
+            </View>
+            <View style={S.ownerKpiGrid}>
+              {ownerKpiRows.map((row) => (
+                <View key={row.key} style={S.ownerKpiCell}>
+                  <View style={[S.ownerKpiIcon, { borderColor: row.tone + '44', backgroundColor: row.tone + '12' }]}>
+                    <Ionicons name={row.icon} size={14} color={row.tone} />
+                  </View>
+                  <Text style={[S.ownerKpiValue, { color: row.tone }]} numberOfLines={1}>{row.value}</Text>
+                  <Text style={S.ownerKpiLabel} numberOfLines={1}>{row.label}</Text>
+                </View>
+              ))}
+            </View>
+          </TouchableOpacity>
+        ) : null}
+
         {focusActions.length > 0 ? (
           <View style={S.todayRail}>
             {focusActions.slice(0, 3).map((action, index) => (
@@ -764,7 +851,7 @@ export default function DashboardScreen() {
           </View>
         ) : null}
 
-        {(zlecenia.length > 0 || isCrew || isWyceniajacy) ? (
+        {dashboardSignal.total > 0 ? (
           <TouchableOpacity
             style={[
               S.signalCard,
@@ -1277,19 +1364,19 @@ const makeStyles = (t: Theme) => {
   opsHero: {
     marginHorizontal: 16,
     marginTop: 12,
-    padding: 14,
-    borderRadius: 16,
+    padding: 12,
+    borderRadius: 8,
     backgroundColor: ARBOR_UI.paper,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { opacity: 0.045, radius: 10, offsetY: 2, elevation: 1 }),
-    gap: 14,
+    ...shadowStyle(t, { opacity: 0.035, radius: 8, offsetY: 1, elevation: 1 }),
+    gap: 10,
   },
   opsHeroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   opsLeafBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 13,
+    width: 42,
+    height: 42,
+    borderRadius: 8,
     backgroundColor: ARBOR_UI.leafSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1299,10 +1386,10 @@ const makeStyles = (t: Theme) => {
   opsHeroText: { flex: 1 },
   opsEyebrow: { color: ARBOR_UI.muted, fontSize: 10, fontWeight: '900', letterSpacing: 0 },
   opsTitle: { color: ARBOR_UI.text, fontSize: 18, fontWeight: '900', letterSpacing: 0, marginTop: 2 },
-  opsSubtitle: { color: ARBOR_UI.muted, fontSize: 12, fontWeight: '700', marginTop: 3 },
+  opsSubtitle: { color: ARBOR_UI.muted, fontSize: 12, lineHeight: 16, fontWeight: '700', marginTop: 3 },
   opsHeroMetrics: {
     flexDirection: 'row',
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: ARBOR_UI.bgSoft,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
@@ -1312,6 +1399,59 @@ const makeStyles = (t: Theme) => {
   opsMetricValue: { color: ARBOR_UI.forest, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
   opsMetricLabel: { color: ARBOR_UI.muted, fontSize: 11, fontWeight: '800' },
   opsMetricDivider: { width: 1, backgroundColor: ARBOR_UI.line },
+  ownerKpi: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: ARBOR_UI.paper,
+    borderWidth: 1,
+    borderColor: ARBOR_UI.line,
+    gap: 10,
+    ...shadowStyle(t, { opacity: 0.035, radius: 8, offsetY: 1, elevation: 1 }),
+  },
+  ownerKpiHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  ownerKpiTitle: { color: ARBOR_UI.text, fontSize: 14, fontWeight: '900' },
+  ownerKpiSub: { color: ARBOR_UI.muted, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  ownerKpiDelta: {
+    minHeight: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: ARBOR_UI.line,
+    backgroundColor: ARBOR_UI.bgSoft,
+    paddingHorizontal: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  ownerKpiDeltaText: { color: ARBOR_UI.forest, fontSize: 11, fontWeight: '900' },
+  ownerKpiGrid: { flexDirection: 'row', gap: 8 },
+  ownerKpiCell: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 74,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: ARBOR_UI.line,
+    backgroundColor: ARBOR_UI.bgSoft,
+    padding: 8,
+    justifyContent: 'space-between',
+  },
+  ownerKpiIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ownerKpiValue: { fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  ownerKpiLabel: { color: ARBOR_UI.muted, fontSize: 9.5, fontWeight: '900' },
   todayRail: {
     marginHorizontal: 16,
     marginTop: 10,
@@ -1321,7 +1461,7 @@ const makeStyles = (t: Theme) => {
   todayRailAction: {
     flex: 1,
     minHeight: 58,
-    borderRadius: 14,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
     backgroundColor: ARBOR_UI.paper,
@@ -1346,12 +1486,12 @@ const makeStyles = (t: Theme) => {
     marginHorizontal: 16,
     marginTop: 12,
     padding: 12,
-    borderRadius: 18,
+    borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    ...shadowStyle(t, { opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
+    ...shadowStyle(t, { opacity: 0.045, radius: 8, offsetY: 1, elevation: 1 }),
   },
   signalIcon: {
     width: 42,
@@ -1393,13 +1533,13 @@ const makeStyles = (t: Theme) => {
   workflowCard: {
     marginHorizontal: 16,
     marginTop: 12,
-    padding: 14,
-    borderRadius: 20,
+    padding: 12,
+    borderRadius: 8,
     backgroundColor: ARBOR_UI.paper,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
-    gap: 12,
+    ...shadowStyle(t, { opacity: 0.045, radius: 8, offsetY: 1, elevation: 1 }),
+    gap: 10,
   },
   workflowHead: {
     flexDirection: 'row',
@@ -1434,8 +1574,8 @@ const makeStyles = (t: Theme) => {
   workflowNowText: { color: ARBOR_UI.forest, fontSize: 11, fontWeight: '900' },
   workflowStrip: { gap: 8, paddingRight: 4 },
   workflowStep: {
-    minWidth: 104,
-    borderRadius: 15,
+    minWidth: 92,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
     backgroundColor: ARBOR_UI.paperSoft,
@@ -1465,6 +1605,7 @@ const makeStyles = (t: Theme) => {
   workflowStepTitle: { color: ARBOR_UI.text, fontSize: 12, fontWeight: '900' },
   workflowStepSub: { color: ARBOR_UI.muted, fontSize: 10, fontWeight: '800' },
   roleBrief: {
+    display: 'none',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: ARBOR_UI.leafBorder,
@@ -1514,6 +1655,7 @@ const makeStyles = (t: Theme) => {
     fontVariant: ['tabular-nums'],
   },
   focusDeck: {
+    display: 'none',
     marginHorizontal: 16,
     marginTop: 12,
     padding: 14,
@@ -1588,6 +1730,7 @@ const makeStyles = (t: Theme) => {
 
   // Statystyki
   statsRow: {
+    display: 'none',
     flexDirection: 'row',
     flexWrap: 'wrap',
     backgroundColor: 'transparent',

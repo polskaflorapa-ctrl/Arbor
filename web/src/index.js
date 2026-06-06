@@ -5,6 +5,7 @@ import './i18n';
 import './index.css';
 import App from './App';
 import './animations.css';
+import './product-polish.css';
 import reportWebVitals from './reportWebVitals';
 import { BUILD_STAMP } from './buildStamp';
 

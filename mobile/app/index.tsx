@@ -2,7 +2,6 @@ import { useRootNavigationState, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useTheme } from '../constants/ThemeContext';
-import { getOddzialStartPath } from '../utils/oddzial-features';
 import { getStoredSession } from '../utils/session';
 
 export default function Index() {
@@ -14,13 +13,9 @@ export default function Index() {
     if (!rootNav?.key) return;
 
     const checkAuth = async () => {
-      const { token, user } = await getStoredSession();
+      const { token } = await getStoredSession();
       if (token) {
-        const oddzialId =
-          user && typeof user === 'object' && 'oddzial_id' in user
-            ? (user as { oddzial_id?: string | number | null }).oddzial_id
-            : null;
-        router.replace(getOddzialStartPath(oddzialId) as any);
+        router.replace('/dashboard');
       } else {
         router.replace('/login');
       }

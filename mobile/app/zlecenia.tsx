@@ -1089,6 +1089,7 @@ export default function ZleceniaScreen() {
       hiddenCount: Math.max(0, relevant.length - rows.length),
     };
   }, [theme, todayKey, user, zlecenia]);
+  const topOperation = operationsQueue.rows[0] || null;
   const S = makeStyles(theme);
 
   if (guard.ready && !guard.allowed) {
@@ -1386,14 +1387,22 @@ export default function ZleceniaScreen() {
           </ScrollView>
           <View style={S.officeNextBox}>
             <View style={{ flex: 1 }}>
-              <Text style={S.officeNextTitle}>{officeFlow.nextTitle}</Text>
-              <Text style={S.officeNextSub}>{officeFlow.nextSub}</Text>
+              <Text style={S.officeNextTitle}>{topOperation ? topOperation.action.label : officeFlow.nextTitle}</Text>
+              <Text style={S.officeNextSub}>
+                {topOperation
+                  ? `${topOperation.task.klient_nazwa || `Zlecenie #${topOperation.task.id}`} - ${topOperation.action.detail}`
+                  : officeFlow.nextSub}
+              </Text>
             </View>
             <TouchableOpacity
               style={S.officeNextBtn}
               onPress={() => {
-                setQuickMode(officeFlow.nextMode);
                 void triggerHaptic('light');
+                if (topOperation) {
+                  router.push(topOperation.action.route as never);
+                } else {
+                  setQuickMode(officeFlow.nextMode);
+                }
               }}
             >
               <Text style={S.officeNextBtnText}>Pokaż</Text>
@@ -1753,6 +1762,7 @@ export default function ZleceniaScreen() {
             : fieldExecutionToneColor(fieldExecution.tone, theme);
           const fieldSignalVisible = fieldExecution.relevant || openProblemCount > 0;
           const isMyTurnTask = taskMatchesCurrentUserTurn(z, user);
+          const showStageOwnerMini = isMyTurnTask || fieldSignalNeedsAttention || fieldDraft || taskNeedsCrewPlan(z);
           const officePlanChecks = taskOfficePlanChecks(z);
           const officePlanReadyCount = officePlanChecks.filter((check) => check.ready).length;
           const officePlanComplete = officePlanReadyCount === officePlanChecks.length;
@@ -1857,7 +1867,8 @@ export default function ZleceniaScreen() {
                       <Text style={S.metaSmall}> {z.ekipa_nazwa}</Text>
                     </View>
                   ) : null}
-                  <View style={[
+                  {showStageOwnerMini ? (
+                    <View style={[
                     S.stageOwnerMini,
                     {
                       borderColor: isMyTurnTask ? theme.warning : stageOwnerColor + '55',
@@ -1869,12 +1880,13 @@ export default function ZleceniaScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[S.stageOwnerLabel, { color: isMyTurnTask ? theme.warning : theme.textMuted }]}>
-                        {isMyTurnTask ? 'Twoja kolej' : 'Kto ma pilke'}
+                        {isMyTurnTask ? 'Twoja kolej' : 'Nastepny krok'}
                       </Text>
                       <Text style={S.stageOwnerTitle} numberOfLines={1}>{stageOwner.owner} - {stageOwner.title}</Text>
                       <Text style={S.stageOwnerDetail} numberOfLines={2}>{stageOwner.detail}</Text>
                     </View>
-                  </View>
+                    </View>
+                  ) : null}
                   {isCrew && scopePreview ? (
                     <View style={[S.crewScopePreview, { borderColor: theme.border, backgroundColor: theme.surface2 }]}>
                       <PlatinumIconBadge icon="list-outline" color={theme.accent} size={9} style={S.crewScopePreviewIcon} />
@@ -2288,15 +2300,15 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeFlowCard: {
     marginHorizontal: 14,
     marginTop: 8,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
-    padding: 12,
-    gap: 11,
+    padding: 10,
+    gap: 9,
     ...shadowStyle(t, {
-      opacity: t.shadowOpacity * 0.12,
-      radius: t.shadowRadius * 0.38,
+      opacity: t.shadowOpacity * 0.06,
+      radius: t.shadowRadius * 0.2,
       offsetY: 1,
       elevation: Math.max(1, t.cardElevation - 1),
     }),
@@ -2320,11 +2332,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeFlowSub: { color: t.textMuted, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
   officeFlowStrip: { gap: 8, paddingRight: 4 },
   officeFlowStep: {
-    minWidth: 104,
-    borderRadius: 14,
+    minWidth: 92,
+    borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: 9,
-    paddingVertical: 9,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     gap: 2,
   },
   officeFlowStepIcon: {
@@ -2340,7 +2352,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeFlowStepLabel: { color: t.text, fontSize: 12, fontWeight: '900' },
   officeFlowStepHint: { color: t.textMuted, fontSize: 10, fontWeight: '800' },
   officeNextBox: {
-    borderRadius: 13,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.accent + '44',
     backgroundColor: t.accentLight,
@@ -2364,6 +2376,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   officeNextBtnText: { color: t.accent, fontSize: 11, fontWeight: '900' },
   operationsQueueCard: {
+    display: 'none',
     marginHorizontal: 14,
     marginTop: 8,
     marginBottom: 4,
@@ -2871,7 +2884,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptySub: { fontSize: 13, color: t.textMuted },
   card: {
     flexDirection: 'row', backgroundColor: t.cardBg,
-    borderRadius: 14, marginBottom: 10,
+    borderRadius: 8, marginBottom: 8,
     borderWidth: 1, borderColor: t.cardBorder, overflow: 'hidden',
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.06,
@@ -2880,7 +2893,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
       elevation: Math.max(1, t.cardElevation - 1),
     }),
   },
-  cardStripe: { width: 4 },
+  cardStripe: { width: 5 },
   crewCardRail: {
     width: 58,
     borderRightWidth: 1,
@@ -2893,7 +2906,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewCardRailDot: { width: 10, height: 10, borderRadius: 5 },
   crewCardRailTime: { color: t.text, fontSize: 11.5, fontWeight: '900', fontVariant: ['tabular-nums'] },
   crewCardRailToday: { color: t.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
-  cardContent: { flex: 1, padding: 12 },
+  cardContent: { flex: 1, padding: 11 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 },
   cardId: { fontSize: 11.5, color: t.textMuted, fontWeight: '900' },
   cardBadges: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', flexShrink: 1 },
@@ -2924,8 +2937,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   metaSmall: { fontSize: 11, color: t.textMuted },
   cardQuickActions: { flexDirection: 'row', gap: 7, marginTop: 5, marginBottom: 2, flexWrap: 'wrap' },
   cardQuickAction: {
-    minHeight: 34,
-    borderRadius: 999,
+    minHeight: 40,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.accent + '44',
     backgroundColor: t.accentLight,
@@ -2942,14 +2955,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   cardQuickActionText: { color: t.accent, fontSize: 11, fontWeight: '900' },
   cardBottom: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 },
-  typChip: { backgroundColor: t.surface2, borderRadius: 999, borderWidth: 1, borderColor: t.border, paddingHorizontal: 8, paddingVertical: 4 },
+  typChip: { backgroundColor: t.surface2, borderRadius: 8, borderWidth: 1, borderColor: t.border, paddingHorizontal: 8, paddingVertical: 4 },
   typText: { fontSize: 11, color: t.textSub, fontWeight: '800' },
   dateText: { fontSize: 11, color: t.textMuted },
   wartosc: { fontSize: 12, color: t.accent, fontWeight: '700' },
   stageOwnerMini: {
     marginTop: 8,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 9,
     paddingVertical: 8,
     flexDirection: 'row',

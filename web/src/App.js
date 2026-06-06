@@ -181,6 +181,9 @@ function App() {
           <Route path="/crm" element={
             <ProtectedRoute roles={SALES}><Crm /></ProtectedRoute>
           } />
+          <Route path="/crm/hub" element={
+            <ProtectedRoute roles={SALES}><Crm /></ProtectedRoute>
+          } />
           <Route path="/crm/dashboard" element={
             <ProtectedRoute roles={SALES}><CrmDashboard /></ProtectedRoute>
           } />

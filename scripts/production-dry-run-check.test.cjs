@@ -40,7 +40,7 @@ test("production dry-run check validates files, scripts, and runbook commands", 
     writeFixtureFile(
       root,
       "docs/PRODUCTION-DEPLOY-DRY-RUN.md",
-      "deploy:prod:dry-run deploy:ready:check deploy:env:print deploy:prod:doctor db:migrate bootstrap:admin backup:db:check backup:db restore:db:check smoke:render PUBLIC_BASE_URL CORS_ORIGINS VITE_API_URL EXPO_PUBLIC_API_URL UPLOAD_STORAGE=s3 GO NO-GO",
+      "deploy:prod:dry-run prod:ready deploy:ready:check deploy:env:print deploy:prod:doctor db:migrate bootstrap:admin backup:db:check backup:db restore:db:check smoke:render PUBLIC_BASE_URL CORS_ORIGINS VITE_API_URL EXPO_PUBLIC_API_URL UPLOAD_STORAGE=s3 GO NO-GO PRODUCTION-READINESS-CHECKLIST.md",
     );
     writeFixtureFile(
       root,

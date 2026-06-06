@@ -73,6 +73,22 @@ function cleanupLocalFile(fileOrPath) {
   }
 }
 
+function resolveLocalUploadPath(urlOrPath) {
+  const value = String(urlOrPath || '').trim();
+  if (!value.startsWith('/uploads/')) return null;
+
+  const uploadsRoot = path.resolve(getUploadsRoot());
+  const rel = value
+    .replace(/^\/uploads\/?/, '')
+    .split(/[?#]/)[0]
+    .replace(/\\/g, '/');
+  const resolved = path.resolve(uploadsRoot, rel);
+  if (resolved !== uploadsRoot && !resolved.startsWith(`${uploadsRoot}${path.sep}`)) {
+    return null;
+  }
+  return resolved;
+}
+
 async function persistUploadedFile(file, { folder, fileName } = {}) {
   if (!file?.path) throw new Error('Uploaded file is missing a temporary path.');
 
@@ -276,5 +292,6 @@ module.exports = {
   deleteUploadByUrl,
   cleanupLocalFile,
   cleanupTemporaryUpload,
+  resolveLocalUploadPath,
   runUploadStorageSelfTest,
 };

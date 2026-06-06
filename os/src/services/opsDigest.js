@@ -13,6 +13,7 @@ const OPS_ACTION_LABELS = {
   risk_queue_call: 'Telefon Zadarma z ryzyka',
   risk_acknowledge: 'Potwierdzenie ryzyka',
   risk_owner_escalate: 'Eskalacja ownera ryzyka',
+  risk_owner_resolve: 'Zamkniecie petli ownera',
   risk_owner_auto_remediate: 'Auto-remediacja ownera',
   risk_owner_remediation_blocked: 'Blokada auto-remediacji ownera',
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
@@ -483,7 +484,7 @@ async function buildOperationalDigest(pool, options = {}) {
       LEFT JOIN users u ON u.id = ev.actor_id
       WHERE ev.metadata->>'risk_id' = oa.risk_id
         AND COALESCE(ev.metadata->>'risk_type', ev.issue_key, '') = oa.risk_type
-        AND ev.action_type IN ('risk_owner_escalate', 'risk_owner_auto_remediate', 'risk_owner_remediation_blocked')
+        AND ev.action_type IN ('risk_owner_escalate', 'risk_owner_auto_remediate', 'risk_owner_remediation_blocked', 'risk_owner_resolve')
       ORDER BY ev.created_at DESC, ev.id DESC
       LIMIT 1
     ) decision ON true
@@ -491,7 +492,7 @@ async function buildOperationalDigest(pool, options = {}) {
       AND NOT EXISTS (
         SELECT 1
         FROM ops_action_events ack
-        WHERE ack.action_type = 'risk_acknowledge'
+        WHERE ack.action_type IN ('risk_acknowledge', 'risk_owner_resolve')
           AND ack.metadata->>'risk_id' = oa.risk_id
           AND COALESCE(ack.metadata->>'risk_type', ack.issue_key, '') = oa.risk_type
           AND ack.created_at >= $1::date

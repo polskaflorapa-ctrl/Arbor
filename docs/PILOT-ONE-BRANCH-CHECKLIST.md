@@ -18,6 +18,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:ops-alert-ownership` potwierdza ownerow alertow Kommo/SMS/SLO i zapis decyzji w `ops_action_events`.
 - [ ] `npm run verify:ops-alert-owner-ui` potwierdza ownerow i potwierdzenia alertow w Integracje/Telefonia z filtrem oddzialu.
 - [ ] `npm run verify:ops-owner-control` potwierdza rejestr potwierdzen ownerow Kommo/SMS w kontroli operacyjnej.
+- [ ] `npm run verify:ops-owner-remediation-closure` potwierdza zamkniecie petli follow-up po remediacji ownerow z Kontroli operacyjnej i digestu.
 - [ ] `npm run verify:backup-rpo` potwierdza RPO/RTO, retencje, restore drill i artefakty backupu.
 - [ ] `npm run verify:web-tti` potwierdza prog TTI panelu i komendy smoke web.
 - [ ] `npm run verify:scale-readiness` potwierdza horizontal scaling: JWT, S3, Redis login limiter, crony i DB pool.
@@ -55,7 +56,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol wie, gdzie sa runbooki: `docs/ENVIRONMENT-RUNBOOK.md`, `docs/backup-restore.md`, `docs/MOBILE-OFFLINE-CONTRACT.md`.
 - [ ] Zespol zna produkcyjny dry-run: `docs/PRODUCTION-DEPLOY-DRY-RUN.md`.
 - [ ] Zespol zna minimum SLO i alertow: `docs/OBSERVABILITY-SLO-RUNBOOK.md`.
-- [ ] Zespol zna ownership alertow Kommo/SMS/SLO: `docs/OPS-ALERT-OWNERSHIP-CONTRACT.md`.
+- [ ] Zespol zna ownership alertow Kommo/SMS/SLO: `docs/OPS-ALERT-OWNERSHIP-CONTRACT.md` oraz `docs/OPS-OWNER-REMEDIATION-CLOSURE-CONTRACT.md`.
 - [ ] Zespol zna runbook incydentow: `docs/PRODUCTION-INCIDENT-RUNBOOK.md`.
 - [ ] Zespol zna RBAC/branch scope: `docs/RBAC-BRANCH-SCOPE-AUDIT.md`.
 - [ ] Zespol zna decyzje dispatchera: `docs/DISPATCHER-ARCHITECTURE-DECISION.md`.
@@ -165,6 +166,7 @@ npm run verify:competency-expiry-monitoring
 npm run verify:team-competency-assignment-block
 npm run verify:dispatcher-competency-consistency
 npm run verify:kommo-idempotency-retry
+npm run verify:ops-owner-remediation-closure
 npm run verify:mobile-problem-flow
 npm run verify:mobile-before-after-photo
 npm run verify:mobile-photo-enforcement

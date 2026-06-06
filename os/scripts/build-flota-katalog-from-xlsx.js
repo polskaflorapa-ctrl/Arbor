@@ -4,7 +4,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const XLSX = require('xlsx');
+const XLSX = require('@e965/xlsx');
 
 const xlsxPath = process.argv[2] || path.join(__dirname, '..', '..', 'Downloads', 'Данные по машинам.xlsx');
 

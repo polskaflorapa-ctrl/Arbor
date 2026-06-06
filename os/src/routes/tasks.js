@@ -6,6 +6,7 @@ const logger = require('../config/logger');
 const { authMiddleware, isSalesDirector, isDyrektorOrAdmin } = require('../middleware/auth');
 const { env } = require('../config/env');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
+const { publicTokenLimiter } = require('../middleware/rate-limit');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -48,6 +49,7 @@ const {
   deleteStoredUpload,
   deleteUploadByUrl,
   persistUploadedFile,
+  resolveLocalUploadPath,
 } = require('../services/upload-storage');
 
 const router = express.Router();
@@ -426,6 +428,23 @@ function finishRequireMaterialUsage() {
   return process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE === '1';
 }
 
+function finishRequireClientSignature() {
+  return process.env.TASK_FINISH_REQUIRE_CLIENT_SIGNATURE === '1';
+}
+
+async function hasTaskClientSignature(client, taskId) {
+  const result = await client.query(
+    `SELECT 1
+       FROM task_client_signatures
+      WHERE task_id = $1
+        AND NULLIF(TRIM(COALESCE(signer_name, '')), '') IS NOT NULL
+        AND NULLIF(TRIM(COALESCE(signature_data_url, '')), '') IS NOT NULL
+      LIMIT 1`,
+    [taskId]
+  );
+  return result.rows.length > 0;
+}
+
 /** @param {import('pg').PoolClient} client */
 async function assertTeamFinishPhotoRules(client, task) {
   const taskId = task?.id;
@@ -794,6 +813,145 @@ const documentUpload = multer({
 function cleanupUploadedFile(file) {
   cleanupLocalFile(file);
 }
+
+const SAFE_DOWNLOAD_MIME = new Map([
+  ['pdf', 'application/pdf'],
+  ['jpg', 'image/jpeg'],
+  ['png', 'image/png'],
+  ['webp', 'image/webp'],
+  ['zip', 'application/zip'],
+]);
+
+function detectUploadKind(filePath) {
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buffer = Buffer.alloc(16);
+    const bytes = fs.readSync(fd, buffer, 0, buffer.length, 0);
+    const head = buffer.subarray(0, bytes);
+    if (head.subarray(0, 4).equals(Buffer.from([0x25, 0x50, 0x44, 0x46]))) return 'pdf';
+    if (head.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'jpg';
+    if (head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+    if (head.subarray(0, 4).toString('ascii') === 'RIFF' && head.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp';
+    if (head.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) return 'zip';
+    return null;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function assertAllowedDocumentUpload(file) {
+  const kind = detectUploadKind(file.path);
+  if (!kind) {
+    const error = new Error('Niedozwolony typ pliku. Dozwolone: PDF, JPG, PNG, WEBP, DOCX/XLSX.');
+    error.status = 400;
+    throw error;
+  }
+  return SAFE_DOWNLOAD_MIME.get(kind) || file.mimetype || 'application/octet-stream';
+}
+
+function safeDownloadName(value, fallback) {
+  return String(value || fallback || 'plik')
+    .replace(/[/\\:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180) || fallback;
+}
+
+function sendControlledUpload(req, res, { storedPath, fileName, mimeType }) {
+  const localPath = resolveLocalUploadPath(storedPath);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (mimeType) res.type(mimeType);
+
+  if (localPath) {
+    if (!fs.existsSync(localPath)) {
+      return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    }
+    return res.download(localPath, safeDownloadName(fileName, path.basename(localPath)), (error) => {
+      if (error && !res.headersSent) {
+        logger.error('Blad kontrolowanego pobierania uploadu', { message: error.message, requestId: req.requestId });
+        res.status(500).json({ error: req.t('errors.http.serverError') });
+      }
+    });
+  }
+
+  const externalUrl = String(storedPath || '').trim();
+  if (/^https?:\/\//i.test(externalUrl)) {
+    res.setHeader('Content-Disposition', `attachment; filename="${safeDownloadName(fileName, 'plik')}"`);
+    return res.redirect(302, externalUrl);
+  }
+
+  return res.status(404).json({ error: req.t('errors.generic.notFound') });
+}
+
+function buildTaskUploadAccessToken(req, { taskId, kind, assetId }) {
+  return jwt.sign(
+    {
+      typ: 'task_upload_link',
+      task_id: Number(taskId),
+      kind,
+      asset_id: Number(assetId),
+      user_id: req.user?.id || null,
+      rola: req.user?.rola || null,
+      oddzial_id: req.user?.oddzial_id ?? null,
+      ekipa_id: req.user?.ekipa_id ?? null,
+    },
+    env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+}
+
+function taskUploadDownloadUrl(req, { taskId, kind, assetId }) {
+  const token = buildTaskUploadAccessToken(req, { taskId, kind, assetId });
+  const segment = kind === 'photo' ? 'zdjecia' : 'dokumenty';
+  return `/api/tasks/${taskId}/${segment}/${assetId}/download?access_token=${encodeURIComponent(token)}`;
+}
+
+const taskUploadAuthOrAccessToken = (kind) => (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Bearer ')) {
+    return authMiddleware(req, res, next);
+  }
+
+  const accessToken = String(req.query.access_token || '').trim();
+  if (!accessToken) {
+    return res.status(401).json({
+      error: req.t('errors.auth.missingToken'),
+      code: 'AUTH_MISSING_TOKEN',
+      requestId: req.requestId,
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(accessToken, env.JWT_SECRET);
+    const routeAssetId = kind === 'photo' ? req.params.photoId : req.params.docId;
+    if (
+      decoded?.typ !== 'task_upload_link' ||
+      decoded.kind !== kind ||
+      Number(decoded.task_id) !== Number(req.params.id) ||
+      Number(decoded.asset_id) !== Number(routeAssetId)
+    ) {
+      return res.status(403).json({
+        error: req.t('errors.tasks.accessDenied'),
+        code: TASK_ACCESS_DENIED,
+        requestId: req.requestId,
+      });
+    }
+    req.user = {
+      id: decoded.user_id,
+      rola: decoded.rola,
+      oddzial_id: decoded.oddzial_id ?? null,
+      ekipa_id: decoded.ekipa_id ?? null,
+    };
+    return next();
+  } catch {
+    return res.status(401).json({
+      error: req.t('errors.auth.invalidToken'),
+      code: 'AUTH_INVALID_TOKEN',
+      requestId: req.requestId,
+    });
+  }
+};
 
 const toNum = (val) => {
   if (val === '' || val === null || val === undefined) return null;
@@ -2100,7 +2258,7 @@ const taskMojeQuerySchema = z.object({
   data: z.string().max(20).optional(),
 });
 
-router.get('/time-window/:token', validateParams(publicTimeWindowTokenParamsSchema), async (req, res) => {
+router.get('/time-window/:token', publicTokenLimiter, validateParams(publicTimeWindowTokenParamsSchema), async (req, res) => {
   try {
     await ensureTaskTimeWindowTables();
     const { rows } = await pool.query(
@@ -2150,7 +2308,7 @@ router.get('/time-window/:token', validateParams(publicTimeWindowTokenParamsSche
   }
 });
 
-router.post('/time-window/:token/decision', validateParams(publicTimeWindowTokenParamsSchema), validateBody(publicTimeWindowDecisionSchema), async (req, res) => {
+router.post('/time-window/:token/decision', publicTokenLimiter, validateParams(publicTimeWindowTokenParamsSchema), validateBody(publicTimeWindowDecisionSchema), async (req, res) => {
   try {
     await ensureTaskTimeWindowTables();
     const { decision, client_note } = req.body;
@@ -3898,8 +4056,10 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
       require_po_photo: finishRequirePoPhoto(row.oddzial_id),
       require_przed_photo: finishRequirePrzedPhoto(row.oddzial_id),
       require_material_usage: finishRequireMaterialUsage(),
+      require_client_signature: finishRequireClientSignature(),
       has_po_photo: poCount >= FINISH_PHOTO_MIN.po,
       has_przed_photo: prCount >= FINISH_PHOTO_MIN.przed,
+      has_client_signature: !!row.client_signature?.signer_name && !!row.client_signature?.signature_data_url,
     };
     res.json(decorateTaskWorkflow(row));
   } catch (err) {
@@ -4952,6 +5112,18 @@ router.post(
           throw e;
         }
         const zu = req.body.zuzyte_materialy;
+        if (finishRequireClientSignature()) {
+          await ensureTaskClientSignatureTable();
+          const hasSignature = await hasTaskClientSignature(client, taskId);
+          if (!hasSignature) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+              error: req.t('errors.tasks.finishClientSignatureRequired'),
+              code: 'TASK_FINISH_CLIENT_SIGNATURE_REQUIRED',
+              requestId: req.requestId,
+            });
+          }
+        }
         if (finishRequireMaterialUsage()) {
           const ok = Array.isArray(zu) && zu.some((r) => r && String(r.nazwa || '').trim().length > 0);
           if (!ok) {
@@ -5499,6 +5671,7 @@ router.get('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), r
     const rows = result.rows.map(r => ({
       ...r,
       sciezka: r.sciezka || r.url,
+      download_url: taskUploadDownloadUrl(req, { taskId: req.params.id, kind: 'photo', assetId: r.id }),
       data_dodania: r.data_dodania || r.timestamp
     }));
     res.json(rows);
@@ -5507,6 +5680,33 @@ router.get('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), r
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
+
+router.get(
+  '/:id/zdjecia/:photoId/download',
+  taskUploadAuthOrAccessToken('photo'),
+  validateParams(taskPhotoIdParamsSchema),
+  requireTaskAccess,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT id, typ, COALESCE(sciezka, url) AS sciezka
+           FROM photos
+          WHERE id = $1 AND task_id = $2`,
+        [req.params.photoId, req.params.id]
+      );
+      const photo = result.rows[0];
+      if (!photo) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+      return sendControlledUpload(req, res, {
+        storedPath: photo.sciezka,
+        fileName: `task-${req.params.id}-photo-${photo.id}.jpg`,
+        mimeType: 'image/jpeg',
+      });
+    } catch (err) {
+      logger.error('Blad pobierania zdjecia zlecenia', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
 
 router.post('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, upload.single('zdjecie'), async (req, res) => {
   let client;
@@ -5543,14 +5743,21 @@ router.post('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), 
     }
     storedPhoto = await persistUploadedFile(req.file, { folder: 'tasks', fileName: req.file.filename });
     const sciezka = storedPhoto.url;
-    await client.query(
+    const insertedPhoto = await client.query(
       `INSERT INTO photos (task_id, user_id, typ, url, sciezka, data_dodania, lat, lon, opis, tagi)
-       VALUES ($1, $2, $3, $4, $4, NOW(), $5, $6, $7, $8)`,
+       VALUES ($1, $2, $3, $4, $4, NOW(), $5, $6, $7, $8)
+       RETURNING id`,
       [taskId, req.user.id, typ, sciezka, photoLat, photoLon, photoOpis, photoTagi]
     );
     await client.query('COMMIT');
     cleanupTemporaryUpload(storedPhoto);
-    res.json({ message: 'Zdjecie dodane', sciezka });
+    res.json({
+      message: 'Zdjecie dodane',
+      sciezka,
+      download_url: insertedPhoto.rows[0]?.id
+        ? taskUploadDownloadUrl(req, { taskId, kind: 'photo', assetId: insertedPhoto.rows[0].id })
+        : null,
+    });
   } catch (err) {
     if (client) {
       try {
@@ -5619,6 +5826,7 @@ router.patch(
         ...r,
         autor: u.rows[0]?.autor || null,
         sciezka: r.sciezka || r.url,
+        download_url: taskUploadDownloadUrl(req, { taskId, kind: 'photo', assetId: r.id }),
         data_dodania: r.data_dodania || r.timestamp,
       });
     } catch (err) {
@@ -5662,10 +5870,35 @@ router.get('/:id/dokumenty', authMiddleware, validateParams(taskIdParamsSchema),
         ORDER BY d.created_at DESC, d.id DESC`,
       [req.params.id]
     );
-    res.json(result.rows);
+    res.json(result.rows.map((row) => ({
+      ...row,
+      download_url: taskUploadDownloadUrl(req, { taskId: req.params.id, kind: 'document', assetId: row.id }),
+    })));
   } catch (err) {
     logger.error('Blad pobierania dokumentow zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/:id/dokumenty/:docId/download', taskUploadAuthOrAccessToken('document'), validateParams(taskDocumentIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    await ensureTaskDocumentsTable();
+    const result = await pool.query(
+      `SELECT id, nazwa, sciezka, mime_type
+         FROM task_documents
+        WHERE task_id = $1 AND id = $2`,
+      [req.params.id, req.params.docId]
+    );
+    const doc = result.rows[0];
+    if (!doc) return res.status(404).json({ error: 'Dokument nie istnieje' });
+    return sendControlledUpload(req, res, {
+      storedPath: doc.sciezka,
+      fileName: doc.nazwa || `task-${req.params.id}-document-${doc.id}`,
+      mimeType: doc.mime_type || 'application/octet-stream',
+    });
+  } catch (err) {
+    logger.error('Blad pobierania dokumentu zlecenia', { message: err.message, requestId: req.requestId });
+    return res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
 
@@ -5679,6 +5912,7 @@ router.post(
     let stored;
     try {
       if (!req.file) return res.status(400).json({ error: 'Brak pliku (pole dokument)' });
+      const detectedMime = assertAllowedDocumentUpload(req.file);
       await ensureTaskDocumentsTable();
       stored = await persistUploadedFile(req.file, { folder: 'task-documents', fileName: req.file.filename });
       const nazwa = String(req.body.nazwa || req.file.originalname || req.file.filename || 'Dokument').slice(0, 240);
@@ -5695,7 +5929,7 @@ router.post(
           req.user.id,
           nazwa,
           stored.url,
-          req.file.mimetype || null,
+          detectedMime,
           req.file.size || null,
           kategoria,
           status,
@@ -5704,12 +5938,20 @@ router.post(
       );
       cleanupTemporaryUpload(stored);
       stored = null;
-      res.status(201).json(result.rows[0]);
+      res.status(201).json({
+        ...result.rows[0],
+        download_url: taskUploadDownloadUrl(req, { taskId: req.params.id, kind: 'document', assetId: result.rows[0].id }),
+      });
     } catch (err) {
       if (stored) await deleteStoredUpload(stored).catch(() => {});
       else cleanupUploadedFile(req.file);
-      logger.error('Blad dodawania dokumentu zlecenia', { message: err.message, requestId: req.requestId });
-      res.status(500).json({ error: req.t('errors.http.serverError') });
+      const logMeta = { message: err.message, requestId: req.requestId };
+      if (err.status) logger.warn('Odrzucono dokument zlecenia', logMeta);
+      else logger.error('Blad dodawania dokumentu zlecenia', logMeta);
+      res.status(err.status || 500).json({
+        error: err.status ? err.message : req.t('errors.http.serverError'),
+        requestId: req.requestId,
+      });
     }
   }
 );
@@ -5733,7 +5975,10 @@ router.patch('/:id/dokumenty/:docId', authMiddleware, validateParams(taskDocumen
       params
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Dokument nie istnieje' });
-    res.json(result.rows[0]);
+    res.json({
+      ...result.rows[0],
+      download_url: taskUploadDownloadUrl(req, { taskId: req.params.id, kind: 'document', assetId: result.rows[0].id }),
+    });
   } catch (err) {
     logger.error('Blad aktualizacji dokumentu zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });

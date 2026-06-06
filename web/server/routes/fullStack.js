@@ -28,6 +28,23 @@ function toNum(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeFleetText(value) {
+  if (typeof value !== 'string') return value;
+  return value
+    .replaceAll('DostÄ™pny', 'Dostepny')
+    .replaceAll('PiĹ‚arka', 'Pilarka')
+    .replaceAll('SamochĂłd', 'Samochod')
+    .replaceAll('W uĹĽyciu', 'W uzyciu')
+    .replaceAll('ZwrĂłcone', 'Zwrocone');
+}
+
+function normalizeFleetRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [key, normalizeFleetText(value)]),
+  );
+}
+
 function userName(state, id) {
   if (!id) return null;
   const u = state.users.find((x) => x.id === id);
@@ -2201,10 +2218,10 @@ module.exports = function registerFullStack(router) {
   });
 
   router.get('/flota/pojazdy', requireAuth, (req, res) => {
-    res.json(readOnly((s) => s.flotaPojazdy || []));
+    res.json(readOnly((s) => (s.flotaPojazdy || []).map(normalizeFleetRow)));
   });
   router.get('/flota/sprzet', requireAuth, (req, res) => {
-    res.json(readOnly((s) => s.flotaSprzet || []));
+    res.json(readOnly((s) => (s.flotaSprzet || []).map(normalizeFleetRow)));
   });
   router.get('/flota/naprawy', requireAuth, (req, res) => {
     res.json(readOnly((s) => s.flotaNaprawy || []));
@@ -2221,6 +2238,7 @@ module.exports = function registerFullStack(router) {
         oddzial_id: toNum(b.oddzial_id),
         ekipa_id: toNum(b.ekipa_id),
       };
+      p.status = normalizeFleetText(p.status || 'Dostepny');
       s.flotaPojazdy.push(p);
       return p;
     });
@@ -2232,6 +2250,7 @@ module.exports = function registerFullStack(router) {
     const row = withStore((s) => {
       const id = s.nextFlotaSprzetId++;
       const p = { id, ...b, status: b.status || 'Dostępny', oddzial_id: toNum(b.oddzial_id), ekipa_id: toNum(b.ekipa_id) };
+      p.status = normalizeFleetText(p.status || 'Dostepny');
       s.flotaSprzet.push(p);
       return p;
     });

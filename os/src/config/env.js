@@ -12,6 +12,13 @@ const envSchema = z.object({
   DB_USER: z.string().optional(),
   DB_PASSWORD: z.string().optional(),
   UPLOADS_DIR: z.string().optional(),
+  PUBLIC_UPLOADS_BLOCK_PRIVATE: z
+    .string()
+    .optional()
+    .transform((s) => {
+      if (s == null || s === '') return undefined;
+      return s === 'true' || s === '1' || s === 'on';
+    }),
   UPLOAD_STORAGE: z
     .string()
     .optional()

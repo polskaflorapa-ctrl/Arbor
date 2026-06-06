@@ -61,6 +61,7 @@
       "finishPrzedPhotoRequired": "Przed zakonczeniem wymagane sa co najmniej dwa zdjecia „Przed” / check-in (TASK_FINISH_REQUIRE_PRZED_PHOTO=1)",
       "paymentNoteRequiredOverPct": "Roznica miedzy kwota odebrana a wartoscia zlecenia > {{pct}}% wymaga uzasadnienia w notatce.",
       "finishMaterialUsageRequired": "Podaj liste zuzytych materialow (zuzyte_materialy) — wymuszone przez TASK_FINISH_REQUIRE_MATERIAL_USAGE=1",
+      "finishClientSignatureRequired": "Przed zakonczeniem wymagany jest podpis klienta (TASK_FINISH_REQUIRE_CLIENT_SIGNATURE=1).",
       "taskAlreadyFinished": "Zlecenie już zakończone",
       "finishNoActiveWorkLog": "Brak aktywnego wpisu czasu pracy — użyj START przed zakończeniem."
     },

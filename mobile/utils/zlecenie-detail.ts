@@ -60,8 +60,10 @@ export type FinishRequirements = {
   require_po_photo: boolean;
   require_przed_photo: boolean;
   require_material_usage: boolean;
+  require_client_signature?: boolean;
   has_po_photo: boolean;
   has_przed_photo: boolean;
+  has_client_signature?: boolean;
 };
 
 export type SafetyLogRow = {

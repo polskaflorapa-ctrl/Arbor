@@ -1,5 +1,7 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 
 jest.mock('../src/config/database', () => ({
   query: jest.fn(),
@@ -17,6 +19,7 @@ const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
 const { translateVars } = require('../src/i18n');
 const { CASH_COLLECTION_NOTE_PCT } = require('../src/services/taskSettlement');
+const { getUploadsRoot } = require('../src/config/uploadPaths');
 
 describe('Tasks routes', () => {
   const app = createTestApp('/api/tasks', tasksRoutes);
@@ -2036,6 +2039,64 @@ describe('Tasks routes', () => {
     }
   });
 
+  it('POST /tasks/:id/finish returns 400 when TASK_FINISH_REQUIRE_CLIENT_SIGNATURE=1 and no client signature', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    const prevSig = process.env.TASK_FINISH_REQUIRE_CLIENT_SIGNATURE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    process.env.TASK_FINISH_REQUIRE_CLIENT_SIGNATURE = '1';
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 96 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return {
+            rows: [
+              {
+                id: 96,
+                oddzial_id: 5,
+                status: 'W_Realizacji',
+                wartosc_planowana: 100,
+                wartosc_rzeczywista: null,
+                wyceniajacy_id: null,
+              },
+            ],
+          };
+        }
+        if (s.includes('FROM task_client_signatures')) return { rows: [] };
+        if (s.includes('ROLLBACK')) return {};
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/96/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 10, faktura_vat: false },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('TASK_FINISH_CLIENT_SIGNATURE_REQUIRED');
+      expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevPrzed === undefined) delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = prevPrzed;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+      if (prevSig === undefined) delete process.env.TASK_FINISH_REQUIRE_CLIENT_SIGNATURE;
+      else process.env.TASK_FINISH_REQUIRE_CLIENT_SIGNATURE = prevSig;
+    }
+  });
+
   it('POST /tasks/:id/problemy accepts payload like /problem', async () => {
     const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 5 }, env.JWT_SECRET);
     pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
@@ -2152,6 +2213,151 @@ describe('Tasks routes', () => {
     );
     expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
     expect(release).toHaveBeenCalled();
+  });
+
+  it('GET /tasks/:id/dokumenty/:docId/download requires authorization', async () => {
+    const res = await request(app).get('/api/tasks/1/dokumenty/2/download');
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('AUTH_MISSING_TOKEN');
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it('GET /tasks/:id/dokumenty/:docId/download serves a local upload with safe headers', async () => {
+    const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 5 }, env.JWT_SECRET);
+    const uploadDir = path.join(getUploadsRoot(), 'task-documents');
+    const filePath = path.join(uploadDir, 'private.pdf');
+    fs.mkdirSync(uploadDir, { recursive: true });
+    fs.writeFileSync(filePath, Buffer.from('%PDF-1.4\n%test\n', 'utf8'));
+
+    try {
+      pool.query.mockImplementation(async (sql) => {
+        const text = String(sql);
+        if (text.includes('SELECT id FROM tasks')) return { rows: [{ id: 1 }] };
+        if (text.includes('FROM task_documents') && text.includes('sciezka')) {
+          return {
+          rows: [{
+            id: 2,
+            nazwa: 'private.pdf',
+            sciezka: '/uploads/task-documents/private.pdf',
+            mime_type: 'application/pdf',
+          }],
+          };
+        }
+        return { rows: [] };
+      });
+
+      const res = await request(app)
+        .get('/api/tasks/1/dokumenty/2/download')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['cache-control']).toBe('private, no-store');
+      expect(res.headers['content-disposition']).toContain('attachment;');
+      expect(res.headers['content-disposition']).toContain('private.pdf');
+      expect(Buffer.from(res.body).toString('utf8')).toContain('%PDF-1.4');
+    } finally {
+      fs.rmSync(filePath, { force: true });
+    }
+  });
+
+  it('GET /tasks/:id/dokumenty includes temporary access token download URLs', async () => {
+    const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('SELECT id FROM tasks')) return { rows: [{ id: 1 }] };
+      if (text.includes('FROM task_documents')) {
+        return {
+          rows: [{
+            id: 2,
+            task_id: 1,
+            nazwa: 'private.pdf',
+            sciezka: '/uploads/task-documents/private.pdf',
+            mime_type: 'application/pdf',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/tasks/1/dokumenty')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0].download_url).toContain('/api/tasks/1/dokumenty/2/download?access_token=');
+    const rawToken = decodeURIComponent(new URL(`https://example.test${res.body[0].download_url}`).searchParams.get('access_token'));
+    const decoded = jwt.verify(rawToken, env.JWT_SECRET);
+    expect(decoded).toEqual(expect.objectContaining({
+      typ: 'task_upload_link',
+      task_id: 1,
+      kind: 'document',
+      asset_id: 2,
+    }));
+  });
+
+  it('GET /tasks/:id/dokumenty/:docId/download accepts scoped access_token without Authorization header', async () => {
+    const uploadDir = path.join(getUploadsRoot(), 'task-documents');
+    const filePath = path.join(uploadDir, 'token-private.pdf');
+    fs.mkdirSync(uploadDir, { recursive: true });
+    fs.writeFileSync(filePath, Buffer.from('%PDF-1.4\n%token-test\n', 'utf8'));
+    const accessToken = jwt.sign(
+      {
+        typ: 'task_upload_link',
+        task_id: 1,
+        kind: 'document',
+        asset_id: 2,
+        user_id: 1,
+        rola: 'Administrator',
+        oddzial_id: 5,
+      },
+      env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    try {
+      pool.query.mockImplementation(async (sql) => {
+        const text = String(sql);
+        if (text.includes('SELECT id FROM tasks')) return { rows: [{ id: 1 }] };
+        if (text.includes('FROM task_documents') && text.includes('sciezka')) {
+          return {
+            rows: [{
+              id: 2,
+              nazwa: 'token-private.pdf',
+              sciezka: '/uploads/task-documents/token-private.pdf',
+              mime_type: 'application/pdf',
+            }],
+          };
+        }
+        return { rows: [] };
+      });
+
+      const res = await request(app)
+        .get(`/api/tasks/1/dokumenty/2/download?access_token=${encodeURIComponent(accessToken)}`);
+
+      expect(res.status).toBe(200);
+      expect(Buffer.from(res.body).toString('utf8')).toContain('%token-test');
+      expect(res.headers['content-disposition']).toContain('token-private.pdf');
+    } finally {
+      fs.rmSync(filePath, { force: true });
+    }
+  });
+
+  it('POST /tasks/:id/dokumenty rejects files without an allowed signature', async () => {
+    const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+
+    const res = await request(app)
+      .post('/api/tasks/1/dokumenty')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('dokument', Buffer.from('plain text is not allowed'), {
+        filename: 'note.txt',
+        contentType: 'text/plain',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Niedozwolony typ pliku');
   });
 
   it('POST /tasks/:id/finish returns 400 when TASK_FINISH_REQUIRE_MATERIAL_USAGE=1 and empty zuzyte_materialy', async () => {

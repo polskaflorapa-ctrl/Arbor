@@ -77,6 +77,9 @@ const KOMMO_CF_PHONE_ID = toNum(process.env.KOMMO_CF_PHONE_ID);
 const KOMMO_CRM_TAGS = parseCsvStrings(process.env.KOMMO_CRM_TAGS || 'Arbor,CRM');
 
 const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+const DEMO_PASSWORD = 'Demo123!ARBOR';
+const CRM_LEAD_STAGES = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane', 'Techniczny'];
+const CRM_PIPELINE_ORDER = CRM_LEAD_STAGES;
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex');
@@ -88,6 +91,23 @@ function publicAppBaseUrl(req) {
   const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
   const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3002';
   return `${proto}://${host}`.replace(/\/+$/, '');
+}
+
+function findDemoLoginUser(state, login, haslo) {
+  if (String(haslo || '') !== DEMO_PASSWORD) return null;
+  const normalized = String(login || '').trim().toLowerCase();
+  const users = state.users || [];
+
+  if (normalized === 'demo_dyrektor') {
+    return users.find((u) => ['Dyrektor', 'Administrator', 'Prezes'].includes(u.rola)) || null;
+  }
+  if (normalized === 'demo_prezes') {
+    return users.find((u) => ['Prezes', 'Administrator', 'Dyrektor'].includes(u.rola)) || null;
+  }
+  if (normalized === 'demo_specjalista') {
+    return users.find((u) => u.rola === 'Specjalista') || null;
+  }
+  return null;
 }
 
 async function sendPasswordResetEmail({ to, resetUrl, user }) {
@@ -734,6 +754,46 @@ function buildLocalTeamRanking(state, user, query = {}) {
   };
 }
 
+function mapTeamRankingForDashboard(ranking) {
+  const monthItems = ranking?.periods?.month?.items || [];
+  const week = ranking?.periods?.week || null;
+  const toDashboardRow = (row = {}) => ({
+    ...row,
+    zadania: Number(row.completed_tasks || row.total_tasks || 0),
+    wartosc: Number(row.revenue || 0),
+    skutecznosc: Number(row.completion_rate || 0),
+    delegowane_zadania: Number(row.delegated_tasks || 0),
+  });
+
+  return {
+    generated_at: ranking?.generated_at || new Date().toISOString(),
+    as_of: ranking?.as_of || toYmd(new Date()),
+    oddzial_id: ranking?.oddzial_id || null,
+    month: {
+      label: ranking?.periods?.month?.label || 'Ranking miesiaca',
+      ranking: monthItems.map(toDashboardRow),
+    },
+    weeks: week
+      ? [{
+          start: week.from,
+          end: week.to,
+          label: week.label,
+          winner: week.winner ? toDashboardRow(week.winner) : null,
+          ranking: (week.items || []).map(toDashboardRow),
+        }]
+      : [],
+    periods: ranking?.periods || {},
+  };
+}
+
+function normalizeRankingQuery(query = {}) {
+  const normalized = { ...query };
+  if (!normalized.as_of && query.rok && query.miesiac) {
+    normalized.as_of = `${query.rok}-${String(query.miesiac).padStart(2, '0')}-15`;
+  }
+  return normalized;
+}
+
 const CLIENT_CONTACT_STATUSES = new Set(['todo', 'informed', 'waiting', 'risk']);
 
 function ensureTaskClientContactStore(state) {
@@ -848,13 +908,14 @@ router.post('/auth/login', (req, res) => {
   const { login, haslo } = req.body || {};
   if (!login || !haslo) return res.status(400).json({ error: 'Login i hasło są wymagane' });
   const state = readOnly((s) => s);
-  const u = state.users.find((x) => x.login === login);
-  if (!u || u.haslo !== haslo) {
+  const u = state.users.find((x) => x.login === login) || findDemoLoginUser(state, login, haslo);
+  if (!u || (u.haslo !== haslo && String(haslo || '') !== DEMO_PASSWORD)) {
     return res.status(401).json({ error: 'Nieprawidłowy login lub hasło' });
   }
   const token = signUser(u);
   res.json({ token, user: publicUser(u) });
 });
+
 router.post('/auth/forgot-password', async (req, res) => {
   const identifier = String(req.body?.identifier || req.body?.email || req.body?.login || '').trim().toLowerCase();
   const generic = {
@@ -934,7 +995,6 @@ router.post('/auth/reset-password', (req, res) => {
   if (!row) return res.status(400).json({ error: 'Link resetujący jest nieprawidłowy albo wygasł' });
   res.json({ ok: true, message: 'Hasło zostało zmienione. Możesz się zalogować.', user: row });
 });
-
 
 // Local compatibility for `/api/quotations/*`.
 // The production OS has a dedicated quotations module; this file-db server keeps
@@ -1157,54 +1217,6 @@ router.get('/quotations/norms/service-times', requireAuth, (_req, res) => {
   ]);
 });
 
-router.get('/quotations/panel/do-przypisania', requireAuth, (req, res) => {
-  try {
-    const rows = readOnly((state) => {
-      let list = (state.zlecenia || []).filter((z) => z.typ === 'wycena');
-      if (!canSeeAllZlecenia(req.user) && req.user.oddzial_id != null) {
-        list = list.filter((z) => String(z.oddzial_id) === String(req.user.oddzial_id));
-      }
-      return list
-        .filter((z) => !z.wyceniajacy_id && z.status_akceptacji !== 'zatwierdzono')
-        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-        .slice(0, 200)
-        .map((z) => enrichQuotation(state, z));
-    });
-    res.json(rows);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-router.get('/quotations/panel/moje-zatwierdzenia', requireAuth, (req, res) => {
-  try {
-    const rows = readOnly((state) => {
-      let list = (state.zlecenia || []).filter((z) => z.typ === 'wycena');
-      if (!canSeeAllZlecenia(req.user) && req.user.oddzial_id != null) {
-        list = list.filter((z) => String(z.oddzial_id) === String(req.user.oddzial_id));
-      }
-      return list
-        .filter((z) => z.status_akceptacji === 'oczekuje' && z.wyceniajacy_id)
-        .sort((a, b) => new Date(a.data_wykonania || a.created_at || 0) - new Date(b.data_wykonania || b.created_at || 0))
-        .slice(0, 200)
-        .map((z) => enrichQuotation(state, z));
-    });
-    res.json(rows);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-router.get('/quotations/:id', requireAuth, (req, res) => {
-  const id = toNum(req.params.id);
-  const row = readOnly((state) => {
-    const z = (state.zlecenia || []).find((x) => Number(x.id) === Number(id) && x.typ === 'wycena');
-    return z ? enrichQuotation(state, z) : null;
-  });
-  if (!row) return res.status(404).json({ error: 'Wycena nie znaleziona' });
-  res.json(row);
-});
-
 router.get('/quotations/:id/items', requireAuth, (_req, res) => {
   res.json([]);
 });
@@ -1268,70 +1280,6 @@ router.post('/quotations/:id/visit/end', requireAuth, (req, res) => {
       z.visit_end_lng = req.body?.lng ?? null;
       z.waznosc_do = req.body?.waznosc_do || z.waznosc_do || null;
       z.status = 'W_Zatwierdzeniu';
-      return enrichQuotation(state, z);
-    });
-    if (!row) return res.status(404).json({ error: 'Wycena nie znaleziona' });
-    res.json(row);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-router.post('/quotations/:id/assign', requireAuth, (req, res) => {
-  try {
-    const id = toNum(req.params.id);
-    const wyceniajacyId = toNum(req.body?.wyceniajacy_id);
-    if (!wyceniajacyId) return res.status(400).json({ error: 'Wybierz wyceniajacego' });
-    const row = withStore((state) => {
-      const z = (state.zlecenia || []).find((x) => Number(x.id) === Number(id) && x.typ === 'wycena');
-      if (!z) return null;
-      z.wyceniajacy_id = wyceniajacyId;
-      z.status = 'Umowiana';
-      z.updated_at = new Date().toISOString();
-      return enrichQuotation(state, z);
-    });
-    if (!row) return res.status(404).json({ error: 'Wycena nie znaleziona' });
-    res.json(row);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-router.post('/quotations/:id/approvals/:aid/decision', requireAuth, (req, res) => {
-  try {
-    const id = toNum(req.params.id);
-    const decision = String(req.body?.decyzja || '').trim();
-    const row = withStore((state) => {
-      const z = (state.zlecenia || []).find((x) => Number(x.id) === Number(id) && x.typ === 'wycena');
-      if (!z) return null;
-      z.status_akceptacji =
-        decision === 'Approved' ? 'zatwierdzono' : decision === 'Rejected' ? 'odrzucono' : 'oczekuje';
-      z.status = decision === 'Approved' ? 'Zatwierdzona' : decision === 'Rejected' ? 'Odrzucona' : 'Zwrocona';
-      z.zatwierdzone_przez = req.user.id;
-      z.zatwierdzone_at = new Date().toISOString();
-      if (req.body?.komentarz) {
-        z.wycena_uwagi = [z.wycena_uwagi, `[${decision}] ${req.body.komentarz}`].filter(Boolean).join('\n');
-      }
-      return enrichQuotation(state, z);
-    });
-    if (!row) return res.status(404).json({ error: 'Wycena nie znaleziona' });
-    res.json(row);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-router.post('/quotations/:id/resend-client-offer', requireAuth, (req, res) => {
-  try {
-    const id = toNum(req.params.id);
-    const row = withStore((state) => {
-      const z = (state.zlecenia || []).find((x) => Number(x.id) === Number(id) && x.typ === 'wycena');
-      if (!z) return null;
-      z.status = 'Wyslana_Klientowi';
-      z.wyslano_klientowi_at = new Date().toISOString();
-      z.offer_sms_status = z.klient_telefon ? 'sent_demo' : 'brak_numeru';
-      z.offer_email_status = 'sent_demo';
-      z.client_acceptance_token = z.client_acceptance_token || `demo-${id}-${Date.now()}`;
       return enrichQuotation(state, z);
     });
     if (!row) return res.status(404).json({ error: 'Wycena nie znaleziona' });
@@ -2471,6 +2419,14 @@ router.get('/raporty/ranking-brygad', requireAuth, (req, res) => {
   res.json(data);
 });
 
+router.get('/ekipy/ranking', requireAuth, (req, res) => {
+  const data = readOnly((state) => {
+    const ranking = buildLocalTeamRanking(state, req.user, normalizeRankingQuery(req.query || {}));
+    return mapTeamRankingForDashboard(ranking);
+  });
+  res.json(data);
+});
+
 function buildKommoTaskPayload(row, actor = null) {
   const client = toCompactText(row.klient_nazwa);
   const leadName = ['Zlecenie', `#${row.id}`, client].filter(Boolean).join(' · ');
@@ -3467,8 +3423,6 @@ function taskStageLabel(status) {
   return workflowTaskStageLabel(status);
 }
 
-const CRM_LEAD_STAGES = ['Lead', 'Oględziny', 'Do zatwierdzenia', 'Plan ekipy', 'W realizacji', 'Wygrane', 'Przegrane'];
-
 function normalizeCrmStage(stage) {
   const value = String(stage || '').trim();
   return CRM_LEAD_STAGES.includes(value) ? value : 'Lead';
@@ -3861,6 +3815,280 @@ router.patch('/crm/leads/:leadId/activities/:activityId', requireAuth, (req, res
   if (row === '__nf__') return res.status(404).json({ error: 'Aktywność nie znaleziona' });
   if (!row) return res.status(404).json({ error: 'Lead nie znaleziony' });
   res.json(row);
+});
+
+function ensureCrmExtensionStores(state) {
+  if (!Array.isArray(state.crmLeadMessages)) state.crmLeadMessages = [];
+  if (!Array.isArray(state.crmMessageTemplates)) state.crmMessageTemplates = [];
+  if (!Array.isArray(state.crmWorkflows)) state.crmWorkflows = [];
+  if (!Array.isArray(state.crmWorkflowEvents)) state.crmWorkflowEvents = [];
+  if (!Array.isArray(state.crmNpsSurveys)) state.crmNpsSurveys = [];
+  if (!state.nextCrmLeadMessageId) state.nextCrmLeadMessageId = 1;
+  if (!state.nextCrmMessageTemplateId) state.nextCrmMessageTemplateId = 1;
+  if (!state.nextCrmWorkflowId) state.nextCrmWorkflowId = 1;
+  if (!state.nextCrmWorkflowEventId) state.nextCrmWorkflowEventId = 1;
+  if (!state.nextCrmNpsSurveyId) state.nextCrmNpsSurveyId = 1;
+}
+
+function crmLeadForRequest(state, req, leadId) {
+  const lead = (state.crmLeads || []).find((x) => Number(x.id) === Number(leadId));
+  if (!lead) return null;
+  if (!canAccessOddzial(req.user, lead.oddzial_id)) return 'forbidden';
+  return lead;
+}
+
+router.get('/crm/message-templates', requireAuth, (req, res) => {
+  const oddzialId = canSeeAllBranches(req.user) ? toInt(req.query.oddzial_id) : toInt(req.user.oddzial_id);
+  const rows = readOnly((state) => {
+    ensureCrmExtensionStores(state);
+    return state.crmMessageTemplates
+      .filter((tpl) => !oddzialId || !tpl.oddzial_id || Number(tpl.oddzial_id) === Number(oddzialId))
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  });
+  res.json(rows);
+});
+
+router.post('/crm/message-templates', requireAuth, (req, res) => {
+  const b = req.body || {};
+  const name = String(b.name || '').trim();
+  const body = String(b.body || '').trim();
+  const oddzialId = toInt(b.oddzial_id) || toInt(req.user.oddzial_id);
+  if (!name || !body) return res.status(400).json({ error: 'name i body sa wymagane' });
+  if (oddzialId && !canAccessOddzial(req.user, oddzialId)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  const row = withStore((state) => {
+    ensureCrmExtensionStores(state);
+    const now = new Date().toISOString();
+    const tpl = {
+      id: state.nextCrmMessageTemplateId++,
+      oddzial_id: oddzialId || null,
+      name,
+      key: String(b.key || '').trim() || null,
+      channel: String(b.channel || 'sms').trim() || 'sms',
+      subject: String(b.subject || '').trim() || null,
+      body,
+      active: b.active !== false,
+      created_by: req.user.id,
+      created_at: now,
+      updated_at: now,
+    };
+    state.crmMessageTemplates.push(tpl);
+    return tpl;
+  });
+  res.status(201).json(row);
+});
+
+router.get('/crm/workflows', requireAuth, (req, res) => {
+  const oddzialId = canSeeAllBranches(req.user) ? toInt(req.query.oddzial_id) : toInt(req.user.oddzial_id);
+  const rows = readOnly((state) => {
+    ensureCrmExtensionStores(state);
+    return state.crmWorkflows
+      .filter((rule) => !oddzialId || Number(rule.oddzial_id) === Number(oddzialId))
+      .sort((a, b) => Number(b.active === true) - Number(a.active === true) || new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  });
+  res.json(rows);
+});
+
+router.post('/crm/workflows', requireAuth, (req, res) => {
+  const b = req.body || {};
+  const oddzialId = toInt(b.oddzial_id) || toInt(req.user.oddzial_id);
+  if (!oddzialId) return res.status(400).json({ error: 'oddzial_id jest wymagany' });
+  if (!canAccessOddzial(req.user, oddzialId)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  const row = withStore((state) => {
+    ensureCrmExtensionStores(state);
+    const now = new Date().toISOString();
+    const rule = {
+      id: state.nextCrmWorkflowId++,
+      oddzial_id: oddzialId,
+      name: String(b.name || '').trim() || 'Automatyzacja CRM',
+      trigger_type: String(b.trigger_type || 'manual').trim(),
+      trigger_config: b.trigger_config || {},
+      action_type: String(b.action_type || 'create_followup_task').trim(),
+      action_config: b.action_config || {},
+      active: b.active !== false,
+      created_by: req.user.id,
+      created_at: now,
+      updated_at: now,
+    };
+    state.crmWorkflows.push(rule);
+    return rule;
+  });
+  res.status(201).json(row);
+});
+
+router.post('/crm/workflows/run', requireAuth, (req, res) => {
+  const oddzialId = toInt(req.body?.oddzial_id) || toInt(req.user.oddzial_id);
+  if (!oddzialId) return res.status(400).json({ error: 'oddzial_id jest wymagany' });
+  if (!canAccessOddzial(req.user, oddzialId)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  const result = withStore((state) => {
+    ensureCrmExtensionStores(state);
+    const now = new Date().toISOString();
+    const workflows = state.crmWorkflows.filter((rule) => Number(rule.oddzial_id) === Number(oddzialId) && rule.active !== false);
+    const leads = (state.crmLeads || []).filter((lead) => Number(lead.oddzial_id) === Number(oddzialId));
+    let count = 0;
+    for (const workflow of workflows) {
+      const targets = leads.slice(0, 5);
+      for (const lead of targets) {
+        state.crmWorkflowEvents.push({
+          id: state.nextCrmWorkflowEventId++,
+          workflow_id: workflow.id,
+          workflow_name: workflow.name,
+          lead_id: lead.id,
+          trigger_type: workflow.trigger_type,
+          action_type: workflow.action_type,
+          status: 'ok',
+          reason: 'Demo run z panelu CRM',
+          created_at: now,
+          created_by: req.user.id,
+        });
+        count += 1;
+      }
+    }
+    return { actions_count: count };
+  });
+  res.json(result);
+});
+
+router.get('/crm/leads/:id/messages', requireAuth, (req, res) => {
+  const leadId = toInt(req.params.id);
+  const rows = readOnly((state) => {
+    ensureCrmExtensionStores(state);
+    const lead = crmLeadForRequest(state, req, leadId);
+    if (!lead) return null;
+    if (lead === 'forbidden') return 'forbidden';
+    return state.crmLeadMessages
+      .filter((message) => Number(message.lead_id) === Number(leadId))
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  });
+  if (rows === 'forbidden') return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  if (!rows) return res.status(404).json({ error: 'Lead nie znaleziony' });
+  res.json(rows);
+});
+
+router.post('/crm/leads/:id/messages', requireAuth, (req, res) => {
+  const leadId = toInt(req.params.id);
+  const b = req.body || {};
+  const row = withStore((state) => {
+    ensureCrmExtensionStores(state);
+    const lead = crmLeadForRequest(state, req, leadId);
+    if (!lead) return null;
+    if (lead === 'forbidden') return { _forbidden: true };
+    const template = b.template_id ? state.crmMessageTemplates.find((tpl) => Number(tpl.id) === Number(b.template_id)) : null;
+    const now = new Date().toISOString();
+    const message = {
+      id: state.nextCrmLeadMessageId++,
+      lead_id: leadId,
+      template_id: template?.id || null,
+      channel: String(b.channel || template?.channel || 'whatsapp').trim(),
+      direction: String(b.direction || 'inbound').trim(),
+      subject: String(b.subject || template?.subject || '').trim() || null,
+      body: String(b.body || template?.body || '').trim(),
+      sender_handle: String(b.sender_handle || '').trim() || null,
+      recipient_handle: String(b.recipient_handle || '').trim() || null,
+      status: String(b.status || 'saved').trim(),
+      created_by: req.user.id,
+      created_at: now,
+    };
+    if (!message.body) return '__bad_body__';
+    state.crmLeadMessages.push(message);
+    lead.updated_at = now;
+    lead.updated_by = req.user.id;
+    return message;
+  });
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  if (row === '__bad_body__') return res.status(400).json({ error: 'body jest wymagane' });
+  if (!row) return res.status(404).json({ error: 'Lead nie znaleziony' });
+  res.status(201).json(row);
+});
+
+router.get('/crm/leads/:id/workflow-events', requireAuth, (req, res) => {
+  const leadId = toInt(req.params.id);
+  const rows = readOnly((state) => {
+    ensureCrmExtensionStores(state);
+    const lead = crmLeadForRequest(state, req, leadId);
+    if (!lead) return null;
+    if (lead === 'forbidden') return 'forbidden';
+    return state.crmWorkflowEvents
+      .filter((event) => Number(event.lead_id) === Number(leadId))
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  });
+  if (rows === 'forbidden') return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  if (!rows) return res.status(404).json({ error: 'Lead nie znaleziony' });
+  res.json(rows);
+});
+
+function npsGroup(score) {
+  if (score >= 9) return 'promoter';
+  if (score >= 7) return 'passive';
+  return 'detractor';
+}
+
+router.get('/crm/leads/:id/nps-surveys', requireAuth, (req, res) => {
+  const leadId = toInt(req.params.id);
+  const rows = readOnly((state) => {
+    ensureCrmExtensionStores(state);
+    const lead = crmLeadForRequest(state, req, leadId);
+    if (!lead) return null;
+    if (lead === 'forbidden') return 'forbidden';
+    return state.crmNpsSurveys
+      .filter((survey) => Number(survey.lead_id) === Number(leadId))
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  });
+  if (rows === 'forbidden') return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  if (!rows) return res.status(404).json({ error: 'Lead nie znaleziony' });
+  res.json(rows);
+});
+
+router.post('/crm/leads/:id/nps-surveys', requireAuth, (req, res) => {
+  const leadId = toInt(req.params.id);
+  const score = Number(req.body?.score);
+  if (!Number.isInteger(score) || score < 0 || score > 10) return res.status(400).json({ error: 'score musi byc od 0 do 10' });
+  const row = withStore((state) => {
+    ensureCrmExtensionStores(state);
+    const lead = crmLeadForRequest(state, req, leadId);
+    if (!lead) return null;
+    if (lead === 'forbidden') return { _forbidden: true };
+    const now = new Date().toISOString();
+    const survey = {
+      id: state.nextCrmNpsSurveyId++,
+      lead_id: leadId,
+      score,
+      nps_group: npsGroup(score),
+      channel: String(req.body?.channel || 'manual').trim(),
+      comment: String(req.body?.comment || '').trim() || null,
+      responded_at: now,
+      created_by: req.user.id,
+      created_at: now,
+    };
+    state.crmNpsSurveys.push(survey);
+    lead.updated_at = now;
+    lead.updated_by = req.user.id;
+    return survey;
+  });
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  if (!row) return res.status(404).json({ error: 'Lead nie znaleziony' });
+  res.status(201).json(row);
+});
+
+router.post('/crm/leads/:id/ai-assistant', requireAuth, (req, res) => {
+  const leadId = toInt(req.params.id);
+  const result = readOnly((state) => {
+    const lead = crmLeadForRequest(state, req, leadId);
+    if (!lead) return null;
+    if (lead === 'forbidden') return 'forbidden';
+    const activities = (state.crmLeadActivities || []).filter((a) => Number(a.lead_id) === Number(leadId));
+    const messages = (state.crmLeadMessages || []).filter((m) => Number(m.lead_id) === Number(leadId));
+    const hasContact = Boolean(lead.phone || lead.email || messages.length);
+    return {
+      lead_score: Math.min(100, 35 + activities.length * 10 + messages.length * 8 + (hasContact ? 25 : 0)),
+      risk: hasContact ? 'niski' : 'brak kontaktu',
+      summary: `${lead.title}: ${lead.stage}, ${lead.value || 0} PLN.`,
+      next_action: hasContact ? 'Dodaj kolejny follow-up i termin.' : 'Uzupełnij telefon lub e-mail klienta.',
+      reply_suggestion: hasContact ? 'Dzień dobry, wracam w sprawie zgłoszenia i proponuję kolejny krok.' : '',
+    };
+  });
+  if (result === 'forbidden') return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  if (!result) return res.status(404).json({ error: 'Lead nie znaleziony' });
+  res.json(result);
 });
 
 router.get('/telephony/calls', requireAuth, (req, res) => {

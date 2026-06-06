@@ -73,7 +73,7 @@ export default function WycenaRysujScreen() {
   const [selectedGrubosc, setSelectedGrubosc] = useState(6);
   const [saving, setSaving] = useState(false);
 
-  const viewShotRef = useRef<ViewShot>(null);
+  const viewShotRef = useRef<any>(null);
   const isDrawing = useRef(false);
   const currentPathRef = useRef('');
 

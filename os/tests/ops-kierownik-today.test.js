@@ -1184,6 +1184,50 @@ describe('GET /api/ops/owner-alerts/open', () => {
     expect(res.status).toBe(429);
     expect(res.body).toMatchObject({ limit: 3, used: 3, event: { action_type: 'risk_owner_remediation_blocked' } });
   });
+
+  it('stores audited owner remediation follow-up resolution', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('WHERE t.id = $1')) {
+        expect(params[0]).toBe(77);
+        return { rows: [{ id: 77, numer: 'ARB-77', klient_telefon: '+48123123123', oddzial_id: 7 }] };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[3]).toBe('risk_owner_resolve');
+        expect(params[4]).toBe('kommo_sync');
+        expect(JSON.parse(params[10])).toMatchObject({
+          risk_id: 'kommo_sync:501',
+          risk_type: 'kommo_sync',
+          source: 'digest',
+          follow_up: true,
+          resolution_status: 'resolved',
+        });
+        return { rows: [{ id: 904, task_id: 77, action_type: 'risk_owner_resolve', issue_key: 'kommo_sync' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/owner-alerts/resolve')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+        source: 'digest',
+        note: 'Naprawione po retry',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      message: 'Alert ownera oznaczony jako rozwiazany',
+      resolved: { risk_id: 'kommo_sync:501', risk_type: 'kommo_sync', task_id: 77, source: 'digest' },
+      event: { action_type: 'risk_owner_resolve' },
+    });
+  });
 });
 
 describe('GET /api/ops/owner-alerts/remediation-report', () => {

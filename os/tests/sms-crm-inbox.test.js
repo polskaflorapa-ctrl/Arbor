@@ -281,7 +281,7 @@ describe('SMS CRM inbox bridge', () => {
     expect(res.status).toBe(200);
     expect(sendSmsGateway).toHaveBeenCalledWith(expect.objectContaining({
       to: '+48999111222',
-      body: 'Custom Wycinka /track/tok_sms_12345678901234567890',
+      body: 'Custom Wycinka http://localhost:3005/track/tok_sms_12345678901234567890',
       taskId: 88,
     }));
   });

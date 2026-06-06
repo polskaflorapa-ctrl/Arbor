@@ -53,6 +53,7 @@ beforeEach(() => {
               id: 'kommo_sync:501',
               risk_id: 'kommo_sync:501',
               risk_type: 'kommo_sync',
+              task_id: 77,
               escalation_level: 'P1',
               sla_status: 'overdue',
               aging_minutes: 72,
@@ -64,6 +65,7 @@ beforeEach(() => {
               id: 'sms_delivery:9',
               risk_id: 'sms_delivery:9',
               risk_type: 'sms_delivery',
+              task_id: 88,
               escalation_level: 'P2',
               sla_status: 'overdue',
               aging_minutes: 44,
@@ -144,6 +146,20 @@ beforeEach(() => {
             { type: 'owner_unresolved_after_remediation', title: 'Nierozwiazane P1/P2 po remediacji', count: 1, action: 'Eskaluj do dyrektora.' },
             { type: 'owner_acknowledgements', title: 'Potwierdzenia ownerow Kommo/SMS', count: 3, action: 'Sprawdz domkniecie.' },
           ],
+          details: {
+            owner_unresolved_after_remediation: [{
+              risk_id: 'kommo_sync:501',
+              risk_type: 'kommo_sync',
+              task_id: 77,
+              oddzial_id: 7,
+              escalation_level: 'P1',
+              owner_label: 'Owner: integracje Kommo',
+              numer: 'ARB-OPEN-KOMMO',
+              klient_nazwa: 'Klient Kommo Open',
+              remediation_action: 'retry_kommo',
+              last_remediation_at: '2026-05-26T11:00:00.000Z',
+            }],
+          },
         },
       });
     }
@@ -211,6 +227,20 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
   expect(await screen.findByText(/P1 \/ kommo_sync \/ overdue/)).toBeInTheDocument();
   expect((await screen.findAllByText('kommo_sync')).length).toBeGreaterThan(0);
   expect((await screen.findAllByText('ARB-KOMMO')).length).toBeGreaterThan(0);
+
+  await userEvent.click(screen.getAllByRole('button', { name: 'Oznacz rozwiazane' })[0]);
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/owner-alerts/resolve',
+      expect.objectContaining({
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+        source: 'control',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 
   await userEvent.click(screen.getByRole('button', { name: 'Eskaluj widoczne' }));
   await waitFor(() => {
@@ -289,5 +319,20 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
     expect(screen.getAllByText('Potwierdzenia ownerow').length).toBeGreaterThan(0);
     expect(screen.getByText('Kommo 1 / SMS 2')).toBeInTheDocument();
     expect(screen.getAllByText(/Nierozwiazane P1\/P2 po remediacji/).length).toBeGreaterThan(0);
+  });
+
+  const resolveButtons = screen.getAllByRole('button', { name: 'Oznacz rozwiazane' });
+  await userEvent.click(resolveButtons[resolveButtons.length - 1]);
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/owner-alerts/resolve',
+      expect.objectContaining({
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+        source: 'digest',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
   });
 }, 15000);

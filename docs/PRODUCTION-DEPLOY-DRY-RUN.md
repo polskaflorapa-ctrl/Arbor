@@ -4,6 +4,8 @@ Cel: przed pierwszym ruchem produkcyjnym przejsc wdrozenie na sucho: env, migrac
 
 Ten dokument nie zawiera sekretow. Sekrety ustawiamy w panelu hostingu, `.env` ignorowanym przez git albo w managerze sekretow.
 
+Pelna lista operacyjna GO/NO-GO jest w `docs/PRODUCTION-READINESS-CHECKLIST.md`.
+
 ## 1. Lokalna bramka bez sekretow
 
 Ta bramka sprawdza, czy repo ma komplet skryptow, runbookow i checklist do produkcji:
@@ -17,6 +19,7 @@ npm run verify:rbac-scope
 npm run verify:scale-readiness
 npm run deploy:prod:dry-run
 npm run deploy:ready:check
+npm run prod:ready
 npm run check
 ```
 
@@ -106,6 +109,7 @@ Mierzalne RPO/RTO, harmonogram, restore drill na bazie replaceable i dowody opis
 Po wdrozeniu API:
 
 ```powershell
+npm run prod:ready -- --base-url https://<arbor-os-url> --web-url https://<arbor-web-url>
 npm run deploy:free:check -- https://<arbor-os-url>
 npm run smoke:render -- https://<arbor-os-url>
 npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5

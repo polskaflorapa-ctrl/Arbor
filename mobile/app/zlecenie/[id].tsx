@@ -195,16 +195,20 @@ export default function ZlecenieDetailScreen() {
         require_po_photo: !!raw.require_po_photo,
         require_przed_photo: !!raw.require_przed_photo,
         require_material_usage: !!raw.require_material_usage,
+        require_client_signature: !!raw.require_client_signature,
         has_po_photo: !!raw.has_po_photo || hasPoLocal,
         has_przed_photo: !!raw.has_przed_photo || hasPrzedLocal,
+        has_client_signature: !!raw.has_client_signature,
       };
     }
     return {
       require_po_photo: false,
       require_przed_photo: false,
       require_material_usage: false,
+      require_client_signature: false,
       has_po_photo: hasPoLocal,
       has_przed_photo: hasPrzedLocal,
+      has_client_signature: false,
     };
   }, [zlecenie, zdjecia]);
   const [finishModal, setFinishModal] = useState(false);
@@ -2014,10 +2018,26 @@ export default function ZlecenieDetailScreen() {
     ((finishRequirements.require_po_photo && !finishRequirements.has_po_photo) ||
       (finishRequirements.require_przed_photo && !finishRequirements.has_przed_photo));
   const mozeZmieniacStatus = ['Kierownik', 'Dyrektor', 'Administrator'].includes(user?.rola ?? '');
-  const mobileStatusOptions = getNextTaskStatuses(zlecenie.status, {
-    includeCurrent: true,
-    allowCancel: mozeZmieniacStatus,
-  });
+  const mobileStatusOptions = zlecenie
+    ? getNextTaskStatuses(zlecenie.status, {
+      includeCurrent: true,
+      allowCancel: mozeZmieniacStatus,
+    })
+    : [];
+  const mobileStatusIcon = (status: string): IoniconName => {
+    const normalized = normalizeWorkflowMatch(status);
+    if (normalized === TASK_STATUS.NOWE) return 'sparkles-outline';
+    if (normalized === TASK_STATUS.WYCENA_TERENOWA) return 'map-outline';
+    if (normalized === TASK_STATUS.DO_ZATWIERDZENIA) return 'clipboard-outline';
+    if (normalized === TASK_STATUS.ZAPLANOWANE) return 'calendar-outline';
+    if (normalized === TASK_STATUS.W_REALIZACJI) return 'hammer-outline';
+    if (normalized === TASK_STATUS.ZAKONCZONE) return 'checkmark-done-outline';
+    if (normalized === TASK_STATUS.ANULOWANE) return 'close-circle-outline';
+    return 'git-branch-outline';
+  };
+  const mobileStatusLabel = (status: string) => status
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
   const S = makeStyles(theme);
 
   if (guard.ready && !guard.allowed) {
@@ -2103,7 +2123,9 @@ export default function ZlecenieDetailScreen() {
     : true;
   const finishMaterialReady = !finishRequirements.require_material_usage || !!finishUsageNazwa.trim();
   const finishIssuesReady = unresolvedIssuesCount === 0 || finishIssuesReviewed;
-  const finishClientReady = finishClientAccepted || hasClientSignature;
+  const finishClientReady = finishRequirements.require_client_signature
+    ? hasClientSignature
+    : finishClientAccepted || hasClientSignature;
   const finishChecklist = [
     {
       key: 'photos-before',
@@ -2141,6 +2163,8 @@ export default function ZlecenieDetailScreen() {
       done: finishClientReady,
       hint: hasClientSignature
         ? `Podpis: ${clientSignature?.signer_name || '-'}`
+        : finishRequirements.require_client_signature
+          ? 'Wymagany podpis klienta przed zamknieciem.'
         : finishClientAccepted
           ? 'Klient odebrał pracę bez uwag.'
           : 'Dodaj podpis albo potwierdź odbiór bez podpisu.',
@@ -3379,7 +3403,7 @@ export default function ZlecenieDetailScreen() {
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(crewExecutionAddress)}`
       : '';
     const photoLines = briefingPhotos.slice(0, 6).map((photo: any, index: number) => {
-      const url = absolutePhotoUrl(photo.url || photo.sciezka);
+      const url = absolutePhotoUrl(photo.download_url || photo.url || photo.sciezka);
       const label = photoTypeLabel(photo.typ, String(photo.typ || 'Zdjecie'));
       const note = photo.opis ? ` - ${photo.opis}` : '';
       return `${index + 1}. ${label}${note}${url ? ` | ${url}` : ''}`;
@@ -3720,37 +3744,6 @@ export default function ZlecenieDetailScreen() {
       icon: 'warning-outline' as IoniconName,
     },
   ];
-  const crewPhotoEvidenceReady = beforePhotosCount > 0 && (zlecenie.status !== 'W_Realizacji' || afterPhotosCount > 0);
-  const crewMissionStats = [
-    {
-      key: 'package',
-      label: 'Pakiet',
-      value: `${crewPackageReadyCount}/${crewPackageChecks.length}`,
-      done: crewExecutionReady,
-      icon: 'briefcase-outline' as IoniconName,
-    },
-    {
-      key: 'gps',
-      label: 'GPS',
-      value: hasCheckin ? 'OK' : '-',
-      done: hasCheckin,
-      icon: 'location-outline' as IoniconName,
-    },
-    {
-      key: 'photos',
-      label: 'Foto',
-      value: `${beforePhotosCount}/${afterPhotosCount}`,
-      done: crewPhotoEvidenceReady,
-      icon: 'images-outline' as IoniconName,
-    },
-    {
-      key: 'issues',
-      label: 'Problemy',
-      value: String(unresolvedIssuesCount),
-      done: unresolvedIssuesCount === 0,
-      icon: 'warning-outline' as IoniconName,
-    },
-  ];
   const crewFastActions = [
     {
       key: 'checkin',
@@ -4058,6 +4051,8 @@ export default function ZlecenieDetailScreen() {
     onPress: () => void;
   }[];
   const taskHeroCtaBusy = changingStatus || (showFieldPackageCard && fieldPackageSaving);
+  const showTaskHeroProof = disputeShieldPercent < 100 || !!disputeShieldNext;
+  const showWorkflowCard = workflowBlockersCount > 0 || Boolean(workflowNextStatus && mozeZmieniacStatus);
 
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -4118,6 +4113,7 @@ export default function ZlecenieDetailScreen() {
           ))}
         </View>
 
+        {showTaskHeroProof ? (
         <View
           style={[
             S.taskHeroProof,
@@ -4258,6 +4254,7 @@ export default function ZlecenieDetailScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        ) : null}
 
         <View style={S.taskHeroNext}>
           <View style={S.taskHeroNextIcon}>
@@ -4624,6 +4621,7 @@ export default function ZlecenieDetailScreen() {
         </TouchableOpacity>
       ) : null}
 
+      {showWorkflowCard ? (
       <View style={[S.workflowCard, { borderColor: workflowColor, backgroundColor: workflowBlockersCount > 0 ? theme.warningBg : theme.cardBg }]}>
         <View style={S.workflowHead}>
           <View style={[S.workflowIconWrap, { backgroundColor: workflowColor + '18', borderColor: workflowColor }]}>
@@ -4667,6 +4665,7 @@ export default function ZlecenieDetailScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      ) : null}
 
       {isFieldOfficeTask && hasFieldPackageMarker && officeHandoffLines.length ? (
         <View style={[S.officeHandoffCard, { backgroundColor: officeHandoffReady ? theme.successBg : theme.warningBg, borderColor: officeHandoffReady ? theme.success : theme.warning }]}>
@@ -5254,75 +5253,6 @@ export default function ZlecenieDetailScreen() {
             </View>
           </View>
 
-          {crewPrimaryAction ? (
-            <View style={[S.crewMissionCard, { backgroundColor: theme.cardBg, borderColor: crewExecutionReady ? theme.accent : theme.warning }]}>
-              <View style={S.crewMissionTop}>
-                <View style={[S.crewMissionIcon, { backgroundColor: crewPrimaryAction.color + '1A', borderColor: crewPrimaryAction.color }]}>
-                  <Ionicons name={crewPrimaryAction.icon} size={20} color={crewPrimaryAction.color} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[S.crewMissionEyebrow, { color: crewPrimaryAction.color }]}>Teraz dla brygady</Text>
-                  <Text style={[S.crewMissionTitle, { color: theme.text }]} numberOfLines={1}>
-                    {crewPrimaryAction.label}
-                  </Text>
-                  <Text style={[S.crewMissionHint, { color: theme.textMuted }]} numberOfLines={2}>
-                    {crewPrimaryAction.hint}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[S.crewMissionButton, { backgroundColor: crewPrimaryAction.color, borderColor: crewPrimaryAction.color, opacity: changingStatus ? 0.65 : 1 }]}
-                  disabled={changingStatus}
-                  onPress={() => {
-                    void triggerHaptic('light');
-                    crewPrimaryAction.onPress();
-                  }}
-                >
-                  {changingStatus ? (
-                    <ActivityIndicator size="small" color={theme.accentText} />
-                  ) : (
-                    <>
-                      <Text style={[S.crewMissionButtonText, { color: theme.accentText }]} numberOfLines={1}>
-                        Wykonaj
-                      </Text>
-                      <Ionicons name="chevron-forward" size={14} color={theme.accentText} />
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <View style={S.crewMissionStats}>
-                {crewMissionStats.map((stat) => (
-                  <TouchableOpacity
-                    key={stat.key}
-                    style={[S.crewMissionStat, { backgroundColor: stat.done ? theme.successBg : theme.surface2, borderColor: stat.done ? theme.success : theme.border }]}
-                    onPress={() => {
-                      void triggerHaptic('light');
-                      if (stat.key === 'package') {
-                        crewPackageLeadMissing?.onPress();
-                      } else if (stat.key === 'gps' && !hasCheckin) {
-                        void checkinGps();
-                      } else if (stat.key === 'photos') {
-                        setActiveTab('zdjecia');
-                      } else if (stat.key === 'issues') {
-                        setActiveTab('problemy');
-                      }
-                    }}
-                  >
-                    <View style={S.crewMissionStatTop}>
-                      <Ionicons name={stat.done ? 'checkmark-circle' : stat.icon} size={14} color={stat.done ? theme.success : theme.textMuted} />
-                      <Text style={[S.crewMissionStatValue, { color: stat.done ? theme.success : theme.text }]} numberOfLines={1}>
-                        {stat.value}
-                      </Text>
-                    </View>
-                    <Text style={[S.crewMissionStatLabel, { color: theme.textMuted }]} numberOfLines={1}>
-                      {stat.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
           <View style={[S.crewCalendarCard, { backgroundColor: theme.cardBg, borderColor: crewExecutionReady ? theme.success : theme.warning }]}>
             <View style={S.crewCalendarHead}>
               <View style={[S.crewCalendarDateBox, { backgroundColor: theme.accentLight, borderColor: theme.accent }]}>
@@ -5576,8 +5506,8 @@ export default function ZlecenieDetailScreen() {
           {briefingPhotos.length ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.crewPhotoStrip}>
               {briefingPhotos.map((photo: any) => (
-                <TouchableOpacity key={photo.id || photo.url || photo.sciezka} style={[S.crewPhotoCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]} onPress={() => setActiveTab('zdjecia')}>
-                  <Image source={{ uri: absolutePhotoUrl(photo.url || photo.sciezka) }} style={S.crewPhotoImage} />
+                <TouchableOpacity key={photo.id || photo.download_url || photo.url || photo.sciezka} style={[S.crewPhotoCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]} onPress={() => setActiveTab('zdjecia')}>
+                  <Image source={{ uri: absolutePhotoUrl(photo.download_url || photo.url || photo.sciezka) }} style={S.crewPhotoImage} />
                   <Text style={[S.crewPhotoLabel, { color: theme.textSub }]} numberOfLines={1}>
                     {photoTypeLabel(photo.typ)}
                   </Text>
@@ -5945,23 +5875,38 @@ export default function ZlecenieDetailScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           style={[S.statusScroll, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
           contentContainerStyle={S.statusScrollContent}>
-          {mobileStatusOptions.map(s => (
+          {mobileStatusOptions.map((s, index) => {
+            const active = zlecenie.status === s;
+            const statusColor = statusPalette[s as keyof typeof statusPalette] || theme.accent;
+            return (
             <TouchableOpacity key={s}
               style={[
                 S.statusBtn,
                 { backgroundColor: theme.surface2, borderColor: theme.border },
-                zlecenie.status === s && {
-                  backgroundColor: statusPalette[s as keyof typeof statusPalette],
-                  borderColor: statusPalette[s as keyof typeof statusPalette],
+                active && {
+                  backgroundColor: statusColor,
+                  borderColor: statusColor,
                 }
               ]}
               onPress={() => s !== zlecenie.status && zmienStatus(s)}
-              disabled={changingStatus || zlecenie.status === s}>
-              <Text style={[S.statusBtnTxt, { color: theme.textSub }, zlecenie.status === s && { color: theme.accentText }]}>
-                {s.replace('_', ' ')}
-              </Text>
+              disabled={changingStatus || active}>
+              <View style={[S.statusBtnIcon, { backgroundColor: active ? 'rgba(255,255,255,0.2)' : statusColor + '18' }]}>
+                <Ionicons name={mobileStatusIcon(s)} size={15} color={active ? theme.accentText : statusColor} />
+              </View>
+              <View style={S.statusBtnCopy}>
+                <Text style={[S.statusBtnStep, { color: active ? theme.accentText : theme.textMuted }]}>
+                  {active ? 'Teraz' : index === 0 ? 'Status' : 'Dalej'}
+                </Text>
+                <Text
+                  style={[S.statusBtnTxt, { color: theme.textSub }, active && { color: theme.accentText }]}
+                  numberOfLines={1}
+                >
+                  {mobileStatusLabel(s)}
+                </Text>
+              </View>
             </TouchableOpacity>
-          ))}
+            );
+          })}
           <View style={[S.statusHintPill, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
             <Ionicons name="git-branch-outline" size={13} color={theme.warning} />
             <Text style={[S.statusHintText, { color: theme.warning }]}>tylko kolejny krok</Text>
@@ -5973,8 +5918,8 @@ export default function ZlecenieDetailScreen() {
       <View style={[S.tabs, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         {([
           { key: 'info',     icon: 'information-circle-outline' as IoniconName, label: 'Info' },
-          { key: 'logi',     icon: 'time-outline' as IoniconName,               label: `Czas (${logi.length})` },
-          { key: 'problemy', icon: 'warning-outline' as IoniconName,            label: `Problem (${problemy.length})` },
+          { key: 'logi',     icon: 'time-outline' as IoniconName,               label: 'Czas', count: logi.length },
+          { key: 'problemy', icon: 'warning-outline' as IoniconName,            label: 'Problemy', count: problemy.length },
           { key: 'zdjecia',  icon: 'camera-outline' as IoniconName,             label: `Zdjęcia (${zdjecia.length})` },
         ] as const).map(tab => (
           <TouchableOpacity
@@ -5991,8 +5936,15 @@ export default function ZlecenieDetailScreen() {
               color={activeTab === tab.key ? theme.accent : theme.textMuted}
             />
             <Text style={[S.tabTxt, { color: theme.textMuted }, activeTab === tab.key && { color: theme.accent, fontWeight: '700' }]}>
-              {tab.label}
+              {tab.key === 'zdjecia' ? 'Zdjecia' : tab.label}
             </Text>
+            {(('count' in tab && tab.count > 0) || (tab.key === 'zdjecia' && zdjecia.length > 0)) ? (
+              <View style={[S.tabBadge, { backgroundColor: activeTab === tab.key ? theme.accent : theme.surface2, borderColor: activeTab === tab.key ? theme.accent : theme.border }]}>
+                <Text style={[S.tabBadgeText, { color: activeTab === tab.key ? theme.accentText : theme.textMuted }]}>
+                  {'count' in tab ? tab.count : zdjecia.length}
+                </Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
         ))}
       </View>
@@ -6700,7 +6652,7 @@ export default function ZlecenieDetailScreen() {
                   <View style={S.grid}>
                     {grupa.map((z: any) => (
                       <TouchableOpacity
-                        key={z.id || z.url || z.sciezka}
+                        key={z.id || z.download_url || z.url || z.sciezka}
                         style={[
                           S.zdjecieCard,
                           {
@@ -6714,7 +6666,7 @@ export default function ZlecenieDetailScreen() {
                         }}
                       >
                         <View>
-                          <Image source={{ uri: absolutePhotoUrl(z.url || z.sciezka) }} style={S.zdjecieImg} />
+                          <Image source={{ uri: absolutePhotoUrl(z.download_url || z.url || z.sciezka) }} style={S.zdjecieImg} />
                           {z.offline_pending ? (
                             <View style={[S.pendingPhotoBadge, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
                               <Ionicons name="cloud-upload-outline" size={12} color={theme.warning} />
@@ -7031,7 +6983,7 @@ export default function ZlecenieDetailScreen() {
                 </TouchableOpacity>
               </View>
               <View style={S.photoPreviewStage}>
-                <Image source={{ uri: absolutePhotoUrl(photoPreview.url || photoPreview.sciezka) }} style={S.photoPreviewImage} />
+                <Image source={{ uri: absolutePhotoUrl(photoPreview.download_url || photoPreview.url || photoPreview.sciezka) }} style={S.photoPreviewImage} />
                 {previewPhotoList.length > 1 ? (
                   <>
                     <TouchableOpacity
@@ -7184,8 +7136,8 @@ export default function ZlecenieDetailScreen() {
                     </Text>
                   </View>
                   <Switch
-                    value={finishClientAccepted || hasClientSignature}
-                    disabled={hasClientSignature}
+                    value={finishRequirements.require_client_signature ? hasClientSignature : finishClientAccepted || hasClientSignature}
+                    disabled={hasClientSignature || !!finishRequirements.require_client_signature}
                     onValueChange={setFinishClientAccepted}
                   />
                 </View>
@@ -7783,19 +7735,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   linkRowTxt: { flex: 1, fontSize: 14, fontWeight: '700' },
   taskHero: {
     marginHorizontal: 14,
-    marginTop: 12,
-    marginBottom: 10,
-    borderRadius: 20,
+    marginTop: 10,
+    marginBottom: 8,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
-    padding: 14,
-    gap: 12,
+    padding: 12,
+    gap: 10,
     ...shadowStyle(t, {
-      opacity: t.shadowOpacity * 0.18,
-      radius: t.shadowRadius * 0.52,
-      offsetY: 3,
-      elevation: t.cardElevation + 1,
+      opacity: t.shadowOpacity * 0.07,
+      radius: t.shadowRadius * 0.22,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
     }),
   },
   taskHeroTop: {
@@ -7804,9 +7756,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 10,
   },
   taskHeroIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 15,
+    width: 42,
+    height: 42,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -7822,8 +7774,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   taskHeroTitle: {
     color: t.text,
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: '900',
     marginTop: 3,
   },
@@ -7836,7 +7788,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   taskHeroStatus: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 9,
     paddingVertical: 6,
     maxWidth: 118,
@@ -7856,7 +7808,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '22%',
     minWidth: 72,
-    borderRadius: 14,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -7883,9 +7835,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   taskHeroProof: {
     borderWidth: 1,
-    borderRadius: 16,
-    padding: 11,
-    gap: 10,
+    borderRadius: 8,
+    padding: 10,
+    gap: 8,
   },
   taskHeroProofHead: {
     flexDirection: 'row',
@@ -7893,9 +7845,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 9,
   },
   taskHeroProofIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -7910,7 +7862,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   taskHeroProofScore: {
     minWidth: 58,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -7937,7 +7889,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minHeight: 34,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 8,
     paddingHorizontal: 9,
     paddingVertical: 7,
     flexDirection: 'row',
@@ -7952,7 +7904,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   taskHeroProofNext: {
     minHeight: 38,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -7969,7 +7921,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -7978,7 +7930,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   taskHeroNextIcon: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.cardBg,
@@ -8005,8 +7957,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginTop: 2,
   },
   taskHeroCta: {
-    minHeight: 38,
-    borderRadius: 12,
+    minHeight: 42,
+    borderRadius: 8,
     backgroundColor: t.accent,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -8033,8 +7985,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
   },
   taskHeroAction: {
-    minHeight: 38,
-    borderRadius: 12,
+    minHeight: 42,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -9496,20 +9448,37 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   timerTxt: { fontSize: 12 },
 
   // Status scroll
-  statusScroll: { borderBottomWidth: 1, maxHeight: 48 },
-  statusScrollContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  statusScroll: { borderBottomWidth: 1, maxHeight: 68 },
+  statusScrollContent: { paddingHorizontal: 12, paddingVertical: 9, gap: 9 },
   statusBtn: {
-    paddingHorizontal: 14, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 48,
+    minWidth: 138,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  statusBtnTxt: { fontSize: 12, fontWeight: '500' },
+  statusBtnIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBtnCopy: { flex: 1, minWidth: 0 },
+  statusBtnStep: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  statusBtnTxt: { fontSize: 13, fontWeight: '900' },
   statusHintPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    minHeight: 48,
+    paddingVertical: 7,
+    borderRadius: 8,
     borderWidth: 1,
   },
   statusHintText: { fontSize: 11, fontWeight: '800' },
@@ -9519,10 +9488,26 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row', borderBottomWidth: 1,
   },
   tab: {
-    flex: 1, paddingVertical: 10, alignItems: 'center',
-    borderBottomWidth: 2, borderBottomColor: 'transparent', gap: 2,
+    flex: 1,
+    minHeight: 58,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+    gap: 3,
   },
-  tabTxt: { fontSize: 9, fontWeight: '500' },
+  tabTxt: { fontSize: 11, fontWeight: '800' },
+  tabBadge: {
+    minWidth: 20,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeText: { fontSize: 10, fontWeight: '900', fontVariant: ['tabular-nums'] },
 
   // Treść
   content: { flex: 1, padding: 12 },
@@ -9723,7 +9708,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     padding: 16,
   },
   photoPreviewCloseLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   photoPreviewBox: {
     borderWidth: 1,

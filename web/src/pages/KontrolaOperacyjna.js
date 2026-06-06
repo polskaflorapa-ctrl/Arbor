@@ -38,6 +38,7 @@ const ACTION_FILTERS = [
   { value: 'risk_resend_sms', label: 'Zadarma/SMS' },
   { value: 'risk_queue_call', label: 'Telefon Zadarma' },
   { value: 'risk_acknowledge', label: 'Potwierdzenie ownera' },
+  { value: 'risk_owner_resolve', label: 'Zamkniecie ownera' },
   { value: 'risk_owner_auto_remediate', label: 'Auto-remediacja ownera' },
   { value: 'risk_owner_remediation_blocked', label: 'Blokady remediacji' },
   { value: 'risk_reassign_team', label: 'Przepiecie ekipy' },
@@ -83,6 +84,7 @@ export default function KontrolaOperacyjna() {
   const [loading, setLoading] = useState(false);
   const [ownerAlertsLoading, setOwnerAlertsLoading] = useState(false);
   const [ownerBulkAction, setOwnerBulkAction] = useState('');
+  const [ownerResolveAction, setOwnerResolveAction] = useState('');
   const [digestLoading, setDigestLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -328,6 +330,34 @@ export default function KontrolaOperacyjna() {
     }
   };
 
+  const resolveOwnerAlert = async (item, source = 'control') => {
+    const riskId = item?.risk_id || item?.id;
+    const riskType = item?.risk_type || item?.type;
+    if (!riskId || !riskType) return;
+    const actionKey = `${source}:${riskId}`;
+    setOwnerResolveAction(actionKey);
+    setError('');
+    try {
+      const token = getStoredToken();
+      await api.post('/ops/owner-alerts/resolve', {
+        risk_id: riskId,
+        risk_type: riskType,
+        task_id: item.task_id || null,
+        oddzial_id: item.oddzial_id || oddzialId || null,
+        source,
+        note: source === 'digest'
+          ? 'Oznaczono jako rozwiazane z digestu dyrektora'
+          : 'Oznaczono jako rozwiazane z kontroli operacyjnej',
+      }, { headers: authHeaders(token) });
+      await Promise.all([loadOpenOwnerAlerts(), loadOwnerRemediationReport(), loadHistory(), loadDigestHistory()]);
+      if (digest) await loadDigest();
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Nie udalo sie oznaczyc alertu ownera jako rozwiazanego.'));
+    } finally {
+      setOwnerResolveAction('');
+    }
+  };
+
   const items = history.items || [];
   const actionSummary = history.summary?.actions || [];
   const issueSummary = history.summary?.issues || [];
@@ -512,6 +542,14 @@ export default function KontrolaOperacyjna() {
                 <div style={s.ownerAckMeta}>
                   <span>{item.numer || '-'}</span>
                   <span>{item.klient_nazwa || '-'}</span>
+                  <button
+                    type="button"
+                    style={s.smallBtn}
+                    onClick={() => resolveOwnerAlert(item, 'control')}
+                    disabled={ownerResolveAction === `control:${item.risk_id || item.id}`}
+                  >
+                    {ownerResolveAction === `control:${item.risk_id || item.id}` ? 'Zapis...' : 'Oznacz rozwiazane'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -613,6 +651,29 @@ export default function KontrolaOperacyjna() {
               ))}
               {!(digest.alerts || []).length ? <div style={s.emptyLine}>Brak krytycznych alertow w digestcie.</div> : null}
             </div>
+            {(digest.details?.owner_unresolved_after_remediation || []).length ? (
+              <div style={s.ownerAckList}>
+                {digest.details.owner_unresolved_after_remediation.slice(0, 5).map((item) => (
+                  <div key={`digest-resolve-${item.risk_id}`} style={s.ownerAckItem}>
+                    <div>
+                      <strong>{item.escalation_level || 'P1'} / {item.risk_type || 'alert'} / {item.remediation_action || 'remediacja'}</strong>
+                      <div style={s.subLine}>{item.owner_label || 'Owner'} / {item.numer || item.risk_id} / {formatDateTime(item.last_remediation_at)}</div>
+                    </div>
+                    <div style={s.ownerAckMeta}>
+                      <span>{item.klient_nazwa || '-'}</span>
+                      <button
+                        type="button"
+                        style={s.smallBtn}
+                        onClick={() => resolveOwnerAlert(item, 'digest')}
+                        disabled={ownerResolveAction === `digest:${item.risk_id}`}
+                      >
+                        {ownerResolveAction === `digest:${item.risk_id}` ? 'Zapis...' : 'Oznacz rozwiazane'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -775,6 +836,7 @@ const s = {
   ownerAckList: { display: 'grid', gap: 8, padding: 16 },
   ownerAckItem: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 12, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: 'rgba(241,249,244,0.5)' },
   ownerAckMeta: { display: 'flex', gap: 8, flexWrap: 'wrap', color: 'var(--text-sub)', fontSize: 12, fontWeight: 700, justifyContent: 'flex-end' },
+  smallBtn: { border: '1px solid rgba(15,95,58,0.18)', background: '#ffffff', color: 'var(--text)', borderRadius: 8, padding: '7px 9px', fontWeight: 800, cursor: 'pointer', fontSize: 12 },
   emptyLine: { color: 'var(--text-sub)', fontSize: 13 },
   panel: { border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(31,79,50,0.065)' },
   panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', padding: 18, borderBottom: '1px solid rgba(15,95,58,0.1)' },

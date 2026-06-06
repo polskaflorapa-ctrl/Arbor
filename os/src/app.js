@@ -14,9 +14,10 @@ const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
 const { authMiddleware } = require('./middleware/auth');
 const { auditMiddleware } = require('./middleware/audit');
 const { blockPayrollSettlements } = require('./middleware/payroll-policy');
-const { costlyApiLimiter } = require('./middleware/rate-limit');
+const { costlyApiLimiter, publicTokenLimiter, webhookLimiter } = require('./middleware/rate-limit');
 const { register, metricsMiddleware, metricsEnabled, bindPoolMetrics } = require('./metrics');
 const { HTTP_NOT_FOUND } = require('./constants/error-codes');
+const { assertProductionSecurityConfig } = require('./config/security-hardening');
 
 const authRoutes = require('./routes/auth');
 const tasksRoutes = require('./routes/tasks');
@@ -62,6 +63,8 @@ const demoRequestsRoutes = require('./routes/demoRequests');
 const magazynRoutes = require('./routes/magazyn');
 
 const createApp = () => {
+  assertProductionSecurityConfig(env);
+
   const app = express();
   const uploadsDir = getUploadsRoot();
   const allowedOrigins = env.CORS_ORIGINS
@@ -107,6 +110,22 @@ const createApp = () => {
   );
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
+  const blockPrivateUploads =
+    env.PUBLIC_UPLOADS_BLOCK_PRIVATE ?? env.NODE_ENV === 'production';
+  const privateUploadFolders = new Set(['tasks', 'task-documents']);
+  app.use('/uploads', (req, res, next) => {
+    const firstSegment = String(req.path || '')
+      .replace(/^\/+/, '')
+      .split('/')[0];
+    if (blockPrivateUploads && privateUploadFolders.has(firstSegment)) {
+      return res.status(404).json({
+        error: req.t('errors.http.notFound'),
+        code: HTTP_NOT_FOUND,
+        requestId: req.requestId,
+      });
+    }
+    return next();
+  });
   app.use('/uploads', express.static(uploadsDir));
 
   /** Panel WWW — jawne trasy (Express czasem inaczej mapuje mount + index niż oczekiwane). */
@@ -149,9 +168,9 @@ const createApp = () => {
   app.use('/api/ai', costlyApiLimiter, aiRoutes);
   app.use('/api/ekipy/rozliczenie', authMiddleware, blockPayrollSettlements);
   app.use('/api/rozliczenia', rozliczeniaRoutes);
-  app.use('/api/sms/webhooks', smsWebhooksRoutes);
+  app.use('/api/sms/webhooks', webhookLimiter, smsWebhooksRoutes);
   app.use('/api/sms', costlyApiLimiter, smsRoutes);
-  app.use('/api/telefon/webhooks', telefonWebhooksRoutes);
+  app.use('/api/telefon/webhooks', webhookLimiter, telefonWebhooksRoutes);
   app.use('/api/telefon', costlyApiLimiter, telefonRoutes);
   app.use('/api/telephony', telephonyRoutes);
   app.use('/api/pdf', costlyApiLimiter, pdfRoutes);
@@ -169,16 +188,16 @@ const createApp = () => {
   app.use('/api/magazyn', magazynRoutes);
   // Alias: KadryDokumenty.js calls /api/position-cards — serve from hr router
   app.use('/api/position-cards', hrRoutes);
-  app.use('/api/public', quotationPublicRoutes);
-  app.use('/api/webhooks/crm', crmWebhooksRoutes);
+  app.use('/api/public', publicTokenLimiter, quotationPublicRoutes);
+  app.use('/api/webhooks/crm', webhookLimiter, crmWebhooksRoutes);
   app.use('/api/kommo', kommoConfigRoutes);
-  app.use('/api/webhooks', kommoQuotationWebhookRoutes);
+  app.use('/api/webhooks', webhookLimiter, kommoQuotationWebhookRoutes);
   app.use('/api/quotations', quotationsRoutes);
   app.use('/api/payroll', payrollRoutes);
   app.use('/api/demo-requests', costlyApiLimiter, demoRequestsRoutes);
 
   // Public client-facing tracking page (no auth) — linked from SMS
-  app.use('/track', trackRoutes);
+  app.use('/track', publicTokenLimiter, trackRoutes);
 
   // Mobile remote-config — returns app/branch feature flags.
   // Accepts optional Bearer auth; returns empty config if none configured yet.

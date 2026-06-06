@@ -213,6 +213,7 @@ describe('opsDigest service', () => {
         };
       }
       if (sql.includes('open_owner_alerts')) {
+        expect(sql).toContain('risk_owner_resolve');
         return {
           rows: [
             {

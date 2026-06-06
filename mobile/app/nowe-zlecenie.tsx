@@ -346,7 +346,7 @@ export default function NoweZlecenieScreen() {
   const [drawWidth, setDrawWidth] = useState(6);
   const [drawSaving, setDrawSaving] = useState(false);
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('auto');
-  const drawShotRef = useRef<ViewShot>(null);
+  const drawShotRef = useRef<any>(null);
   const drawPathRef = useRef('');
   const [form, setForm] = useState(createTaskFormDefaults({
     data_planowana: new Date().toISOString().split('T')[0],
@@ -4267,7 +4267,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.14)',
   },
   drawCanvas: { position: 'relative', overflow: 'hidden' },
-  drawImage: { ...StyleSheet.absoluteFillObject, backgroundColor: '#111827' },
+  drawImage: { ...StyleSheet.absoluteFill, backgroundColor: '#111827' },
   drawTools: {
     backgroundColor: '#0b1220',
     borderTopWidth: 1,

@@ -9,11 +9,7 @@ afterEach(() => {
 
 test('renders landing page by default with a login entrypoint', () => {
   render(<App />);
-  expect(
-    screen.getByRole('heading', {
-      name: /Prowadź operacje terenowe z jednego spokojnego centrum dowodzenia/i,
-    })
-  ).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /Centrum operacyjne/i, level: 1 })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /Zaloguj/i })).toHaveAttribute('href', '#/login');
 });
 
@@ -23,4 +19,24 @@ test('preserves clean production paths by converting them to hash routes', () =>
   expect(redirected).toBe(true);
   expect(window.location.pathname).toBe('/');
   expect(window.location.hash).toBe('#/zlecenia?search=Anna');
+});
+
+test('routes /crm to the CRM hub instead of the lead pipeline', async () => {
+  window.history.replaceState(null, '', '/#/crm');
+  localStorage.setItem('token', 'test-token');
+  localStorage.setItem(
+    'user',
+    JSON.stringify({
+      id: 1,
+      imie: 'Anna',
+      nazwisko: 'Sprzedaz',
+      rola: 'Dyrektor',
+    })
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText(/Webhooki, logi/i)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Pipeline lead/i })).toBeInTheDocument();
+  expect(screen.queryByText(/Kommo-style pipeline/i)).not.toBeInTheDocument();
 });

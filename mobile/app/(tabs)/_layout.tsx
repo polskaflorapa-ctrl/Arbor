@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { Tabs } from 'expo-router';
 import React, { useMemo } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, type ColorValue } from 'react-native';
 import { HapticTab } from '../../components/haptic-tab';
 import { useTheme } from '../../constants/ThemeContext';
 import { shadowStyle } from '../../constants/elevation';
@@ -20,7 +20,7 @@ function TabGlyph({
 }: {
   outline: IonName;
   solid: IonName;
-  color: string;
+  color: ColorValue;
   focused: boolean;
 }) {
   return (
@@ -42,7 +42,7 @@ function TabGlyph({
 export default function TabLayout() {
   const { theme } = useTheme();
 
-  const screenOptions = useMemo(
+  const screenOptions = useMemo<any>(
     () => ({
       tabBarActiveTintColor: theme.navActive,
       tabBarInactiveTintColor: theme.navInactive,

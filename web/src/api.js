@@ -1920,7 +1920,7 @@ function getTestModeMockResponse(config) {
     const now = Date.now();
     const acknowledgedRiskIds = new Set(
       getMockOpsEvents()
-        .filter((event) => event.action_type === 'risk_acknowledge')
+        .filter((event) => ['risk_acknowledge', 'risk_owner_resolve'].includes(event.action_type))
         .filter((event) => String(event.created_at || '').slice(0, 10) === date)
         .map((event) => event.risk_id)
         .filter(Boolean)
@@ -2412,6 +2412,47 @@ function getTestModeMockResponse(config) {
         failed: 0,
         failed_items: [],
         results: saved.map((event, index) => ({ risk_id: items[index]?.risk_id, ok: true, event_id: event.id })),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/owner-alerts/resolve' && method === 'post') {
+    const body = parseJsonData(config.data);
+    const task = body.task_id ? getMockTaskDetail(body.task_id) : null;
+    const event = addMockOpsEvent({
+      task_id: body.task_id || null,
+      oddzial_id: task?.oddzial_id || body.oddzial_id || null,
+      action_type: 'risk_owner_resolve',
+      issue_key: body.risk_type || body.type || 'risk_report',
+      risk_type: body.risk_type || body.type || 'risk_report',
+      risk_id: body.risk_id,
+      numer: task?.numer || body.numer,
+      klient_nazwa: task?.klient_nazwa || body.klient_nazwa,
+      note: body.note || '',
+      metadata: {
+        risk_id: body.risk_id,
+        risk_type: body.risk_type || body.type || 'risk_report',
+        source: body.source || 'control',
+        follow_up: true,
+        resolution_status: 'resolved',
+      },
+    });
+    return {
+      data: {
+        message: 'Alert ownera oznaczony jako rozwiazany',
+        resolved: {
+          risk_id: body.risk_id,
+          risk_type: body.risk_type || body.type || 'risk_report',
+          task_id: body.task_id || null,
+          oddzial_id: task?.oddzial_id || body.oddzial_id || null,
+          source: body.source || 'control',
+        },
+        event,
       },
       status: 200,
       statusText: 'OK',

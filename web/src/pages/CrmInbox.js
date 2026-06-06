@@ -8,6 +8,7 @@ import { authHeaders, getStoredToken } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
 
 const CHANNELS = ['', 'whatsapp', 'sms', 'email', 'instagram', 'facebook', 'messenger', 'telegram', 'webchat', 'other'];
+const CORE_UNIFIED_CHANNELS = ['whatsapp', 'instagram', 'messenger', 'telegram', 'email', 'sms'];
 const DIRECTIONS = ['', 'inbound', 'outbound'];
 const STATUSES = ['', 'received', 'queued', 'processing', 'sent', 'delivered', 'read', 'failed'];
 const CHANNEL_LABELS = {
@@ -98,6 +99,38 @@ export default function CrmInbox() {
     });
     return stats;
   }, [messages]);
+  const channelReadiness = useMemo(() => {
+    const byChannel = new Map();
+    unifiedInboxSources.forEach((source) => {
+      const channel = String(source?.config?.channel || 'webchat').toLowerCase();
+      const current = byChannel.get(channel) || { channel, active: 0, paused: 0, sources: [] };
+      if (source.active) current.active += 1;
+      else current.paused += 1;
+      current.sources.push(source);
+      byChannel.set(channel, current);
+    });
+    return CORE_UNIFIED_CHANNELS.map((channel) => {
+      const row = byChannel.get(channel) || { channel, active: 0, paused: 0, sources: [] };
+      const messageCount = sourceStats[channel]?.count || 0;
+      return {
+        ...row,
+        label: CHANNEL_LABELS[channel] || channel,
+        ready: row.active > 0,
+        messageCount,
+        statusLabel: row.active > 0 ? 'Gotowy' : row.paused > 0 ? 'Pauza' : 'Do podpiecia',
+        detail: row.active > 0
+          ? `${row.active} aktywne zrodlo${row.active > 1 ? 'a' : ''}, rozmowy: ${messageCount}`
+          : row.paused > 0
+            ? `${row.paused} zrodlo w pauzie - wznow w Integracjach`
+            : 'Brak webhooka dla tego kanalu',
+      };
+    });
+  }, [sourceStats, unifiedInboxSources]);
+  const channelReadinessSummary = useMemo(() => ({
+    ready: channelReadiness.filter((row) => row.ready).length,
+    total: channelReadiness.length,
+    missing: channelReadiness.filter((row) => !row.ready).length,
+  }), [channelReadiness]);
 
   const loadInbox = async () => {
     try {
@@ -359,7 +392,7 @@ export default function CrmInbox() {
               <div>
                 <strong>Zrodla kanalow</strong>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Podpiete webhooki Unified Inbox per oddzial.
+                  Podpiete webhooki Unified Inbox per oddzial. Gotowe: {channelReadinessSummary.ready}/{channelReadinessSummary.total}.
                 </div>
               </div>
               <button className="ios-btn" type="button" onClick={() => navigate('/integracje')}>
@@ -368,6 +401,25 @@ export default function CrmInbox() {
               <button className="ios-btn" type="button" onClick={refreshInboxWorkspace} disabled={loading || timelineLoading}>
                 Odswiez zrodla
               </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, marginBottom: 10 }}>
+              {channelReadiness.map((row) => (
+                <button
+                  key={row.channel}
+                  type="button"
+                  className="ios-inset-row"
+                  onClick={() => (row.ready ? applyPreset({ channel: row.channel }) : navigate('/integracje'))}
+                  style={{ textAlign: 'left', cursor: 'pointer', borderColor: row.ready ? 'rgba(15,95,58,0.22)' : 'rgba(245,158,11,0.28)' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <strong>{row.label}</strong>
+                    <span style={{ fontSize: 12, color: row.ready ? 'var(--accent)' : '#92400e' }}>{row.statusLabel}</span>
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                    {row.detail}
+                  </div>
+                </button>
+              ))}
             </div>
             {unifiedInboxSources.length ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>

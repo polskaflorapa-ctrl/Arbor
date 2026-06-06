@@ -10,6 +10,7 @@ jest.mock('../src/config/env', () => {
     PUBLIC_BASE_URL: 'https://sms-hooks-test.example.com',
     TWILIO_AUTH_TOKEN: 'auth_for_signature',
     TWILIO_SKIP_SIGNATURE_VALIDATION: true,
+    ZADARMA_SKIP_SIGNATURE_VALIDATION: true,
   };
   return {
     env: new Proxy(real.env, {

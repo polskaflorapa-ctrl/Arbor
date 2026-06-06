@@ -8,6 +8,7 @@ import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName, hasAnyRole } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { clearAuthSession } from '../utils/authSession';
+import LanguageSwitcher from './LanguageSwitcher';
 // ─── Stałe ───────────────────────────────────────────────────────────────────
 const NOTIF_KOLOR = {
   problem: '#F87171', potrzebuje_czasu: '#FBBF24', skonczylem_wczesniej: 'var(--accent)',
@@ -599,6 +600,11 @@ export default function Sidebar() {
         <div style={sb.bottom}>
           {!collapsed ? (
             <div className="ios-inset" style={{ margin: '4px 8px 10px' }}>
+              <div style={sb.languageBlock}>
+                <div style={sb.languageLabel}>{t('profile.languageTitle', { defaultValue: 'Język interfejsu' })}</div>
+                <LanguageSwitcher compact tone="dark" style={{ width: '100%', justifyContent: 'center' }} />
+              </div>
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} aria-hidden />
               <div ref={notifRef} style={{ position: 'relative' }}>
                 <div
                   onClick={() => setShowNotif(!showNotif)}
@@ -972,6 +978,18 @@ const sb = {
   },
   activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#8ce6ac' },
   bottom: { padding: '4px 8px 10px', flexShrink: 0 },
+  languageBlock: {
+    display: 'grid',
+    gap: 7,
+    padding: '10px 10px 9px',
+  },
+  languageLabel: {
+    color: 'rgba(255, 255, 255, 0.64)',
+    fontSize: 10,
+    fontWeight: 800,
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+  },
   badge: {
     position: 'absolute', top: -4, right: -4, background: '#EF4444', color: '#fff',
     borderRadius: '50%', minWidth: 16, height: 16, fontSize: 10, fontWeight: 700,

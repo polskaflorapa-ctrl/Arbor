@@ -54,8 +54,24 @@ function copyDirIfMissing(packageName, dirName, sentinelFile) {
   console.log(`[postinstall] Restored ${packageName}/${dirName} for Metro resolution.`);
 }
 
+function patchXcodeUuidRange() {
+  const xcodePackageJson = path.join(repoRoot, 'node_modules', 'xcode', 'package.json');
+  if (!fs.existsSync(xcodePackageJson)) return;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(xcodePackageJson, 'utf8'));
+    if (pkg?.dependencies?.uuid && pkg.dependencies.uuid !== '^11.1.1') {
+      pkg.dependencies.uuid = '^11.1.1';
+      fs.writeFileSync(xcodePackageJson, `${JSON.stringify(pkg, null, 2)}\n`);
+      console.log('[postinstall] Patched xcode uuid range to ^11.1.1.');
+    }
+  } catch (err) {
+    console.warn(`[postinstall] Cannot patch xcode uuid range: ${err.message}`);
+  }
+}
+
 copyIfMissing('split-on-first', 'index.js');
 copyIfMissing('split-on-first', 'license');
 copyIfMissing('split-on-first', 'readme.md');
 copyDirIfMissing('css-in-js-utils', 'es', 'index.js');
 copyDirIfMissing('css-in-js-utils', 'lib', 'index.js');
+patchXcodeUuidRange();

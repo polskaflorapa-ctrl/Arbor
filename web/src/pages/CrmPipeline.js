@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
-import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -78,6 +77,7 @@ export default function CrmPipeline() {
   const [msg, setMsg] = useState('');
   const [filter, setFilter] = useState({ oddzial_id: '', owner_user_id: '', q: '' });
   const [dragLeadId, setDragLeadId] = useState(null);
+  const [activeStage, setActiveStage] = useState(STAGES[0]);
   const [leads, setLeads] = useState([]);
   const [oddzialy, setOddzialy] = useState([]);
   const [owners, setOwners] = useState([]);
@@ -471,6 +471,19 @@ export default function CrmPipeline() {
     }, {});
   }, [leadsByStage]);
 
+  const boardStats = useMemo(() => {
+    const openLeads = leads.filter((lead) => !isClosedLeadStage(lead.stage));
+    const openValue = openLeads.reduce((sum, lead) => sum + Number(lead.value || 0), 0);
+    const withOwner = leads.filter((lead) => lead.owner_user_id).length;
+    return {
+      openCount: openLeads.length,
+      openValue,
+      wonCount: (leadsByStage.Wygrane || []).length,
+      lostCount: (leadsByStage.Przegrane || []).length,
+      ownerCoverage: leads.length ? Math.round((withOwner / leads.length) * 100) : 0,
+    };
+  }, [leads, leadsByStage]);
+
   const activityTypeLabel = (type) => {
     if (type === 'call') return t('crm.pipeline.activities.typeCall', { defaultValue: 'Telefon' });
     if (type === 'task') return t('crm.pipeline.activities.typeTask', { defaultValue: 'Zadanie / follow-up' });
@@ -678,20 +691,78 @@ export default function CrmPipeline() {
     return group || '—';
   };
 
+  const ownerInitials = (lead) => {
+    const name = String(lead.owner_name || '').trim();
+    if (!name) return '??';
+    return name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase();
+  };
+
+  const stageClass = (stage) => String(stage || '').toLowerCase().replace(/\s+/g, '-');
+
   return (
     <div className="app-shell crm-pipeline-shell">
       <Sidebar />
       <main className="app-main crm-pipeline-main">
-        <PageHeader
-          title={t('crm.pipeline.title', { defaultValue: 'Pipeline leadów' })}
-          subtitle={t('crm.pipeline.subtitle', { defaultValue: 'Zarządzaj etapami, ownerami i wartością szans sprzedaży.' })}
-          variant="hero"
-        />
         <div className="app-content crm-pipeline-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
 
-          <section className="ios-inset crm-pipeline-create" style={{ padding: 12, marginBottom: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>
+          <section className="crm-kommo-topbar">
+            <div className="crm-kommo-brand">
+              <div className="crm-kommo-mark">A</div>
+              <div>
+                <h1>ARBOR CRM</h1>
+                <p>Kommo-style pipeline, inbox i automatyzacje</p>
+              </div>
+            </div>
+            <div className="crm-kommo-search">
+              <input
+                className="ios-field"
+                value={filter.q}
+                onChange={(e) => setFilter((prev) => ({ ...prev, q: e.target.value }))}
+                placeholder={t('crm.pipeline.filters.search', { defaultValue: 'Szukaj po kliencie, telefonie, źródle...' })}
+              />
+            </div>
+            <div className="crm-kommo-actions">
+              <button type="button" className="ios-btn" onClick={loadData}>
+                Odśwież
+              </button>
+              <button type="button" className="ios-btn ios-btn-primary" disabled={saving} onClick={handleCreate}>
+                {t('crm.pipeline.addLead', { defaultValue: 'Dodaj leada' })}
+              </button>
+            </div>
+          </section>
+
+          <section className="crm-kommo-kpis" aria-label="CRM status">
+            <div>
+              <span>Otwarte leady</span>
+              <strong>{boardStats.openCount}</strong>
+            </div>
+            <div>
+              <span>Wartość lejka</span>
+              <strong>{formatAmount(boardStats.openValue)}</strong>
+            </div>
+            <div>
+              <span>Wygrane</span>
+              <strong>{boardStats.wonCount}</strong>
+            </div>
+            <div>
+              <span>Przegrane</span>
+              <strong>{boardStats.lostCount}</strong>
+            </div>
+            <div>
+              <span>Owner coverage</span>
+              <strong>{boardStats.ownerCoverage}%</strong>
+            </div>
+          </section>
+
+          <section className="ios-inset crm-pipeline-create">
+            <div className="crm-kommo-create-grid">
               <input
                 className="ios-field"
                 placeholder={t('crm.pipeline.newTitle', { defaultValue: 'Nowy lead / temat' })}
@@ -730,14 +801,23 @@ export default function CrmPipeline() {
                 value={form.value}
                 onChange={(e) => setForm((prev) => ({ ...prev, value: e.target.value }))}
               />
-              <button className="ios-btn ios-btn-primary" type="button" disabled={saving} onClick={handleCreate}>
-                {t('crm.pipeline.addLead', { defaultValue: 'Dodaj leada' })}
-              </button>
+              <input
+                className="ios-field"
+                placeholder="Telefon"
+                value={form.phone}
+                onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+              />
+              <input
+                className="ios-field"
+                placeholder="E-mail"
+                value={form.email}
+                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+              />
             </div>
           </section>
 
-          <section className="ios-inset crm-pipeline-filters" style={{ padding: 12, marginBottom: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 }}>
+          <section className="ios-inset crm-pipeline-filters">
+            <div className="crm-kommo-filter-grid">
               <select
                 className="ios-field"
                 value={filter.oddzial_id}
@@ -762,15 +842,14 @@ export default function CrmPipeline() {
                   </option>
                 ))}
               </select>
-              <input
-                className="ios-field"
-                value={filter.q}
-                onChange={(e) => setFilter((prev) => ({ ...prev, q: e.target.value }))}
-                placeholder={t('crm.pipeline.filters.search', { defaultValue: 'Szukaj po kliencie, telefonie, źródle...' })}
-              />
+              <div className="crm-kommo-filter-hint">
+                {leads.length} leadów w widoku · {workflows.length} automatyzacji · {messageTemplates.length} szablonów
+              </div>
             </div>
           </section>
 
+          <div className="crm-kommo-workspace">
+          <aside className="crm-kommo-side-rail">
           <section className="ios-inset crm-pipeline-panel crm-pipeline-templates" style={{ padding: 12, marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 10 }}>
               <div>
@@ -900,11 +979,27 @@ export default function CrmPipeline() {
             </div>
           </section>
 
+          </aside>
+          <div className="crm-kommo-board-area">
+          <nav className="crm-kommo-stage-switcher" aria-label="Etapy CRM">
+            {STAGES.map((stage) => (
+              <button
+                key={stage}
+                type="button"
+                className={activeStage === stage ? 'is-active' : ''}
+                onClick={() => setActiveStage(stage)}
+              >
+                <span>{stage}</span>
+                <strong>{totals[stage]?.count || 0}</strong>
+              </button>
+            ))}
+          </nav>
+
           <section className="crm-pipeline-board" style={{ display: 'grid', gridTemplateColumns: `repeat(${STAGES.length}, minmax(220px, 1fr))`, gap: 10, overflowX: 'auto' }}>
             {STAGES.map((stage) => (
               <div
                 key={stage}
-                className="ios-inset crm-pipeline-column"
+                className={`ios-inset crm-pipeline-column crm-stage-${stageClass(stage)} ${activeStage === stage ? 'crm-stage-active' : ''}`}
                 style={{ minHeight: 280, padding: 10 }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={async () => {
@@ -920,10 +1015,10 @@ export default function CrmPipeline() {
                     {totals[stage]?.count || 0} | {formatAmount(totals[stage]?.value || 0)}
                   </div>
                 </div>
-                <div className="ios-inset-list">
+                <div className="ios-inset-list crm-kommo-card-list">
                   {(leadsByStage[stage] || []).map((lead) => (
                     <div key={lead.id} className="ios-inset-row crm-pipeline-lead-card" style={{ display: 'grid', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div className="crm-kommo-lead-top">
                         <span
                           draggable
                           onDragStart={(e) => {
@@ -933,26 +1028,24 @@ export default function CrmPipeline() {
                           onDragEnd={() => setDragLeadId(null)}
                           title={t('crm.pipeline.dragHandle', { defaultValue: 'Przenieś między kolumnami' })}
                           aria-label={t('crm.pipeline.dragHandle', { defaultValue: 'Przenieś między kolumnami' })}
-                          style={{
-                            cursor: 'grab',
-                            userSelect: 'none',
-                            fontSize: 14,
-                            color: 'var(--text-muted)',
-                            letterSpacing: 0,
-                            lineHeight: 1,
-                          }}
+                          className="crm-kommo-drag"
                         >
-                          ⋮⋮
+                          ::
                         </span>
-                        <button type="button" className="ios-btn" style={{ flexShrink: 0 }} onClick={() => setSelectedLeadId(lead.id)}>
-                          {t('crm.pipeline.activities.toggleShow', { defaultValue: 'Aktywności' })}
-                        </button>
+                        <span className="crm-kommo-source">{lead.source || 'manual'}</span>
+                        <span className="crm-kommo-avatar">{ownerInitials(lead)}</span>
                       </div>
-                      <div style={{ fontWeight: 600 }}>{lead.title}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      <button type="button" className="crm-kommo-lead-title" onClick={() => setSelectedLeadId(lead.id)}>
+                        {lead.title}
+                      </button>
+                      <div className="crm-kommo-contact">
                         {lead.client_name || lead.phone || lead.email || lead.source || '—'}
                       </div>
-                      <div style={{ fontSize: 12 }}>{formatAmount(lead.value)}</div>
+                      <div className="crm-kommo-lead-meta">
+                        <strong>{formatAmount(lead.value)}</strong>
+                        <span>{lead.phone ? 'tel' : 'kontakt'}</span>
+                        <span>{lead.email ? 'mail' : 'brak maila'}</span>
+                      </div>
                       {lead.close_reason ? (
                         <div style={{ fontSize: 11, color: isTechnicalCloseReason(lead.close_reason) ? 'var(--warning)' : 'var(--text-muted)', fontWeight: 700 }}>
                           {isTechnicalCloseReason(lead.close_reason)
@@ -972,7 +1065,10 @@ export default function CrmPipeline() {
                           </option>
                         ))}
                       </select>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <div className="crm-kommo-card-actions">
+                        <button type="button" className="ios-btn" onClick={() => setSelectedLeadId(lead.id)}>
+                          {t('crm.pipeline.activities.toggleShow', { defaultValue: 'Aktywności' })}
+                        </button>
                         {!isClosedLeadStage(lead.stage) ? (
                           <button type="button" className="ios-btn" onClick={() => setCloseDialog({ leadId: lead.id, requestedStage: 'Przegrane', reason: '' })}>
                             {t('crm.pipeline.closeLead', { defaultValue: 'Zamknij lead' })}
@@ -993,6 +1089,8 @@ export default function CrmPipeline() {
               </div>
             ))}
           </section>
+          </div>
+          </div>
         </div>
       </main>
 
@@ -1069,13 +1167,14 @@ export default function CrmPipeline() {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0,0,0,0.35)',
+              background: 'rgba(15,23,42,0.18)',
+              backdropFilter: 'blur(2px)',
               zIndex: 250,
             }}
             onClick={() => setSelectedLeadId(null)}
           />
           <aside
-            className="ios-inset"
+            className="ios-inset crm-kommo-inspector"
             style={{
               position: 'fixed',
               right: 0,
@@ -1095,7 +1194,7 @@ export default function CrmPipeline() {
               border: '1px solid var(--border)',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+            <div className="crm-inspector-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
                   {t('crm.pipeline.activities.timeline', { defaultValue: 'Historia kontaktu' })}
@@ -1105,13 +1204,18 @@ export default function CrmPipeline() {
                   {selectedLead.stage} · {formatAmount(selectedLead.value)}
                   {selectedLead.owner_name ? ` · ${selectedLead.owner_name}` : ''}
                 </div>
+                <div className="crm-inspector-metrics" aria-label="Lead quick facts">
+                  <span>{selectedLead.source || 'manual'}</span>
+                  <span>{selectedLead.phone || 'brak telefonu'}</span>
+                  <span>{selectedLead.email || 'brak e-maila'}</span>
+                </div>
               </div>
               <button type="button" className="ios-btn" onClick={() => setSelectedLeadId(null)}>
                 {t('crm.pipeline.activities.close', { defaultValue: 'Zamknij' })}
               </button>
             </div>
 
-            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
+            <div className="ios-inset crm-inspector-panel crm-inspector-ai" style={{ padding: 10, display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -1147,7 +1251,7 @@ export default function CrmPipeline() {
               ) : null}
             </div>
 
-            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
+            <div className="ios-inset crm-inspector-panel crm-inspector-inbox" style={{ padding: 10, display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -1256,7 +1360,7 @@ export default function CrmPipeline() {
               </div>
             </div>
 
-            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
+            <div className="ios-inset crm-inspector-panel crm-inspector-nps" style={{ padding: 10, display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -1314,7 +1418,7 @@ export default function CrmPipeline() {
               </div>
             </div>
 
-            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
+            <div className="ios-inset crm-inspector-panel crm-inspector-workflows" style={{ padding: 10, display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -1351,8 +1455,8 @@ export default function CrmPipeline() {
               </div>
             </div>
 
-            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+            <div className="ios-inset crm-inspector-panel crm-inspector-activity-form" style={{ padding: 10, display: 'grid', gap: 8 }}>
+              <div className="crm-inspector-action-tabs" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                 {['note', 'call', 'task'].map((tp) => (
                   <button
                     key={tp}
@@ -1404,11 +1508,11 @@ export default function CrmPipeline() {
             </div>
 
             {activitiesLoading ? (
-              <div className="muted" style={{ fontSize: 13 }}>
+              <div className="muted crm-inspector-loading" style={{ fontSize: 13 }}>
                 {t('crm.pipeline.activities.loading', { defaultValue: 'Ładowanie…' })}
               </div>
             ) : null}
-            <div className="ios-inset-list" style={{ flex: 1, minHeight: 120 }}>
+            <div className="ios-inset-list crm-inspector-activity-timeline" style={{ flex: 1, minHeight: 120 }}>
               {activities.map((a) => (
                 <div key={a.id} className="ios-inset-row" style={{ display: 'grid', gap: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>

@@ -149,6 +149,10 @@ test('renders unified CRM inbox and applies filters', async () => {
   expect(await screen.findByText('Historia rozmowy')).toBeInTheDocument();
   expect(await screen.findByText('Dzien dobry, przygotujemy wycene.')).toBeInTheDocument();
   expect(await screen.findByText('Zrodla kanalow')).toBeInTheDocument();
+  expect(screen.getByText(/Gotowe: 2\/6/)).toBeInTheDocument();
+  expect(screen.getByText('1 aktywne zrodlo, rozmowy: 1')).toBeInTheDocument();
+  expect(screen.getAllByText('Do podpiecia').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('Brak webhooka dla tego kanalu').length).toBeGreaterThan(0);
   expect(screen.getByText('Oddzial 7 / meta')).toBeInTheDocument();
   expect(screen.getByText('Rozmowy w widoku: 1')).toBeInTheDocument();
 

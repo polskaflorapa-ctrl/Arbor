@@ -747,7 +747,7 @@ export async function installMobileTestModeFetchInterceptor() {
   const isEnabled = await isTestModeEnabledMobile();
   if (!isEnabled) return;
 
-  const originalFetch = global.fetch;
+  const originalFetch = globalThis.fetch;
   if (typeof originalFetch !== 'function') return;
   if ((originalFetch as any).__testModePatched) return;
 
@@ -766,7 +766,7 @@ export async function installMobileTestModeFetchInterceptor() {
   };
 
   (patchedFetch as any).__testModePatched = true;
-  global.fetch = patchedFetch as typeof global.fetch;
+  globalThis.fetch = patchedFetch as typeof globalThis.fetch;
 }
 
 export async function installMobileTestModeAxiosAdapter() {

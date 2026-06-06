@@ -45,6 +45,7 @@ const OPS_ACTION_LABELS = {
   risk_queue_call: 'Telefon Zadarma z ryzyka',
   risk_acknowledge: 'Potwierdzenie ryzyka',
   risk_owner_escalate: 'Eskalacja ownera ryzyka',
+  risk_owner_resolve: 'Zamkniecie petli ownera',
   risk_owner_auto_remediate: 'Auto-remediacja ownera',
   risk_owner_remediation_blocked: 'Blokada auto-remediacji ownera',
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
@@ -2349,6 +2350,74 @@ router.post('/owner-alerts/remediation', authMiddleware, requireRole(...MANAGER_
     });
   } catch (e) {
     logger.error('ops owner-alerts remediation', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.post('/owner-alerts/resolve', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const riskId = cleanText(req.body?.risk_id, 120);
+  const riskType = cleanText(req.body?.risk_type || req.body?.type, 60);
+  const taskId = Number(req.body?.task_id || 0);
+  const noteText = cleanText(req.body?.note, 800);
+  const source = cleanText(req.body?.source, 60) || 'control';
+  const allowedRiskTypes = new Set(['kommo_sync', 'sms_delivery']);
+  if (!riskId || !allowedRiskTypes.has(riskType)) {
+    return res.status(400).json({ error: 'Zamkniecie alertu ownera wymaga risk_id i risk_type Kommo/SMS.' });
+  }
+
+  try {
+    await ensureOpsActionEventsTable();
+    let task = null;
+    const requestedOddzial = req.body?.oddzial_id ? Number(req.body.oddzial_id) : null;
+    const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
+    if (Number.isInteger(taskId) && taskId > 0) {
+      const resolved = await getRiskTask(taskId, req.user);
+      if (resolved.error) return res.status(resolved.error.status).json({ error: resolved.error.message });
+      task = resolved.task;
+    } else if (!isDyrektorOrAdmin(req.user)) {
+      return res.status(403).json({ error: 'Zamkniecie alertu bez task_id wymaga roli centralnej.' });
+    }
+
+    const owner = riskOwner(riskType);
+    const event = await recordOpsActionEvent({
+      task: task || { oddzial_id: oddzialId },
+      user: req.user,
+      actionType: 'risk_owner_resolve',
+      issueKey: riskType,
+      note: noteText || `Oznaczono alert ownera jako rozwiazany: ${riskId}`,
+      metadata: {
+        risk_id: riskId,
+        risk_type: riskType,
+        owner_label: owner.owner_label,
+        owner_role: owner.owner_role,
+        source,
+        follow_up: true,
+        resolution_status: 'resolved',
+        resolution_source: source,
+      },
+    });
+
+    await req.auditLog?.({
+      action: 'ops.owner_alert.resolve',
+      entity: 'ops_owner_alert',
+      entity_id: riskId,
+      details: { risk_id: riskId, risk_type: riskType, task_id: task?.id || null, oddzial_id: task?.oddzial_id || oddzialId || null, source },
+    });
+
+    return res.json({
+      message: 'Alert ownera oznaczony jako rozwiazany',
+      resolved: {
+        risk_id: riskId,
+        risk_type: riskType,
+        task_id: task?.id || null,
+        oddzial_id: task?.oddzial_id || oddzialId || null,
+        source,
+      },
+      event,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops owner-alerts resolve', { message: e.message, requestId: req.requestId });
     return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });

@@ -25,10 +25,12 @@ async function smokeVercelApiWrapper() {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousJwtSecret = process.env.JWT_SECRET;
   const previousDatabaseUrl = process.env.DATABASE_URL;
+  const previousCorsOrigins = process.env.CORS_ORIGINS;
 
   process.env.NODE_ENV = 'production';
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'deploy-vercel-check-secret';
   process.env.DATABASE_URL = process.env.DATABASE_URL || '';
+  process.env.CORS_ORIGINS = process.env.CORS_ORIGINS || 'https://deploy-vercel-check.example';
   process.env.VERCEL_RUN_MIGRATIONS = '0';
 
   try {
@@ -62,6 +64,8 @@ async function smokeVercelApiWrapper() {
     else process.env.JWT_SECRET = previousJwtSecret;
     if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
     else process.env.DATABASE_URL = previousDatabaseUrl;
+    if (previousCorsOrigins === undefined) delete process.env.CORS_ORIGINS;
+    else process.env.CORS_ORIGINS = previousCorsOrigins;
   }
 }
 
@@ -69,6 +73,7 @@ async function smokeVercelApiInitFailure() {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousJwtSecret = process.env.JWT_SECRET;
   const previousDatabaseUrl = process.env.DATABASE_URL;
+  const previousCorsOrigins = process.env.CORS_ORIGINS;
   const previousConnectTimeout = process.env.DB_CONNECT_TIMEOUT_MS;
   const previousRunMigrations = process.env.VERCEL_RUN_MIGRATIONS;
   const previousConsoleError = console.error;
@@ -76,6 +81,7 @@ async function smokeVercelApiInitFailure() {
   process.env.NODE_ENV = 'production';
   process.env.JWT_SECRET = 'deploy-vercel-check-secret';
   process.env.DATABASE_URL = 'postgres://invalid:invalid@127.0.0.1:1/invalid';
+  process.env.CORS_ORIGINS = 'https://deploy-vercel-check.example';
   process.env.DB_CONNECT_TIMEOUT_MS = '100';
   process.env.VERCEL_RUN_MIGRATIONS = '1';
 
@@ -112,6 +118,8 @@ async function smokeVercelApiInitFailure() {
     else process.env.JWT_SECRET = previousJwtSecret;
     if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
     else process.env.DATABASE_URL = previousDatabaseUrl;
+    if (previousCorsOrigins === undefined) delete process.env.CORS_ORIGINS;
+    else process.env.CORS_ORIGINS = previousCorsOrigins;
     if (previousConnectTimeout === undefined) delete process.env.DB_CONNECT_TIMEOUT_MS;
     else process.env.DB_CONNECT_TIMEOUT_MS = previousConnectTimeout;
     if (previousRunMigrations === undefined) delete process.env.VERCEL_RUN_MIGRATIONS;
@@ -123,11 +131,13 @@ async function smokeVercelApiSkipsMigrationsByDefault() {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousJwtSecret = process.env.JWT_SECRET;
   const previousDatabaseUrl = process.env.DATABASE_URL;
+  const previousCorsOrigins = process.env.CORS_ORIGINS;
   const previousRunMigrations = process.env.VERCEL_RUN_MIGRATIONS;
 
   process.env.NODE_ENV = 'production';
   process.env.JWT_SECRET = 'deploy-vercel-check-secret';
   process.env.DATABASE_URL = 'postgres://invalid:invalid@127.0.0.1:1/invalid';
+  process.env.CORS_ORIGINS = 'https://deploy-vercel-check.example';
   delete process.env.VERCEL_RUN_MIGRATIONS;
 
   const modulePath = require.resolve('../api/[...path].js');
@@ -161,6 +171,8 @@ async function smokeVercelApiSkipsMigrationsByDefault() {
     else process.env.JWT_SECRET = previousJwtSecret;
     if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
     else process.env.DATABASE_URL = previousDatabaseUrl;
+    if (previousCorsOrigins === undefined) delete process.env.CORS_ORIGINS;
+    else process.env.CORS_ORIGINS = previousCorsOrigins;
     if (previousRunMigrations === undefined) delete process.env.VERCEL_RUN_MIGRATIONS;
     else process.env.VERCEL_RUN_MIGRATIONS = previousRunMigrations;
   }

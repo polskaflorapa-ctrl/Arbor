@@ -49,6 +49,10 @@ const BASE = '';
 const GPS_ONLINE_MINUTES = 5;
 const GPS_STALE_MINUTES = 20;
 
+function taskMediaUrl(item) {
+  return item?.download_url || item?.sciezka || item?.url || '';
+}
+
 /** Zgodnie z os/taskSettlement — FINISH_PHOTO_MIN */
 const MIN_FINISH_TYP_PHOTOS = 2;
 const PHOTO_EVIDENCE_TYPES = [
@@ -1973,7 +1977,7 @@ export default function ZlecenieDetail() {
                         kat: {doc.kategoria || '-'} · status: {doc.status || '-'} · wersja: v{doc.wersja || 1}
                       </div>
                     </div>
-                    <a href={`${BASE}${doc.sciezka}`} target="_blank" rel="noreferrer" style={styles.mapBtn}>Podgląd</a>
+                    <a href={`${BASE}${taskMediaUrl(doc)}`} target="_blank" rel="noreferrer" style={styles.mapBtn}>Podgląd</a>
                     <button
                       type="button"
                       style={styles.uploadBtn}
@@ -2579,7 +2583,7 @@ export default function ZlecenieDetail() {
               <button type="button" style={styles.overlayClose} onClick={() => setSelectedPhoto(null)} aria-label={t('common.cancel')}>
                 <CloseOutlined sx={{ fontSize: 20, color: '#fff' }} />
               </button>
-              <img src={`${BASE}${selectedPhoto.sciezka}`} alt="Zdjęcie" style={styles.overlayImg} />
+              <img src={`${BASE}${taskMediaUrl(selectedPhoto)}`} alt="Zdjęcie" style={styles.overlayImg} />
               <div style={styles.overlayInfo}>
                 <strong>{selectedPhoto.typ === 'Przed' ? 'PRZED' : selectedPhoto.typ === 'Po' ? 'PO' : 'INNE'}</strong>
                 <span>· {selectedPhoto.autor || '-'}</span>
@@ -2657,7 +2661,7 @@ function PhotoSection({ title, subtitle, photos, base, formatDateTime, onSelect,
       <div style={styles.photoGrid}>
         {photos.map(p => (
           <div key={p.id} style={styles.photoCard} onClick={() => onSelect(p)}>
-            <img src={`${base}${p.sciezka}`} alt={p.typ} style={styles.photoImg}
+            <img src={`${base}${taskMediaUrl(p)}`} alt={p.typ} style={styles.photoImg}
               onError={(e) => {
                 const el = e.target;
                 el.style.backgroundColor = 'var(--border)';
