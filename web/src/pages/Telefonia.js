@@ -25,6 +25,40 @@ const BRANCH_STAGE_ORDER = {
   Gotowy: 4,
 };
 const BRANCH_TEST_STALE_DAYS = 14;
+const ZADARMA_WEBRTC_SIP_KEY = 'arbor_zadarma_webrtc_sip_v1';
+const ZADARMA_WIDGET_SCRIPTS = [
+  'https://my.zadarma.com/webphoneWebRTCWidget/v8/js/loader-phone-lib.js?v=23',
+  'https://my.zadarma.com/webphoneWebRTCWidget/v8/js/loader-phone-fn.js?v=23',
+];
+
+function loadExternalScript(src) {
+  if (typeof document === 'undefined') return Promise.reject(new Error('Brak przegladarki.'));
+  const existing = document.querySelector(`script[src="${src}"]`);
+  if (existing?.dataset.loaded === 'true') return Promise.resolve();
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener('load', resolve, { once: true });
+      existing.addEventListener('error', reject, { once: true });
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = () => {
+      script.dataset.loaded = 'true';
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`Nie udalo sie zaladowac ${src}`));
+    document.body.appendChild(script);
+  });
+}
+
+async function loadZadarmaWidgetScripts() {
+  for (const src of ZADARMA_WIDGET_SCRIPTS) {
+    await loadExternalScript(src);
+  }
+}
 
 function useNarrowViewport(maxWidth = 760) {
   const [isNarrow, setIsNarrow] = useState(() =>
@@ -86,6 +120,14 @@ export default function Telefonia() {
   const [zadarmaTesting, setZadarmaTesting] = useState(false);
   const [zadarmaMessage, setZadarmaMessage] = useState('');
   const [zadarmaError, setZadarmaError] = useState('');
+  const [zadarmaSip, setZadarmaSip] = useState(() => {
+    try {
+      return localStorage.getItem(ZADARMA_WEBRTC_SIP_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [zadarmaWebrtcLoading, setZadarmaWebrtcLoading] = useState(false);
 
   const [tab, setTab] = useState(() => (['sms', 'calls', 'zadarma', 'agent'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'sms'));
   const [oddzialy, setOddzialy] = useState([]);
@@ -590,6 +632,43 @@ export default function Telefonia() {
       setZadarmaError(getApiErrorMessage(err, 'Test Zadarmy nie przeszedl.'));
     } finally {
       setZadarmaTesting(false);
+    }
+  };
+
+  const startZadarmaWebPhone = async () => {
+    const sip = String(zadarmaSip || '').trim();
+    if (!sip) {
+      setZadarmaError('Podaj SIP login albo numer wewnetrzny PBX z Zadarmy.');
+      return;
+    }
+    setZadarmaWebrtcLoading(true);
+    setZadarmaError('');
+    setZadarmaMessage('');
+    try {
+      try {
+        localStorage.setItem(ZADARMA_WEBRTC_SIP_KEY, sip);
+      } catch {
+        /* localStorage can be unavailable in private mode */
+      }
+      const token = getStoredToken();
+      const { data } = await api.post('/telephony/zadarma/webrtc-key', { sip }, { headers: authHeaders(token) });
+      await loadZadarmaWidgetScripts();
+      if (typeof window.zadarmaWidgetFn !== 'function') {
+        throw new Error('Widget Zadarma nie zaladowal sie poprawnie.');
+      }
+      window.zadarmaWidgetFn(
+        data.key,
+        data.sip || sip,
+        'square',
+        'pl',
+        true,
+        "{right:'16px',bottom:'16px'}",
+      );
+      setZadarmaMessage('Telefon Zadarma uruchomiony w przegladarce. Mozesz dzwonic i odbierac po zalogowaniu do widgetu.');
+    } catch (err) {
+      setZadarmaError(getApiErrorMessage(err, 'Nie udalo sie uruchomic telefonu WebRTC Zadarma.'));
+    } finally {
+      setZadarmaWebrtcLoading(false);
     }
   };
 
@@ -2513,6 +2592,39 @@ export default function Telefonia() {
                 </div>
               </form>
               <div style={s.callForm}>
+                <div style={s.manualTitle}>Telefon w przegladarce WebRTC</div>
+                <div style={s.agentHistoryMeta}>
+                  Wpisz SIP login albo numer wewnetrzny PBX pracownika. ARBOR pobierze tymczasowy klucz WebRTC z Zadarmy i wlaczy telefon w rogu przegladarki.
+                </div>
+                <input
+                  value={zadarmaSip}
+                  onChange={(e) => setZadarmaSip(e.target.value)}
+                  placeholder="SIP / numer wewnetrzny PBX, np. 101"
+                  style={s.input}
+                />
+                <div style={s.inlineActions}>
+                  <button
+                    type="button"
+                    style={s.sendBtn}
+                    onClick={startZadarmaWebPhone}
+                    disabled={zadarmaWebrtcLoading || !zadarmaSettings?.configured}
+                  >
+                    {zadarmaWebrtcLoading ? 'Uruchamiam...' : 'Uruchom telefon w przegladarce'}
+                  </button>
+                  <button
+                    type="button"
+                    style={s.rowBtn}
+                    onClick={() => copyAgentText(zadarmaSip, 'SIP Zadarma')}
+                    disabled={!zadarmaSip}
+                  >
+                    Kopiuj SIP
+                  </button>
+                </div>
+                <div style={s.agentHistoryMeta}>
+                  W panelu Zadarma dodaj domene tej aplikacji w Integrations and API / WebRTC widget integration. Nie wystawiaj widgetu poza zalogowanym panelem.
+                </div>
+              </div>
+              <div style={s.callForm}>
                 <div style={s.manualTitle}>Co ustawic w panelu Zadarma</div>
                 <div style={s.providerChecklistList}>
                   <div style={s.providerChecklistItem}>
@@ -2537,8 +2649,8 @@ export default function Telefonia() {
                   <div style={s.providerChecklistItem}>
                     <span style={s.okBadge}>3</span>
                     <div>
-                      <strong>Polaczenia przychodzace</strong>
-                      <div style={s.agentHistoryMeta}>W panelu Zadarma przypisz numer DID do SIP/PBX albo przekierowania. ARBOR nie musi posredniczyc w audio.</div>
+                      <strong>WebRTC widget</strong>
+                      <div style={s.agentHistoryMeta}>Dodaj domene ARBOR w WebRTC widget integration i przypisz numer DID do SIP/PBX. Potem uzyj pola Telefon w przegladarce.</div>
                     </div>
                   </div>
                 </div>

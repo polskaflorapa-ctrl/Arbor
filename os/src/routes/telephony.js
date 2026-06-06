@@ -16,7 +16,7 @@ const {
   normalizePolskaFloraServiceType,
   SERVICE_LABELS,
 } = require('../services/polskaFloraVoiceAgent');
-const { getZadarmaRuntimeConfig, zadarmaRequest } = require('../services/zadarma');
+const { getWebrtcKey, getZadarmaRuntimeConfig, zadarmaRequest } = require('../services/zadarma');
 const { saveProviderSettings } = require('../services/provider-settings');
 
 const router = express.Router();
@@ -141,6 +141,10 @@ const zadarmaSettingsSaveSchema = z.object({
   caller_id: z.string().trim().max(64).optional().nullable(),
 });
 
+const zadarmaWebrtcKeySchema = z.object({
+  sip: z.string().trim().min(1, 'Podaj SIP login albo numer wewnetrzny PBX.').max(128),
+});
+
 const DEFAULT_RETEST_MAX_AGE_DAYS = 14;
 
 const isManagementRole = (user) =>
@@ -219,6 +223,44 @@ router.post('/zadarma/test', authMiddleware, async (req, res) => {
         ? 'Zadarma odrzucila klucze API. Sprawdz API key i API secret w panelu Zadarma, zapisz je ponownie i uruchom Test API.'
         : (zadarmaMessage || 'Test Zadarmy nie przeszedl.'),
       settings: publicZadarmaSettings(await getZadarmaRuntimeConfig().catch(() => ({}))),
+    });
+  }
+});
+
+router.post('/zadarma/webrtc-key', authMiddleware, validateBody(zadarmaWebrtcKeySchema), async (req, res) => {
+  try {
+    if (!canManageGlobalProviderSettings(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    const sip = String(req.body?.sip || '').trim();
+    const data = await getWebrtcKey({ sip });
+    const key = data?.key || data?.webrtc_key || data?.result?.key;
+    if (!key) {
+      return res.status(502).json({
+        ok: false,
+        provider: 'zadarma',
+        code: 'ZADARMA_WEBRTC_KEY_MISSING',
+        error: 'Zadarma nie zwrocila klucza WebRTC. Sprawdz SIP/wewnetrzny numer PBX i integracje WebRTC w panelu Zadarma.',
+      });
+    }
+    return res.json({
+      ok: true,
+      provider: 'zadarma',
+      sip,
+      key,
+      expires_in_hours: 72,
+    });
+  } catch (err) {
+    logger.warn('telephony.zadarma.webrtc_key', { message: err.message, requestId: req.requestId });
+    const zadarmaMessage = String(err.message || '');
+    const isAuthFailure = /not authorized|unauthori[sz]ed|forbidden|401|403/i.test(zadarmaMessage);
+    return res.status(isAuthFailure ? 400 : 502).json({
+      ok: false,
+      provider: 'zadarma',
+      code: isAuthFailure ? 'ZADARMA_AUTH_FAILED' : 'ZADARMA_WEBRTC_KEY_FAILED',
+      error: isAuthFailure
+        ? 'Zadarma odrzucila klucze API. Sprawdz API key i API secret, zapisz je ponownie i uruchom Test API.'
+        : (zadarmaMessage || 'Nie udalo sie pobrac klucza WebRTC z Zadarmy.'),
     });
   }
 });

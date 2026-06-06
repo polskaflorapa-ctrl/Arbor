@@ -15,6 +15,7 @@ jest.mock('../src/services/smsGateway', () => ({
 }));
 
 jest.mock('../src/services/zadarma', () => ({
+  getWebrtcKey: jest.fn(),
   getZadarmaRuntimeConfig: jest.fn(),
   zadarmaRequest: jest.fn(),
 }));
@@ -26,7 +27,7 @@ jest.mock('../src/services/provider-settings', () => ({
 const pool = require('../src/config/database');
 const { appendCrmLeadMessage, appendCrmMessageForContact } = require('../src/services/crmInbox');
 const { sendSmsGateway } = require('../src/services/smsGateway');
-const { getZadarmaRuntimeConfig, zadarmaRequest } = require('../src/services/zadarma');
+const { getWebrtcKey, getZadarmaRuntimeConfig, zadarmaRequest } = require('../src/services/zadarma');
 const { saveProviderSettings } = require('../src/services/provider-settings');
 const telephonyRoutes = require('../src/routes/telephony');
 const { createTestApp } = require('./helpers/create-test-app');
@@ -56,6 +57,7 @@ describe('Telephony routes', () => {
       apiSecretMasked: 'zada***cret',
     });
     zadarmaRequest.mockResolvedValue({ status: 'success', balance: 12.34 });
+    getWebrtcKey.mockResolvedValue({ status: 'success', key: 'WEBRTC-TEMP-KEY' });
     saveProviderSettings.mockResolvedValue({});
     sendSmsGateway.mockResolvedValue({ ok: true, provider: 'mock-sms', sid: 'SM-VOICE-1' });
     pool.query.mockImplementation(async (sql, params = []) => {
@@ -464,6 +466,33 @@ describe('Telephony routes', () => {
       provider: 'zadarma',
       settings: expect.objectContaining({ configured: true }),
     }));
+  });
+
+  it('returns a temporary Zadarma WebRTC key for browser phone', async () => {
+    const res = await request(app)
+      .post('/api/telephony/zadarma/webrtc-key')
+      .set('Authorization', `Bearer ${token({ rola: 'Dyrektor' })}`)
+      .send({ sip: '101' });
+
+    expect(res.status).toBe(200);
+    expect(getWebrtcKey).toHaveBeenCalledWith({ sip: '101' });
+    expect(res.body).toEqual(expect.objectContaining({
+      ok: true,
+      provider: 'zadarma',
+      sip: '101',
+      key: 'WEBRTC-TEMP-KEY',
+      expires_in_hours: 72,
+    }));
+  });
+
+  it('blocks branch manager from requesting Zadarma WebRTC key', async () => {
+    const res = await request(app)
+      .post('/api/telephony/zadarma/webrtc-key')
+      .set('Authorization', `Bearer ${token({ rola: 'Kierownik' })}`)
+      .send({ sip: '101' });
+
+    expect(res.status).toBe(403);
+    expect(getWebrtcKey).not.toHaveBeenCalled();
   });
 
   it('lists calls with manager branch and status filters before in-memory pagination', async () => {
