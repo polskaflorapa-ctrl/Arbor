@@ -914,7 +914,7 @@ router.post('/auth/reset-password', (req, res) => {
   const token = String(req.body?.token || '').trim();
   const haslo = String(req.body?.haslo || req.body?.password || '').trim();
   if (!token || !haslo) return res.status(400).json({ error: 'Token i nowe hasło są wymagane' });
-  if (haslo.length < 6) return res.status(400).json({ error: 'Hasło musi mieć co najmniej 6 znaków' });
+  if (haslo.length < 8) return res.status(400).json({ error: 'Hasło musi mieć co najmniej 8 znaków' });
 
   const row = withStore((state) => {
     const now = Date.now();

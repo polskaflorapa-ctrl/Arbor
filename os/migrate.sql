@@ -45,6 +45,19 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at                  TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  VARCHAR(64) NOT NULL UNIQUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active
+  ON password_reset_tokens (user_id, expires_at)
+  WHERE used_at IS NULL;
+
 -- Klucz obcy kierownik_id w branches (dodawany po utworzeniu users)
 ALTER TABLE branches ADD COLUMN IF NOT EXISTS kierownik_fk INTEGER REFERENCES users(id);
 

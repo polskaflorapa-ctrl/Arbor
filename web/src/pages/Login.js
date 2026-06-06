@@ -113,7 +113,7 @@ export default function Login() {
     setError('');
     setResetStatus('');
     try {
-      if (resetHaslo.length < 6) throw new Error('Hasło musi mieć co najmniej 6 znaków.');
+      if (resetHaslo.length < 8) throw new Error('Hasło musi mieć co najmniej 8 znaków.');
       if (resetHaslo !== resetConfirm) throw new Error('Hasła muszą być takie same.');
       const res = await api.post('/auth/reset-password', { token: resetToken, haslo: resetHaslo });
       setResetStatus(res.data?.message || 'Hasło zostało zmienione. Możesz się zalogować.');
@@ -162,7 +162,7 @@ export default function Login() {
                 <input
                   id={resetPasswordInputId}
                   style={{ ...s.input, paddingLeft: 14 }}
-                  placeholder="Minimum 6 znaków"
+                  placeholder="Minimum 8 znaków"
                   type="password"
                   value={resetHaslo}
                   onChange={(e) => setResetHaslo(e.target.value)}

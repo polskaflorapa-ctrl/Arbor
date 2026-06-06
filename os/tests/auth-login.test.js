@@ -6,7 +6,12 @@ jest.mock('../src/config/database', () => ({
   query: jest.fn(),
 }));
 
+jest.mock('../src/services/systemEmail', () => ({
+  sendSystemEmailOptional: jest.fn(),
+}));
+
 const pool = require('../src/config/database');
+const { sendSystemEmailOptional } = require('../src/services/systemEmail');
 const authRoutes = require('../src/routes/auth');
 const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
@@ -17,6 +22,7 @@ describe('Auth routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     pool.query.mockReset();
+    sendSystemEmailOptional.mockReset();
     if (typeof authRoutes.__resetLoginLimiterForTests === 'function') {
       authRoutes.__resetLoginLimiterForTests();
     }
@@ -150,6 +156,102 @@ describe('Auth routes', () => {
     expect(typeof blocked.body.requestId).toBe('string');
     expect(blocked.headers['retry-after']).toBeDefined();
   });
+  });
+
+  describe('POST /api/auth/forgot-password', () => {
+    it('creates a reset token and sends an email for an active user', async () => {
+      sendSystemEmailOptional.mockResolvedValue({ sent: true });
+      pool.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 7, login: 'jan', imie: 'Jan', email: 'jan@example.com' }],
+        })
+        .mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ identifier: 'jan@example.com' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.email).toEqual({ sent: true });
+      expect(res.body.dev_reset_url).toContain('/#/login?resetToken=');
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('CREATE TABLE IF NOT EXISTS password_reset_tokens'));
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active'));
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('FROM users'), ['jan@example.com']);
+      expect(pool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO password_reset_tokens'),
+        expect.arrayContaining([7, expect.stringMatching(/^[a-f0-9]{64}$/), expect.any(Date)])
+      );
+      expect(sendSystemEmailOptional).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'jan@example.com',
+          subject: 'Reset hasla ARBOR-OS',
+          text: expect.stringContaining('Kliknij link'),
+        })
+      );
+    });
+
+    it('returns a generic response when account is missing', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const res = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ identifier: 'ghost@example.com' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(sendSystemEmailOptional).not.toHaveBeenCalled();
+      expect(pool.query).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('POST /api/auth/reset-password', () => {
+    it('updates password hash and marks the reset token as used', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ id: 11, user_id: 7 }] })
+        .mockResolvedValueOnce({ rowCount: 1 })
+        .mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: 'reset-token', haslo: 'nowe-haslo123' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ ok: true, message: 'Haslo zostalo zmienione. Mozesz sie zalogowac.' });
+      expect(pool.query).toHaveBeenCalledWith(
+        expect.stringContaining('FROM password_reset_tokens'),
+        [expect.stringMatching(/^[a-f0-9]{64}$/)]
+      );
+      expect(pool.query).toHaveBeenCalledWith(
+        'UPDATE users SET haslo_hash = $1 WHERE id = $2',
+        [expect.any(String), 7]
+      );
+      expect(pool.query).toHaveBeenCalledWith(
+        'UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1',
+        [11]
+      );
+    });
+
+    it('rejects an expired or invalid reset token', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: 'bad-token', haslo: 'nowe-haslo123' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Link resetujacy jest nieprawidlowy albo wygasl');
+    });
   });
 
   describe('GET /api/auth/me', () => {
