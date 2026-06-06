@@ -388,7 +388,7 @@ describe('Telephony routes', () => {
           rows: [
             { id: 1, oddzial_id: 2, phone: '+48111111111', status: 'answered', created_at: '2026-05-27T10:00:00.000Z' },
             { id: 2, oddzial_id: 2, phone: '+48222222222', status: 'missed', created_at: '2026-05-27T09:00:00.000Z' },
-            { id: 3, oddzial_id: 2, phone: '+48333333333', status: 'answered', created_at: '2026-05-27T08:00:00.000Z' },
+            { id: -3, oddzial_id: 2, phone: '+48333333333', status: 'answered', created_at: '2026-05-27T08:00:00.000Z', source: 'system', lead_id: 77, lead_name: 'Lead z nagrania' },
           ],
           rowCount: 3,
         };
@@ -506,7 +506,14 @@ describe('Telephony routes', () => {
 
     const selectCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('FROM telephony_call_logs c'));
     expect(selectCall[0]).toContain('WHERE x.oddzial_id = $1 AND x.status = $2');
+    expect(selectCall[0]).toContain('LEFT JOIN crm_leads l ON l.id = p.lead_id');
     expect(selectCall[1]).toEqual([2, 'answered']);
+    expect(res.body.items[1]).toMatchObject({
+      id: -3,
+      source: 'system',
+      lead_id: 77,
+      lead_name: 'Lead z nagrania',
+    });
   });
 
   it('scopes call listing to branch users own branch', async () => {

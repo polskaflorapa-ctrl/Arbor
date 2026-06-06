@@ -17,6 +17,7 @@ jest.mock('../src/services/kommo', () => ({
 }));
 
 const logger = require('../src/config/logger');
+const pool = require('../src/config/database');
 const { appendCrmMessageForContact } = require('../src/services/crmInbox');
 const { syncPhoneCallToKommo } = require('../src/services/kommo');
 const { publishPhoneCallArtifacts } = require('../src/services/phone-call-pipeline');
@@ -24,9 +25,10 @@ const { publishPhoneCallArtifacts } = require('../src/services/phone-call-pipeli
 describe('phone call pipeline Kommo publishing', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    pool.query.mockResolvedValue({ rows: [] });
   });
 
-  test('passes ARBOR CRM call note to Kommo recording sync', async () => {
+  test('attaches ARBOR CRM lead to the phone conversation before optional Kommo sync', async () => {
     const crmMessage = {
       id: 55,
       lead_id: 12,
@@ -46,6 +48,10 @@ describe('phone call pipeline Kommo publishing', () => {
     });
 
     expect(result).toBe(crmMessage);
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE phone_call_conversations SET lead_id = $2'),
+      ['zadarma:pbx-call-3', 12]
+    );
     expect(syncPhoneCallToKommo).toHaveBeenCalledWith(expect.objectContaining({
       callSid: 'zadarma:pbx-call-3',
       clientNumber: '+48500600700',

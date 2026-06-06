@@ -1727,6 +1727,7 @@ router.get('/calls', authMiddleware, validateQuery(callsListQuerySchema), async 
           c.status,
           c.duration_sec,
           c.task_id,
+          NULL::integer AS lead_id,
           c.lead_name,
           c.notes,
           c.created_by,
@@ -1742,14 +1743,16 @@ router.get('/calls', authMiddleware, validateQuery(callsListQuerySchema), async 
           COALESCE(p.status, 'unknown') AS status,
           COALESCE(p.recording_duration_sec, 0) AS duration_sec,
           p.task_id,
-          NULL::text AS lead_name,
-          p.error_message AS notes,
+          p.lead_id,
+          COALESCE(l.title, NULL)::text AS lead_name,
+          COALESCE(p.raport, p.error_message) AS notes,
           p.user_id AS created_by,
           p.created_at,
           'system'::text AS source
         FROM phone_call_conversations p
         LEFT JOIN tasks t ON t.id = p.task_id
         LEFT JOIN users u ON u.id = p.user_id
+        LEFT JOIN crm_leads l ON l.id = p.lead_id
       ) x
       ${statusSql}
       ORDER BY x.created_at DESC

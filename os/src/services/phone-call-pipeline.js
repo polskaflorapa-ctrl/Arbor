@@ -18,6 +18,7 @@ async function ensurePhoneCallsTable() {
       twilio_recording_sid VARCHAR(64),
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
       staff_number VARCHAR(40),
       client_number VARCHAR(40),
       recording_url TEXT,
@@ -42,7 +43,11 @@ async function ensurePhoneCallsTable() {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_phone_calls_task ON phone_call_conversations(task_id)`
   ).catch(() => {});
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_phone_calls_lead ON phone_call_conversations(lead_id)`
+  ).catch(() => {});
   const archiveAlters = [
+    `ALTER TABLE phone_call_conversations ADD COLUMN IF NOT EXISTS lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL`,
     `ALTER TABLE phone_call_conversations ADD COLUMN IF NOT EXISTS recording_archive_backend VARCHAR(16)`,
     `ALTER TABLE phone_call_conversations ADD COLUMN IF NOT EXISTS recording_archive_ref TEXT`,
     `ALTER TABLE phone_call_conversations ADD COLUMN IF NOT EXISTS recording_archive_url TEXT`,
@@ -225,7 +230,7 @@ async function setStatusError(callSid, message) {
 async function processRecordingPipeline(callSid) {
   await ensurePhoneCallsTable();
   const { rows } = await pool.query(
-    `SELECT id, twilio_call_sid, twilio_recording_sid, recording_url, recording_archive_url, client_number FROM phone_call_conversations WHERE twilio_call_sid = $1`,
+    `SELECT id, twilio_call_sid, twilio_recording_sid, recording_url, recording_archive_url, client_number, lead_id FROM phone_call_conversations WHERE twilio_call_sid = $1`,
     [callSid]
   );
   if (!rows.length || !rows[0].recording_url) {
@@ -363,6 +368,13 @@ async function appendPhoneCallCrmNote({ callSid, clientNumber, transcript, rapor
 
 async function publishPhoneCallArtifacts(args) {
   const crmMessage = await appendPhoneCallCrmNote(args);
+  if (crmMessage?.lead_id && args.callSid) {
+    await ensurePhoneCallsTable();
+    await pool.query(
+      `UPDATE phone_call_conversations SET lead_id = $2, updated_at = NOW() WHERE twilio_call_sid = $1`,
+      [args.callSid, crmMessage.lead_id]
+    );
+  }
   await syncPhoneCallToKommo({ ...args, crmMessage }).catch((err) => {
     logger.warn('phone-call-pipeline kommo sync failed', {
       callSid: args.callSid,

@@ -4112,6 +4112,7 @@ export default function Telefonia() {
                       { label: 'Typ', value: x.call_type || 'brak' },
                       { label: 'Czas', value: x.duration_sec != null ? `${x.duration_sec}s` : 'brak', tone: x.duration_sec ? 'success' : undefined },
                       { label: 'Kontakt', value: x.lead_name || 'brak', mono: false },
+                      { label: 'CRM', value: x.lead_id ? `Lead #${x.lead_id}` : 'brak', tone: x.lead_id ? 'success' : undefined },
                       { label: 'Zlecenie', value: x.task_id ? `#${x.task_id}` : 'brak', tone: x.task_id ? 'info' : undefined },
                       { label: 'Notatka', value: x.notes || 'brak', mono: false },
                     ]}
@@ -4125,6 +4126,11 @@ export default function Telefonia() {
                         {x.task_id ? (
                           <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
                             #{x.task_id}
+                          </button>
+                        ) : null}
+                        {x.lead_id ? (
+                          <button type="button" style={s.rowBtnActive} onClick={() => navigate(`/crm/pipeline?lead_id=${x.lead_id}`)}>
+                            Otworz CRM
                           </button>
                         ) : null}
                       </>
