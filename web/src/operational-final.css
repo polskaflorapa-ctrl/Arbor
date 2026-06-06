@@ -2,13 +2,70 @@
 
 .dashboard-shell,
 .fleet-shell,
-.hr-docs-shell {
+.hr-docs-shell,
+.zlecenia-main,
+.harmonogram-main,
+.crm-pipeline-main,
+.crm-dashboard-main,
+.crm-inbox-main,
+.ekipy-main,
+.kierownik-main,
+.telefonia-main,
+.mapa-live-main,
+.warehouse-main,
+.equipment-res-main,
+.calendar-blocks-main,
+.bi-dashboard-main,
+.accounting-main,
+.payroll-m11-main,
+.users-main,
+.branches-main,
+.roles-admin-shell,
+.integrations-main,
+.estimator-pay-main,
+.field-settlements-main,
+.quote-approval-main,
+.estimator-hub-main,
+.quote-draw-main,
+.operator-tasks-main,
+.field-quotes-main,
+.field-quote-detail-main,
+.profile-main,
+.notifications-main {
   background: #f5f7f8 !important;
 }
 
 .dashboard-main,
 .fleet-main,
-.hr-docs-main {
+.hr-docs-main,
+.zlecenia-main,
+.harmonogram-main,
+.crm-pipeline-main,
+.crm-dashboard-main,
+.crm-inbox-main,
+.ekipy-main,
+.kierownik-main,
+.telefonia-main,
+.mapa-live-main,
+.warehouse-main,
+.equipment-res-main,
+.calendar-blocks-main,
+.bi-dashboard-main,
+.accounting-main,
+.payroll-m11-main,
+.users-main,
+.branches-main,
+.integrations-main,
+.estimator-pay-main,
+.field-settlements-main,
+.quote-approval-main,
+.estimator-hub-main,
+.quote-draw-main,
+.operator-tasks-main,
+.field-quotes-main,
+.field-quote-detail-main,
+.profile-main,
+.notifications-main {
   max-width: none !important;
   margin: 0 !important;
   padding: 18px 28px 120px !important;
@@ -23,7 +80,22 @@
 .fleet-main .module-page-header,
 .fleet-main .module-page-header-hero,
 .fleet-main .module-page-header-plain,
-.hr-docs-header {
+.hr-docs-header,
+.module-page-header,
+.module-page-header-hero,
+.module-page-header-plain,
+.harmonogram-header,
+.crm-kommo-topbar,
+.bi-dashboard-topbar,
+.calendar-blocks-header,
+.field-settlements-header,
+.quote-approval-header,
+.estimator-hub-hero,
+.quote-draw-topbar,
+.operator-tasks-header,
+.profile-header,
+.mapa-live-hero,
+.users-header-panel {
   background: #ffffff !important;
   border: 1px solid var(--border) !important;
   border-left: 4px solid var(--accent) !important;
@@ -41,7 +113,13 @@
 .fleet-main .module-page-header h1,
 .fleet-main .module-page-header-hero h1,
 .fleet-main .module-page-header-plain h1,
-.hr-docs-header h1 {
+.hr-docs-header h1,
+.module-page-header h1,
+.module-page-header-hero h1,
+.module-page-header-plain h1,
+.crm-kommo-brand h1,
+.bi-dashboard-topbar h1,
+.estimator-hub-hero h1 {
   color: #10251b !important;
   font-size: 30px !important;
   line-height: 1.12 !important;
@@ -53,7 +131,32 @@
 .dashboard-content-grid,
 .dashboard-lower-grid,
 .fleet-kpi-grid,
-.hr-docs-stats {
+.hr-docs-stats,
+.zlecenia-daily-grid,
+.zlecenia-ops-grid,
+.zlecenia-list-grid,
+.harmonogram-dispatch-grid,
+.harmonogram-dispatch-kpis,
+.crm-kommo-kpis,
+.crm-kommo-workspace,
+.crm-dashboard-kpis,
+.crm-dashboard-grid,
+.crm-inbox-grid,
+.ekipy-summary-grid,
+.ekipy-workspace-grid,
+.kierownik-cards-grid,
+.mapa-live-kpis,
+.equipment-res-kpis,
+.warehouse-list,
+.branches-grid,
+.branches-delegations-grid,
+.bi-dashboard-kpis,
+.bi-dashboard-two-col,
+.accounting-filters,
+.operator-tasks-grid,
+.field-quotes-grid,
+.profile-stat-grid,
+.profile-grid {
   gap: 12px !important;
   margin-bottom: 12px !important;
 }
@@ -68,7 +171,135 @@
 .fleet-list-panel,
 .fleet-repairs-wrap,
 .hr-docs-stats > *,
-.hr-docs-panel {
+.hr-docs-panel,
+.zlecenia-data-card,
+.zlecenia-kanban-card,
+.zlecenia-list-grid > *,
+.zlecenia-task-photos-panel,
+.zlecenia-stage-owner,
+.zlecenia-office-decision-board,
+.zlecenia-detail-repair-panel,
+.zlecenia-office-planning-queue,
+.zlecenia-crew-brief,
+.zlecenia-detail-hero,
+.zlecenia-detail-passport,
+.zlecenia-office-plan,
+.zlecenia-detail-decision,
+.zlecenia-workflow-path,
+.zlecenia-form-readiness > *,
+.harmonogram-dispatch-panel,
+.harmonogram-quick-panel,
+.harmonogram-calendar-wrap,
+.harmonogram-legend,
+.crm-dashboard-action,
+.crm-dashboard-filters,
+.crm-dashboard-panel,
+.crm-dashboard-kpis > .ios-inset,
+.crm-pipeline-create,
+.crm-pipeline-filters,
+.crm-pipeline-panel,
+.crm-pipeline-column,
+.crm-pipeline-lead-card,
+.crm-kommo-kpis > div,
+.crm-kommo-side-rail .ios-inset,
+.crm-inbox-filters,
+.crm-inbox-list-panel,
+.crm-inbox-detail-panel,
+.crm-inbox-history,
+.crm-inbox-reply,
+.crm-inbox-message-row,
+.ekipy-summary-card,
+.ekipy-form-panel,
+.ekipy-team-card,
+.ekipy-detail-panel,
+.ekipy-member-form,
+.ekipy-salary-calculator,
+.kierownik-cockpit-panel,
+.kierownik-filters,
+.kierownik-branches > *,
+.kierownik-cards-grid > *,
+.telefonia-panel,
+.telefonia-manual-box,
+.telefonia-tabs,
+.telefonia-kpis > *,
+.telefonia-filters,
+.mapa-live-toolbar,
+.mapa-live-office-panel,
+.mapa-live-dispatch-panel,
+.mapa-live-history-panel,
+.mapa-live-kpis > *,
+.warehouse-card,
+.warehouse-state-panel,
+.equipment-res-monthbar,
+.equipment-res-kpis,
+.equipment-res-filters,
+.equipment-res-table,
+.calendar-blocks-card,
+.calendar-blocks-empty,
+.calendar-blocks-modal,
+.bi-dashboard-actions,
+.bi-dashboard-periods,
+.bi-dashboard-tabs,
+.bi-dashboard-kpis > *,
+.accounting-kpi-card,
+.accounting-tabs,
+.accounting-card,
+.payroll-m11-card,
+.payroll-m11-report-card,
+.users-filters,
+.users-card,
+.users-list-card,
+.users-competency-list .modern-data-row,
+.branches-tabs,
+.branches-form-panel,
+.branches-card,
+.branches-delegation-card,
+.branches-empty,
+.roles-admin-sidebar,
+.roles-admin-editor,
+.roles-admin-empty,
+.roles-admin-summary,
+.roles-admin-perm-group,
+.integrations-metric-card,
+.integrations-main > div[style*='box-shadow'],
+.integrations-filters,
+.integrations-main .modern-data-row,
+.integrations-main .modern-data-empty,
+.estimator-pay-card,
+.field-settlements-taskbar,
+.field-settlements-tabs,
+.field-settlements-panel,
+.field-settlements-worker-card,
+.field-settlements-main .modern-data-row,
+.quote-approval-tabs,
+.quote-approval-card,
+.quote-approval-empty,
+.quote-approval-modal,
+.estimator-hub-section,
+.estimator-hub-kpi-card,
+.estimator-hub-hint,
+.estimator-hub-platinum,
+.estimator-hub-tile,
+.quote-draw-workbench,
+.quote-draw-toolbar,
+.quote-draw-canvas-frame,
+.operator-tasks-stats > div,
+.operator-tasks-panel,
+.operator-tasks-list .modern-data-row,
+.operator-tasks-list .modern-data-empty,
+.field-quotes-tabs,
+.field-quotes-card,
+.field-quotes-grid > div,
+.field-quote-detail-card,
+.profile-stat,
+.profile-panel,
+.profile-task-form,
+.profile-position-form,
+.profile-rows > div,
+.notifications-form,
+.notifications-card,
+.notifications-item,
+.notifications-route-brief-notice {
   background: #ffffff !important;
   border: 1px solid var(--border) !important;
   border-left: 4px solid var(--accent) !important;
@@ -84,9 +315,115 @@
 .fleet-tabs,
 .fleet-resource-row,
 .hr-docs-toolbar,
-.hr-docs-panel .modern-data-row {
+.hr-docs-panel .modern-data-row,
+.crm-pipeline-board,
+.harmonogram-slot-board,
+.telefonia-panel table,
+.mapa-live-dispatch-panel [style*='overflow'],
+.mapa-live-history-panel [style*='overflow'],
+.equipment-res-table,
+.modern-data-row,
+.MuiPaper-root,
+.MuiCard-root {
   border-radius: 8px !important;
   box-shadow: none !important;
+}
+
+.dashboard-decision-strip > *:nth-child(3n),
+.dashboard-kpi-grid > *:nth-child(3n),
+.zlecenia-daily-grid > *:nth-child(3n),
+.zlecenia-ops-grid > *:nth-child(3n),
+.crm-kommo-kpis > div:nth-child(3n),
+.ekipy-summary-grid > *:nth-child(3n),
+.bi-dashboard-kpis > *:nth-child(3n),
+.hr-docs-stats > *:nth-child(3n) {
+  border-left-color: #b7791f !important;
+}
+
+.dashboard-decision-strip > *:nth-child(4n),
+.dashboard-kpi-grid > *:nth-child(4n),
+.zlecenia-daily-grid > *:nth-child(4n),
+.zlecenia-ops-grid > *:nth-child(4n),
+.crm-kommo-kpis > div:nth-child(4n),
+.ekipy-summary-grid > *:nth-child(4n),
+.bi-dashboard-kpis > *:nth-child(4n),
+.hr-docs-stats > *:nth-child(4n) {
+  border-left-color: #256f9c !important;
+}
+
+.zlecenia-list-grid,
+.crm-pipeline-board,
+.crm-kommo-card-list,
+.modern-data-stack,
+.operator-tasks-list {
+  gap: 8px !important;
+}
+
+.crm-pipeline-board {
+  min-height: 480px !important;
+  overflow-x: auto !important;
+  padding-bottom: 12px !important;
+}
+
+.crm-pipeline-column {
+  min-width: 245px !important;
+}
+
+.crm-kommo-inspector {
+  border-radius: 12px !important;
+  background: #f8faf9 !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22) !important;
+}
+
+.MuiTableCell-head,
+#root th,
+.dashboard-orders-table [style*='grid-template-columns'],
+.zlecenia-list-cards-header,
+.crm-pipeline-column header {
+  background: #f6f8f7 !important;
+  color: var(--text-sub) !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0 !important;
+}
+
+button,
+#root .MuiButton-root,
+.ios-btn,
+input,
+select,
+textarea,
+.ios-field {
+  border-radius: 6px !important;
+}
+
+button,
+#root .MuiButton-root,
+.ios-btn {
+  min-height: 34px;
+  font-size: 13px !important;
+  font-weight: 750 !important;
+  text-transform: none !important;
+}
+
+input,
+select,
+textarea,
+.ios-field {
+  min-height: 36px;
+  background: #ffffff !important;
+  border-color: rgba(23, 35, 30, 0.14) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+button:hover,
+#root .MuiButton-root:hover,
+.ios-btn:hover,
+.modern-data-row:hover {
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
 .fleet-main {
@@ -128,6 +465,24 @@
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
+  .zlecenia-daily-grid,
+  .zlecenia-ops-grid,
+  .zlecenia-list-grid,
+  .harmonogram-dispatch-grid,
+  .crm-dashboard-grid,
+  .crm-dashboard-kpis,
+  .crm-inbox-grid,
+  .ekipy-summary-grid,
+  .ekipy-workspace-grid,
+  .kierownik-cards-grid,
+  .mapa-live-kpis,
+  .equipment-res-kpis,
+  .branches-grid,
+  .bi-dashboard-two-col,
+  .profile-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .hr-docs-stats {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
@@ -141,7 +496,35 @@
 @media (max-width: 760px) {
   .dashboard-main,
   .fleet-main,
-  .hr-docs-main {
+  .hr-docs-main,
+  .zlecenia-main,
+  .harmonogram-main,
+  .crm-pipeline-main,
+  .crm-dashboard-main,
+  .crm-inbox-main,
+  .ekipy-main,
+  .kierownik-main,
+  .telefonia-main,
+  .mapa-live-main,
+  .warehouse-main,
+  .equipment-res-main,
+  .calendar-blocks-main,
+  .bi-dashboard-main,
+  .accounting-main,
+  .payroll-m11-main,
+  .users-main,
+  .branches-main,
+  .integrations-main,
+  .estimator-pay-main,
+  .field-settlements-main,
+  .quote-approval-main,
+  .estimator-hub-main,
+  .quote-draw-main,
+  .operator-tasks-main,
+  .field-quotes-main,
+  .field-quote-detail-main,
+  .profile-main,
+  .notifications-main {
     padding: 10px 10px 152px !important;
   }
 
@@ -149,7 +532,22 @@
   .fleet-main .module-page-header,
   .fleet-main .module-page-header-hero,
   .fleet-main .module-page-header-plain,
-  .hr-docs-header {
+  .hr-docs-header,
+  .module-page-header,
+  .module-page-header-hero,
+  .module-page-header-plain,
+  .harmonogram-header,
+  .crm-kommo-topbar,
+  .bi-dashboard-topbar,
+  .calendar-blocks-header,
+  .field-settlements-header,
+  .quote-approval-header,
+  .estimator-hub-hero,
+  .quote-draw-topbar,
+  .operator-tasks-header,
+  .profile-header,
+  .mapa-live-hero,
+  .users-header-panel {
     min-height: 0 !important;
     padding: 12px !important;
     margin-bottom: 8px !important;
@@ -159,7 +557,13 @@
   .fleet-main .module-page-header h1,
   .fleet-main .module-page-header-hero h1,
   .fleet-main .module-page-header-plain h1,
-  .hr-docs-header h1 {
+  .hr-docs-header h1,
+  .module-page-header h1,
+  .module-page-header-hero h1,
+  .module-page-header-plain h1,
+  .crm-kommo-brand h1,
+  .bi-dashboard-topbar h1,
+  .estimator-hub-hero h1 {
     font-size: 24px !important;
     line-height: 1.08 !important;
   }
@@ -167,7 +571,14 @@
   .dashboard-main > .dashboard-kpi-grid,
   .dashboard-main > .dashboard-decision-strip,
   .fleet-kpi-grid,
-  .hr-docs-stats {
+  .hr-docs-stats,
+  .zlecenia-daily-grid,
+  .zlecenia-ops-grid,
+  .crm-kommo-kpis,
+  .ekipy-summary-grid,
+  .equipment-res-kpis,
+  .bi-dashboard-kpis,
+  .profile-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 7px !important;
     margin-bottom: 8px !important;
@@ -192,8 +603,38 @@
   .dashboard-content-grid,
   .dashboard-lower-grid,
   .hr-docs-toolbar,
-  .hr-docs-panel .modern-data-row__metric-grid {
+  .hr-docs-panel .modern-data-row__metric-grid,
+  .zlecenia-list-grid,
+  .harmonogram-dispatch-grid,
+  .crm-kommo-workspace,
+  .crm-dashboard-grid,
+  .crm-inbox-grid,
+  .ekipy-workspace-grid,
+  .kierownik-cards-grid,
+  .mapa-live-office-panel [style*='grid-template-columns'],
+  .mapa-live-dispatch-panel [style*='grid-template-columns'],
+  .accounting-filters,
+  .roles-admin-layout,
+  .integrations-filters,
+  .field-quotes-grid,
+  .profile-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  .crm-pipeline-board {
+    grid-template-columns: repeat(6, minmax(250px, 86vw)) !important;
+  }
+
+  .crm-pipeline-column {
+    min-width: 250px !important;
+  }
+
+  .telefonia-panel,
+  .mapa-live-office-panel,
+  .mapa-live-dispatch-panel,
+  .mapa-live-history-panel,
+  .quote-draw-workbench {
+    overflow-x: auto !important;
   }
 
   .fleet-tabs {
