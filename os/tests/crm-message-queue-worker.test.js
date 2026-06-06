@@ -4,7 +4,7 @@ jest.mock('../src/config/database', () => ({
 }));
 
 jest.mock('../src/services/smsGateway', () => ({
-  activeSmsProvider: jest.fn(() => null),
+  activeSmsProvider: jest.fn(async () => null),
   sendSmsGateway: jest.fn(),
 }));
 
@@ -13,7 +13,7 @@ jest.mock('../src/services/systemEmail', () => ({
 }));
 
 const pool = require('../src/config/database');
-const { sendSmsGateway } = require('../src/services/smsGateway');
+const { activeSmsProvider, sendSmsGateway } = require('../src/services/smsGateway');
 const { sendSystemEmailOptional } = require('../src/services/systemEmail');
 const { getMessageProviderStatus, processMessageQueue } = require('../src/services/crmMessageQueue');
 
@@ -40,6 +40,8 @@ function queuedMessage(overrides = {}) {
 describe('CRM message queue worker', () => {
   beforeEach(() => {
     pool.query.mockReset();
+    activeSmsProvider.mockReset();
+    activeSmsProvider.mockResolvedValue(null);
     sendSmsGateway.mockReset();
     sendSystemEmailOptional.mockReset();
   });
@@ -101,11 +103,13 @@ describe('CRM message queue worker', () => {
     expect(updateCall[1][1]).toBe('no_smtp');
   });
 
-  it('describes provider readiness for CRM channels', () => {
-    const status = getMessageProviderStatus();
+  it('describes provider readiness for CRM channels', async () => {
+    activeSmsProvider.mockResolvedValue('zadarma');
+
+    const status = await getMessageProviderStatus();
 
     expect(status.channels).toEqual(expect.arrayContaining([
-      expect.objectContaining({ channel: 'sms', ready: expect.any(Boolean) }),
+      expect.objectContaining({ channel: 'sms', ready: true, provider: 'zadarma' }),
       expect.objectContaining({ channel: 'email', ready: expect.any(Boolean) }),
       expect.objectContaining({ channel: 'whatsapp', ready: false, provider: null }),
     ]));

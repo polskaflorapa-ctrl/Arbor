@@ -16,8 +16,8 @@ function pickRecipient(message) {
   return String(message.recipient_handle || message.lead_phone || '').trim();
 }
 
-function getMessageProviderStatus() {
-  const smsProvider = activeSmsProvider();
+async function getMessageProviderStatus() {
+  const smsProvider = await activeSmsProvider();
   const smtpReady = Boolean(env.SMTP_USER && env.SMTP_PASS);
   return {
     worker: {

@@ -14,9 +14,20 @@ jest.mock('../src/services/smsGateway', () => ({
   sendSmsGateway: jest.fn(),
 }));
 
+jest.mock('../src/services/zadarma', () => ({
+  getZadarmaRuntimeConfig: jest.fn(),
+  zadarmaRequest: jest.fn(),
+}));
+
+jest.mock('../src/services/provider-settings', () => ({
+  saveProviderSettings: jest.fn(),
+}));
+
 const pool = require('../src/config/database');
 const { appendCrmLeadMessage, appendCrmMessageForContact } = require('../src/services/crmInbox');
 const { sendSmsGateway } = require('../src/services/smsGateway');
+const { getZadarmaRuntimeConfig, zadarmaRequest } = require('../src/services/zadarma');
+const { saveProviderSettings } = require('../src/services/provider-settings');
 const telephonyRoutes = require('../src/routes/telephony');
 const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
@@ -34,6 +45,18 @@ describe('Telephony routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     env.VOICE_AGENT_WEBHOOK_SECRET = 'voice-secret';
+    env.PUBLIC_BASE_URL = 'https://api.test.example';
+    getZadarmaRuntimeConfig.mockResolvedValue({
+      apiKey: 'zadarma-key',
+      apiSecret: 'zadarma-secret',
+      callerId: 'ARBOR',
+      source: 'database',
+      updated_at: '2026-06-06T10:00:00.000Z',
+      apiKeyMasked: 'zada***-key',
+      apiSecretMasked: 'zada***cret',
+    });
+    zadarmaRequest.mockResolvedValue({ status: 'success', balance: 12.34 });
+    saveProviderSettings.mockResolvedValue({});
     sendSmsGateway.mockResolvedValue({ ok: true, provider: 'mock-sms', sid: 'SM-VOICE-1' });
     pool.query.mockImplementation(async (sql, params = []) => {
       const text = String(sql);
@@ -382,6 +405,65 @@ describe('Telephony routes', () => {
       }
       return { rows: [], rowCount: 0 };
     });
+  });
+
+  it('returns masked Zadarma settings for global managers', async () => {
+    const res = await request(app)
+      .get('/api/telephony/zadarma/settings')
+      .set('Authorization', `Bearer ${token({ rola: 'Dyrektor' })}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      configured: true,
+      source: 'database',
+      api_key_masked: 'zada***-key',
+      api_secret_masked: 'zada***cret',
+      caller_id: 'ARBOR',
+      sms_webhook_url: 'https://api.test.example/api/sms/webhooks/zadarma',
+    }));
+    expect(res.text).not.toContain('zadarma-secret');
+  });
+
+  it('blocks branch manager from global Zadarma settings', async () => {
+    const res = await request(app)
+      .get('/api/telephony/zadarma/settings')
+      .set('Authorization', `Bearer ${token({ rola: 'Kierownik' })}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('saves Zadarma settings without echoing secrets', async () => {
+    const res = await request(app)
+      .put('/api/telephony/zadarma/settings')
+      .set('Authorization', `Bearer ${token({ rola: 'Dyrektor' })}`)
+      .send({
+        api_key: 'new-key',
+        api_secret: 'new-secret',
+        caller_id: 'ARBOR',
+      });
+
+    expect(res.status).toBe(200);
+    expect(saveProviderSettings).toHaveBeenCalledWith('zadarma', expect.objectContaining({
+      config: { caller_id: 'ARBOR' },
+      secrets: { api_key: 'new-key', api_secret: 'new-secret' },
+      updatedBy: 7,
+    }));
+    expect(res.text).not.toContain('new-secret');
+  });
+
+  it('tests Zadarma API using saved runtime settings', async () => {
+    const res = await request(app)
+      .post('/api/telephony/zadarma/test')
+      .set('Authorization', `Bearer ${token({ rola: 'Dyrektor' })}`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(zadarmaRequest).toHaveBeenCalledWith('GET', '/v1/info/', {});
+    expect(res.body).toEqual(expect.objectContaining({
+      ok: true,
+      provider: 'zadarma',
+      settings: expect.objectContaining({ configured: true }),
+    }));
   });
 
   it('lists calls with manager branch and status filters before in-memory pagination', async () => {

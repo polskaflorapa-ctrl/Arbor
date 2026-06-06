@@ -1371,7 +1371,7 @@ router.get('/messages/inbox', async (req, res) => {
 });
 
 router.get('/messages/providers', async (_req, res) => {
-  res.json(getMessageProviderStatus());
+  res.json(await getMessageProviderStatus());
 });
 
 router.patch('/messages/:messageId/status', validateBody(patchMessageStatusSchema), async (req, res) => {

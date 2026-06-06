@@ -107,7 +107,20 @@ EXPO_PUBLIC_EXPECTED_API_VERSION=1.0.0
 
 ## Zadarma jako glowna telefonia/SMS
 
-Ustaw w `os/.env` albo panelu hostingu:
+Najprosciej ustawic Zadarme w panelu webowym:
+
+```text
+Telefonia -> Zadarma
+```
+
+Wklej tam `API key`, `API secret` i `caller_id`/nadawce SMS, a potem kliknij `Test API`.
+Klucze zapisane z panelu sa trzymane w bazie w postaci szyfrowanej i uzywane przez:
+
+- wysylke SMS,
+- statusy dostarczenia SMS,
+- przycisk `Telefon / polacz do klienta` przez Zadarma Callback API.
+
+Alternatywnie ustaw w `os/.env` albo panelu hostingu:
 
 ```env
 ZADARMA_API_KEY=<key>
@@ -117,11 +130,6 @@ PUBLIC_BASE_URL=https://api.twoja-domena.pl
 ```
 
 `ZADARMA_API_KEY` i `ZADARMA_API_SECRET` bierz z panelu Zadarma: **Settings / Integrations and API / API keys**.
-Po ustawieniu tych zmiennych ARBOR uzywa Zadarmy jako pierwszego dostawcy dla:
-
-- wysylki SMS,
-- statusow dostarczenia SMS,
-- przycisku `Telefon / polacz do klienta` przez Zadarma Callback API.
 
 Przycisk `polacz do klienta` dzwoni najpierw na numer telefonu zapisany w profilu uzytkownika ARBOR, a po odebraniu laczy z numerem klienta.
 Dlatego kazdy uzytkownik, ktory ma dzwonic z panelu, musi miec uzupelnione pole `telefon` w formacie `+48...`.
