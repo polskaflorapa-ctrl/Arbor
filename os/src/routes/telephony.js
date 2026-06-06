@@ -1225,7 +1225,7 @@ router.patch(
            SET title = $2,
                phone = COALESCE(NULLIF($3, ''), phone),
                notes = $4,
-               stage = CASE WHEN $5::timestamptz IS NOT NULL THEN 'OglÄ™dziny' ELSE stage END,
+               stage = CASE WHEN $5::timestamptz IS NOT NULL THEN 'Oględziny' ELSE stage END,
                next_action_at = COALESCE($5::timestamptz, next_action_at),
                client_id = COALESCE($6, client_id),
                updated_by = $7,
@@ -1251,7 +1251,7 @@ router.patch(
           [
             voiceAgentLeadTitle(merged, merged.service_type),
             existing.oddzial_id,
-            merged.appointment_at ? 'OglÄ™dziny' : 'Lead',
+            merged.appointment_at ? 'Oględziny' : 'Lead',
             merged.caller_phone || null,
             notes,
             JSON.stringify(['voice-agent', 'polska-flora', merged.service_type]),

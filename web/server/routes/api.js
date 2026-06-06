@@ -590,7 +590,7 @@ function taskActivityDate(task) {
 }
 
 function completedStatus(status) {
-  return ['zakonczone', 'zakończone', 'zakoĹ„czone', 'zakonczony', 'zakończony'].includes(String(status || '').toLowerCase());
+  return ['zakonczone', 'zakończone', 'zakonczony', 'zakończony'].includes(String(status || '').toLowerCase());
 }
 
 function scoreLocalTeam(row) {
@@ -2607,7 +2607,7 @@ router.post('/operator-tasks', requireAuth, (req, res) => {
   const body = req.body || {};
   const title = String(body.title || '').trim();
   const assignedTo = toNum(body.assigned_to);
-  if (!title) return res.status(400).json({ error: 'TytuĹ‚ zadania jest wymagany' });
+  if (!title) return res.status(400).json({ error: 'Tytuł zadania jest wymagany' });
   if (!assignedTo) return res.status(400).json({ error: 'Wybierz pracownika' });
 
   const row = withStore((state) => {
@@ -2646,7 +2646,7 @@ router.post('/operator-tasks', requireAuth, (req, res) => {
     return buildOperatorTaskRow(state, task);
   });
 
-  if (!row) return res.status(403).json({ error: 'Brak uprawnieĹ„ do przypisania tego zadania' });
+  if (!row) return res.status(403).json({ error: 'Brak uprawnień do przypisania tego zadania' });
   res.status(201).json(row);
 });
 
@@ -2679,7 +2679,7 @@ router.patch('/operator-tasks/:id', requireAuth, (req, res) => {
     return buildOperatorTaskRow(state, task);
   });
 
-  if (!row) return res.status(404).json({ error: 'Nie znaleziono zadania lub brak dostÄ™pu' });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono zadania lub brak dostępu' });
   res.json(row);
 });
 
@@ -2764,7 +2764,7 @@ router.get('/position-cards/:userId', requireAuth, (req, res) => {
     if (!canViewPositionCard(state, req.user, userId)) return null;
     return buildPositionCardRow(state, userId);
   });
-  if (!row) return res.status(404).json({ error: 'Nie znaleziono karty lub brak dostÄ™pu' });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono karty lub brak dostępu' });
   res.json(row);
 });
 
@@ -2802,7 +2802,7 @@ router.put('/position-cards/:userId', requireAuth, (req, res) => {
     state.notifications.push({
       id: state.nextNotificationId++,
       typ: 'karta_stanowiska',
-      tresc: `Zaktualizowano kartÄ™ stanowiska: ${state.positionCards[String(userId)].stanowisko}`,
+      tresc: `Zaktualizowano kartę stanowiska: ${state.positionCards[String(userId)].stanowisko}`,
       task_id: null,
       status: 'Nowe',
       od_user_id: req.user.id,
@@ -2813,7 +2813,7 @@ router.put('/position-cards/:userId', requireAuth, (req, res) => {
     return buildPositionCardRow(state, userId);
   });
 
-  if (!row) return res.status(403).json({ error: 'Brak uprawnieĹ„ do edycji karty stanowiska' });
+  if (!row) return res.status(403).json({ error: 'Brak uprawnień do edycji karty stanowiska' });
   res.json(row);
 });
 
@@ -2840,7 +2840,7 @@ router.post('/position-cards/:userId/acknowledge', requireAuth, (req, res) => {
       state.notifications.push({
         id: state.nextNotificationId++,
         typ: 'karta_stanowiska',
-        tresc: `Potwierdzono kartÄ™ stanowiska: ${saved.stanowisko || 'karta stanowiska'}`,
+        tresc: `Potwierdzono kartę stanowiska: ${saved.stanowisko || 'karta stanowiska'}`,
         task_id: null,
         status: 'Nowe',
         od_user_id: req.user.id,
@@ -2852,7 +2852,7 @@ router.post('/position-cards/:userId/acknowledge', requireAuth, (req, res) => {
     return buildPositionCardRow(state, userId);
   });
 
-  if (!row) return res.status(403).json({ error: 'KartÄ™ moĹĽe potwierdziÄ‡ tylko przypisany pracownik' });
+  if (!row) return res.status(403).json({ error: 'Kartę może potwierdzić tylko przypisany pracownik' });
   if (row.error) return res.status(400).json(row);
   res.json(row);
 });

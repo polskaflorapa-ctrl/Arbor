@@ -3,8 +3,8 @@ import { getRoleDisplayName, hasAnyRole, normalizeRole, roleMatches } from './ro
 describe('roleDisplay role helpers', () => {
   test('normalizes estimator role variants', () => {
     expect(normalizeRole('Wyceniający')).toBe('wyceniajacy');
+    expect(normalizeRole('WYCENIAJĄCY')).toBe('wyceniajacy');
     expect(normalizeRole('Wyceniajacy')).toBe('wyceniajacy');
-    expect(normalizeRole('WyceniajÄ…cy')).toBe('wyceniajacy');
   });
 
   test('matches sales director variants', () => {
@@ -13,7 +13,7 @@ describe('roleDisplay role helpers', () => {
   });
 
   test('checks role lists with normalized comparison', () => {
-    expect(hasAnyRole('Pomocnik bez doĹ›wiadczenia', ['Pomocnik bez doświadczenia'])).toBe(true);
+    expect(hasAnyRole('Pomocnik bez doświadczenia', ['Pomocnik bez doswiadczenia'])).toBe(true);
     expect(hasAnyRole('Magazynier', ['Kierownik', 'Dyrektor'])).toBe(false);
   });
 

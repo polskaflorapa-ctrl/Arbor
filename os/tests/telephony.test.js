@@ -214,7 +214,7 @@ describe('Telephony routes', () => {
               crm_lead_id: 101,
               klient_id: 501,
               ogledziny_id: 601,
-              stage: 'OglÄ™dziny',
+              stage: 'Oględziny',
               next_action_at: '2026-06-01T08:00:00.000Z',
             }],
             rowCount: 1,
