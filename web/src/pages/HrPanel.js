@@ -91,7 +91,7 @@ function AddAbsenceModal({ onClose, onSaved }) {
         <div style={m.footer}>
           <button type="button" onClick={onClose} style={m.cancelBtn}>{t('hrPanel.modal.cancel')}</button>
           <button type="button" onClick={save} disabled={saving} style={m.saveBtn}>
-            {saving ? `⏳ ${t('hrPanel.modal.saving')}` : `✔ ${t('hrPanel.modal.save')}`}
+            {saving ? t('hrPanel.modal.saving') : t('hrPanel.modal.save')}
           </button>
         </div>
       </div>
@@ -117,10 +117,10 @@ export default function HrPanel() {
 
   // Defined inside component so tab labels pick up the current language
   const TABS = [
-    { key: 'timesheet',  label: `⏱ ${t('hrPanel.tabs.timesheet')}` },
-    { key: 'absences',   label: `📅 ${t('hrPanel.tabs.absences')}` },
-    { key: 'competency', label: `🏅 ${t('hrPanel.tabs.competency')}` },
-    { key: 'headcount',  label: `👥 ${t('hrPanel.tabs.headcount')}` },
+    { key: 'timesheet',  label: t('hrPanel.tabs.timesheet') },
+    { key: 'absences',   label: t('hrPanel.tabs.absences') },
+    { key: 'competency', label: t('hrPanel.tabs.competency') },
+    { key: 'headcount',  label: t('hrPanel.tabs.headcount') },
   ];
 
   const load = useCallback(async () => {
@@ -174,7 +174,7 @@ export default function HrPanel() {
         {/* Header */}
         <div className="hr-panel-topbar" style={s.topbar}>
           <div>
-            <h1 style={s.title}>👥 {t('hrPanel.title')}</h1>
+            <h1 style={s.title}>{t('hrPanel.title')}</h1>
             <p style={s.sub}>{t('hrPanel.subtitle')}</p>
           </div>
           <div className="hr-panel-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -188,7 +188,7 @@ export default function HrPanel() {
               </button>
             )}
             <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>
-              ← Powrót
+              Powrot
             </button>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function HrPanel() {
           ))}
         </div>
 
-        {loading && <div style={s.loading}>⏳ Ładowanie…</div>}
+        {loading && <div style={s.loading}>Ladowanie...</div>}
 
         {/* ── TIMESHEET TAB ── */}
         {tab === 'timesheet' && !loading && (
@@ -284,7 +284,6 @@ export default function HrPanel() {
             <div style={s.cardTitle}>{t('hrPanel.competency.title')}</div>
             {competency.length === 0 ? (
               <div style={s.empty}>
-                <div style={{ fontSize: 36, marginBottom: 8 }}>🏅</div>
                 <p>{t('hrPanel.competency.noData')}</p>
               </div>
             ) : (

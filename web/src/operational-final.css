@@ -3,6 +3,7 @@
 .dashboard-shell,
 .fleet-shell,
 .hr-docs-shell,
+.hr-panel-shell,
 .zlecenia-main,
 .harmonogram-main,
 .crm-pipeline-main,
@@ -38,6 +39,7 @@
 .dashboard-main,
 .fleet-main,
 .hr-docs-main,
+.hr-panel-main,
 .zlecenia-main,
 .harmonogram-main,
 .crm-pipeline-main,
@@ -81,6 +83,7 @@
 .fleet-main .module-page-header-hero,
 .fleet-main .module-page-header-plain,
 .hr-docs-header,
+.hr-panel-topbar,
 .module-page-header,
 .module-page-header-hero,
 .module-page-header-plain,
@@ -172,6 +175,8 @@
 .fleet-repairs-wrap,
 .hr-docs-stats > *,
 .hr-docs-panel,
+.hr-panel-card,
+.hr-panel-tabs,
 .zlecenia-data-card,
 .zlecenia-kanban-card,
 .zlecenia-list-grid > *,
@@ -478,9 +483,28 @@ button:hover,
 }
 
 .fleet-tabs,
-.hr-docs-toolbar {
+.hr-docs-toolbar,
+.hr-panel-tabs {
   background: #ffffff !important;
   border: 1px solid var(--border) !important;
+}
+
+.hr-panel-card .modern-data-empty,
+.hr-panel-card [style*='padding: 40px'],
+.hr-panel-card [style*='padding: 40'] {
+  background: #f8faf9 !important;
+  color: var(--text-sub) !important;
+  border: 1px dashed rgba(13, 111, 67, 0.22) !important;
+  border-radius: 8px !important;
+  min-height: 72px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.hr-panel-tabs button,
+.bi-dashboard-tabs button {
+  min-width: 0 !important;
 }
 
 .hr-docs-stats {
