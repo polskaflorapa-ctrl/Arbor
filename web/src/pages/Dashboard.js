@@ -545,7 +545,7 @@ export default function Dashboard() {
               <span style={d.menuLine} />
             </button>
             <div>
-              <h1 style={d.pageTitle}>Pulpit</h1>
+              <h1 style={d.pageTitle}>Centrum operacyjne</h1>
               <div style={d.pageSub}>Oddział: {branchLabel} | {monthLabel}</div>
             </div>
           </div>

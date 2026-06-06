@@ -3,8 +3,10 @@
  * Zabezpieczenie: nagłówek X-Arbor-Webhook-Secret lub body.secret === KOMMO_QUOTATION_WEBHOOK_SECRET
  */
 const crypto = require('crypto');
+const dns = require('dns');
 const express = require('express');
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 const pool = require('../config/database');
@@ -262,11 +264,101 @@ function assertDownloadableAttachmentUrl(rawUrl) {
   return parsed;
 }
 
+function ipv4ToNumber(address) {
+  const parts = String(address || '').split('.').map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return parts.reduce((acc, part) => ((acc << 8) + part) >>> 0, 0);
+}
+
+function isBlockedPrivateIp(address) {
+  const ipType = net.isIP(address);
+  if (!ipType) return false;
+
+  if (ipType === 4) {
+    const n = ipv4ToNumber(address);
+    if (n == null) return true;
+    const inRange = (base, bits) => {
+      const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+      return (n & mask) === (ipv4ToNumber(base) & mask);
+    };
+    return (
+      inRange('0.0.0.0', 8) ||
+      inRange('10.0.0.0', 8) ||
+      inRange('100.64.0.0', 10) ||
+      inRange('127.0.0.0', 8) ||
+      inRange('169.254.0.0', 16) ||
+      inRange('172.16.0.0', 12) ||
+      inRange('192.168.0.0', 16) ||
+      inRange('224.0.0.0', 4) ||
+      inRange('240.0.0.0', 4)
+    );
+  }
+
+  const normalized = String(address || '').toLowerCase();
+  return (
+    normalized === '::' ||
+    normalized === '::1' ||
+    normalized.startsWith('fc') ||
+    normalized.startsWith('fd') ||
+    normalized.startsWith('fe80:') ||
+    normalized.startsWith('::ffff:127.') ||
+    normalized.startsWith('::ffff:10.') ||
+    normalized.startsWith('::ffff:192.168.') ||
+    /^::ffff:172\.(1[6-9]|2\d|3[0-1])\./.test(normalized)
+  );
+}
+
+async function assertDownloadableAttachmentNetwork(parsed) {
+  const hostname = parsed.hostname;
+  if (isBlockedPrivateIp(hostname)) {
+    throw new Error('Kommo attachment URL resolves to a private or reserved IP.');
+  }
+
+  const addresses = await dns.promises.lookup(hostname, { all: true, verbatim: true });
+  if (!addresses.length) {
+    throw new Error('Kommo attachment URL hostname did not resolve.');
+  }
+  const blocked = addresses.find((entry) => isBlockedPrivateIp(entry.address));
+  if (blocked) {
+    throw new Error('Kommo attachment URL resolves to a private or reserved IP.');
+  }
+}
+
+async function fetchKommoAttachmentUrl(startUrl, { maxRedirects = 3, timeoutMs = 10000 } = {}) {
+  let current = assertDownloadableAttachmentUrl(startUrl);
+  for (let redirect = 0; redirect <= maxRedirects; redirect += 1) {
+    await assertDownloadableAttachmentNetwork(current);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response;
+    try {
+      response = await fetch(current.toString(), {
+        method: 'GET',
+        cache: 'no-store',
+        redirect: 'manual',
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers?.get?.('location');
+      if (!location) throw new Error('Kommo attachment redirect is missing Location header.');
+      if (redirect === maxRedirects) throw new Error('Kommo attachment has too many redirects.');
+      current = assertDownloadableAttachmentUrl(new URL(location, current).toString());
+      continue;
+    }
+
+    return { response, finalUrl: current };
+  }
+  throw new Error('Kommo attachment has too many redirects.');
+}
+
 async function downloadKommoAttachmentToStorage(taskId, attachment) {
   if (!attachment?.url) return null;
-  const parsed = assertDownloadableAttachmentUrl(attachment.url);
+  const { response, finalUrl: parsed } = await fetchKommoAttachmentUrl(attachment.url);
   const maxBytes = kommoAttachmentMaxBytes();
-  const response = await fetch(parsed.toString(), { method: 'GET', cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`Kommo attachment download failed: HTTP ${response.status}`);
   }
