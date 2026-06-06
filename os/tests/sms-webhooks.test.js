@@ -4,6 +4,10 @@ jest.mock('../src/config/database', () => ({
   query: jest.fn(),
 }));
 
+jest.mock('../src/services/zadarma', () => ({
+  verifyWebhookSignature: jest.fn(() => true),
+}));
+
 jest.mock('../src/config/env', () => {
   const real = jest.requireActual('../src/config/env');
   const overlay = {
@@ -23,6 +27,7 @@ jest.mock('../src/config/env', () => {
 });
 
 const pool = require('../src/config/database');
+const { verifyWebhookSignature } = require('../src/services/zadarma');
 const smsWebhooksRoutes = require('../src/routes/sms-webhooks');
 const { createTestApp } = require('./helpers/create-test-app');
 
@@ -31,6 +36,7 @@ describe('SMS webhooks', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    verifyWebhookSignature.mockReturnValue(true);
     pool.query.mockImplementation(async (sql) => {
       const text = String(sql);
       if (text.startsWith('UPDATE sms_history')) return { rowCount: 1, rows: [{ id: 10 }] };
@@ -84,6 +90,18 @@ describe('SMS webhooks', () => {
       .send('status=delivered');
 
     expect(res.status).toBe(400);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it('POST /zadarma odrzuca payload z niepoprawnym podpisem', async () => {
+    verifyWebhookSignature.mockReturnValue(false);
+
+    const res = await request(app)
+      .post('/api/sms/webhooks/zadarma')
+      .type('application/x-www-form-urlencoded')
+      .send('message_id=ZD_test_bad&status=delivered');
+
+    expect(res.status).toBe(403);
     expect(pool.query).not.toHaveBeenCalled();
   });
 
