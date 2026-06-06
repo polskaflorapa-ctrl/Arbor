@@ -162,7 +162,11 @@ describe('Kommo task sync queue', () => {
   });
 
   test('posts phone_call.recording to Kommo with stable idempotency headers', async () => {
-    process.env = { ...OLD_ENV, KOMMO_CRM_WEBHOOK_URL: 'https://kommo.example/hook' };
+    process.env = {
+      ...OLD_ENV,
+      KOMMO_CRM_WEBHOOK_URL: 'https://kommo.example/hook',
+      KOMMO_PHONE_CALL_SYNC_ENABLED: 'true',
+    };
     jest.resetModules();
     const { syncPhoneCallToKommo } = require('../src/services/kommo');
     global.fetch = jest.fn(async () => ({
@@ -192,6 +196,27 @@ describe('Kommo task sync queue', () => {
     const body = JSON.parse(global.fetch.mock.calls[0][1].body);
     expect(body.event).toBe('phone_call.recording');
     expect(body.kommo.note.text).toBe('Notatka do leadu');
+  });
+
+  test('does not post phone_call.recording to Kommo unless explicitly enabled', async () => {
+    process.env = {
+      ...OLD_ENV,
+      KOMMO_CRM_WEBHOOK_URL: 'https://kommo.example/hook',
+      KOMMO_PHONE_CALL_SYNC_ENABLED: '',
+    };
+    jest.resetModules();
+    const { syncPhoneCallToKommo } = require('../src/services/kommo');
+    global.fetch = jest.fn();
+
+    const result = await syncPhoneCallToKommo({
+      callSid: 'zadarma:pbx-call-disabled',
+      clientNumber: '+48500600700',
+      transcript: 'Tres rozmowy',
+      crmMessage: { id: 44, lead_id: 11, body: 'Notatka tylko w ARBOR' },
+    });
+
+    expect(result).toBeNull();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   test('builds stable phone call recording idempotency key', () => {

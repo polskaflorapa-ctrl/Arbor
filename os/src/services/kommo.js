@@ -8,6 +8,9 @@ const KOMMO_WEBHOOK_URL =
 const KOMMO_CRM_WEBHOOK_URL = (process.env.KOMMO_CRM_WEBHOOK_URL || '').trim();
 const KOMMO_WEBHOOK_SECRET_HEADER = (process.env.KOMMO_WEBHOOK_SECRET_HEADER || '').trim();
 const KOMMO_WEBHOOK_SECRET = (process.env.KOMMO_WEBHOOK_SECRET || '').trim();
+const KOMMO_PHONE_CALL_SYNC_ENABLED = String(process.env.KOMMO_PHONE_CALL_SYNC_ENABLED || '')
+  .trim()
+  .toLowerCase() === 'true';
 const { calculateTaskMargin, money } = require('./taskMargin');
 
 function toNum(v) {
@@ -568,6 +571,7 @@ async function syncTaskToKommo(pool, taskRow, actor = null) {
 }
 
 async function syncPhoneCallToKommo(args) {
+  if (!KOMMO_PHONE_CALL_SYNC_ENABLED) return null;
   if (!kommoWebhookConfigured('crm')) return null;
   const payload = buildKommoPhoneCallPayload(args);
   return postKommoWebhook(payload, 'crm');
