@@ -16,6 +16,7 @@ jest.mock('../src/config/env', () => ({
 
 jest.mock('../src/services/zadarma', () => ({
   isZadarmaConfigured: jest.fn(() => true),
+  isZadarmaConfiguredAsync: jest.fn(async () => true),
   sendSms: jest.fn(),
 }));
 
@@ -26,7 +27,7 @@ jest.mock('twilio', () => jest.fn(() => ({
 })));
 
 const pool = require('../src/config/database');
-const { isZadarmaConfigured, sendSms } = require('../src/services/zadarma');
+const { isZadarmaConfigured, isZadarmaConfiguredAsync, sendSms } = require('../src/services/zadarma');
 const { sendSmsGateway, resolveBranchSmsSender } = require('../src/services/smsGateway');
 
 describe('smsGateway branch senders', () => {
@@ -38,6 +39,7 @@ describe('smsGateway branch senders', () => {
     mockEnv.TWILIO_PHONE = '';
     mockEnv.PUBLIC_BASE_URL = '';
     isZadarmaConfigured.mockReturnValue(true);
+    isZadarmaConfiguredAsync.mockResolvedValue(true);
     sendSms.mockResolvedValue({ ok: true, message_id: 'ZD_1', cost: 0.12, currency: 'PLN' });
     mockTwilioCreate.mockResolvedValue({ sid: 'SM_1' });
   });
@@ -100,6 +102,7 @@ describe('smsGateway branch senders', () => {
 
   it('uses branch phone as Twilio from number when Zadarma is not configured', async () => {
     isZadarmaConfigured.mockReturnValue(false);
+    isZadarmaConfiguredAsync.mockResolvedValue(false);
     mockEnv.TWILIO_ACCOUNT_SID = 'AC123';
     mockEnv.TWILIO_AUTH_TOKEN = 'token';
     mockEnv.TWILIO_PHONE = '+48999000111';

@@ -19,7 +19,7 @@ const {
   upsertCallLegFromTwiml,
 } = require('../services/phone-call-pipeline');
 const { sendRecordingToHttpResponse } = require('../services/phone-recording-storage');
-const { isZadarmaConfigured, requestCallback } = require('../services/zadarma');
+const { isZadarmaConfiguredAsync, requestCallback } = require('../services/zadarma');
 
 const router = express.Router();
 
@@ -151,7 +151,7 @@ router.post(
       });
     }
 
-    if (isZadarmaConfigured()) {
+    if (await isZadarmaConfiguredAsync()) {
       const result = await requestCallback({ from: staffE164, to: doE164 });
       return res.json({
         success: true,

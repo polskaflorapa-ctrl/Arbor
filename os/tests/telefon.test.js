@@ -34,13 +34,13 @@ jest.mock('twilio', () => {
 });
 
 jest.mock('../src/services/zadarma', () => ({
-  isZadarmaConfigured: jest.fn(() => false),
+  isZadarmaConfiguredAsync: jest.fn(async () => false),
   requestCallback: jest.fn().mockResolvedValue({ status: 'success', request_id: 'ZD_callback_1' }),
 }));
 
 const pool = require('../src/config/database');
 const { env } = require('../src/config/env');
-const { isZadarmaConfigured, requestCallback } = require('../src/services/zadarma');
+const { isZadarmaConfiguredAsync, requestCallback } = require('../src/services/zadarma');
 const telefonRoutes = require('../src/routes/telefon');
 const { createTestApp } = require('./helpers/create-test-app');
 
@@ -58,7 +58,7 @@ describe('Telefon (Twilio Voice)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    isZadarmaConfigured.mockReturnValue(false);
+    isZadarmaConfiguredAsync.mockResolvedValue(false);
   });
 
   it('POST /polacz-do-klienta returns 401 without token', async () => {
@@ -104,7 +104,7 @@ describe('Telefon (Twilio Voice)', () => {
   });
 
   it('POST /polacz-do-klienta prefers Zadarma callback when configured', async () => {
-    isZadarmaConfigured.mockReturnValue(true);
+    isZadarmaConfiguredAsync.mockResolvedValue(true);
     pool.query.mockResolvedValueOnce({ rows: [{ telefon: '+48600111222' }] });
 
     const res = await request(app)

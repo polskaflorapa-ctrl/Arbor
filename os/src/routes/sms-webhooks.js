@@ -3,7 +3,7 @@ const twilioLib = require('twilio');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { env } = require('../config/env');
-const { verifySmsStatusWebhookSignature: verifyZadarmaSmsStatusSignature } = require('../services/zadarma');
+const { verifySmsStatusWebhookSignatureAsync: verifyZadarmaSmsStatusSignature } = require('../services/zadarma');
 
 const router = express.Router();
 
@@ -107,7 +107,7 @@ async function recordSmsDeliveryEvent({ provider, sid, providerStatus, mapped, e
 
 async function handleZadarmaStatus(req, res) {
   try {
-    if (!verifyZadarmaSmsStatusSignature(req.body || {}, req.get('x-zadarma-signature') || req.get('signature'))) {
+    if (!(await verifyZadarmaSmsStatusSignature(req.body || {}, req.get('x-zadarma-signature') || req.get('signature')))) {
       logger.warn('Zadarma SMS status webhook: niepoprawny podpis');
       return res.status(403).type('text/plain').send('Forbidden');
     }

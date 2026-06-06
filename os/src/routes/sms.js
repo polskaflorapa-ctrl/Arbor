@@ -457,7 +457,7 @@ router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema)
     const result = await pool.query(query, params);
     const zlecenia = result.rows;
     if (zlecenia.length === 0) return res.json({ success: true, message: 'Brak zleceń do wysłania SMS', wyslane: 0 });
-    if (!activeSmsProvider()) return res.status(500).json({ error: req.t('errors.sms.twilioNotConfigured') });
+    if (!(await activeSmsProvider())) return res.status(500).json({ error: req.t('errors.sms.twilioNotConfigured') });
     let wyslane = 0;
     const bledy = [];
     for (const z of zlecenia) {
@@ -477,7 +477,7 @@ router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema)
 
 // GET /api/sms/test
 router.get('/test', authMiddleware, async (req, res) => {
-  const provider = activeSmsProvider();
+  const provider = await activeSmsProvider();
   if (!provider) {
     return res.json({
       success: false,

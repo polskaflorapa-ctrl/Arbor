@@ -75,6 +75,17 @@ export default function Telefonia() {
     recipient_phone: '',
     text: '',
   });
+  const [zadarmaSettings, setZadarmaSettings] = useState(null);
+  const [zadarmaForm, setZadarmaForm] = useState({
+    api_key: '',
+    api_secret: '',
+    caller_id: '',
+  });
+  const [zadarmaLoading, setZadarmaLoading] = useState(false);
+  const [zadarmaSaving, setZadarmaSaving] = useState(false);
+  const [zadarmaTesting, setZadarmaTesting] = useState(false);
+  const [zadarmaMessage, setZadarmaMessage] = useState('');
+  const [zadarmaError, setZadarmaError] = useState('');
 
   const [tab, setTab] = useState('sms');
   const [oddzialy, setOddzialy] = useState([]);
@@ -526,6 +537,62 @@ export default function Telefonia() {
     }
   }, []);
 
+  const loadZadarmaSettings = useCallback(async () => {
+    setZadarmaLoading(true);
+    setZadarmaError('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get('/telephony/zadarma/settings', { headers: authHeaders(token) });
+      setZadarmaSettings(data || null);
+      setZadarmaForm((f) => ({
+        ...f,
+        caller_id: data?.caller_id || f.caller_id || 'ARBOR',
+      }));
+    } catch (e) {
+      setZadarmaError(getApiErrorMessage(e, 'Nie udalo sie pobrac ustawien Zadarmy.'));
+    } finally {
+      setZadarmaLoading(false);
+    }
+  }, []);
+
+  const saveZadarmaSettings = async (e) => {
+    e.preventDefault();
+    setZadarmaSaving(true);
+    setZadarmaError('');
+    setZadarmaMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.put('/telephony/zadarma/settings', {
+        api_key: zadarmaForm.api_key || null,
+        api_secret: zadarmaForm.api_secret || null,
+        caller_id: zadarmaForm.caller_id || 'ARBOR',
+      }, { headers: authHeaders(token) });
+      setZadarmaSettings(data || null);
+      setZadarmaForm((f) => ({ ...f, api_key: '', api_secret: '', caller_id: data?.caller_id || f.caller_id }));
+      setZadarmaMessage('Zadarma zapisana. Od teraz SMS i przycisk polaczenia moga korzystac z tej konfiguracji.');
+    } catch (err) {
+      setZadarmaError(getApiErrorMessage(err, 'Nie udalo sie zapisac Zadarmy.'));
+    } finally {
+      setZadarmaSaving(false);
+    }
+  };
+
+  const testZadarmaSettings = async () => {
+    setZadarmaTesting(true);
+    setZadarmaError('');
+    setZadarmaMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post('/telephony/zadarma/test', {}, { headers: authHeaders(token) });
+      setZadarmaSettings(data.settings || zadarmaSettings);
+      setZadarmaMessage(data.message || 'Zadarma API dziala.');
+    } catch (err) {
+      setZadarmaError(getApiErrorMessage(err, 'Test Zadarmy nie przeszedl.'));
+    } finally {
+      setZadarmaTesting(false);
+    }
+  };
+
   useEffect(() => {
     if (tab === 'agent' && agentForm.oddzial_id) {
       loadBranchIntegrationStatuses();
@@ -535,6 +602,10 @@ export default function Telefonia() {
       loadIntegrationTestLogs(agentForm.oddzial_id);
     }
   }, [tab, agentForm.oddzial_id, loadBranchIntegrationStatuses, loadVoiceAgentIntegration, loadVoiceAgentIntakes, loadAgentReminderPreview, loadIntegrationTestLogs]);
+
+  useEffect(() => {
+    if (tab === 'zadarma') loadZadarmaSettings();
+  }, [tab, loadZadarmaSettings]);
 
   useEffect(() => {
     setAgentHistoryPage(1);
@@ -2252,6 +2323,8 @@ export default function Telefonia() {
 
   const pageSubtitle = tab === 'sms'
     ? `Historia SMS: ${filtered.length}${serverPaging && smsTotalAll > 0 ? ` w bazie: ${smsTotalAll}` : ''}`
+    : tab === 'zadarma'
+      ? `Zadarma: ${zadarmaSettings?.configured ? 'skonfigurowana' : 'do skonfigurowania'}`
     : tab === 'agent'
       ? `Agent Ania: ${agentIntegration?.status === 'active' ? 'aktywny' : 'do podpiecia'}`
       : `Log polaczen: ${callRows.length} | kolejka oddzwonien: ${callbacks.filter((x) => x.status === 'open').length}`;
@@ -2291,6 +2364,8 @@ export default function Telefonia() {
                 style={s.refreshBtn}
                 onClick={() => (tab === 'sms'
                   ? loadSms(page)
+                  : tab === 'zadarma'
+                    ? loadZadarmaSettings()
                   : tab === 'agent'
                     ? Promise.all([
                       loadBranchIntegrationStatuses(),
@@ -2310,6 +2385,9 @@ export default function Telefonia() {
           </button>
           <button type="button" style={tab === 'calls' ? s.tabActive : s.tab} onClick={() => setTab('calls')}>
             Połączenia i oddzwonienia
+          </button>
+          <button type="button" style={tab === 'zadarma' ? s.tabActive : s.tab} onClick={() => setTab('zadarma')}>
+            Zadarma
           </button>
           <button type="button" style={tab === 'agent' ? s.tabActive : s.tab} onClick={() => setTab('agent')}>
             Agent AI
@@ -2331,6 +2409,16 @@ export default function Telefonia() {
             <StatusMessage message={telMessage} tone="success" />
           </div>
         )}
+        {!!zadarmaError && tab === 'zadarma' && (
+          <div style={{ marginBottom: 12 }}>
+            <StatusMessage message={zadarmaError} tone="error" />
+          </div>
+        )}
+        {!!zadarmaMessage && tab === 'zadarma' && (
+          <div style={{ marginBottom: 12 }}>
+            <StatusMessage message={zadarmaMessage} tone="success" />
+          </div>
+        )}
         {!!agentError && tab === 'agent' && (
           <div style={{ marginBottom: 12 }}>
             <StatusMessage message={agentError} tone="error" />
@@ -2339,6 +2427,118 @@ export default function Telefonia() {
         {!!agentMessage && tab === 'agent' && (
           <div style={{ marginBottom: 12 }}>
             <StatusMessage message={agentMessage} tone="success" />
+          </div>
+        )}
+
+        {tab === 'zadarma' && (
+          <div className="telefonia-panel telefonia-zadarma-panel" style={s.panel}>
+            <div style={s.callsIntro}>
+              Wpisujesz klucze raz w panelu. ARBOR uzyje Zadarmy do SMS-ow, statusow dostarczenia i przycisku polaczenia z klientem.
+            </div>
+            <div style={s.agentHealthBox}>
+              <div style={s.agentHistoryHeader}>
+                <div>
+                  <div style={s.manualTitle}>Status Zadarmy</div>
+                  <div style={s.agentHistoryMeta}>
+                    Zrodlo: {zadarmaSettings?.source || 'brak'} · API key: {zadarmaSettings?.api_key_masked || 'brak'} · secret: {zadarmaSettings?.api_secret_masked || 'brak'}
+                  </div>
+                </div>
+                <div style={s.inlineActions}>
+                  <button type="button" style={s.rowBtn} onClick={loadZadarmaSettings} disabled={zadarmaLoading}>
+                    {zadarmaLoading ? 'Sprawdzam...' : 'Odswiez'}
+                  </button>
+                  <button type="button" style={s.rowBtnActive} onClick={testZadarmaSettings} disabled={zadarmaTesting || !zadarmaSettings?.configured}>
+                    {zadarmaTesting ? 'Test...' : 'Test API'}
+                  </button>
+                </div>
+              </div>
+              <div style={s.agentHealthGrid}>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>
+                    <span style={{ ...s.agentHealthDot, background: zadarmaSettings?.configured ? '#22c55e' : '#ef4444' }} />
+                    <span>Konfiguracja</span>
+                  </div>
+                  <strong style={s.agentHealthValue}>{zadarmaSettings?.configured ? 'Gotowa' : 'Brak kluczy'}</strong>
+                  <div style={s.agentHistoryMeta}>Klucze sa przechowywane zaszyfrowane w bazie.</div>
+                </div>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>Nadawca SMS</div>
+                  <strong style={s.agentHealthValue}>{zadarmaSettings?.caller_id || 'ARBOR'}</strong>
+                  <div style={s.agentHistoryMeta}>Mozesz nadpisac nadawce per oddzial w danych oddzialu.</div>
+                </div>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>Webhook SMS</div>
+                  <strong style={s.agentHealthValue}>{zadarmaSettings?.sms_webhook_url ? 'Gotowy' : 'Brak PUBLIC_BASE_URL'}</strong>
+                  <div style={s.agentHistoryMeta}>
+                    {zadarmaSettings?.sms_webhook_url || 'Ustaw PUBLIC_BASE_URL na backendzie.'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={s.agentGrid}>
+              <form style={s.callForm} onSubmit={saveZadarmaSettings}>
+                <div style={s.manualTitle}>Klucze API Zadarma</div>
+                <input
+                  value={zadarmaForm.api_key}
+                  onChange={(e) => setZadarmaForm((f) => ({ ...f, api_key: e.target.value }))}
+                  placeholder={zadarmaSettings?.api_key_masked ? `Zapisany: ${zadarmaSettings.api_key_masked}` : 'ZADARMA_API_KEY'}
+                  style={s.input}
+                  type="password"
+                />
+                <input
+                  value={zadarmaForm.api_secret}
+                  onChange={(e) => setZadarmaForm((f) => ({ ...f, api_secret: e.target.value }))}
+                  placeholder={zadarmaSettings?.api_secret_masked ? `Zapisany: ${zadarmaSettings.api_secret_masked}` : 'ZADARMA_API_SECRET'}
+                  style={s.input}
+                  type="password"
+                />
+                <input
+                  value={zadarmaForm.caller_id}
+                  onChange={(e) => setZadarmaForm((f) => ({ ...f, caller_id: e.target.value }))}
+                  placeholder="Nadawca SMS, np. ARBOR"
+                  style={s.input}
+                />
+                <div style={s.inlineActions}>
+                  <button type="submit" style={s.sendBtn} disabled={zadarmaSaving}>
+                    {zadarmaSaving ? 'Zapisuje...' : 'Zapisz Zadarme'}
+                  </button>
+                  <button type="button" style={s.rowBtn} onClick={testZadarmaSettings} disabled={zadarmaTesting || !zadarmaSettings?.configured}>
+                    {zadarmaTesting ? 'Test...' : 'Testuj po zapisie'}
+                  </button>
+                </div>
+              </form>
+              <div style={s.callForm}>
+                <div style={s.manualTitle}>Co ustawic w panelu Zadarma</div>
+                <div style={s.providerChecklistList}>
+                  <div style={s.providerChecklistItem}>
+                    <span style={zadarmaSettings?.configured ? s.okBadge : s.reviewBadge}>{zadarmaSettings?.configured ? 'OK' : '1'}</span>
+                    <div>
+                      <strong>API keys</strong>
+                      <div style={s.agentHistoryMeta}>Settings / Integrations and API / API keys: skopiuj key i secret do formularza obok.</div>
+                    </div>
+                  </div>
+                  <div style={s.providerChecklistItem}>
+                    <span style={zadarmaSettings?.sms_webhook_url ? s.okBadge : s.reviewBadge}>{zadarmaSettings?.sms_webhook_url ? 'OK' : '2'}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <strong>SMS webhook</strong>
+                      <div style={s.agentHistoryMeta}>{zadarmaSettings?.sms_webhook_url || 'Najpierw ustaw PUBLIC_BASE_URL.'}</div>
+                    </div>
+                    {zadarmaSettings?.sms_webhook_url ? (
+                      <button type="button" style={s.rowBtn} onClick={() => copyAgentText(zadarmaSettings.sms_webhook_url, 'Webhook SMS Zadarma')}>
+                        Kopiuj
+                      </button>
+                    ) : null}
+                  </div>
+                  <div style={s.providerChecklistItem}>
+                    <span style={s.okBadge}>3</span>
+                    <div>
+                      <strong>Polaczenia przychodzace</strong>
+                      <div style={s.agentHistoryMeta}>W panelu Zadarma przypisz numer DID do SIP/PBX albo przekierowania. ARBOR nie musi posredniczyc w audio.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

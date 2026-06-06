@@ -16,6 +16,8 @@ const {
   normalizePolskaFloraServiceType,
   SERVICE_LABELS,
 } = require('../services/polskaFloraVoiceAgent');
+const { getZadarmaRuntimeConfig, zadarmaRequest } = require('../services/zadarma');
+const { saveProviderSettings } = require('../services/provider-settings');
 
 const router = express.Router();
 
@@ -133,10 +135,88 @@ const voiceAgentRetestNotificationsSchema = z.object({
   max_age_days: z.coerce.number().int().min(1).max(90).optional(),
 });
 
+const zadarmaSettingsSaveSchema = z.object({
+  api_key: z.string().trim().max(500).optional().nullable(),
+  api_secret: z.string().trim().max(500).optional().nullable(),
+  caller_id: z.string().trim().max(64).optional().nullable(),
+});
+
 const DEFAULT_RETEST_MAX_AGE_DAYS = 14;
 
 const isManagementRole = (user) =>
   user?.rola === 'Dyrektor' || user?.rola === 'Administrator' || user?.rola === 'Kierownik';
+const canManageGlobalProviderSettings = (user) =>
+  ['Prezes', 'Dyrektor', 'Administrator'].includes(user?.rola);
+
+function publicZadarmaSettings(config) {
+  const base = env.PUBLIC_BASE_URL ? String(env.PUBLIC_BASE_URL).trim().replace(/\/$/, '') : '';
+  return {
+    configured: Boolean(config.apiKey && config.apiSecret),
+    source: config.source || null,
+    api_key_masked: config.apiKeyMasked || null,
+    api_secret_masked: config.apiSecretMasked || null,
+    caller_id: config.callerId || '',
+    updated_at: config.updated_at || null,
+    sms_webhook_url: base ? `${base}/api/sms/webhooks/zadarma` : null,
+  };
+}
+
+router.get('/zadarma/settings', authMiddleware, async (req, res) => {
+  try {
+    if (!canManageGlobalProviderSettings(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    return res.json(publicZadarmaSettings(await getZadarmaRuntimeConfig()));
+  } catch (err) {
+    logger.error('telephony.zadarma.settings.get', { message: err.message, requestId: req.requestId });
+    return res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.put('/zadarma/settings', authMiddleware, validateBody(zadarmaSettingsSaveSchema), async (req, res) => {
+  try {
+    if (!canManageGlobalProviderSettings(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    const b = req.body || {};
+    await saveProviderSettings('zadarma', {
+      config: { caller_id: b.caller_id || '' },
+      secrets: {
+        api_key: b.api_key || '',
+        api_secret: b.api_secret || '',
+      },
+      updatedBy: req.user.id,
+    });
+    return res.json(publicZadarmaSettings(await getZadarmaRuntimeConfig()));
+  } catch (err) {
+    logger.error('telephony.zadarma.settings.put', { message: err.message, requestId: req.requestId });
+    return res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/zadarma/test', authMiddleware, async (req, res) => {
+  try {
+    if (!canManageGlobalProviderSettings(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    const info = await zadarmaRequest('GET', '/v1/info/', {});
+    return res.json({
+      ok: true,
+      provider: 'zadarma',
+      message: 'Zadarma API dziala.',
+      info,
+      settings: publicZadarmaSettings(await getZadarmaRuntimeConfig()),
+    });
+  } catch (err) {
+    logger.warn('telephony.zadarma.test', { message: err.message, requestId: req.requestId });
+    return res.status(400).json({
+      ok: false,
+      provider: 'zadarma',
+      error: err.message,
+      settings: publicZadarmaSettings(await getZadarmaRuntimeConfig().catch(() => ({}))),
+    });
+  }
+});
 
 const telephonyScope = (user, oddzialId) => {
   if (isManagementRole(user)) {

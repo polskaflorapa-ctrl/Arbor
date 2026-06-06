@@ -1,10 +1,42 @@
 const crypto = require('crypto');
 const { env } = require('../config/env');
+const { decryptedSecret, getProviderSettings, maskSecret } = require('./provider-settings');
 
 const API_BASE = 'https://api.zadarma.com';
 
 function isZadarmaConfigured() {
   return Boolean(env.ZADARMA_API_KEY && env.ZADARMA_API_SECRET);
+}
+
+async function getZadarmaRuntimeConfig() {
+  if (env.ZADARMA_API_KEY && env.ZADARMA_API_SECRET) {
+    return {
+      apiKey: env.ZADARMA_API_KEY,
+      apiSecret: env.ZADARMA_API_SECRET,
+      callerId: env.ZADARMA_CALLER_ID || '',
+      source: 'env',
+      updated_at: null,
+      apiKeyMasked: maskSecret(env.ZADARMA_API_KEY),
+      apiSecretMasked: maskSecret(env.ZADARMA_API_SECRET),
+    };
+  }
+  const settings = await getProviderSettings('zadarma');
+  const apiKey = decryptedSecret(settings, 'api_key');
+  const apiSecret = decryptedSecret(settings, 'api_secret');
+  return {
+    apiKey,
+    apiSecret,
+    callerId: settings.config?.caller_id || '',
+    source: apiKey && apiSecret ? 'database' : null,
+    updated_at: settings.updated_at,
+    apiKeyMasked: settings.secrets?.api_key ? maskSecret(apiKey) : null,
+    apiSecretMasked: settings.secrets?.api_secret ? maskSecret(apiSecret) : null,
+  };
+}
+
+async function isZadarmaConfiguredAsync() {
+  const config = await getZadarmaRuntimeConfig();
+  return Boolean(config.apiKey && config.apiSecret);
 }
 
 function buildQuery(params = {}) {
@@ -16,17 +48,18 @@ function buildQuery(params = {}) {
   return usp.toString();
 }
 
-function signZadarmaPath(path, params = {}) {
+function signZadarmaPath(path, params = {}, secret = env.ZADARMA_API_SECRET || '') {
   const paramsStr = buildQuery(params);
   const paramsMd5 = crypto.createHash('md5').update(paramsStr).digest('hex');
   return crypto
-    .createHmac('sha1', env.ZADARMA_API_SECRET || '')
+    .createHmac('sha1', secret)
     .update(`${path}${paramsStr}${paramsMd5}`)
     .digest('base64');
 }
 
 async function zadarmaRequest(method, path, params = {}) {
-  if (!isZadarmaConfigured()) {
+  const config = await getZadarmaRuntimeConfig();
+  if (!config.apiKey || !config.apiSecret) {
     const error = new Error('Zadarma nie jest skonfigurowana: ustaw ZADARMA_API_KEY i ZADARMA_API_SECRET.');
     error.code = 'ZADARMA_NOT_CONFIGURED';
     throw error;
@@ -34,9 +67,9 @@ async function zadarmaRequest(method, path, params = {}) {
 
   const upper = String(method || 'GET').toUpperCase();
   const query = buildQuery(params);
-  const signature = signZadarmaPath(path, params);
+  const signature = signZadarmaPath(path, params, config.apiSecret);
   const headers = {
-    Authorization: `${env.ZADARMA_API_KEY}:${signature}`,
+    Authorization: `${config.apiKey}:${signature}`,
     Accept: 'application/json',
   };
 
@@ -115,6 +148,12 @@ function zadarmaHmacSha1(source) {
   return crypto.createHmac('sha1', env.ZADARMA_API_SECRET).update(source).digest('base64');
 }
 
+async function zadarmaHmacSha1Async(source) {
+  const config = await getZadarmaRuntimeConfig();
+  if (!config.apiSecret) return null;
+  return crypto.createHmac('sha1', config.apiSecret).update(source).digest('base64');
+}
+
 function zadarmaSmsStatusSignatureSources(body = {}) {
   const sources = [];
   const result = body.result != null ? String(body.result) : '';
@@ -143,6 +182,16 @@ function verifySmsStatusWebhookSignature(body = {}, signatureHeader) {
   return sources.some((source) => timingSafeSignatureEqual(signature, zadarmaHmacSha1(source)));
 }
 
+async function verifySmsStatusWebhookSignatureAsync(body = {}, signatureHeader) {
+  if (env.ZADARMA_SKIP_SIGNATURE_VALIDATION) return true;
+  const signature = String(signatureHeader || body.signature || '').trim();
+  if (!signature) return false;
+  const sources = zadarmaSmsStatusSignatureSources(body);
+  if (!sources.length) return false;
+  const expected = await Promise.all(sources.map((source) => zadarmaHmacSha1Async(source)));
+  return expected.filter(Boolean).some((value) => timingSafeSignatureEqual(signature, value));
+}
+
 /**
  * Wysyła SMS przez Zadarma.
  * POST /v1/sms/send/
@@ -169,7 +218,8 @@ async function sendSms({ to, body, senderId }) {
     number,
   };
   // sender_id — identyfikator nadawcy widoczny u odbiorcy (max 11 znaków alfanum.)
-  const sender = String(senderId || env.ZADARMA_CALLER_ID || '').trim();
+  const config = await getZadarmaRuntimeConfig();
+  const sender = String(senderId || config.callerId || env.ZADARMA_CALLER_ID || '').trim();
   if (sender) params.sender_id = sender;
 
   try {
@@ -208,10 +258,13 @@ function normalizePhone(raw) {
 
 module.exports = {
   getWebrtcKey,
+  getZadarmaRuntimeConfig,
   isZadarmaConfigured,
+  isZadarmaConfiguredAsync,
   normalizePhone,
   requestCallback,
   sendSms,
+  verifySmsStatusWebhookSignatureAsync,
   verifySmsStatusWebhookSignature,
   verifyWebhookSignature,
   zadarmaRequest,

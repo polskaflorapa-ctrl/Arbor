@@ -9,7 +9,7 @@
 const logger = require('../config/logger');
 const { env } = require('../config/env');
 const pool = require('../config/database');
-const { isZadarmaConfigured, sendSms: zadarmaSendSms } = require('./zadarma');
+const { isZadarmaConfiguredAsync, sendSms: zadarmaSendSms } = require('./zadarma');
 const { getTwilioSmsStatusCallbackUrl } = require('./twilioStatusCallback');
 
 function normalizePlPhone(raw) {
@@ -129,7 +129,7 @@ async function sendSmsGateway({ to, body, taskId, oddzialId }) {
   const senderId = await resolveBranchSmsSender({ oddzialId, taskId });
 
   // ── Zadarma (preferred) ──────────────────────────────────────────────────
-  if (isZadarmaConfigured()) {
+  if (await isZadarmaConfiguredAsync()) {
     const result = await zadarmaSendSms({ to, body: text, senderId });
     await logSmsHistory({
       taskId,
@@ -192,8 +192,8 @@ async function sendSmsGateway({ to, body, taskId, oddzialId }) {
 /**
  * Zwraca aktywnego dostawcę lub null.
  */
-function activeSmsProvider() {
-  if (isZadarmaConfigured()) return 'zadarma';
+async function activeSmsProvider() {
+  if (await isZadarmaConfiguredAsync()) return 'zadarma';
   if (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN) return 'twilio';
   return null;
 }
