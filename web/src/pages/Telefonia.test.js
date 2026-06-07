@@ -318,6 +318,9 @@ test('specialist can register an incoming client call and create callback', asyn
 
 test('runs phone CRM flow test from calls tab', async () => {
   api.post.mockImplementation((url) => {
+    if (url === '/telefon/pipeline/retry') {
+      return Promise.resolve({ data: { ok: true, retried: 2 } });
+    }
     if (url === '/telefon/test-flow') {
       return Promise.resolve({ data: { ok: true, lead_id: 301, crm_message_id: 501 } });
     }
@@ -329,6 +332,14 @@ test('runs phone CRM flow test from calls tab', async () => {
   expect(await screen.findByText('Pipeline rozmow Zadarma / CRM')).toBeInTheDocument();
   expect(screen.getByText('OpenAI: brak · Claude: OK · Storage: local')).toBeInTheDocument();
   expect(screen.getByText('OPENAI_API_KEY missing: transcription will stop at needs_transcription')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Ponow pipeline' }));
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/telefon/pipeline/retry',
+      {},
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 
   expect(await screen.findByText('Test CRM po rozmowie')).toBeInTheDocument();
   const testForm = screen.getByText('Test CRM po rozmowie').closest('form');
