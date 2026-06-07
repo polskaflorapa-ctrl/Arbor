@@ -43,19 +43,19 @@ test("pilot hardening check validates required files, scripts, and role checklis
     writeFixtureFile(
       root,
       "docs/PILOT-HARDENING-KIEROWNIK-BRYGADZISTA.md",
-      "Kierownik Brygadzista canViewFinance offline Idempotency-Key Kommo SMS audit_log deploy:prod:dry-run smoke:p95 smoke:web:tti --threshold 500 --threshold 3000 GO NO-GO",
+      "Kierownik Brygadzista canViewFinance offline Idempotency-Key Kommo SMS audit_log verify:fleet-repair-parts-cost koszty napraw floty deploy:prod:dry-run smoke:p95 smoke:web:tti --threshold 500 --threshold 3000 GO NO-GO",
     );
 
     writeFixtureFile(
       root,
       "package.json",
-      JSON.stringify({ scripts: { "verify:pilot-hardening": "node script", "smoke:p95": "node p95" } }),
+      JSON.stringify({ scripts: { "verify:pilot-hardening": "node script", "verify:fleet-repair-parts-cost": "node fleet", "smoke:p95": "node p95" } }),
     );
 
     const result = runPilotHardeningCheck({
       root,
       requiredFiles: files,
-      requiredScripts: { "package.json": ["verify:pilot-hardening", "smoke:p95"] },
+      requiredScripts: { "package.json": ["verify:pilot-hardening", "verify:fleet-repair-parts-cost", "smoke:p95"] },
     });
 
     assert.deepEqual(result, { ok: true, checkedFiles: 6, checkedPackages: 1 });
