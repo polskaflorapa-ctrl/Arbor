@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
-import DownloadOutlined from '@mui/icons-material/DownloadOutlined';
-import MailOutlineOutlined from '@mui/icons-material/MailOutlineOutlined';
-import PrintOutlined from '@mui/icons-material/PrintOutlined';
-import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { Check, Download, Mail, Printer, RefreshCw, Save, ShieldAlert } from 'lucide-react';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -385,18 +383,16 @@ export default function KontrolaOperacyjna() {
           icon={<AssessmentOutlined />}
           actions={(
             <div style={s.headerActions}>
-              <button type="button" style={s.secondaryBtn} onClick={printPdf}>
-                <PrintOutlined style={{ fontSize: 18 }} /> Druk/PDF
-              </button>
-              <button type="button" style={s.secondaryBtn} onClick={loadDigest} disabled={digestLoading}>
-                <MailOutlineOutlined style={{ fontSize: 18 }} /> {digestLoading ? 'Digest...' : 'Digest'}
-              </button>
-              <button type="button" style={s.primaryBtn} onClick={exportCsv} disabled={exporting}>
-                <DownloadOutlined style={{ fontSize: 18 }} /> {exporting ? 'Eksport...' : 'CSV'}
-              </button>
-              <button type="button" style={s.iconBtn} onClick={loadHistory} disabled={loading} aria-label="Odswiez">
-                <RefreshOutlined style={{ fontSize: 19 }} />
-              </button>
+              <Button type="button" variant="outline" leftIcon={Printer} style={s.secondaryBtn} onClick={printPdf}>
+                Druk/PDF
+              </Button>
+              <Button type="button" variant="outline" leftIcon={Mail} style={s.secondaryBtn} onClick={loadDigest} loading={digestLoading}>
+                {digestLoading ? 'Digest...' : 'Digest'}
+              </Button>
+              <Button type="button" leftIcon={Download} style={s.primaryBtn} onClick={exportCsv} loading={exporting}>
+                {exporting ? 'Eksport...' : 'CSV'}
+              </Button>
+              <Button type="button" size="sm" variant="outline" leftIcon={RefreshCw} style={s.iconBtn} onClick={loadHistory} loading={loading} aria-label="Odswiez" />
             </div>
           )}
         />
@@ -506,22 +502,27 @@ export default function KontrolaOperacyjna() {
               <p style={s.muted}>Kommo/SMS bez potwierdzenia ownera, z agingiem SLA i eskalacja P1/P2.</p>
             </div>
             <div style={s.panelActions}>
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                leftIcon={ShieldAlert}
                 style={s.secondaryBtn}
                 onClick={() => runOwnerBulkAction('escalate')}
+                loading={ownerBulkAction === 'escalate'}
                 disabled={!openOwnerItems.length || Boolean(ownerBulkAction)}
               >
                 {ownerBulkAction === 'escalate' ? 'Eskalacja...' : 'Eskaluj widoczne'}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                leftIcon={Check}
                 style={s.primaryBtn}
                 onClick={() => runOwnerBulkAction('acknowledge')}
+                loading={ownerBulkAction === 'acknowledge'}
                 disabled={!openOwnerItems.length || Boolean(ownerBulkAction)}
               >
                 {ownerBulkAction === 'acknowledge' ? 'Potwierdzanie...' : 'Potwierdz widoczne'}
-              </button>
+              </Button>
               <span style={s.badge}>{ownerAlertsLoading ? 'Ladowanie' : `${openOwnerSummary.open_total ?? openOwnerItems.length} otwarte`}</span>
             </div>
           </div>
@@ -542,14 +543,17 @@ export default function KontrolaOperacyjna() {
                 <div style={s.ownerAckMeta}>
                   <span>{item.numer || '-'}</span>
                   <span>{item.klient_nazwa || '-'}</span>
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
+                    variant="outline"
+                    leftIcon={Check}
                     style={s.smallBtn}
                     onClick={() => resolveOwnerAlert(item, 'control')}
-                    disabled={ownerResolveAction === `control:${item.risk_id || item.id}`}
+                    loading={ownerResolveAction === `control:${item.risk_id || item.id}`}
                   >
                     {ownerResolveAction === `control:${item.risk_id || item.id}` ? 'Zapis...' : 'Oznacz rozwiazane'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -661,14 +665,17 @@ export default function KontrolaOperacyjna() {
                     </div>
                     <div style={s.ownerAckMeta}>
                       <span>{item.klient_nazwa || '-'}</span>
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="outline"
+                        leftIcon={Check}
                         style={s.smallBtn}
                         onClick={() => resolveOwnerAlert(item, 'digest')}
-                        disabled={ownerResolveAction === `digest:${item.risk_id}`}
+                        loading={ownerResolveAction === `digest:${item.risk_id}`}
                       >
                         {ownerResolveAction === `digest:${item.risk_id}` ? 'Zapis...' : 'Oznacz rozwiazane'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -724,7 +731,7 @@ export default function KontrolaOperacyjna() {
                 <span style={s.label}>Dodatkowe emaile</span>
                 <input style={s.input} value={settingsForm.extra_emails} onChange={(e) => setSettingsForm((f) => ({ ...f, extra_emails: e.target.value }))} placeholder="dyrektor@firma.pl" />
               </label>
-              <button type="submit" style={s.primaryBtn} disabled={settingsSaving}>{settingsSaving ? 'Zapis...' : 'Zapisz konfiguracje'}</button>
+              <Button type="submit" leftIcon={Save} style={s.primaryBtn} loading={settingsSaving}>{settingsSaving ? 'Zapis...' : 'Zapisz konfiguracje'}</Button>
             </form>
           </section>
         ) : null}
