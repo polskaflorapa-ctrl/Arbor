@@ -22,6 +22,7 @@ const requiredScripts = {
     "restore:db:check",
     "deploy:prod:doctor",
     "smoke:render",
+    "smoke:p95",
     "check",
   ],
   "os/package.json": ["backup:db", "backup:db:check", "restore:db", "restore:db:check"],
@@ -39,6 +40,7 @@ const runbookNeedles = [
   "backup:db",
   "restore:db:check",
   "restore:db",
+  "smoke:p95",
   "CONFIRM_RESTORE=YES",
   "RESTORE_CLEAN",
   "BACKUP_RETAIN_DAYS",
@@ -54,7 +56,7 @@ const runbookNeedles = [
 const docsNeedles = {
   "docs/backup-restore.md": ["RPO", "RTO", "docs/BACKUP-RPO-RTO-RUNBOOK.md", "restore drill"],
   "docs/PRODUCTION-DEPLOY-DRY-RUN.md": ["verify:backup-rpo", "docs/BACKUP-RPO-RTO-RUNBOOK.md"],
-  "docs/PRODUCTION-INCIDENT-RUNBOOK.md": ["docs/BACKUP-RPO-RTO-RUNBOOK.md", "RPO", "RTO"],
+  "docs/PRODUCTION-INCIDENT-RUNBOOK.md": ["docs/BACKUP-RPO-RTO-RUNBOOK.md", "RPO", "RTO", "smoke:p95"],
 };
 
 const codeNeedles = {

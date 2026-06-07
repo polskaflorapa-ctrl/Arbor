@@ -87,6 +87,7 @@ $env:CONFIRM_RESTORE="YES"
 npm run restore:db -- --file "C:\Users\paha1\arbor\os\backups\latest.dump"
 npm run deploy:prod:doctor
 npm run smoke:render -- https://<arbor-os-url>
+npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 ```
 
 Restore z czyszczeniem istniejacych obiektow:
@@ -103,11 +104,11 @@ Do wpisu operacyjnego albo incydentu zapisz:
 
 - `started_at`, `finished_at`, operator, cel: backup albo restore drill.
 - RPO: czas od ostatniej zmiany danych do powstania backupu.
-- RTO: czas od startu restore drill do zielonego `smoke:render`.
+- RTO: czas od startu restore drill do zielonego `smoke:render` i `smoke:p95`.
 - Sciezka pliku backupu, rozmiar MB, `latest.dump` albo `latest.dump.enc`.
 - Czy `BACKUP_ENCRYPT_KEY` byl uzyty.
 - Docelowa baza restore oznaczona jako replaceable.
-- Wynik `restore:db:check`, `deploy:prod:doctor` i `smoke:render`.
+- Wynik `restore:db:check`, `deploy:prod:doctor`, `smoke:render` i `smoke:p95`.
 - Follow-upy, jesli RPO > 24h, RTO > 4h albo restore dry-run nie przechodzi.
 
 ## 8. GO / NO-GO
@@ -119,7 +120,7 @@ GO:
 - Najnowszy plik istnieje jako `latest.dump` albo `latest.dump.enc`.
 - Retencja jest ustawiona przez `BACKUP_RETAIN_DAYS`.
 - Restore drill byl wykonany na replaceable bazie w ostatnim miesiacu.
-- Po drill `deploy:prod:doctor` i `smoke:render` przechodza.
+- Po drill `deploy:prod:doctor`, `smoke:render` i `smoke:p95` przechodza.
 
 NO-GO:
 

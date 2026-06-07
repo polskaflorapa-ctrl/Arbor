@@ -34,20 +34,20 @@ test("backup RPO/RTO check validates files, scripts, runbook, docs, and backup c
     writeFixtureFile(
       root,
       "docs/BACKUP-RPO-RTO-RUNBOOK.md",
-      "RPO RTO 24h 4h 15 min restore drill replaceable backup:db:check backup:db restore:db:check restore:db CONFIRM_RESTORE=YES RESTORE_CLEAN BACKUP_RETAIN_DAYS BACKUP_ENCRYPT_KEY PG_DUMP_BIN PG_RESTORE_BIN latest.dump latest.dump.enc GO NO-GO",
+      "RPO RTO 24h 4h 15 min restore drill replaceable backup:db:check backup:db restore:db:check restore:db smoke:p95 CONFIRM_RESTORE=YES RESTORE_CLEAN BACKUP_RETAIN_DAYS BACKUP_ENCRYPT_KEY PG_DUMP_BIN PG_RESTORE_BIN latest.dump latest.dump.enc GO NO-GO",
     );
     writeFixtureFile(root, "docs/backup-restore.md", "RPO RTO docs/BACKUP-RPO-RTO-RUNBOOK.md restore drill");
     writeFixtureFile(root, "os/scripts/db-backup.js", "BACKUP_RETAIN_DAYS BACKUP_ENCRYPT_KEY latest.dump rotateOldBackups pg_dump dry_run=1");
     writeFixtureFile(
       root,
       "package.json",
-      JSON.stringify({ scripts: { "verify:backup-rpo": "node script", "backup:db": "node backup", check: "npm test" } }),
+      JSON.stringify({ scripts: { "verify:backup-rpo": "node script", "backup:db": "node backup", "smoke:p95": "node p95", check: "npm test" } }),
     );
 
     const result = runBackupRpoCheck({
       root,
       requiredFiles: files,
-      requiredScripts: { "package.json": ["verify:backup-rpo", "backup:db", "check"] },
+      requiredScripts: { "package.json": ["verify:backup-rpo", "backup:db", "smoke:p95", "check"] },
       docsNeedles: { "docs/backup-restore.md": ["RPO", "restore drill"] },
       codeNeedles: { "os/scripts/db-backup.js": ["BACKUP_RETAIN_DAYS", "pg_dump"] },
     });
