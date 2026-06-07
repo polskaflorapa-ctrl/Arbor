@@ -122,6 +122,8 @@ function commandItemForLead(row) {
   const nextActionHours = row.next_action_at ? hoursSince(row.next_action_at) : null;
   const openTasks = Number(row.open_tasks || 0);
   const overdueTasks = Number(row.overdue_tasks || 0);
+  const phoneFollowupTasks = Number(row.phone_followup_tasks || 0);
+  const overduePhoneFollowupTasks = Number(row.overdue_phone_followup_tasks || 0);
   const calls30d = Number(row.calls_30d || 0);
   const reasons = [];
   let score = 0;
@@ -133,6 +135,13 @@ function commandItemForLead(row) {
   if (overdueTasks > 0) {
     score += 30 + Math.min(20, overdueTasks * 5);
     reasons.push({ key: 'overdue_tasks', label: `${overdueTasks} zalegle zadania`, severity: 'critical' });
+  }
+  if (overduePhoneFollowupTasks > 0) {
+    score += 34 + Math.min(18, overduePhoneFollowupTasks * 6);
+    reasons.push({ key: 'phone_followup_overdue', label: `${overduePhoneFollowupTasks} zalegle follow-up po rozmowie`, severity: 'critical' });
+  } else if (phoneFollowupTasks > 0) {
+    score += 20 + Math.min(12, phoneFollowupTasks * 4);
+    reasons.push({ key: 'phone_followup_open', label: `${phoneFollowupTasks} follow-up po rozmowie`, severity: 'high' });
   }
   if (row.next_action_at && nextActionHours !== null && nextActionHours > 0) {
     score += 22 + Math.min(20, Math.floor(nextActionHours / 12));
@@ -172,13 +181,17 @@ function commandItemForLead(row) {
       ? 'Przypisz ownera i zaplanuj pierwszy kontakt.'
       : primary === 'overdue_tasks' || primary === 'next_action_overdue'
         ? 'Wykonaj zalegle zadanie albo ustaw nowy termin follow-up.'
-        : primary === 'no_reply'
-          ? 'Zadzwon lub wyslij krotki follow-up do klienta.'
-          : primary === 'missing_contact'
-            ? 'Uzupelnij dane kontaktowe zanim lead ostygnie.'
-            : primary === 'call_without_next_step'
-              ? 'Dopisz po rozmowie konkretny nastepny krok.'
-              : 'Ustal nastepny krok i zapisz go w CRM.';
+        : primary === 'phone_followup_overdue'
+          ? 'Domknij zalegly follow-up po rozmowie telefonicznej.'
+          : primary === 'phone_followup_open'
+            ? 'Wykonaj follow-up po ostatniej rozmowie i oznacz zadanie jako wykonane.'
+            : primary === 'no_reply'
+              ? 'Zadzwon lub wyslij krotki follow-up do klienta.'
+              : primary === 'missing_contact'
+                ? 'Uzupelnij dane kontaktowe zanim lead ostygnie.'
+                : primary === 'call_without_next_step'
+                  ? 'Dopisz po rozmowie konkretny nastepny krok.'
+                  : 'Ustal nastepny krok i zapisz go w CRM.';
 
   return {
     id: row.id,
@@ -198,6 +211,9 @@ function commandItemForLead(row) {
     last_direction: row.last_direction || null,
     open_tasks: openTasks,
     overdue_tasks: overdueTasks,
+    phone_followup_tasks: phoneFollowupTasks,
+    overdue_phone_followup_tasks: overduePhoneFollowupTasks,
+    next_phone_followup_at: row.next_phone_followup_at || null,
     calls_30d: calls30d,
     score: Math.max(0, Math.min(100, score)),
     priority: score >= 70 ? 'critical' : score >= 45 ? 'high' : score >= 25 ? 'medium' : 'normal',
@@ -585,7 +601,15 @@ router.get('/command-center', async (req, res) => {
          SELECT
            a.lead_id,
            COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL)::int AS open_tasks,
-           COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL AND a.due_at < NOW())::int AS overdue_tasks
+           COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL AND a.due_at < NOW())::int AS overdue_tasks,
+           COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL AND a.text ILIKE '%CallSid:%')::int AS phone_followup_tasks,
+           COUNT(*) FILTER (
+             WHERE a.type = 'task'
+               AND a.completed_at IS NULL
+               AND a.due_at < NOW()
+               AND a.text ILIKE '%CallSid:%'
+           )::int AS overdue_phone_followup_tasks,
+           MIN(a.due_at) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL AND a.text ILIKE '%CallSid:%') AS next_phone_followup_at
          FROM crm_lead_activities a
          GROUP BY a.lead_id
        ),
@@ -604,6 +628,9 @@ router.get('/command-center', async (req, res) => {
          lm.last_direction, lm.last_channel, lm.last_message_at,
          COALESCE(ast.open_tasks, 0)::int AS open_tasks,
          COALESCE(ast.overdue_tasks, 0)::int AS overdue_tasks,
+         COALESCE(ast.phone_followup_tasks, 0)::int AS phone_followup_tasks,
+         COALESCE(ast.overdue_phone_followup_tasks, 0)::int AS overdue_phone_followup_tasks,
+         ast.next_phone_followup_at,
          COALESCE(cs.calls_30d, 0)::int AS calls_30d
        FROM crm_leads l
        LEFT JOIN users o ON o.id = l.owner_user_id
@@ -631,6 +658,8 @@ router.get('/command-center', async (req, res) => {
       high: priorities.filter((item) => item.priority === 'high').length,
       overdue: priorities.filter((item) => item.overdue_tasks > 0 || (item.reasons || []).some((r) => r.key === 'next_action_overdue')).length,
       unassigned: priorities.filter((item) => !item.owner_user_id).length,
+      phone_followups: priorities.reduce((sum, item) => sum + Number(item.phone_followup_tasks || 0), 0),
+      phone_followups_overdue: priorities.reduce((sum, item) => sum + Number(item.overdue_phone_followup_tasks || 0), 0),
       value_at_risk: priorities
         .filter((item) => ['critical', 'high'].includes(item.priority))
         .reduce((sum, item) => sum + Number(item.value || 0), 0),

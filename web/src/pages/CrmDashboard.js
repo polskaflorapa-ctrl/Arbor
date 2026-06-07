@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Check, RefreshCw, Target, UserPlus, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, PhoneCall, RefreshCw, Target, UserPlus, XCircle } from 'lucide-react';
 import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
@@ -172,6 +172,7 @@ export default function CrmDashboard() {
               {[
                 { key: 'critical', icon: AlertTriangle, label: t('crm.dashboard.commandCritical', { defaultValue: 'Krytyczne' }), value: commandSummary.critical || 0 },
                 { key: 'unassigned', icon: UserPlus, label: t('crm.dashboard.commandUnassigned', { defaultValue: 'Bez ownera' }), value: commandSummary.unassigned || 0 },
+                { key: 'phone_followups', icon: PhoneCall, label: t('crm.dashboard.commandPhoneFollowups', { defaultValue: 'Po rozmowach' }), value: commandSummary.phone_followups || 0 },
                 { key: 'value', icon: Target, label: t('crm.dashboard.commandValueAtRisk', { defaultValue: 'Wartość zagrożona' }), value: formatCurrency(commandSummary.value_at_risk || 0) },
               ].map((item) => {
                 const Icon = item.icon;

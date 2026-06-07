@@ -54,6 +54,9 @@ describe('CRM command center', () => {
               last_message_at: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
               open_tasks: 2,
               overdue_tasks: 1,
+              phone_followup_tasks: 1,
+              overdue_phone_followup_tasks: 1,
+              next_phone_followup_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
               calls_30d: 1,
             },
             {
@@ -75,6 +78,9 @@ describe('CRM command center', () => {
               last_message_at: new Date().toISOString(),
               open_tasks: 1,
               overdue_tasks: 0,
+              phone_followup_tasks: 0,
+              overdue_phone_followup_tasks: 0,
+              next_phone_followup_at: null,
               calls_30d: 0,
             },
           ],
@@ -95,6 +101,8 @@ describe('CRM command center', () => {
       critical: 1,
       overdue: 1,
       unassigned: 1,
+      phone_followups: 1,
+      phone_followups_overdue: 1,
       value_at_risk: 9000,
     }));
     expect(res.body.priorities[0]).toEqual(expect.objectContaining({
@@ -105,6 +113,7 @@ describe('CRM command center', () => {
     expect(res.body.priorities[0].reasons).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'unassigned' }),
       expect.objectContaining({ key: 'overdue_tasks' }),
+      expect.objectContaining({ key: 'phone_followup_overdue' }),
       expect.objectContaining({ key: 'high_value' }),
     ]));
     expect(pool.query.mock.calls[0][1]).toEqual([7, 40]);
