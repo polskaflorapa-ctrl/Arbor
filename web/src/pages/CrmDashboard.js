@@ -172,6 +172,7 @@ export default function CrmDashboard() {
               {[
                 { key: 'critical', icon: AlertTriangle, label: t('crm.dashboard.commandCritical', { defaultValue: 'Krytyczne' }), value: commandSummary.critical || 0 },
                 { key: 'unassigned', icon: UserPlus, label: t('crm.dashboard.commandUnassigned', { defaultValue: 'Bez ownera' }), value: commandSummary.unassigned || 0 },
+                { key: 'phone_unassigned', icon: PhoneCall, label: t('crm.dashboard.commandPhoneUnassigned', { defaultValue: 'Tel. bez ownera' }), value: commandSummary.phone_unassigned || 0 },
                 { key: 'phone_followups', icon: PhoneCall, label: t('crm.dashboard.commandPhoneFollowups', { defaultValue: 'Po rozmowach' }), value: commandSummary.phone_followups || 0 },
                 { key: 'value', icon: Target, label: t('crm.dashboard.commandValueAtRisk', { defaultValue: 'Wartość zagrożona' }), value: formatCurrency(commandSummary.value_at_risk || 0) },
               ].map((item) => {

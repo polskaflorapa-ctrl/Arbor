@@ -125,10 +125,15 @@ function commandItemForLead(row) {
   const phoneFollowupTasks = Number(row.phone_followup_tasks || 0);
   const overduePhoneFollowupTasks = Number(row.overdue_phone_followup_tasks || 0);
   const calls30d = Number(row.calls_30d || 0);
+  const source = String(row.source || '').trim().toLowerCase();
+  const isPhoneLead = source.includes('telefon') || row.last_channel === 'phone' || calls30d > 0;
   const reasons = [];
   let score = 0;
 
-  if (!row.owner_user_id) {
+  if (!row.owner_user_id && isPhoneLead) {
+    score += 34;
+    reasons.push({ key: 'phone_lead_unassigned', label: 'Nowy lead z telefonu bez ownera', severity: 'critical' });
+  } else if (!row.owner_user_id) {
     score += 24;
     reasons.push({ key: 'unassigned', label: 'Brak ownera', severity: 'high' });
   }
@@ -177,7 +182,9 @@ function commandItemForLead(row) {
 
   const primary = reasons[0]?.key || 'next_step';
   const nextBestAction =
-    primary === 'unassigned'
+    primary === 'phone_lead_unassigned'
+      ? 'Przypisz ownera do leada z telefonu i ustaw pierwszy kontakt.'
+      : primary === 'unassigned'
       ? 'Przypisz ownera i zaplanuj pierwszy kontakt.'
       : primary === 'overdue_tasks' || primary === 'next_action_overdue'
         ? 'Wykonaj zalegle zadanie albo ustaw nowy termin follow-up.'
@@ -658,6 +665,7 @@ router.get('/command-center', async (req, res) => {
       high: priorities.filter((item) => item.priority === 'high').length,
       overdue: priorities.filter((item) => item.overdue_tasks > 0 || (item.reasons || []).some((r) => r.key === 'next_action_overdue')).length,
       unassigned: priorities.filter((item) => !item.owner_user_id).length,
+      phone_unassigned: priorities.filter((item) => (item.reasons || []).some((r) => r.key === 'phone_lead_unassigned')).length,
       phone_followups: priorities.reduce((sum, item) => sum + Number(item.phone_followup_tasks || 0), 0),
       phone_followups_overdue: priorities.reduce((sum, item) => sum + Number(item.overdue_phone_followup_tasks || 0), 0),
       value_at_risk: priorities

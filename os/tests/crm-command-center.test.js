@@ -101,6 +101,7 @@ describe('CRM command center', () => {
       critical: 1,
       overdue: 1,
       unassigned: 1,
+      phone_unassigned: 1,
       phone_followups: 1,
       phone_followups_overdue: 1,
       value_at_risk: 9000,
@@ -108,10 +109,10 @@ describe('CRM command center', () => {
     expect(res.body.priorities[0]).toEqual(expect.objectContaining({
       id: 1,
       priority: 'critical',
-      next_best_action: expect.stringContaining('Przypisz'),
+      next_best_action: expect.stringContaining('leada z telefonu'),
     }));
     expect(res.body.priorities[0].reasons).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: 'unassigned' }),
+      expect.objectContaining({ key: 'phone_lead_unassigned' }),
       expect.objectContaining({ key: 'overdue_tasks' }),
       expect.objectContaining({ key: 'phone_followup_overdue' }),
       expect.objectContaining({ key: 'high_value' }),

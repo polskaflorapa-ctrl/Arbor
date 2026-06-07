@@ -92,7 +92,7 @@ beforeEach(() => {
     if (url === '/crm/command-center') {
       return Promise.resolve({
         data: {
-          summary: { critical: 1, high: 1, unassigned: 1, phone_followups: 2, phone_followups_overdue: 1, value_at_risk: 9000 },
+          summary: { critical: 1, high: 1, unassigned: 1, phone_unassigned: 1, phone_followups: 2, phone_followups_overdue: 1, value_at_risk: 9000 },
           priorities: [
             {
               id: 77,
@@ -138,6 +138,7 @@ test('renders CRM conversion analytics and owner performance', async () => {
   expect(screen.getByText('Co zrobić teraz')).toBeInTheDocument();
   expect(screen.getByText('Duza wycinka przy domu')).toBeInTheDocument();
   expect(screen.getByText('Przypisz ownera i zaplanuj pierwszy kontakt.')).toBeInTheDocument();
+  expect(screen.getByText('Tel. bez ownera')).toBeInTheDocument();
   expect(screen.getByText('Po rozmowach')).toBeInTheDocument();
   expect(screen.getByText('Wartość zagrożona')).toBeInTheDocument();
   expect(screen.getAllByText('whatsapp').length).toBeGreaterThan(0);
