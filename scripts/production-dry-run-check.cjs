@@ -81,7 +81,7 @@ const runbookNeedles = [
   "npm run backup:db",
   "npm run restore:db:check",
   "npm run smoke:render -- https://<arbor-os-url>",
-  "npm run smoke:p95 -- https://<arbor-os-url>",
+  "npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5",
 ];
 
 function readJson(relPath, baseDir = root) {

@@ -45,7 +45,7 @@ test("production dry-run check validates files, scripts, and runbook commands", 
     writeFixtureFile(
       root,
       "docs/ENVIRONMENT-RUNBOOK.md",
-      "npm run deploy:prod:dry-run npm run backup:db npm run restore:db:check npm run smoke:render -- https://<arbor-os-url> npm run smoke:p95 -- https://<arbor-os-url>",
+      "npm run deploy:prod:dry-run npm run backup:db npm run restore:db:check npm run smoke:render -- https://<arbor-os-url> npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5",
     );
     writeFixtureFile(
       root,

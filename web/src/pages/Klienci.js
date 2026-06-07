@@ -277,10 +277,10 @@ export default function Klienci() {
                 <p>Brak klientów</p>
               </div>
             ) : klienci.map(k => (
-              <button
+              <Button
+                variant="secondary"
                 className="clients-list-row"
                 key={k.id}
-                type="button"
                 onClick={() => loadDetail(k.id)}
                 style={{
                   width: '100%',
@@ -294,6 +294,7 @@ export default function Klienci() {
                   background: selected === k.id ? 'var(--accent-surface)' : '#ffffff',
                   borderLeft: `3px solid ${selected === k.id ? 'var(--accent)' : 'transparent'}`,
                   transition: 'all 0.15s',
+                  justifyContent: 'stretch',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -338,7 +339,7 @@ export default function Klienci() {
                     )}
                   </div>
                 </div>
-              </button>
+              </Button>
             ))}
           </div>
         </div>
