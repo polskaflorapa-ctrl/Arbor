@@ -138,12 +138,14 @@ function buildChecks({ token = '', date = todayIso() } = {}) {
   const checks = [
     { name: 'ready', method: 'GET', path: '/api/ready', expected: [200] },
     { name: 'health', method: 'GET', path: '/api/health', expected: [200] },
+    { name: 'openapi-docs', method: 'GET', path: '/api/docs/openapi.yaml', expected: [200] },
   ];
 
   if (!token) {
     checks.push(
       { name: 'tasks-auth-boundary', method: 'GET', path: '/api/tasks/wszystkie?limit=10', expected: [401, 403] },
       { name: 'quotations-auth-boundary', method: 'GET', path: '/api/quotations', expected: [401, 403] },
+      { name: 'settlement-auth-boundary', method: 'GET', path: '/api/rozliczenia/zadanie/1', expected: [401, 403] },
     );
     return checks;
   }

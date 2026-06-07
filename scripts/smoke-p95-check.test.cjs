@@ -45,14 +45,17 @@ test("buildChecks keeps unauthenticated run non-mutating", () => {
   assert.deepEqual(checks.map((check) => check.name), [
     "ready",
     "health",
+    "openapi-docs",
     "tasks-auth-boundary",
     "quotations-auth-boundary",
+    "settlement-auth-boundary",
   ]);
   assert.ok(checks.every((check) => check.method === "GET"));
 });
 
 test("buildChecks adds authenticated list and BI probes", () => {
   const checks = buildChecks({ token: "abc", date: "2026-05-31" });
+  assert.ok(checks.some((check) => check.name === "openapi-docs"));
   assert.ok(checks.some((check) => check.name === "tasks-list" && check.headers.Authorization === "Bearer abc"));
   assert.ok(checks.some((check) => check.name === "kierownik-today" && check.path.includes("2026-05-31")));
   assert.ok(checks.some((check) => check.name === "bi-drill"));

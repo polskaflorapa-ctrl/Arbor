@@ -102,7 +102,7 @@ npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 ```
 
 Authenticated smoke musi obejmowac `/api/ops/smoke` i `/api/ops/storage-smoke`.
-Authenticated p95 smoke mierzy dodatkowo `/api/auth/me`, `/api/tasks/wszystkie`, `/api/ops/kierownik-today` i `/api/bi/drill`. Domyslny prog PASS/FAIL to 500 ms.
+Publiczny p95 smoke mierzy `/api/ready`, `/api/health`, `/api/docs/openapi.yaml` oraz auth-boundary dla list i rozliczen. Authenticated p95 smoke mierzy dodatkowo `/api/auth/me`, `/api/tasks/wszystkie`, `/api/ops/kierownik-today` i `/api/bi/drill`. Domyslny prog PASS/FAIL to 500 ms.
 
 ## 6. Prosty alert operacyjny
 
