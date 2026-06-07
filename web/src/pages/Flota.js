@@ -61,6 +61,19 @@ function dueAlert(kind, value, now) {
   return { key: kind.key, state: 'ok', label: `${kind.label} OK`, detail: fmtDate(value), color: '#00c875' };
 }
 
+function documentDueAlert(doc, now = new Date()) {
+  if (!doc?.wazny_do) return null;
+  const label = doc.kategoria || doc.nazwa_pliku || 'Dokument';
+  const health = dateHealth(doc.wazny_do, now);
+  if (health.state === 'expired') {
+    return { key: `doc-${doc.id}`, state: 'expired', label: `${label} po terminie`, detail: `${Math.abs(health.days)} dni po terminie`, color: '#e2445c' };
+  }
+  if (health.state === 'soon') {
+    return { key: `doc-${doc.id}`, state: 'soon', label: `${label} za ${health.days} dni`, detail: fmtDate(doc.wazny_do), color: '#fdab3d' };
+  }
+  return null;
+}
+
 function priorityWeight(state) {
   if (state === 'expired') return 0;
   if (state === 'soon') return 1;
@@ -72,6 +85,7 @@ const FLEET_STATUS_OPTIONS = ['Dostepny', 'W uzyciu', 'W naprawie', 'Niedostepny
 const VEHICLE_TYPE_OPTIONS = ['Samochod', 'Bus', 'Ciezarowka', 'Przyczepa', 'Maszyna'];
 const EQUIPMENT_TYPE_OPTIONS = ['Pilarka', 'Rebak', 'Podnosnik', 'Narzedzie', 'Inne'];
 const REPAIR_PRIORITY_OPTIONS = ['Normalny', 'Pilny', 'Krytyczny'];
+const FLEET_DOCUMENT_OPTIONS = ['OC', 'UDT', 'Gwarancja', 'Instrukcja', 'Faktura zakupu', 'Inne'];
 
 function todayYmd() {
   return new Date().toISOString().slice(0, 10);
@@ -246,6 +260,7 @@ export default function Flota() {
   const [assetPhotos, setAssetPhotos] = useState({});
   const [assetDocuments, setAssetDocuments] = useState({});
   const [assetHistory, setAssetHistory] = useState({});
+  const [assetDocumentDrafts, setAssetDocumentDrafts] = useState({});
   const [photoUploadingKey, setPhotoUploadingKey] = useState('');
   const [documentUploadingKey, setDocumentUploadingKey] = useState('');
   const [repairInvoices, setRepairInvoices] = useState({});
@@ -556,19 +571,36 @@ export default function Flota() {
     }
   };
 
+  const setAssetDocumentDraft = (type, id, field, value) => {
+    const key = assetKey(type, id);
+    setAssetDocumentDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        kategoria: 'Inne',
+        wazny_do: '',
+        ...(prev[key] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
   const uploadAssetDocument = async (type, item, file) => {
     if (!file) return;
     const key = assetKey(type, item.id);
+    const draft = assetDocumentDrafts[key] || {};
     setDocumentUploadingKey(key);
     try {
       const token = getStoredToken();
       const form = new FormData();
       form.append('dokument', file);
-      form.append('kategoria', 'Dokument zasobu');
+      form.append('kategoria', draft.kategoria || 'Inne');
       form.append('opis', type === 'sprzet' ? 'Dokument sprzetu' : 'Dokument pojazdu');
+      if (draft.wazny_do) form.append('wazny_do', draft.wazny_do);
       await api.post(`/flota/${type}/${item.id}/dokumenty`, form, { headers: authHeaders(token) });
       showMsg(successMessage('Dokument dodany do karty zasobu.'));
+      setAssetDocumentDrafts((prev) => ({ ...prev, [key]: { kategoria: 'Inne', wazny_do: '' } }));
       await loadAssetDocuments(type, item.id);
+      await loadAssetHistory(type, item.id);
     } catch (err) {
       showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie dodac dokumentu.')));
     } finally {
@@ -879,12 +911,29 @@ export default function Flota() {
   const filtrPojazdy = pojazdy.filter(p => !filtrOddzial || p.oddzial_id?.toString() === filtrOddzial);
   const filtrSprzet = sprzet.filter(s => !filtrOddzial || s.oddzial_id?.toString() === filtrOddzial);
 
+  useEffect(() => {
+    const visible = [
+      ...filtrPojazdy.map((item) => ['pojazdy', item.id]),
+      ...filtrSprzet.map((item) => ['sprzet', item.id]),
+    ].slice(0, 30);
+    visible.forEach(([type, id]) => {
+      const key = assetKey(type, id);
+      if (!Array.isArray(assetDocuments[key])) {
+        void loadAssetDocuments(type, id);
+      }
+    });
+  }, [filtrPojazdy, filtrSprzet, assetDocuments]);
+
   const resourceCards = useMemo(() => {
     const now = new Date();
     const vehicleCards = filtrPojazdy.map((p) => {
+      const docs = assetDocuments[assetKey('pojazdy', p.id)] || [];
+      const docsLoaded = Array.isArray(assetDocuments[assetKey('pojazdy', p.id)]);
       const alerts = [
         dueAlert({ key: 'inspection', label: 'Przeglad' }, p.data_przegladu, now),
         dueAlert({ key: 'insurance', label: 'OC' }, p.data_ubezpieczenia, now),
+        ...(docsLoaded && docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj OC / fakture / gwarancje', color: '#676879' }] : []),
+        ...docs.map((doc) => documentDueAlert(doc, now)).filter(Boolean),
       ];
       return {
         id: `vehicle-${p.id}`,
@@ -903,8 +952,12 @@ export default function Flota() {
       };
     });
     const equipmentCards = filtrSprzet.map((s) => {
+      const docs = assetDocuments[assetKey('sprzet', s.id)] || [];
+      const docsLoaded = Array.isArray(assetDocuments[assetKey('sprzet', s.id)]);
       const alerts = [
         dueAlert({ key: 'inspection', label: 'Przeglad' }, s.data_przegladu, now),
+        ...(docsLoaded && docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj UDT / gwarancje / instrukcje', color: '#676879' }] : []),
+        ...docs.map((doc) => documentDueAlert(doc, now)).filter(Boolean),
       ];
       if (s.next_reservation_from) {
         alerts.push({
@@ -937,7 +990,7 @@ export default function Flota() {
       const bWeight = Math.min(...b.alerts.map((alert) => priorityWeight(alert.state)));
       return aWeight - bWeight || a.title.localeCompare(b.title, 'pl');
     });
-  }, [filtrPojazdy, filtrSprzet, localeNum]);
+  }, [assetDocuments, filtrPojazdy, filtrSprzet, localeNum]);
 
   const resourceRiskCards = useMemo(
     () => resourceCards.filter((card) => card.alerts.some((alert) => alert.state !== 'ok')).slice(0, 8),
@@ -997,12 +1050,20 @@ export default function Flota() {
       .sort((a, b) => String(b.data_naprawy || '').localeCompare(String(a.data_naprawy || '')));
     const repairCost = repairs.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0);
     const downtimeLoss = repairs.reduce((sum, repair) => sum + repairDowntimeLoss(repair), 0);
+    const documents = assetDocuments[key] || [];
+    const docsLoaded = Array.isArray(assetDocuments[key]);
+    const documentAlerts = documents.map((doc) => documentDueAlert(doc)).filter(Boolean);
+    const missingDocAlert = docsLoaded && documents.length === 0
+      ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: type === 'pojazdy' ? 'dodaj OC / fakture / gwarancje' : 'dodaj UDT / gwarancje / instrukcje', color: '#676879' }]
+      : [];
     const alerts = type === 'pojazdy'
       ? [
         dueAlert({ key: 'inspection', label: 'Przeglad' }, item.data_przegladu),
         dueAlert({ key: 'insurance', label: 'OC' }, item.data_ubezpieczenia),
+        ...missingDocAlert,
+        ...documentAlerts,
       ]
-      : [dueAlert({ key: 'inspection', label: 'Przeglad' }, item.data_przegladu)];
+      : [dueAlert({ key: 'inspection', label: 'Przeglad' }, item.data_przegladu), ...missingDocAlert, ...documentAlerts];
     return {
       type,
       kind,
@@ -1013,7 +1074,7 @@ export default function Flota() {
         : [item.nazwa, item.typ, item.nr_seryjny].filter(Boolean).join(' / '),
       subtitle: [item.oddzial_nazwa, item.ekipa_nazwa || 'bez ekipy', item.status].filter(Boolean).join(' / '),
       photos: assetPhotos[key] || [],
-      documents: assetDocuments[key] || [],
+      documents,
       history: assetHistory[key] || [],
       repairs,
       repairCost,
@@ -1487,6 +1548,7 @@ export default function Flota() {
                     ekipy={ekipy}
                     photos={assetPhotos[assetKey('pojazdy', p.id)]}
                     documents={assetDocuments[assetKey('pojazdy', p.id)]}
+                    documentDraft={assetDocumentDrafts[assetKey('pojazdy', p.id)]}
                     repairSummary={assetRepairSummary.get(assetKey('pojazdy', p.id))}
                     uploading={photoUploadingKey === assetKey('pojazdy', p.id)}
                     documentUploading={documentUploadingKey === assetKey('pojazdy', p.id)}
@@ -1498,6 +1560,7 @@ export default function Flota() {
                     onDeletePhoto={deleteAssetPhoto}
                     onLoadDocuments={loadAssetDocuments}
                     onUploadDocument={uploadAssetDocument}
+                    onDocumentDraftChange={setAssetDocumentDraft}
                     onDeleteDocument={deleteAssetDocument}
                     onOpenDetail={openAssetDetail}
                     onOpenRepairs={openRepairsForAsset}
@@ -1574,6 +1637,7 @@ export default function Flota() {
                     ekipy={ekipy}
                     photos={assetPhotos[assetKey('sprzet', s.id)]}
                     documents={assetDocuments[assetKey('sprzet', s.id)]}
+                    documentDraft={assetDocumentDrafts[assetKey('sprzet', s.id)]}
                     repairSummary={assetRepairSummary.get(assetKey('sprzet', s.id))}
                     uploading={photoUploadingKey === assetKey('sprzet', s.id)}
                     documentUploading={documentUploadingKey === assetKey('sprzet', s.id)}
@@ -1585,6 +1649,7 @@ export default function Flota() {
                     onDeletePhoto={deleteAssetPhoto}
                     onLoadDocuments={loadAssetDocuments}
                     onUploadDocument={uploadAssetDocument}
+                    onDocumentDraftChange={setAssetDocumentDraft}
                     onDeleteDocument={deleteAssetDocument}
                     onOpenDetail={openAssetDetail}
                     onOpenRepairs={openRepairsForAsset}
@@ -1851,14 +1916,14 @@ function ResourceCardsPanel({ cards, total, alertCount, onOpenDetail, onOpenCale
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 11, textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 800 }}>{card.type}</div>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
                       aria-label={`Otworz karte zasobu ${card.title} ${card.subtitle}`.trim()}
                       onClick={() => onOpenDetail?.(card.assetType, card.asset)}
                       style={S.assetTitleButton}
                     >
                       <h3 style={{ margin: '2px 0 0', fontSize: 15, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.title}</h3>
-                    </button>
+                    </Button>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{card.subtitle}</div>
                   </div>
                   <span style={{ borderWidth: 1, borderStyle: 'solid', borderColor: worst.color, color: worst.color, borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>
@@ -1940,6 +2005,7 @@ function FleetAssetControls({
   ekipy,
   photos,
   documents,
+  documentDraft,
   repairSummary,
   uploading,
   documentUploading,
@@ -1951,12 +2017,14 @@ function FleetAssetControls({
   onDeletePhoto,
   onLoadDocuments,
   onUploadDocument,
+  onDocumentDraftChange,
   onDeleteDocument,
   onOpenDetail,
   onOpenRepairs,
 }) {
   const loaded = Array.isArray(photos);
   const docsLoaded = Array.isArray(documents);
+  const docDraft = { kategoria: 'Inne', wazny_do: '', ...(documentDraft || {}) };
   const kind = type === 'pojazdy' ? 'pojazd' : 'sprzet';
   return (
     <div style={S.assetControlBox}>
@@ -2022,6 +2090,25 @@ function FleetAssetControls({
         <Button variant="secondary" size="sm" style={S.assetPhotoButton} leftIcon={FileText} onClick={() => onLoadDocuments(type, item.id)}>
           {docsLoaded ? `${documents.length} dok.` : 'Dokumenty'}
         </Button>
+        {canEdit && (
+          <select
+            style={S.assetDocSelect}
+            value={docDraft.kategoria}
+            onChange={(e) => onDocumentDraftChange(type, item.id, 'kategoria', e.target.value)}
+            title="Typ dokumentu"
+          >
+            {FLEET_DOCUMENT_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        )}
+        {canEdit && (
+          <input
+            style={S.assetDocDateInput}
+            type="date"
+            value={docDraft.wazny_do || ''}
+            onChange={(e) => onDocumentDraftChange(type, item.id, 'wazny_do', e.target.value)}
+            title="Wazny do"
+          />
+        )}
         {canEdit && (
           <label style={S.assetUploadButton}>
             <Upload size={14} /> {documentUploading ? 'Wgrywam' : 'Dodaj dok.'}
@@ -2130,9 +2217,9 @@ function AssetDetailPanel({ detail, canEdit, onClose, onOpenRepairs, onNewRepair
           </div>
           <div style={S.assetDocList}>
             {detail.documents.length ? detail.documents.map((doc) => (
-              <div key={doc.id} style={S.assetDocRow}>
+              <div key={doc.id} style={{ ...S.assetDocRow, borderColor: dateHealth(doc.wazny_do).state === 'expired' ? 'rgba(226,68,92,0.45)' : dateHealth(doc.wazny_do).state === 'soon' ? 'rgba(253,171,61,0.45)' : 'var(--border)' }}>
                 <a href={doc.url} target="_blank" rel="noreferrer">{doc.kategoria || doc.nazwa_pliku || `Dokument #${doc.id}`}</a>
-                <span>{doc.wazny_do ? `wazny do ${fmtDate(doc.wazny_do)}` : doc.nazwa_pliku}</span>
+                <span>{doc.wazny_do ? `wazny do ${fmtDate(doc.wazny_do)}` : 'bez terminu'}</span>
                 {canEdit && <Button variant="danger" size="sm" leftIcon={Trash2} onClick={() => onDeleteDocument(doc.id)}>Usun</Button>}
               </div>
             )) : <div style={S.assetEmptyLine}>Brak dokumentow w karcie zasobu.</div>}
@@ -2387,6 +2474,8 @@ const S = {
   assetDocumentChip: { display: 'inline-grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 4, maxWidth: 150, border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, background: 'rgba(20,131,79,0.08)', padding: '5px 6px', minWidth: 0 },
   assetDocumentLink: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)', fontSize: 11, fontWeight: 900, textDecoration: 'none' },
   assetDocumentDelete: { border: 'none', background: 'transparent', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 900, padding: 0 },
+  assetDocSelect: { minWidth: 82, maxWidth: 130, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 800 },
+  assetDocDateInput: { width: 126, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 800 },
   assetDetailPanel: { marginBottom: 20, border: '1px solid var(--glass-border)', borderRadius: 8, background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 },
   assetDetailHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 12 },
   assetDetailEyebrow: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: 0 },
