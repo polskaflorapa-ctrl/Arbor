@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 import api from '../api';
 import ModernDataRow from './ModernDataRow';
+import { Button } from './ui/Button';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
 
@@ -218,9 +220,9 @@ export default function PayrollRatesPanel({ userId, allowEdit, onMessage }) {
             </div>
           </div>
           <div style={s.btnRow}>
-            <button type="button" style={s.btnPrimary} disabled={saving} onClick={() => void submit()}>
-              {saving ? 'Zapisywanie…' : 'Dodaj wersję stawki'}
-            </button>
+            <Button style={s.btnPrimary} loading={saving} leftIcon={Plus} onClick={() => void submit()}>
+              Dodaj wersję stawki
+            </Button>
           </div>
         </>
       )}

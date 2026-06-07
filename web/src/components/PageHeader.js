@@ -1,7 +1,8 @@
-import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from './ui/Button';
 
 /**
  * Spójny nagłówek widoku (tytuł + opcjonalnie podtytuł, ikona, akcje, wstecz).
@@ -72,13 +73,13 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
         }}
       >
         {resolvedBack ? (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={resolvedBack.onClick}
             aria-label={resolvedBack.ariaLabel || resolvedBack.label || 'Powrót'}
+            leftIcon={ArrowLeft}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
               gap: 2,
               marginTop: 2,
               padding: '6px 10px',
@@ -93,9 +94,8 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               transition: 'background 0.15s ease, color 0.15s ease',
             }}
           >
-            <ChevronLeft style={{ fontSize: 22, margin: '-2px -4px -2px -6px' }} aria-hidden />
             {resolvedBack.label != null ? resolvedBack.label : ''}
-          </button>
+          </Button>
         ) : null}
         {icon ? (
           <div

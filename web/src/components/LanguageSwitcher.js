@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Button } from './ui/Button';
 
 const baseBtn = {
   border: '1px solid transparent',
@@ -63,9 +64,10 @@ export default function LanguageSwitcher({ compact = false, tone = 'light', styl
         const active = cur === code;
         const label = t(`lang.${code}`);
         return (
-          <button
+          <Button
             key={code}
-            type="button"
+            variant={active ? 'secondary' : 'ghost'}
+            size="sm"
             onClick={() => i18n.changeLanguage(code)}
             style={{ ...baseBtn, ...darkBtn, ...(active ? { ...activeBtn, ...darkActiveBtn } : {}) }}
             aria-pressed={active}
@@ -73,7 +75,7 @@ export default function LanguageSwitcher({ compact = false, tone = 'light', styl
             title={label}
           >
             {compact ? code.toUpperCase() : label}
-          </button>
+          </Button>
         );
       })}
     </div>

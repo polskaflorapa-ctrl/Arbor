@@ -264,14 +264,15 @@ export default function Oddzialy() {
             { key: 'oddzialy', label: t('pages.oddzialy.tabBranches', { count: oddzialy.length }) },
             { key: 'delegacje', label: t('pages.oddzialy.tabDelegations', { count: delegacje.length }) },
           ].map((tab) => (
-            <button
+            <Button
               key={tab.key}
-              type="button"
+              variant={activeTab === tab.key ? 'primary' : 'ghost'}
+              size="sm"
               style={{ padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: activeTab === tab.key ? 'var(--accent)' : '#6B7280', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' }}
               onClick={() => setActiveTab(tab.key)}
             >
               {tab.label}
-            </button>
+            </Button>
           ))}
         </div>
 

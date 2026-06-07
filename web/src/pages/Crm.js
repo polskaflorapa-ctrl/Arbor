@@ -72,22 +72,25 @@ export default function Crm() {
             }}
           >
             {cards.map((c) => (
-              <button
+              <Button
                 key={c.path}
-                type="button"
+                variant="secondary"
                 className="ios-inset"
                 onClick={() => navigate(c.path)}
+                rightIcon={ArrowRight}
                 style={{
                   textAlign: 'left',
                   padding: 14,
                   cursor: 'pointer',
                   borderRadius: 12,
                   color: 'var(--text)',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
                 }}
               >
-                <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>{c.title || t(c.titleKey)}</div>
-                <div style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--text-sub)' }}>{c.desc || t(c.descKey)}</div>
-              </button>
+                <span style={{ display: 'block', fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>{c.title || t(c.titleKey)}</span>
+                <span style={{ display: 'block', fontSize: 13, lineHeight: 1.45, color: 'var(--text-sub)' }}>{c.desc || t(c.descKey)}</span>
+              </Button>
             ))}
           </div>
 

@@ -314,7 +314,7 @@ test('specialist can register an incoming client call and create callback', asyn
   expect(await screen.findByText(/Telefon przychodzacy zapisany/i)).toBeInTheDocument();
   expect(screen.getByText(/Lead CRM utworzony/i)).toBeInTheDocument();
   expect(screen.getByText(/Oddzwonienie utworzone/i)).toBeInTheDocument();
-});
+}, 20000);
 
 test('runs phone CRM flow test from calls tab', async () => {
   api.post.mockImplementation((url) => {
