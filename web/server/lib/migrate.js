@@ -78,11 +78,13 @@ function migrateState(state, saveState) {
   ensure('flotaSprzet', () => [...(seed.flotaSprzet || [])]);
   ensure('flotaNaprawy', () => [...(seed.flotaNaprawy || [])]);
   ensure('flotaZdjecia', () => [...(seed.flotaZdjecia || [])]);
+  ensure('flotaDokumenty', () => [...(seed.flotaDokumenty || [])]);
   ensure('flotaFakturyNapraw', () => [...(seed.flotaFakturyNapraw || [])]);
   ensure('nextFlotaPojazdId', seed.nextFlotaPojazdId || 1);
   ensure('nextFlotaSprzetId', seed.nextFlotaSprzetId || 1);
   ensure('nextFlotaNaprawaId', seed.nextFlotaNaprawaId || 1);
   ensure('nextFlotaZdjecieId', seed.nextFlotaZdjecieId || 1);
+  ensure('nextFlotaDokumentId', seed.nextFlotaDokumentId || 1);
   ensure('nextFlotaFakturaNaprawId', seed.nextFlotaFakturaNaprawId || 1);
   ensure('equipmentReservations', () => [...(seed.equipmentReservations || [])]);
   ensure('nextEquipmentReservationId', seed.nextEquipmentReservationId || 1);

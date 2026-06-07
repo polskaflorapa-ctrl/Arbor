@@ -2341,6 +2341,76 @@ module.exports = function registerFullStack(router) {
     res.json({ ok: true });
   });
 
+  router.get('/flota/:typ/:id/dokumenty', requireAuth, (req, res) => {
+    const typ = String(req.params.typ || '');
+    const id = toNum(req.params.id);
+    if (!['pojazdy', 'sprzet'].includes(typ) || !id) return res.status(400).json({ error: 'Nieprawidlowy zasob' });
+    const rows = readOnly((s) => (s.flotaDokumenty || [])
+      .filter((x) => x.typ === typ && Number(x.zasob_id) === id)
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+    res.json(rows);
+  });
+
+  router.post('/flota/:typ/:id/dokumenty', requireAuth, upFleetFile.single('dokument'), (req, res) => {
+    const typ = String(req.params.typ || '');
+    const id = toNum(req.params.id);
+    if (!['pojazdy', 'sprzet'].includes(typ) || !id) return res.status(400).json({ error: 'Nieprawidlowy zasob' });
+    if (!req.file) return res.status(400).json({ error: 'Brak pliku' });
+    const row = withStore((s) => {
+      const asset = (typ === 'pojazdy' ? (s.flotaPojazdy || []) : (s.flotaSprzet || [])).find((x) => Number(x.id) === id);
+      if (!asset) return null;
+      if (!canSeeAll(req.user) && String(asset.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      if (!s.flotaDokumenty) s.flotaDokumenty = [];
+      if (!s.nextFlotaDokumentId) s.nextFlotaDokumentId = 1;
+      const rel = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path).split(path.sep).join('/');
+      const doc = {
+        id: s.nextFlotaDokumentId++,
+        typ,
+        zasob_id: id,
+        kategoria: req.body?.kategoria ? String(req.body.kategoria).trim().slice(0, 100) : 'Dokument',
+        url: `/api/uploads/${rel}`,
+        nazwa_pliku: req.file.originalname,
+        mime: req.file.mimetype || null,
+        opis: req.body?.opis ? String(req.body.opis).trim().slice(0, 1000) : null,
+        wazny_do: req.body?.wazny_do || null,
+        created_by: req.user.id,
+        created_by_name: userName(s, req.user.id),
+        created_at: new Date().toISOString(),
+      };
+      s.flotaDokumenty.push(doc);
+      return doc;
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono zasobu' });
+    res.status(201).json(row);
+  });
+
+  router.delete('/flota/:typ/:id/dokumenty/:docId', requireAuth, (req, res) => {
+    const typ = String(req.params.typ || '');
+    const id = toNum(req.params.id);
+    const docId = toNum(req.params.docId);
+    if (!['pojazdy', 'sprzet'].includes(typ) || !id || !docId) return res.status(400).json({ error: 'Nieprawidlowy zasob' });
+    const deleted = withStore((s) => {
+      const asset = (typ === 'pojazdy' ? (s.flotaPojazdy || []) : (s.flotaSprzet || [])).find((x) => Number(x.id) === id);
+      if (!asset) return null;
+      if (!canSeeAll(req.user) && String(asset.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      const rows = s.flotaDokumenty || [];
+      const idx = rows.findIndex((x) => x.typ === typ && Number(x.zasob_id) === id && Number(x.id) === docId);
+      if (idx === -1) return null;
+      const [doc] = rows.splice(idx, 1);
+      return doc;
+    });
+    if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!deleted) return res.status(404).json({ error: 'Nie znaleziono dokumentu' });
+    if (deleted.url) {
+      const rel = String(deleted.url).replace(/^\/api\/uploads\/?/, '');
+      const root = path.resolve(path.join(__dirname, '..', 'uploads'));
+      const abs = path.resolve(path.join(root, rel));
+      if (abs.startsWith(root)) safeUnlink(abs);
+    }
+    res.json({ ok: true });
+  });
+
   router.get('/flota/naprawy/:id/faktury', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
     if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
@@ -2496,6 +2566,7 @@ module.exports = function registerFullStack(router) {
       if (!canSeeAll(req.user) && String(item.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
       s[key] = arr.filter((x) => Number(x.id) !== id);
       s.flotaZdjecia = (s.flotaZdjecia || []).filter((x) => !(x.typ === typ && Number(x.zasob_id) === id));
+      s.flotaDokumenty = (s.flotaDokumenty || []).filter((x) => !(x.typ === typ && Number(x.zasob_id) === id));
       return item;
     });
     if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2526,6 +2597,8 @@ module.exports = function registerFullStack(router) {
         wykonawca: b.wykonawca ? String(b.wykonawca).trim().slice(0, 500) : null,
         koszt: toNum(b.koszt),
         termin_odbioru: b.termin_odbioru || null,
+        data_zakonczenia: b.data_zakonczenia || null,
+        strata_dzienna: toNum(b.strata_dzienna),
         priorytet: b.priorytet ? String(b.priorytet).trim().slice(0, 80) : 'Normalny',
         status: b.status || 'W toku',
         oddzial_id: toNum(b.oddzial_id) ?? asset.oddzial_id ?? req.user.oddzial_id,
@@ -2558,6 +2631,8 @@ module.exports = function registerFullStack(router) {
         zasob_id: zasobId,
         koszt: toNum(b.koszt) ?? repair.koszt ?? null,
         termin_odbioru: b.termin_odbioru || null,
+        data_zakonczenia: b.data_zakonczenia || null,
+        strata_dzienna: toNum(b.strata_dzienna) ?? repair.strata_dzienna ?? null,
         priorytet: b.priorytet ? String(b.priorytet).trim().slice(0, 80) : repair.priorytet || 'Normalny',
         oddzial_id: toNum(b.oddzial_id) ?? repair.oddzial_id ?? req.user.oddzial_id,
         updated_at: new Date().toISOString(),

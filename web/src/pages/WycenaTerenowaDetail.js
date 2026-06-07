@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
 import Sidebar from '../components/Sidebar';
+import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
+import { ArrowLeft, Copy, Send } from 'lucide-react';
 
 const OFFER_STATUS_PL = {
   sent: 'Wysłano',
@@ -218,9 +220,9 @@ export default function WycenaTerenowaDetail() {
     <div className="field-quote-detail-shell" style={S.wrap}>
       <Sidebar />
       <main className="field-quote-detail-main" style={S.main}>
-        <button type="button" style={S.back} onClick={() => navigate(-1)}>
+        <Button type="button" variant="ghost" leftIcon={ArrowLeft} style={S.back} onClick={() => navigate(-1)}>
           ← Wróć
-        </button>
+        </Button>
         <PageHeader title="Wycena terenowa" subtitle="Status oferty i wysyłki do klienta (M1 / F1.11)" />
 
         {loading ? (
@@ -284,9 +286,10 @@ export default function WycenaTerenowaDetail() {
                 <div style={S.h2}>Wysyłka oferty do klienta</div>
                 {showResend ? (
                   <div style={{ marginBottom: 14 }}>
-                    <button
+                    <Button
                       type="button"
-                      disabled={resendBusy}
+                      leftIcon={Send}
+                      loading={resendBusy}
                       onClick={() => void doResendClientOffer()}
                       style={{
                         padding: '10px 14px',
@@ -300,7 +303,7 @@ export default function WycenaTerenowaDetail() {
                       }}
                     >
                       {resendBusy ? 'Wysyłanie…' : 'Ponów SMS i e-mail'}
-                    </button>
+                    </Button>
                     <div style={{ ...S.muted, marginTop: 8, fontSize: 12 }}>
                       Ten sam link akceptacji co wcześniej. Użyj po błędzie Twilio/SMTP lub gdy klient nie dostał wiadomości.
                     </div>
@@ -348,8 +351,10 @@ export default function WycenaTerenowaDetail() {
                     >
                       {acceptUrl}
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      leftIcon={Copy}
                       style={{
                         marginTop: 8,
                         padding: '8px 12px',
@@ -364,7 +369,7 @@ export default function WycenaTerenowaDetail() {
                       }}
                     >
                       Kopiuj link
-                    </button>
+                    </Button>
                   </div>
                 ) : null}
               </div>

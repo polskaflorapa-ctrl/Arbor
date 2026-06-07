@@ -85,6 +85,8 @@ const naprawaCreateSchema = z.object({
   opis_naprawy: z.string().optional().nullable(),
   wykonawca: z.string().max(200).optional().nullable(),
   termin_odbioru: z.string().max(20).optional().nullable(),
+  data_zakonczenia: z.string().max(20).optional().nullable(),
+  strata_dzienna: z.coerce.number().optional().nullable(),
   priorytet: z.string().trim().max(80).optional().nullable(),
   status: z.string().max(50).optional().nullable(),
   oddzial_id: z.coerce.number().int().positive().optional().nullable(),
@@ -517,13 +519,13 @@ router.get('/naprawy', authMiddleware, validateQuery(flotaNaprawyQuerySchema), a
 
 router.post('/naprawy', authMiddleware, validateBody(naprawaCreateSchema), async (req, res) => {
   try {
-    const { typ_zasobu, zasob_id, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, termin_odbioru, priorytet, status, oddzial_id } = req.body;
+    const { typ_zasobu, zasob_id, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, termin_odbioru, data_zakonczenia, strata_dzienna, priorytet, status, oddzial_id } = req.body;
     const finalOddzialId = isDyrektor(req.user) ? (oddzial_id || req.user.oddzial_id) : req.user.oddzial_id;
     const finalStatus = status || 'Zakonczona';
     const result = await pool.query(
-      `INSERT INTO repairs (typ_zasobu, zasob_id, oddzial_id, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, termin_odbioru, priorytet, status, user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
-      [typ_zasobu, zasob_id, finalOddzialId, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, termin_odbioru || null, priorytet || 'Normalny', finalStatus, req.user.id]
+      `INSERT INTO repairs (typ_zasobu, zasob_id, oddzial_id, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, termin_odbioru, data_zakonczenia, strata_dzienna, priorytet, status, user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
+      [typ_zasobu, zasob_id, finalOddzialId, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, termin_odbioru || null, data_zakonczenia || null, strata_dzienna ?? null, priorytet || 'Normalny', finalStatus, req.user.id]
     );
     const table = repairResourceTable(typ_zasobu);
     if (table) {
@@ -556,8 +558,8 @@ router.put('/naprawy/:id', authMiddleware, validateParams(flotaIdParamsSchema), 
       `UPDATE repairs
        SET typ_zasobu = $1, zasob_id = $2, oddzial_id = $3, nr_faktury = $4, data_naprawy = $5,
            koszt = $6, opis_usterki = $7, opis_naprawy = $8, wykonawca = $9, termin_odbioru = $10,
-           priorytet = $11, status = $12
-       WHERE id = $13
+           data_zakonczenia = $11, strata_dzienna = $12, priorytet = $13, status = $14
+       WHERE id = $15
        RETURNING id`,
       [
         next.typ_zasobu,
@@ -570,6 +572,8 @@ router.put('/naprawy/:id', authMiddleware, validateParams(flotaIdParamsSchema), 
         next.opis_naprawy,
         next.wykonawca,
         next.termin_odbioru || null,
+        next.data_zakonczenia || null,
+        next.strata_dzienna ?? null,
         next.priorytet || 'Normalny',
         next.status || 'W toku',
         id,

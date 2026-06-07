@@ -14,7 +14,7 @@
 const express = require('express');
 const pool    = require('../config/database');
 const logger  = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, isDyrektorOrAdmin } = require('../middleware/auth');
 const { z }   = require('zod');
 
 const router = express.Router();
@@ -117,7 +117,15 @@ router.get('/zadanie/:taskId', async (req, res) => {
     );
     const rozliczenie = rzRows[0] || null;
 
-    res.json({ task, pomocnicy, rozliczenie });
+    const { rows: kosztyOperacyjne } = await pool.query(
+      `SELECT id, task_id, category, label, amount, source, note, recorded_at
+         FROM task_operational_costs
+        WHERE task_id = $1
+        ORDER BY recorded_at DESC, id DESC`,
+      [taskId],
+    );
+
+    res.json({ task, pomocnicy, rozliczenie, koszty_operacyjne: kosztyOperacyjne });
   } catch (err) {
     logger.error('rozliczenia.zadanie.get', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -223,6 +231,68 @@ const kalkulatorSchema = z.object({
   wartosc_brutto:       z.coerce.number().min(0),
   vat_stawka:           z.coerce.number().min(0).max(100).default(8),
   procent_brygadzisty:  z.coerce.number().min(0).max(100).optional(),
+});
+
+const operationalCostSchema = z.object({
+  category: z.enum(['sprzet', 'paliwo', 'utylizacja', 'inne']),
+  amount: z.coerce.number().positive().max(50000),
+  label: z.string().trim().max(120).optional().default(''),
+  note: z.string().trim().max(500).optional().default(''),
+});
+
+router.post('/zadanie/:taskId/koszty-operacyjne', async (req, res) => {
+  try {
+    if (!CALC_ROLES.includes(req.user.rola)) {
+      return res.status(403).json({ error: 'Brak uprawnien do edycji kosztow operacyjnych' });
+    }
+
+    const taskId = parseInt(req.params.taskId, 10);
+    if (!Number.isFinite(taskId)) return res.status(400).json({ error: 'Nieprawidlowe task_id' });
+
+    const parsed = operationalCostSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Nieprawidlowe dane', details: parsed.error.errors });
+
+    const { rows: taskRows } = await pool.query(
+      'SELECT id, oddzial_id FROM tasks WHERE id = $1',
+      [taskId],
+    );
+    if (!taskRows.length) return res.status(404).json({ error: 'Zadanie nie istnieje' });
+    const task = taskRows[0];
+    if (!isDyrektorOrAdmin(req.user) && String(task.oddzial_id || '') !== String(req.user.oddzial_id || '')) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu zadania' });
+    }
+
+    const { category, amount, label, note } = parsed.data;
+    const resolvedLabel = label || {
+      sprzet: 'Sprzet',
+      paliwo: 'Paliwo',
+      utylizacja: 'Utylizacja',
+      inne: 'Inne koszty',
+    }[category];
+
+    const { rows } = await pool.query(
+      `INSERT INTO task_operational_costs
+            (task_id, recorded_by, category, label, amount, source, note)
+       VALUES ($1, $2, $3, $4, $5, 'field_settlement', $6)
+       RETURNING id, task_id, recorded_by, category, label, amount, source, note, recorded_at`,
+      [taskId, req.user.id, category, resolvedLabel, amount, note || null],
+    );
+
+    await req.auditLog?.({
+      action: 'task.operational_cost_add',
+      entityType: 'task',
+      entityId: taskId,
+      metadata: {
+        oddzial_id: task.oddzial_id ?? req.user.oddzial_id ?? null,
+        cost: rows[0],
+      },
+    });
+
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    logger.error('rozliczenia.operational_cost.post', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
 });
 
 router.post('/zadanie/:taskId', async (req, res) => {

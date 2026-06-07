@@ -6,9 +6,11 @@ Cel: naprawy pojazdow i sprzetu maja byc kontrolowane terminem odbioru oraz prio
 
 - Ekran `#/flota?tab=naprawy` pokazuje termin odbioru i priorytet przy kazdej naprawie.
 - Formularz naprawy zapisuje `termin_odbioru` oraz `priorytet`.
+- Formularz naprawy zapisuje `data_zakonczenia` i `strata_dzienna`, zeby policzyc dni oraz koszt przestoju.
 - Lista napraw ma filtr `Po terminie`.
 - Panel napraw pokazuje liczbe napraw po terminie oraz blisko terminu.
 - Eksport CSV napraw zawiera `termin_odbioru`, `termin_status` i `priorytet`.
+- Eksport CSV napraw zawiera `przestoj_dni`, `strata_dzienna` i `strata_przestoju`.
 - Produkcyjne API `os` oraz lokalny full-stack przyjmuja i zachowuja `termin_odbioru` oraz `priorytet`.
 - Migracja dodaje pola do tabeli `repairs`.
 
@@ -17,6 +19,8 @@ Cel: naprawy pojazdow i sprzetu maja byc kontrolowane terminem odbioru oraz prio
 `POST /api/flota/naprawy` przyjmuje:
 
 - `termin_odbioru`: opcjonalna data `YYYY-MM-DD`
+- `data_zakonczenia`: opcjonalna data `YYYY-MM-DD`
+- `strata_dzienna`: opcjonalna kwota utraconego potencjalu dziennie
 - `priorytet`: `Normalny`, `Pilny`, `Krytyczny` albo inna krotka wartosc tekstowa
 
 `PUT /api/flota/naprawy/:id` zachowuje istniejace wartosci, jesli payload ich nie nadpisuje.

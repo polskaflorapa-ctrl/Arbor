@@ -872,12 +872,16 @@ CREATE TABLE IF NOT EXISTS repairs (
   opis_naprawy  TEXT,
   wykonawca     VARCHAR(200),
   termin_odbioru DATE,
+  data_zakonczenia DATE,
+  strata_dzienna NUMERIC(10,2) DEFAULT 0,
   priorytet     VARCHAR(80) DEFAULT 'Normalny',
   status        VARCHAR(30) DEFAULT 'Zakonczona',
   user_id       INTEGER REFERENCES users(id),
   created_at    TIMESTAMP DEFAULT NOW()
 );
 ALTER TABLE repairs ADD COLUMN IF NOT EXISTS termin_odbioru DATE;
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS data_zakonczenia DATE;
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS strata_dzienna NUMERIC(10,2) DEFAULT 0;
 ALTER TABLE repairs ADD COLUMN IF NOT EXISTS priorytet VARCHAR(80) DEFAULT 'Normalny';
 
 -- ─── 25. ROLE (UPRAWNIENIA) ───────────────────────────────────────────────────

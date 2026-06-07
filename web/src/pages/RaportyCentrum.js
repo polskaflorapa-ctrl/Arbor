@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommandSidebar from '../components/CommandSidebar';
+import { Button } from '../components/ui/Button';
 import { getStoredToken } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
+import { BarChart3, CalendarDays, ClipboardList, Route } from 'lucide-react';
 
 const FIELD_ROLES = [
   'Dyrektor',
@@ -110,10 +112,10 @@ export default function RaportyCentrum() {
         </section>
 
         <section className="raporty-centrum-opsbar" style={S.opsbar}>
-          <button type="button" style={S.opsButton} onClick={() => navigate('/raporty/dzienny')}>Raport dnia</button>
-          <button type="button" style={S.opsButton} onClick={() => navigate('/raporty/analityka')}>Analityka</button>
-          <button type="button" style={S.opsButton} onClick={() => navigate('/raporty/kpi-tydzien')}>KPI tygodnia</button>
-          <button type="button" style={S.primaryButton} onClick={() => navigate('/raporty/autoplan')}>Autoplan</button>
+          <Button type="button" variant="outline" leftIcon={ClipboardList} style={S.opsButton} onClick={() => navigate('/raporty/dzienny')}>Raport dnia</Button>
+          <Button type="button" variant="outline" leftIcon={BarChart3} style={S.opsButton} onClick={() => navigate('/raporty/analityka')}>Analityka</Button>
+          <Button type="button" variant="outline" leftIcon={CalendarDays} style={S.opsButton} onClick={() => navigate('/raporty/kpi-tydzien')}>KPI tygodnia</Button>
+          <Button type="button" leftIcon={Route} style={S.primaryButton} onClick={() => navigate('/raporty/autoplan')}>Autoplan</Button>
         </section>
 
         <section className="raporty-centrum-section" style={S.section}>
@@ -125,14 +127,14 @@ export default function RaportyCentrum() {
           </div>
           <div className="raporty-centrum-grid" style={S.grid}>
             {primary.map((item) => (
-              <button key={item.path} type="button" className="raporty-centrum-card" style={{ ...S.card, ...S[item.tone] }} onClick={() => navigate(item.path)}>
+              <Button key={item.path} type="button" variant="ghost" className="raporty-centrum-card" style={{ ...S.card, ...S[item.tone] }} onClick={() => navigate(item.path)}>
                 <span style={S.cardEyebrow}>{item.eyebrow}</span>
                 <span style={S.cardTop}>
                   <strong style={S.cardTitle}>{item.label}</strong>
                   <span style={S.metric}>{item.metric}</span>
                 </span>
                 <span style={S.cardText}>{item.description}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </section>
@@ -146,11 +148,11 @@ export default function RaportyCentrum() {
           </div>
           <div className="raporty-centrum-compact-grid" style={S.compactGrid}>
             {operational.map((item) => (
-              <button key={item.path} type="button" className="raporty-centrum-card" style={S.compactCard} onClick={() => navigate(item.path)}>
+              <Button key={item.path} type="button" variant="ghost" className="raporty-centrum-card" style={S.compactCard} onClick={() => navigate(item.path)}>
                 <span style={S.cardEyebrow}>{item.eyebrow}</span>
                 <strong style={S.cardTitle}>{item.label}</strong>
                 <span style={S.cardText}>{item.description}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </section>

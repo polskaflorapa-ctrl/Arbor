@@ -41,6 +41,7 @@ const MOCK_OGLEDZINY_DELETED_KEY = 'arbor-test-mode-ogledziny-deleted';
 const MOCK_BRANCH_GOALS_KEY = 'arbor-test-mode-branch-goals';
 const MOCK_BRANCH_SALES_KEY = 'arbor-test-mode-branch-sales';
 const MOCK_SETTLEMENTS_KEY = 'arbor-test-mode-settlements';
+const MOCK_OPERATIONAL_COSTS_KEY = 'arbor-test-mode-operational-costs';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -2984,6 +2985,7 @@ function getTestModeMockResponse(config) {
         task,
         pomocnicy: [],
         rozliczenie: getMockSettlement(mSettlement[1]),
+        koszty_operacyjne: getMockOperationalCostsForTask(mSettlement[1]),
       },
       status: 200,
       statusText: 'OK',
@@ -3020,6 +3022,43 @@ function getTestModeMockResponse(config) {
       data: settlement,
       status: 200,
       statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+  const mOperationalCost = path.match(/^\/rozliczenia\/zadanie\/(\d+)\/koszty-operacyjne$/);
+  if (mOperationalCost && method === 'post') {
+    const body = parseJsonData(config.data);
+    const category = String(body.category || '').trim() || 'inne';
+    const label = body.label || {
+      sprzet: 'Sprzet',
+      paliwo: 'Paliwo',
+      utylizacja: 'Utylizacja',
+      inne: 'Inne koszty',
+    }[category] || 'Koszt operacyjny';
+    const amount = roundMoney(body.amount || 0);
+    const cost = saveMockOperationalCost(mOperationalCost[1], {
+      id: Date.now(),
+      task_id: Number(mOperationalCost[1]),
+      recorded_by: 1,
+      category,
+      label,
+      amount,
+      source: 'field_settlement',
+      note: body.note || '',
+      recorded_at: new Date().toISOString(),
+    });
+    const task = getMockTaskDetail(mOperationalCost[1]);
+    const allCosts = getMockOperationalCostsForTask(mOperationalCost[1]);
+    mockUpdateTaskInTestMode(mOperationalCost[1], {
+      koszt_operacyjny: roundMoney((Number(task.koszt_operacyjny || 0)) + amount),
+      koszt_operacyjny_rows: allCosts,
+    });
+    return {
+      data: cost,
+      status: 201,
+      statusText: 'Created',
       headers: {},
       config,
       request: {},
@@ -3277,6 +3316,31 @@ function saveMockSettlement(taskId, settlement) {
 
 function getMockSettlement(taskId) {
   return getMockSettlements()[String(taskId)] || null;
+}
+
+function getMockOperationalCosts() {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MOCK_OPERATIONAL_COSTS_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getMockOperationalCostsForTask(taskId) {
+  const rows = getMockOperationalCosts()[String(taskId)];
+  return Array.isArray(rows) ? rows : [];
+}
+
+function saveMockOperationalCost(taskId, cost) {
+  if (typeof localStorage === 'undefined') return cost;
+  const all = getMockOperationalCosts();
+  const key = String(taskId);
+  const rows = Array.isArray(all[key]) ? all[key] : [];
+  all[key] = [cost, ...rows];
+  localStorage.setItem(MOCK_OPERATIONAL_COSTS_KEY, JSON.stringify(all));
+  return cost;
 }
 
 function roundMoney(value) {

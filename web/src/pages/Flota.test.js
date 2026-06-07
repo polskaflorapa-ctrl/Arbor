@@ -95,6 +95,8 @@ function mockFlotaApi() {
             typ_zasobu: 'Sprzet',
             zasob_id: 11,
             data_naprawy: ymd(0),
+            termin_odbioru: ymd(-1),
+            priorytet: 'Pilny',
             koszt: 500,
             opis_usterki: 'Noze do wymiany',
             wykonawca: 'Serwis Forst',
@@ -105,6 +107,8 @@ function mockFlotaApi() {
             typ_zasobu: 'Pojazd',
             zasob_id: 5,
             data_naprawy: ymd(-7),
+            termin_odbioru: ymd(-3),
+            priorytet: 'Normalny',
             koszt: 900,
             opis_usterki: 'Alternator',
             wykonawca: 'Auto Serwis',
@@ -255,6 +259,21 @@ test('opens repairs tab from fleet deep link', async () => {
   expect(screen.getByRole('button', { name: 'Zakoncz naprawe' })).toBeInTheDocument();
 });
 
+test('filters overdue open repairs', async () => {
+  mockFlotaApi();
+
+  renderFlota('/flota?tab=naprawy');
+
+  expect(await screen.findByText('Noze do wymiany')).toBeInTheDocument();
+  expect(screen.getByText('Alternator')).toBeInTheDocument();
+
+  await userEvent.click(screen.getAllByRole('button', { name: /Po terminie/i }).at(-1));
+
+  expect(screen.getByText('Noze do wymiany')).toBeInTheDocument();
+  expect(screen.getByText('Pilny')).toBeInTheDocument();
+  expect(screen.queryByText('Alternator')).not.toBeInTheDocument();
+});
+
 test('filters repairs tab from office plan resource deep link and returns to office plan', async () => {
   mockFlotaApi();
 
@@ -287,7 +306,7 @@ test('adds broken chipper assigned to a team in one form submit', async () => {
   await userEvent.click(await screen.findByRole('button', { name: /Sprz/i }));
   await userEvent.click(screen.getByRole('button', { name: /\+ .*Dodaj/i }));
   await userEvent.click(screen.getByRole('button', { name: /Rebak w naprawie/i }));
-  await userEvent.type(screen.getByLabelText(/Nazwa/i), 'Rebak awaryjny');
+  fireEvent.change(screen.getByLabelText(/Nazwa/i), { target: { value: 'Rebak awaryjny' } });
   await userEvent.selectOptions(screen.getByLabelText(/Ekipa/i), '3');
   await userEvent.click(screen.getByRole('button', { name: /Dodaj/i }));
 

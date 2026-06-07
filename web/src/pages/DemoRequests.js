@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AssignmentTurnedIn from '@mui/icons-material/AssignmentTurnedIn';
-import PersonAdd from '@mui/icons-material/PersonAdd';
-import Refresh from '@mui/icons-material/Refresh';
-import Save from '@mui/icons-material/Save';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
+import { RefreshCw, Save, UserPlus } from 'lucide-react';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -157,10 +156,9 @@ export default function DemoRequests() {
           subtitle="Leady z publicznego formularza na landing page Arbor OS."
           icon={<AssignmentTurnedIn />}
           actions={(
-            <button type="button" style={styles.refreshButton} onClick={loadData}>
-              <Refresh style={{ fontSize: 18 }} />
+            <Button type="button" variant="outline" leftIcon={RefreshCw} style={styles.refreshButton} onClick={loadData}>
               Odśwież
-            </button>
+            </Button>
           )}
         />
         <StatusMessage message={message} />
@@ -232,30 +230,31 @@ export default function DemoRequests() {
                           rows="3"
                           aria-label={`Notatka do zgłoszenia ${item.company}`}
                         />
-                        <button
+                        <Button
                           type="button"
+                          leftIcon={Save}
                           style={styles.saveButton}
                           onClick={() => saveLead(item)}
-                          disabled={savingId === item.id}
+                          loading={savingId === item.id}
                         >
-                          <Save style={{ fontSize: 16 }} />
                           {savingId === item.id ? 'Zapis...' : 'Zapisz'}
-                        </button>
+                        </Button>
                         {item.client_id ? (
                           <div style={styles.clientBadge}>
                             Klient #{item.client_id}
                             <a style={styles.clientLink} href="#/klienci">Otwórz CRM</a>
                           </div>
                         ) : (
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            leftIcon={UserPlus}
                             style={styles.convertButton}
                             onClick={() => convertLead(item)}
-                            disabled={convertingId === item.id}
+                            loading={convertingId === item.id}
                           >
-                            <PersonAdd style={{ fontSize: 16 }} />
                             {convertingId === item.id ? 'Tworzę...' : 'Utwórz klienta'}
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>

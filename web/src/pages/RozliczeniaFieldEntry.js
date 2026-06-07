@@ -29,6 +29,13 @@ const STATUS_COLOR = {
   Oczekuje:     '#fbbf24',
 };
 
+const OPERATIONAL_COST_CATEGORIES = [
+  { key: 'sprzet', label: 'Sprzet' },
+  { key: 'paliwo', label: 'Paliwo' },
+  { key: 'utylizacja', label: 'Utylizacja' },
+  { key: 'inne', label: 'Inne koszty' },
+];
+
 function fmt(n, locale = 'pl-PL') {
   return parseFloat(n || 0).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -58,6 +65,7 @@ export default function RozliczeniaFieldEntry() {
   const [brutto, setBrutto]     = useState('');
   const [vatStawka, setVatStawka] = useState('8');
   const [wynKalkulatora, setWynKalkulatora] = useState(null);
+  const [operationalCost, setOperationalCost] = useState({ category: 'paliwo', amount: '', note: '' });
 
   // Dzień zakładka
   const [dayData, setDayData]   = useState(null);
@@ -210,6 +218,36 @@ export default function RozliczeniaFieldEntry() {
       loadTask(taskId);
     } catch {
       showMsg('err', 'Błąd zapisu rozliczenia');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const zapiszKosztOperacyjny = async () => {
+    if (!taskId) { showMsg('err', 'Wpisz ID zadania'); return; }
+    if (!operationalCost.amount || parseFloat(operationalCost.amount) <= 0) {
+      showMsg('err', 'Podaj kwote kosztu operacyjnego');
+      return;
+    }
+    setSaving(true);
+    try {
+      const token = getStoredToken();
+      const categoryMeta = OPERATIONAL_COST_CATEGORIES.find((item) => item.key === operationalCost.category);
+      await api.post(
+        `/rozliczenia/zadanie/${taskId}/koszty-operacyjne`,
+        {
+          category: operationalCost.category,
+          label: categoryMeta?.label || 'Koszt operacyjny',
+          amount: parseFloat(operationalCost.amount),
+          note: operationalCost.note,
+        },
+        { headers: authHeaders(token) },
+      );
+      showMsg('ok', 'Koszt operacyjny zapisany');
+      setOperationalCost((current) => ({ ...current, amount: '', note: '' }));
+      loadTask(taskId);
+    } catch {
+      showMsg('err', 'Blad zapisu kosztu operacyjnego');
     } finally {
       setSaving(false);
     }
@@ -536,6 +574,66 @@ export default function RozliczeniaFieldEntry() {
                 </div>
               </div>
             )}
+
+            <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 10 }}>Koszty do marzy</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) minmax(120px, 160px)', gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={labelStyle}>Kategoria</label>
+                  <select
+                    value={operationalCost.category}
+                    onChange={(e) => setOperationalCost((current) => ({ ...current, category: e.target.value }))}
+                    style={inputStyle}
+                  >
+                    {OPERATIONAL_COST_CATEGORIES.map((category) => (
+                      <option key={category.key} value={category.key}>{category.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Kwota PLN</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={operationalCost.amount}
+                    onChange={(e) => setOperationalCost((current) => ({ ...current, amount: e.target.value }))}
+                    placeholder="0.00"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+                <div>
+                  <label style={labelStyle}>Notatka</label>
+                  <input
+                    type="text"
+                    value={operationalCost.note}
+                    onChange={(e) => setOperationalCost((current) => ({ ...current, note: e.target.value }))}
+                    placeholder="np. paragon, paliwo do zlecenia"
+                    style={inputStyle}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={zapiszKosztOperacyjny}
+                  disabled={saving || !taskId || !operationalCost.amount}
+                  style={{ ...primaryBtn, padding: '8px 14px' }}
+                >
+                  Dodaj koszt
+                </button>
+              </div>
+              {taskData?.koszty_operacyjne?.length > 0 && (
+                <div style={{ marginTop: 12, display: 'grid', gap: 6 }}>
+                  {taskData.koszty_operacyjne.map((cost) => (
+                    <div key={cost.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text)' }}>
+                      <span>{cost.label || cost.category}{cost.note ? ` - ${cost.note}` : ''}</span>
+                      <strong>{fmt(cost.amount)} PLN</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               type="button"

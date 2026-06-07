@@ -177,6 +177,8 @@ describe('Flota CRUD kart zasobow', () => {
         zasob_id: 5,
         data_naprawy: '2026-06-01',
         termin_odbioru: '2026-06-03',
+        data_zakonczenia: '2026-06-04',
+        strata_dzienna: 450,
         priorytet: 'Pilny',
         opis_usterki: 'Auto w serwisie',
         status: 'W toku',
@@ -185,8 +187,8 @@ describe('Flota CRUD kart zasobow', () => {
     expect(res.status).toBe(200);
     expect(pool.query).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining('termin_odbioru, priorytet'),
-      expect.arrayContaining(['2026-06-03', 'Pilny', 'W toku'])
+      expect.stringContaining('termin_odbioru, data_zakonczenia, strata_dzienna, priorytet'),
+      expect.arrayContaining(['2026-06-03', '2026-06-04', 450, 'Pilny', 'W toku'])
     );
     expect(pool.query).toHaveBeenNthCalledWith(
       2,
@@ -223,7 +225,7 @@ describe('Flota CRUD kart zasobow', () => {
     expect(pool.query).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('UPDATE repairs'),
-      expect.arrayContaining(['Sprzet', 11, 1, undefined, '2026-06-01', undefined, 'Noze do wymiany', 'Wymieniono noze', undefined, null, 'Normalny', 'Zakonczona', 91])
+      expect.arrayContaining(['Sprzet', 11, 1, undefined, '2026-06-01', undefined, 'Noze do wymiany', 'Wymieniono noze', undefined, null, null, null, 'Normalny', 'Zakonczona', 91])
     );
     expect(pool.query).toHaveBeenNthCalledWith(
       3,

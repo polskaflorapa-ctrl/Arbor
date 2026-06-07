@@ -108,6 +108,22 @@ function repairDueState(repair, now = new Date()) {
   return { state: 'ok', days };
 }
 
+function repairDowntimeDays(repair, now = new Date()) {
+  if (!repair?.data_naprawy) return 0;
+  const start = new Date(repair.data_naprawy);
+  if (Number.isNaN(start.getTime())) return 0;
+  const endSource = repair.data_zakonczenia || (repairIsClosed(repair.status) ? repair.updated_at : now);
+  const end = new Date(endSource || now);
+  if (Number.isNaN(end.getTime())) return 0;
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.max(1, Math.ceil((endDay.getTime() - startDay.getTime()) / DAY_MS) + 1);
+}
+
+function repairDowntimeLoss(repair) {
+  return repairDowntimeDays(repair) * (Number(repair?.strata_dzienna || 0) || 0);
+}
+
 function normalizeFleetTab(value) {
   const text = String(value || '').toLowerCase();
   if (['sprzet', 'equipment'].includes(text)) return 'sprzet';
@@ -172,6 +188,11 @@ function MaintenanceControlPanel({ summary, activeFilter, onOpenRepairs, onNewRe
           <small>aktywnie blokuje zasoby</small>
         </div>
         <div style={S.maintenanceMetric}>
+          <span>Strata przestoju</span>
+          <strong>{formatMoney(summary.downtimeLoss)}</strong>
+          <small>{summary.downtimeDays} dni bez zasobu</small>
+        </div>
+        <div style={S.maintenanceMetric}>
           <span>Faktury</span>
           <strong>{formatMoney(summary.invoiceCost)}</strong>
           <small>udokumentowane koszty</small>
@@ -222,7 +243,9 @@ export default function Flota() {
   const [repairDraft, setRepairDraft] = useState(null);
   const [repairSaving, setRepairSaving] = useState(false);
   const [assetPhotos, setAssetPhotos] = useState({});
+  const [assetDocuments, setAssetDocuments] = useState({});
   const [photoUploadingKey, setPhotoUploadingKey] = useState('');
+  const [documentUploadingKey, setDocumentUploadingKey] = useState('');
   const [repairInvoices, setRepairInvoices] = useState({});
   const [invoiceDrafts, setInvoiceDrafts] = useState({});
   const [invoiceUploadingId, setInvoiceUploadingId] = useState('');
@@ -509,6 +532,48 @@ export default function Flota() {
     }
   };
 
+  const loadAssetDocuments = async (type, id) => {
+    const key = assetKey(type, id);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/flota/${type}/${id}/dokumenty`, { headers: authHeaders(token), dedupe: false });
+      setAssetDocuments((prev) => ({ ...prev, [key]: Array.isArray(data) ? data : [] }));
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie pobrac dokumentow zasobu.')));
+    }
+  };
+
+  const uploadAssetDocument = async (type, item, file) => {
+    if (!file) return;
+    const key = assetKey(type, item.id);
+    setDocumentUploadingKey(key);
+    try {
+      const token = getStoredToken();
+      const form = new FormData();
+      form.append('dokument', file);
+      form.append('kategoria', 'Dokument zasobu');
+      form.append('opis', type === 'sprzet' ? 'Dokument sprzetu' : 'Dokument pojazdu');
+      await api.post(`/flota/${type}/${item.id}/dokumenty`, form, { headers: authHeaders(token) });
+      showMsg(successMessage('Dokument dodany do karty zasobu.'));
+      await loadAssetDocuments(type, item.id);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie dodac dokumentu.')));
+    } finally {
+      setDocumentUploadingKey('');
+    }
+  };
+
+  const deleteAssetDocument = async (type, item, docId) => {
+    try {
+      const token = getStoredToken();
+      await api.delete(`/flota/${type}/${item.id}/dokumenty/${docId}`, { headers: authHeaders(token) });
+      showMsg(successMessage('Dokument usuniety.'));
+      await loadAssetDocuments(type, item.id);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie usunac dokumentu.')));
+    }
+  };
+
   const loadRepairInvoices = async (repairId) => {
     try {
       const token = getStoredToken();
@@ -578,6 +643,8 @@ export default function Flota() {
       wykonawca: '',
       koszt: '',
       termin_odbioru: '',
+      data_zakonczenia: '',
+      strata_dzienna: '',
       priorytet: 'Normalny',
       status: 'W toku',
       oddzial_id: defaultItem?.oddzial_id || currentUser?.oddzial_id || '',
@@ -599,6 +666,8 @@ export default function Flota() {
       wykonawca: '',
       koszt: '',
       termin_odbioru: '',
+      data_zakonczenia: '',
+      strata_dzienna: '',
       priorytet: 'Normalny',
       status: 'W toku',
       oddzial_id: item.oddzial_id || currentUser?.oddzial_id || '',
@@ -622,6 +691,8 @@ export default function Flota() {
       wykonawca: repair.wykonawca || '',
       koszt: repair.koszt ?? '',
       termin_odbioru: formDate(repair.termin_odbioru),
+      data_zakonczenia: formDate(repair.data_zakonczenia),
+      strata_dzienna: repair.strata_dzienna ?? '',
       priorytet: repair.priorytet || 'Normalny',
       status: repair.status || 'W toku',
       oddzial_id: repair.oddzial_id || item?.oddzial_id || currentUser?.oddzial_id || '',
@@ -643,6 +714,8 @@ export default function Flota() {
         wykonawca: repairDraft.wykonawca.trim() || null,
         koszt: repairDraft.koszt || null,
         termin_odbioru: repairDraft.termin_odbioru || null,
+        data_zakonczenia: repairDraft.data_zakonczenia || null,
+        strata_dzienna: repairDraft.strata_dzienna || null,
         priorytet: repairDraft.priorytet || 'Normalny',
         status: repairDraft.status,
         oddzial_id: repairDraft.oddzial_id || currentUser?.oddzial_id,
@@ -670,6 +743,7 @@ export default function Flota() {
       await api.put(`/flota/naprawy/${repair.id}`, {
         ...repair,
         status: 'Zakonczona',
+        data_zakonczenia: repair.data_zakonczenia || todayYmd(),
         opis_naprawy: repair.opis_naprawy || 'Zakonczono naprawe',
       }, { headers: authHeaders(token) });
       showMsg(successMessage('Naprawa zakonczona. Zasob jest dostepny.'));
@@ -717,7 +791,7 @@ export default function Flota() {
 
   const exportRepairsCsv = (rows = naprawy) => {
     const sourceRows = Array.isArray(rows) && rows.length ? rows : naprawy;
-    const header = ['id', 'typ_zasobu', 'zasob', 'data_naprawy', 'termin_odbioru', 'termin_status', 'priorytet', 'status', 'koszt', 'faktury_kwota', 'faktury_count', 'usterka', 'wykonawca'];
+    const header = ['id', 'typ_zasobu', 'zasob', 'data_naprawy', 'data_zakonczenia', 'przestoj_dni', 'strata_dzienna', 'strata_przestoju', 'termin_odbioru', 'termin_status', 'priorytet', 'status', 'koszt', 'faktury_kwota', 'faktury_count', 'usterka', 'wykonawca'];
     const csv = [
       header.join(';'),
       ...sourceRows.map((repair) => {
@@ -727,6 +801,10 @@ export default function Flota() {
           repair.typ_zasobu,
           getRepairAssetLabel(repair),
           fmt(repair.data_naprawy),
+          fmt(repair.data_zakonczenia),
+          repairDowntimeDays(repair),
+          Number(repair.strata_dzienna || 0) || '',
+          repairDowntimeLoss(repair) || '',
           fmt(repair.termin_odbioru),
           due.state === 'overdue' ? `${Math.abs(due.days)} dni po terminie` : due.state === 'soon' ? `${due.days} dni do terminu` : due.state,
           repair.priorytet || 'Normalny',
@@ -978,6 +1056,8 @@ export default function Flota() {
     const openRows = naprawy.filter((repair) => !repairIsClosed(repair.status));
     const overdueRows = openRows.filter((repair) => repairDueState(repair).state === 'overdue');
     const soonRows = openRows.filter((repair) => repairDueState(repair).state === 'soon');
+    const downtimeDays = naprawy.reduce((sum, repair) => sum + repairDowntimeDays(repair), 0);
+    const downtimeLoss = naprawy.reduce((sum, repair) => sum + repairDowntimeLoss(repair), 0);
     const invoiceCost = naprawy.reduce((sum, repair) => sum + (Number(repair.faktury_kwota || 0) || 0), 0);
     const openCost = openRows.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0);
     const withoutInvoice = naprawy.filter((repair) => Number(repair.faktury_count || 0) === 0 && Number(repair.koszt || 0) > 0);
@@ -995,6 +1075,8 @@ export default function Flota() {
       openCount: openRows.length,
       overdueCount: overdueRows.length,
       soonCount: soonRows.length,
+      downtimeDays,
+      downtimeLoss,
       closedCount: naprawy.filter((repair) => repairIsClosed(repair.status)).length,
       withoutInvoiceCount: withoutInvoice.length,
       topRepairs,
@@ -1294,14 +1376,19 @@ export default function Flota() {
                     item={p}
                     ekipy={ekipy}
                     photos={assetPhotos[assetKey('pojazdy', p.id)]}
+                    documents={assetDocuments[assetKey('pojazdy', p.id)]}
                     repairSummary={assetRepairSummary.get(assetKey('pojazdy', p.id))}
                     uploading={photoUploadingKey === assetKey('pojazdy', p.id)}
+                    documentUploading={documentUploadingKey === assetKey('pojazdy', p.id)}
                     canEdit={canEdit}
                     onTeamChange={updateAssetTeam}
                     onRenewInspection={renewAssetInspection}
                     onLoadPhotos={loadAssetPhotos}
                     onUploadPhoto={uploadAssetPhoto}
                     onDeletePhoto={deleteAssetPhoto}
+                    onLoadDocuments={loadAssetDocuments}
+                    onUploadDocument={uploadAssetDocument}
+                    onDeleteDocument={deleteAssetDocument}
                     onOpenRepairs={openRepairsForAsset}
                   />
                   </div>
@@ -1370,14 +1457,19 @@ export default function Flota() {
                     item={s}
                     ekipy={ekipy}
                     photos={assetPhotos[assetKey('sprzet', s.id)]}
+                    documents={assetDocuments[assetKey('sprzet', s.id)]}
                     repairSummary={assetRepairSummary.get(assetKey('sprzet', s.id))}
                     uploading={photoUploadingKey === assetKey('sprzet', s.id)}
+                    documentUploading={documentUploadingKey === assetKey('sprzet', s.id)}
                     canEdit={canEdit}
                     onTeamChange={updateAssetTeam}
                     onRenewInspection={renewAssetInspection}
                     onLoadPhotos={loadAssetPhotos}
                     onUploadPhoto={uploadAssetPhoto}
                     onDeletePhoto={deleteAssetPhoto}
+                    onLoadDocuments={loadAssetDocuments}
+                    onUploadDocument={uploadAssetDocument}
+                    onDeleteDocument={deleteAssetDocument}
                     onOpenRepairs={openRepairsForAsset}
                   />
                   </div>
@@ -1482,6 +1574,16 @@ export default function Flota() {
                       <span style={{ ...S.repairValue, color: 'var(--danger)', fontWeight: 700 }}>
                         {n.koszt ? `${parseFloat(n.koszt).toLocaleString('pl-PL')} PLN` : '-'}
                       </span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Przestoj</span>
+                      <span style={{ ...S.repairValue, color: repairDowntimeLoss(n) ? 'var(--danger)' : 'var(--text-sub)', fontWeight: repairDowntimeLoss(n) ? 900 : 700 }}>
+                        {repairDowntimeDays(n)} dni{repairDowntimeLoss(n) ? ` / ${formatMoney(repairDowntimeLoss(n))}` : ''}
+                      </span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Koniec</span>
+                      <span style={S.repairValue}>{fmt(n.data_zakonczenia)}</span>
                     </div>
                     <div style={S.repairRow}>
                       <span style={S.repairLabel}>Usterka</span>
@@ -1707,8 +1809,28 @@ function Field({ label, children }) {
   );
 }
 
-function FleetAssetControls({ type, item, ekipy, photos, repairSummary, uploading, canEdit, onTeamChange, onRenewInspection, onLoadPhotos, onUploadPhoto, onDeletePhoto, onOpenRepairs }) {
+function FleetAssetControls({
+  type,
+  item,
+  ekipy,
+  photos,
+  documents,
+  repairSummary,
+  uploading,
+  documentUploading,
+  canEdit,
+  onTeamChange,
+  onRenewInspection,
+  onLoadPhotos,
+  onUploadPhoto,
+  onDeletePhoto,
+  onLoadDocuments,
+  onUploadDocument,
+  onDeleteDocument,
+  onOpenRepairs,
+}) {
   const loaded = Array.isArray(photos);
+  const docsLoaded = Array.isArray(documents);
   const kind = type === 'pojazdy' ? 'pojazd' : 'sprzet';
   return (
     <div style={S.assetControlBox}>
@@ -1761,6 +1883,37 @@ function FleetAssetControls({ type, item, ekipy, photos, repairSummary, uploadin
             </a>
             {canEdit && (
               <button type="button" style={S.assetThumbDelete} onClick={() => onDeletePhoto(type, item, photo.id)}>
+                x
+              </button>
+            )}
+          </span>
+        ))}
+        <button type="button" style={S.assetPhotoButton} onClick={() => onLoadDocuments(type, item.id)}>
+          <FileText size={14} /> {docsLoaded ? `${documents.length} dok.` : 'Dokumenty'}
+        </button>
+        {canEdit && (
+          <label style={S.assetUploadButton}>
+            <Upload size={14} /> {documentUploading ? 'Wgrywam' : 'Dodaj dok.'}
+            <input
+              type="file"
+              accept="image/*,.pdf,application/pdf"
+              style={{ display: 'none' }}
+              disabled={documentUploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                onUploadDocument(type, item, file);
+              }}
+            />
+          </label>
+        )}
+        {docsLoaded && documents.slice(0, 4).map((doc) => (
+          <span key={doc.id} style={S.assetDocumentChip}>
+            <a href={doc.url} target="_blank" rel="noreferrer" style={S.assetDocumentLink}>
+              {doc.kategoria || doc.nazwa_pliku || `Dokument #${doc.id}`}
+            </a>
+            {canEdit && (
+              <button type="button" style={S.assetDocumentDelete} onClick={() => onDeleteDocument(type, item, doc.id)}>
                 x
               </button>
             )}
@@ -1849,6 +2002,9 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose, pojazdy = []
           <Field label="Termin odbioru">
             <input style={S.input} type="date" value={draft.termin_odbioru || ''} onChange={(e) => setField('termin_odbioru', e.target.value)} />
           </Field>
+          <Field label="Data zakonczenia">
+            <input style={S.input} type="date" value={draft.data_zakonczenia || ''} onChange={(e) => setField('data_zakonczenia', e.target.value)} />
+          </Field>
           <Field label="Priorytet">
             <select style={S.input} value={draft.priorytet || 'Normalny'} onChange={(e) => setField('priorytet', e.target.value)}>
               {REPAIR_PRIORITY_OPTIONS.map((option) => (
@@ -1861,6 +2017,9 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose, pojazdy = []
           </Field>
           <Field label="Koszt">
             <input style={S.input} type="number" step="0.01" value={draft.koszt} onChange={(e) => setField('koszt', e.target.value)} placeholder="0.00" />
+          </Field>
+          <Field label="Strata dzienna">
+            <input style={S.input} type="number" step="0.01" value={draft.strata_dzienna || ''} onChange={(e) => setField('strata_dzienna', e.target.value)} placeholder="np. 450" />
           </Field>
         </div>
         <Field label="Co sie stalo *">
@@ -1969,6 +2128,9 @@ const S = {
   assetThumbLink: { display: 'inline-flex', width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-field)' },
   assetThumb: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
   assetThumbDelete: { position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: 999, border: '1px solid rgba(226,68,92,0.4)', background: 'var(--surface-glass)', color: 'var(--danger)', cursor: 'pointer', fontSize: 10, lineHeight: 1, padding: 0 },
+  assetDocumentChip: { display: 'inline-grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 4, maxWidth: 150, border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, background: 'rgba(20,131,79,0.08)', padding: '5px 6px', minWidth: 0 },
+  assetDocumentLink: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)', fontSize: 11, fontWeight: 900, textDecoration: 'none' },
+  assetDocumentDelete: { border: 'none', background: 'transparent', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 900, padding: 0 },
   invoiceBox: { border: '1px solid var(--border)', borderRadius: 8, padding: 9, background: 'var(--surface-field)', display: 'flex', flexDirection: 'column', gap: 8 },
   invoiceTop: { display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', fontSize: 12, fontWeight: 900, color: 'var(--text-sub)' },
   invoiceGhostBtn: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 8px', fontSize: 11, fontWeight: 800 },

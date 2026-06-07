@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
 import RozliczeniaFieldEntry from './RozliczeniaFieldEntry';
@@ -61,10 +61,21 @@ describe('RozliczeniaFieldEntry', () => {
             },
             pomocnicy: [],
             rozliczenie: null,
+            koszty_operacyjne: [],
           },
         });
       }
       return Promise.resolve({ data: [] });
+    });
+    api.post.mockResolvedValue({
+      data: {
+        id: 901,
+        task_id: 103,
+        category: 'paliwo',
+        label: 'Paliwo',
+        amount: 120.5,
+        source: 'field_settlement',
+      },
     });
   });
 
@@ -78,10 +89,33 @@ describe('RozliczeniaFieldEntry', () => {
     expect(await screen.findAllByText(/Osiedle Lesne Tarasy/i)).toHaveLength(2);
     expect(screen.getByText(/Warto.* brutto/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Oblicz i zapisz/i })).toBeInTheDocument();
+    expect(screen.getByText(/Koszty do marzy/i)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         '/rozliczenia/zadanie/103',
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
+  });
+
+  it('posts an operational cost for the selected task', async () => {
+    renderPage();
+
+    await screen.findAllByText(/Osiedle Lesne Tarasy/i);
+    fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '120.50' } });
+    fireEvent.change(screen.getByPlaceholderText(/paragon/i), { target: { value: 'Paragon paliwo' } });
+    fireEvent.click(screen.getByRole('button', { name: /Dodaj koszt/i }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/rozliczenia/zadanie/103/koszty-operacyjne',
+        expect.objectContaining({
+          category: 'paliwo',
+          label: 'Paliwo',
+          amount: 120.5,
+          note: 'Paragon paliwo',
+        }),
         expect.objectContaining({ headers: expect.any(Object) })
       );
     });

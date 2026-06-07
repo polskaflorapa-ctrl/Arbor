@@ -87,4 +87,94 @@ describe('Rozliczenia audit', () => {
     });
     expect(client.release).toHaveBeenCalled();
   });
+
+  it('returns operational costs with settlement task details', async () => {
+    pool.query
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 44,
+          klient_nazwa: 'Osiedle Lesne',
+          adres: 'Lesna 12',
+          miasto: 'Krakow',
+          ekipa_id: 3,
+          ekipa_nazwa: 'Brygada Alfa',
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 900,
+          task_id: 44,
+          category: 'paliwo',
+          label: 'Paliwo',
+          amount: '120.50',
+          source: 'field_settlement',
+          note: 'Paragon',
+          recorded_at: '2026-06-07T08:00:00.000Z',
+        }],
+      });
+    const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .get('/api/rozliczenia/zadanie/44')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.koszty_operacyjne).toEqual([
+      expect.objectContaining({ category: 'paliwo', amount: '120.50', source: 'field_settlement' }),
+    ]);
+  });
+
+  it('adds operational costs from field settlement and writes audit log', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 44, oddzial_id: 3 }] })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 901,
+          task_id: 44,
+          recorded_by: 8,
+          category: 'paliwo',
+          label: 'Paliwo',
+          amount: '120.50',
+          source: 'field_settlement',
+          note: 'Paragon',
+          recorded_at: '2026-06-07T08:00:00.000Z',
+        }],
+      });
+    const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/rozliczenia/zadanie/44/koszty-operacyjne')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ category: 'paliwo', amount: 120.5, note: 'Paragon' });
+
+    expect(res.status).toBe(201);
+    expect(pool.query.mock.calls[1][0]).toContain('INSERT INTO task_operational_costs');
+    expect(pool.query.mock.calls[1][1]).toEqual([44, 8, 'paliwo', 'Paliwo', 120.5, 'Paragon']);
+    expect(auditSpy).toHaveBeenCalledWith({
+      action: 'task.operational_cost_add',
+      entityType: 'task',
+      entityId: 44,
+      metadata: expect.objectContaining({
+        oddzial_id: 3,
+        cost: expect.objectContaining({ category: 'paliwo', amount: '120.50' }),
+      }),
+    });
+  });
+
+  it('blocks operational costs for tasks in another branch before insert or audit', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 44, oddzial_id: 7 }] });
+    const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/rozliczenia/zadanie/44/koszty-operacyjne')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ category: 'paliwo', amount: 120.5, note: 'Paragon' });
+
+    expect(res.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+    expect(pool.query.mock.calls[0][0]).toContain('SELECT id, oddzial_id FROM tasks');
+    expect(auditSpy).not.toHaveBeenCalled();
+  });
 });
