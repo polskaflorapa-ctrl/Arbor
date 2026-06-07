@@ -39,6 +39,7 @@ const requiredScripts = {
     "restore:db",
     "restore:db:check",
     "smoke:render",
+    "smoke:p95",
   ],
   "os/package.json": [
     "db:migrate",
@@ -64,6 +65,7 @@ const dryRunNeedles = [
   "backup:db",
   "restore:db:check",
   "smoke:render",
+  "smoke:p95",
   "PUBLIC_BASE_URL",
   "CORS_ORIGINS",
   "VITE_API_URL",
@@ -79,6 +81,7 @@ const runbookNeedles = [
   "npm run backup:db",
   "npm run restore:db:check",
   "npm run smoke:render -- https://<arbor-os-url>",
+  "npm run smoke:p95 -- https://<arbor-os-url>",
 ];
 
 function readJson(relPath, baseDir = root) {
