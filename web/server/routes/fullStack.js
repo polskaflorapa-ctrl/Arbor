@@ -2866,6 +2866,13 @@ module.exports = function registerFullStack(router) {
         data_do: r.data_do,
         caly_dzien: !!r.caly_dzien,
         status: r.status,
+        protokoly: Array.isArray(r.protokoly) ? r.protokoly : [],
+        protokoly_count: Array.isArray(r.protokoly) ? r.protokoly.length : 0,
+        koszt_uszkodzen: (Array.isArray(r.protokoly) ? r.protokoly : [])
+          .reduce((sum, p) => sum + (Number(p.koszt_uszkodzen || 0) || 0), 0),
+        ostatni_stan: (Array.isArray(r.protokoly) ? r.protokoly : [])
+          .slice()
+          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0]?.stan || null,
         sprzet_nazwa: sprzetById[r.sprzet_id]?.nazwa ?? null,
         ekipa_nazwa: teamById[r.ekipa_id]?.nazwa ?? null,
       }));
@@ -2934,6 +2941,87 @@ module.exports = function registerFullStack(router) {
     });
     if (row.err) return res.status(row.code || 400).json({ error: row.err });
     res.json({ id: row.id });
+  });
+
+  router.post('/flota/rezerwacje/:id/protokoly', requireAuth, upFleetFile.array('zdjecia', 8), (req, res) => {
+    const id = toNum(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Nieprawidlowy protokol', code: 'VALIDATION_FAILED' });
+    const b = req.body || {};
+    const typ = ['wydanie', 'zwrot', 'kontrola'].includes(String(b.typ || '')) ? String(b.typ) : 'kontrola';
+    const stan = String(b.stan || '').trim().slice(0, 80) || 'OK';
+    const kosztUszkodzen = Number(b.koszt_uszkodzen || 0);
+    if (!Number.isFinite(kosztUszkodzen) || kosztUszkodzen < 0) {
+      return res.status(400).json({ error: 'Nieprawidlowy koszt uszkodzen', code: 'VALIDATION_FAILED' });
+    }
+    const protocol = withStore((s) => {
+      const sprzetById = Object.fromEntries((s.flotaSprzet || []).map((x) => [x.id, x]));
+      const teamById = Object.fromEntries((s.teams || []).map((x) => [x.id, x]));
+      const r = (s.equipmentReservations || []).find((x) => x.id === id);
+      if (!r) return { err: 'nie_znaleziono', code: 404 };
+      const eq = sprzetById[r.sprzet_id];
+      if (!eq) return { err: 'sprzet_nieznaleziony', code: 404 };
+      if (!canSeeAll(req.user) && String(eq.oddzial_id || '') !== String(req.user.oddzial_id || '')) {
+        return { err: 'brak_dostepu_oddzial', code: 403 };
+      }
+      if (!s.nextEquipmentProtocolId) s.nextEquipmentProtocolId = 1;
+      if (!Array.isArray(r.protokoly)) r.protokoly = [];
+      if (!s.flotaZdjecia) s.flotaZdjecia = [];
+      if (!s.nextFlotaZdjecieId) s.nextFlotaZdjecieId = 1;
+      const photos = (req.files || []).map((file) => {
+        const rel = path.relative(path.join(__dirname, '..', 'uploads'), file.path).split(path.sep).join('/');
+        const photo = {
+          id: s.nextFlotaZdjecieId++,
+          typ: 'sprzet',
+          zasob_id: r.sprzet_id,
+          url: `/api/uploads/${rel}`,
+          nazwa_pliku: file.originalname,
+          mime: file.mimetype || null,
+          opis: `Protokol ${typ} / rezerwacja #${id}`,
+          created_by: req.user.id,
+          created_by_name: userName(s, req.user.id),
+          created_at: new Date().toISOString(),
+          meta: { reservation_id: id, protocol_type: typ },
+        };
+        s.flotaZdjecia.push(photo);
+        return {
+          id: photo.id,
+          url: photo.url,
+          nazwa_pliku: photo.nazwa_pliku,
+          mime: photo.mime,
+        };
+      });
+      const row = {
+        id: s.nextEquipmentProtocolId++,
+        typ,
+        stan,
+        licznik_mtg: b.licznik_mtg ? String(b.licznik_mtg).trim().slice(0, 80) : null,
+        paliwo_osprzet: b.paliwo_osprzet ? String(b.paliwo_osprzet).trim().slice(0, 120) : null,
+        osoba: b.osoba ? String(b.osoba).trim().slice(0, 160) : null,
+        podpis: b.podpis ? String(b.podpis).trim().slice(0, 160) : null,
+        notatka: b.notatka ? String(b.notatka).trim().slice(0, 1200) : null,
+        koszt_uszkodzen: kosztUszkodzen,
+        zdjecia: photos,
+        created_by: req.user.id,
+        created_by_name: userName(s, req.user.id),
+        created_at: new Date().toISOString(),
+      };
+      r.protokoly.push(row);
+      if (typ === 'wydanie') r.status = 'Wydane';
+      if (typ === 'zwrot') r.status = 'Zwrócone';
+      const team = teamById[r.ekipa_id];
+      addFleetHistory(
+        s,
+        req.user,
+        'sprzet',
+        r.sprzet_id,
+        typ === 'zwrot' ? 'Protokol zwrotu' : typ === 'wydanie' ? 'Protokol wydania' : 'Kontrola sprzetu',
+        `${team?.nazwa || `Ekipa #${r.ekipa_id}`} / stan: ${stan} / koszt: ${kosztUszkodzen}`,
+        { reservation_id: id, protocol_id: row.id, typ, koszt_uszkodzen: kosztUszkodzen },
+      );
+      return row;
+    });
+    if (protocol.err) return res.status(protocol.code || 400).json({ error: protocol.err });
+    res.status(201).json(protocol);
   });
 
   router.put('/flota/rezerwacje/:id/status', requireAuth, (req, res) => {

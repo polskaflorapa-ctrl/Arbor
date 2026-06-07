@@ -92,6 +92,7 @@ function migrateState(state, saveState) {
   ensure('nextFlotaCzescNaprawyId', seed.nextFlotaCzescNaprawyId || 1);
   ensure('equipmentReservations', () => [...(seed.equipmentReservations || [])]);
   ensure('nextEquipmentReservationId', seed.nextEquipmentReservationId || 1);
+  ensure('nextEquipmentProtocolId', seed.nextEquipmentProtocolId || 1);
   ensure('dailyReports', () => [...(seed.dailyReports || [])]);
   ensure('nextDailyReportId', seed.nextDailyReportId || 1);
   ensure('cmrLists', () => []);

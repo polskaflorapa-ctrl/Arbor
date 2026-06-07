@@ -121,6 +121,25 @@ function mockFlotaApi() {
         ],
       });
     }
+    if (url.startsWith('/flota/rezerwacje')) {
+      return Promise.resolve({
+        data: [
+          {
+            id: 501,
+            sprzet_id: 11,
+            ekipa_id: 3,
+            data_od: ymd(0),
+            data_do: ymd(1),
+            status: 'Zarezerwowane',
+            ekipa_nazwa: 'Brygada Alfa',
+            protokoly: [],
+            protokoly_count: 0,
+            koszt_uszkodzen: 0,
+            ostatni_stan: null,
+          },
+        ],
+      });
+    }
     if (url === '/flota/pojazdy/5/zdjecia') {
       return Promise.resolve({
         data: [{
@@ -316,6 +335,36 @@ test('opens and closes the vehicle asset detail card with media and documents', 
     expect(screen.queryByText('Karta zasobu')).not.toBeInTheDocument();
   });
   expect(screen.getAllByTestId('location-search').at(-1)).not.toHaveTextContent('asset=');
+}, 15000);
+
+test('saves equipment reservation protocol from asset detail card', async () => {
+  mockFlotaApi();
+
+  renderFlota('/flota?asset=sprzet%3A11');
+
+  expect(await screen.findByText('Karta zasobu')).toBeInTheDocument();
+  expect(await screen.findByText('Protokol wydania / zwrotu')).toBeInTheDocument();
+
+  await userEvent.selectOptions(screen.getByDisplayValue('Wydanie'), 'zwrot');
+  fireEvent.change(screen.getByPlaceholderText(/koszt strat/i), { target: { value: '123.45' } });
+  fireEvent.change(screen.getByPlaceholderText(/osoba odbierajaca/i), { target: { value: 'Jan Operator' } });
+  fireEvent.change(screen.getByPlaceholderText(/notatka:/i), { target: { value: 'Brak oslony lancucha' } });
+  await userEvent.click(screen.getByRole('button', { name: /Zapisz protokol/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/flota/rezerwacje/501/protokoly',
+      expect.any(FormData),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  const protocolCall = api.post.mock.calls.find(([url]) => url === '/flota/rezerwacje/501/protokoly');
+  const form = protocolCall[1];
+  expect(form.get('typ')).toBe('zwrot');
+  expect(form.get('stan')).toBe('OK');
+  expect(form.get('koszt_uszkodzen')).toBe('123.45');
+  expect(form.get('osoba')).toBe('Jan Operator');
+  expect(form.get('notatka')).toBe('Brak oslony lancucha');
 }, 15000);
 
 test('filters overdue open repairs', async () => {

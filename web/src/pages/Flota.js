@@ -286,6 +286,9 @@ export default function Flota() {
   const [assetReservations, setAssetReservations] = useState({});
   const [reservationDrafts, setReservationDrafts] = useState({});
   const [reservationSavingKey, setReservationSavingKey] = useState('');
+  const [protocolDrafts, setProtocolDrafts] = useState({});
+  const [protocolFiles, setProtocolFiles] = useState({});
+  const [protocolSavingId, setProtocolSavingId] = useState('');
   const [repairQuickFilter, setRepairQuickFilter] = useState('all');
 
   const [formPojazd, setFormPojazd] = useState({
@@ -671,6 +674,62 @@ export default function Flota() {
       showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zmienic statusu rezerwacji.')));
     } finally {
       setReservationSavingKey('');
+    }
+  };
+
+  const setProtocolDraft = (reservationId, field, value) => {
+    setProtocolDrafts((prev) => ({
+      ...prev,
+      [reservationId]: {
+        typ: 'kontrola',
+        stan: 'OK',
+        licznik_mtg: '',
+        paliwo_osprzet: '',
+        osoba: '',
+        podpis: '',
+        koszt_uszkodzen: '',
+        notatka: '',
+        ...(prev[reservationId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const setProtocolUploadFiles = (reservationId, files) => {
+    setProtocolFiles((prev) => ({ ...prev, [reservationId]: Array.from(files || []) }));
+  };
+
+  const submitReservationProtocol = async (item, reservation) => {
+    const draft = protocolDrafts[reservation.id] || {};
+    setProtocolSavingId(String(reservation.id));
+    try {
+      const token = getStoredToken();
+      const form = new FormData();
+      form.append('typ', draft.typ || (reservation.status === 'Wydane' ? 'zwrot' : 'wydanie'));
+      form.append('stan', draft.stan || 'OK');
+      form.append('licznik_mtg', draft.licznik_mtg || '');
+      form.append('paliwo_osprzet', draft.paliwo_osprzet || '');
+      form.append('osoba', draft.osoba || '');
+      form.append('podpis', draft.podpis || '');
+      form.append('koszt_uszkodzen', draft.koszt_uszkodzen || 0);
+      form.append('notatka', draft.notatka || '');
+      for (const file of protocolFiles[reservation.id] || []) {
+        form.append('zdjecia', file);
+      }
+      await api.post(`/flota/rezerwacje/${reservation.id}/protokoly`, form, { headers: authHeaders(token) });
+      showMsg(successMessage('Protokol sprzetu zapisany.'));
+      setProtocolDrafts((prev) => ({ ...prev, [reservation.id]: { typ: 'kontrola', stan: 'OK', licznik_mtg: '', paliwo_osprzet: '', osoba: '', podpis: '', koszt_uszkodzen: '', notatka: '' } }));
+      setProtocolFiles((prev) => ({ ...prev, [reservation.id]: [] }));
+      await Promise.all([
+        loadAssetReservations('sprzet', item.id),
+        loadAssetPhotos('sprzet', item.id),
+        loadAssetHistory('sprzet', item.id),
+        loadAll(),
+      ]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zapisac protokolu sprzetu.')));
+    } finally {
+      setProtocolSavingId('');
     }
   };
 
@@ -1524,6 +1583,9 @@ export default function Flota() {
             ekipy={ekipy}
             reservationDraft={reservationDrafts[selectedAssetDetail.key] || {}}
             reservationSavingKey={reservationSavingKey}
+            protocolDrafts={protocolDrafts}
+            protocolFiles={protocolFiles}
+            protocolSavingId={protocolSavingId}
             onClose={closeAssetDetail}
             onOpenRepairs={() => openRepairsForAsset(selectedAssetDetail.kind, selectedAssetDetail.item)}
             onNewRepair={() => openRepairDraft(selectedAssetDetail.kind, selectedAssetDetail.item)}
@@ -1534,6 +1596,9 @@ export default function Flota() {
             onReservationDraftChange={(field, value) => setReservationDraft(selectedAssetDetail.type, selectedAssetDetail.item.id, field, value)}
             onCreateReservation={(status) => createAssetReservation(selectedAssetDetail.item, status)}
             onUpdateReservationStatus={(reservation, status) => updateReservationStatus(selectedAssetDetail.item, reservation, status)}
+            onProtocolDraftChange={setProtocolDraft}
+            onProtocolFilesChange={setProtocolUploadFiles}
+            onSubmitProtocol={(reservation) => submitReservationProtocol(selectedAssetDetail.item, reservation)}
             onDeletePhoto={(photoId) => deleteAssetPhoto(selectedAssetDetail.type, selectedAssetDetail.item, photoId)}
             onDeleteDocument={(docId) => deleteAssetDocument(selectedAssetDetail.type, selectedAssetDetail.item, docId)}
           />
@@ -2395,6 +2460,9 @@ function AssetDetailPanel({
   ekipy = [],
   reservationDraft = {},
   reservationSavingKey = '',
+  protocolDrafts = {},
+  protocolFiles = {},
+  protocolSavingId = '',
   onClose,
   onOpenRepairs,
   onNewRepair,
@@ -2405,6 +2473,9 @@ function AssetDetailPanel({
   onReservationDraftChange,
   onCreateReservation,
   onUpdateReservationStatus,
+  onProtocolDraftChange,
+  onProtocolFilesChange,
+  onSubmitProtocol,
   onDeletePhoto,
   onDeleteDocument,
 }) {
@@ -2593,6 +2664,17 @@ function AssetDetailPanel({
                     )}
                   </div>
                 )}
+                {canEdit && (
+                  <ReservationProtocolCard
+                    reservation={reservation}
+                    draft={protocolDrafts[reservation.id]}
+                    files={protocolFiles[reservation.id] || []}
+                    saving={protocolSavingId === String(reservation.id)}
+                    onDraftChange={(field, value) => onProtocolDraftChange(reservation.id, field, value)}
+                    onFilesChange={(files) => onProtocolFilesChange(reservation.id, files)}
+                    onSubmit={() => onSubmitProtocol(reservation)}
+                  />
+                )}
               </div>
             )) : <div style={S.assetEmptyLine}>Brak aktywnych rezerwacji w najblizszych 2 miesiacach.</div>}
           </div>
@@ -2634,6 +2716,74 @@ function AssetDetailPanel({
         </div>
       </div>
     </section>
+  );
+}
+
+function ReservationProtocolCard({ reservation, draft = {}, files = [], saving, onDraftChange, onFilesChange, onSubmit }) {
+  const protocolDraft = {
+    typ: reservation.status === 'Wydane' ? 'zwrot' : 'wydanie',
+    stan: 'OK',
+    licznik_mtg: '',
+    paliwo_osprzet: '',
+    osoba: '',
+    podpis: '',
+    koszt_uszkodzen: '',
+    notatka: '',
+    ...draft,
+  };
+  const protocols = Array.isArray(reservation.protokoly) ? reservation.protokoly : [];
+  const lastProtocol = protocols.slice().sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
+
+  return (
+    <div style={S.protocolBox}>
+      <div style={S.protocolTop}>
+        <strong>Protokol wydania / zwrotu</strong>
+        <span>{lastProtocol ? `ostatni: ${lastProtocol.typ} / ${lastProtocol.stan}` : 'brak protokolu'}</span>
+      </div>
+      <div style={S.protocolForm}>
+        <select style={S.invoiceInput} value={protocolDraft.typ} onChange={(e) => onDraftChange('typ', e.target.value)}>
+          <option value="wydanie">Wydanie</option>
+          <option value="zwrot">Zwrot</option>
+          <option value="kontrola">Kontrola</option>
+        </select>
+        <select style={S.invoiceInput} value={protocolDraft.stan} onChange={(e) => onDraftChange('stan', e.target.value)}>
+          <option value="OK">OK</option>
+          <option value="Do kontroli">Do kontroli</option>
+          <option value="Uszkodzony">Uszkodzony</option>
+          <option value="Braki">Braki</option>
+        </select>
+        <input style={S.invoiceInput} value={protocolDraft.licznik_mtg} onChange={(e) => onDraftChange('licznik_mtg', e.target.value)} placeholder="mtg / licznik" />
+        <input style={S.invoiceInput} value={protocolDraft.osoba} onChange={(e) => onDraftChange('osoba', e.target.value)} placeholder="osoba odbierajaca" />
+        <input style={S.invoiceInput} type="number" step="0.01" value={protocolDraft.koszt_uszkodzen} onChange={(e) => onDraftChange('koszt_uszkodzen', e.target.value)} placeholder="koszt strat" />
+        <input style={S.invoiceInput} value={protocolDraft.podpis} onChange={(e) => onDraftChange('podpis', e.target.value)} placeholder="podpis / potwierdzenie" />
+      </div>
+      <textarea
+        style={S.protocolNote}
+        value={protocolDraft.notatka}
+        onChange={(e) => onDraftChange('notatka', e.target.value)}
+        placeholder="notatka: uszkodzenia, braki, paliwo, osprzet, uwagi ekipy"
+      />
+      <div style={S.protocolActions}>
+        <label style={S.invoiceUploadBtn}>
+          <Upload size={14} />
+          Zdjecia stanu
+          <input type="file" accept="image/*,application/pdf" multiple hidden onChange={(e) => onFilesChange(e.target.files)} />
+        </label>
+        <span>{files.length ? `${files.length} plikow` : 'bez plikow'}</span>
+        <Button size="sm" loading={saving} onClick={onSubmit}>Zapisz protokol</Button>
+      </div>
+      {protocols.length > 0 && (
+        <div style={S.protocolHistory}>
+          {protocols.slice(-3).reverse().map((protocol) => (
+            <div key={protocol.id} style={S.protocolHistoryRow}>
+              <strong>{protocol.typ} / {protocol.stan}</strong>
+              <span>{fmtDate(protocol.created_at)} / {protocol.osoba || protocol.podpis || protocol.created_by_name || '-'}</span>
+              <b>{formatMoney(protocol.koszt_uszkodzen)}</b>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2886,6 +3036,13 @@ const S = {
   reservationRow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', padding: 8, minWidth: 0 },
   reservationMain: { display: 'grid', gap: 2, minWidth: 0, fontSize: 12, color: 'var(--text-sub)' },
   reservationActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  protocolBox: { gridColumn: '1 / -1', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 9, display: 'grid', gap: 8, minWidth: 0 },
+  protocolTop: { display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--text-sub)', flexWrap: 'wrap' },
+  protocolForm: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 7, alignItems: 'center' },
+  protocolNote: { width: '100%', minHeight: 58, resize: 'vertical', boxSizing: 'border-box', padding: '8px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', fontSize: 12 },
+  protocolActions: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: 12, fontWeight: 800 },
+  protocolHistory: { display: 'grid', gap: 5, borderTop: '1px solid var(--border)', paddingTop: 7 },
+  protocolHistoryRow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(120px, auto) auto', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--text-sub)' },
   invoiceInput: { minWidth: 0, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', fontSize: 12 },
   invoiceUploadBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap', padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.3)', background: 'rgba(20,131,79,0.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   invoiceLinks: { display: 'flex', flexDirection: 'column', gap: 4 },
