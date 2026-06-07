@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
+import { telHref } from '../utils/telLink';
 
 function formatCurrency(value) {
   return `${Number(value || 0).toLocaleString('pl-PL')} PLN`;
@@ -189,25 +190,51 @@ export default function CrmDashboard() {
               })}
             </div>
             <div className="ios-inset-list">
-              {commandPriorities.map((lead) => (
-                <div key={lead.id} className="ios-inset-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 12, alignItems: 'center' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                      <strong style={{ overflowWrap: 'anywhere' }}>{lead.title || `Lead #${lead.id}`}</strong>
-                      <span style={{ fontSize: 12, color: lead.priority === 'critical' ? 'var(--danger, #b91c1c)' : 'var(--text-muted)' }}>
-                        {lead.priority} · {lead.score}/100
-                      </span>
+              {commandPriorities.map((lead) => {
+                const callHref = telHref(lead.phone);
+                return (
+                  <div key={lead.id} className="ios-inset-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 12, alignItems: 'center' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                        <strong style={{ overflowWrap: 'anywhere' }}>{lead.title || `Lead #${lead.id}`}</strong>
+                        <span style={{ fontSize: 12, color: lead.priority === 'critical' ? 'var(--danger, #b91c1c)' : 'var(--text-muted)' }}>
+                          {lead.priority} · {lead.score}/100
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, marginTop: 4 }}>{lead.next_best_action}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {(lead.reasons || []).map((r) => r.label).join(' · ') || lead.stage}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 13, marginTop: 4 }}>{lead.next_best_action}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {(lead.reasons || []).map((r) => r.label).join(' · ') || lead.stage}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {callHref ? (
+                        <a
+                          href={callHref}
+                          style={{
+                            alignItems: 'center',
+                            border: '1px solid var(--accent)',
+                            borderRadius: 8,
+                            color: 'var(--accent)',
+                            display: 'inline-flex',
+                            fontSize: 13,
+                            fontWeight: 800,
+                            gap: 6,
+                            minHeight: 34,
+                            padding: '7px 11px',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <PhoneCall size={16} aria-hidden />
+                          <span>Zadzwon</span>
+                        </a>
+                      ) : null}
+                      <Button size="sm" variant="outline" rightIcon={ArrowRight} onClick={() => navigate(`/crm/pipeline?lead_id=${lead.id}`)}>
+                        {t('crm.dashboard.commandOpenLead', { defaultValue: 'Otwórz' })}
+                      </Button>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" rightIcon={ArrowRight} onClick={() => navigate(`/crm/pipeline?lead_id=${lead.id}`)}>
-                    {t('crm.dashboard.commandOpenLead', { defaultValue: 'Otwórz' })}
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
               {!loading && commandPriorities.length === 0 ? (
                 <div className="ios-inset-row muted">
                   {t('crm.dashboard.commandEmpty', { defaultValue: 'Brak pilnych leadów. CRM jest czysty.' })}
