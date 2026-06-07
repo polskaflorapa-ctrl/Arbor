@@ -69,6 +69,22 @@ const testFlowSchema = z.object({
   raport: z.string().trim().max(2000).optional().nullable(),
 });
 
+function emptyDiagnosticsCounts() {
+  return {
+    total: 0,
+    last_24h: 0,
+    recording_ready: 0,
+    transcribing: 0,
+    needs_transcription: 0,
+    transcribed: 0,
+    analyzed: 0,
+    error: 0,
+    with_recording: 0,
+    with_transcript: 0,
+    linked_to_crm: 0,
+  };
+}
+
 /** Połączenia z klientem i archiwum rozmów — tylko poza rolą ekipy polowej. */
 const forbidTelefonForTeamRoles = (req, res, next) => {
   const r = req.user?.rola;
@@ -309,6 +325,73 @@ router.get('/rozmowy', authMiddleware, forbidTelefonForTeamRoles, validateQuery(
     if (e.code === '42P01') return res.json([]);
     logger.error('telefon /rozmowy', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/diagnostics', authMiddleware, forbidTelefonForTeamRoles, async (req, res) => {
+  try {
+    await ensurePhoneCallsTable();
+    const scope = phoneRozmowyScopeFromWhere(req.user);
+    const base = `${scope.from} ${scope.whereSql}`.trim();
+    const { rows } = await pool.query(
+      `SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE p.created_at >= NOW() - INTERVAL '24 hours')::int AS last_24h,
+         COUNT(*) FILTER (WHERE p.status = 'recording_ready')::int AS recording_ready,
+         COUNT(*) FILTER (WHERE p.status = 'transcribing')::int AS transcribing,
+         COUNT(*) FILTER (WHERE p.status = 'needs_transcription')::int AS needs_transcription,
+         COUNT(*) FILTER (WHERE p.status = 'transcribed')::int AS transcribed,
+         COUNT(*) FILTER (WHERE p.status = 'analyzed')::int AS analyzed,
+         COUNT(*) FILTER (WHERE p.status = 'error')::int AS error,
+         COUNT(*) FILTER (WHERE p.recording_url IS NOT NULL OR p.recording_archive_ref IS NOT NULL)::int AS with_recording,
+         COUNT(*) FILTER (WHERE COALESCE(p.transcript, '') <> '')::int AS with_transcript,
+         COUNT(*) FILTER (WHERE p.lead_id IS NOT NULL)::int AS linked_to_crm,
+         MAX(p.updated_at) AS last_update_at
+       ${base}`,
+      scope.params
+    );
+    const counts = { ...emptyDiagnosticsCounts(), ...(rows[0] || {}) };
+    Object.keys(emptyDiagnosticsCounts()).forEach((key) => {
+      counts[key] = Number(counts[key] || 0);
+    });
+    const issues = [];
+    if (!env.OPENAI_API_KEY) issues.push('OPENAI_API_KEY missing: transcription will stop at needs_transcription');
+    if (!env.ANTHROPIC_API_KEY) issues.push('ANTHROPIC_API_KEY missing: AI report will be skipped');
+    if (counts.error > 0) issues.push(`${counts.error} phone recording pipeline error(s)`);
+    if (counts.needs_transcription > 0) issues.push(`${counts.needs_transcription} call(s) waiting for transcription`);
+    if (counts.with_recording > 0 && counts.linked_to_crm === 0) issues.push('recordings exist but none are linked to CRM leads');
+    const zadarmaConfigured = await isZadarmaConfiguredAsync().catch(() => false);
+    return res.json({
+      ok: true,
+      counts,
+      last_update_at: rows[0]?.last_update_at || null,
+      config: {
+        zadarma_configured: Boolean(zadarmaConfigured),
+        openai_configured: Boolean(env.OPENAI_API_KEY),
+        anthropic_configured: Boolean(env.ANTHROPIC_API_KEY),
+        recording_storage: env.PHONE_RECORDING_STORAGE || 'none',
+      },
+      issues,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    if (e.code === '42P01') {
+      return res.json({
+        ok: true,
+        counts: emptyDiagnosticsCounts(),
+        last_update_at: null,
+        config: {
+          zadarma_configured: await isZadarmaConfiguredAsync().catch(() => false),
+          openai_configured: Boolean(env.OPENAI_API_KEY),
+          anthropic_configured: Boolean(env.ANTHROPIC_API_KEY),
+          recording_storage: env.PHONE_RECORDING_STORAGE || 'none',
+        },
+        issues: ['phone_call_conversations table does not exist yet'],
+        requestId: req.requestId,
+      });
+    }
+    logger.error('telefon /diagnostics', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError'), requestId: req.requestId });
   }
 });
 

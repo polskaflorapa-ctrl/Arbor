@@ -203,6 +203,56 @@ describe('Telefon (Twilio Voice)', () => {
     expect(countSql).not.toMatch(/WHERE p\.user_id/i);
   });
 
+  it('GET /diagnostics returns phone pipeline readiness and blockers', async () => {
+    isZadarmaConfiguredAsync.mockResolvedValue(true);
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('COUNT(*)::int AS total') && text.includes('phone_call_conversations')) {
+        return {
+          rows: [{
+            total: 5,
+            last_24h: 4,
+            recording_ready: 1,
+            transcribing: 0,
+            needs_transcription: 2,
+            transcribed: 1,
+            analyzed: 1,
+            error: 1,
+            with_recording: 4,
+            with_transcript: 2,
+            linked_to_crm: 1,
+            last_update_at: '2026-06-07T10:00:00.000Z',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/telefon/diagnostics')
+      .set('Authorization', `Bearer ${bearerDyrektor()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      ok: true,
+      counts: expect.objectContaining({
+        total: 5,
+        needs_transcription: 2,
+        error: 1,
+        linked_to_crm: 1,
+      }),
+      config: expect.objectContaining({
+        zadarma_configured: true,
+        openai_configured: false,
+      }),
+    }));
+    expect(res.body.issues).toEqual(expect.arrayContaining([
+      expect.stringContaining('OPENAI_API_KEY missing'),
+      expect.stringContaining('2 call(s) waiting for transcription'),
+      expect.stringContaining('1 phone recording pipeline error'),
+    ]));
+  });
+
   it('POST /test-flow blocks users from other branches before publishing artifacts', async () => {
     const res = await request(app)
       .post('/api/telefon/test-flow')
