@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Download, ExternalLink, RefreshCw, Search, X } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ModernDataRow from '../components/ModernDataRow';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
@@ -120,7 +122,7 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask, onOpenSettleme
       <div style={dm.panel} onClick={e => e.stopPropagation()}>
         <div style={dm.header}>
           <span style={dm.title}>{title}</span>
-          <button style={dm.close} onClick={onClose}>✕</button>
+          <Button variant="ghost" size="sm" style={dm.close} onClick={onClose} leftIcon={X} aria-label="Zamknij" />
         </div>
         {loading
           ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-sub)' }}>Ładowanie…</div>
@@ -139,13 +141,16 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask, onOpenSettleme
                       <span key={item.field} style={dm.missingChip}>{marginFieldLabel(item.field)}: {item.count}</span>
                     ))}
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     style={dm.csvBtn}
+                    leftIcon={Download}
                     onClick={() => downloadCSV(buildMarginReviewExportRows(tasks), `marza-do-sprawdzenia-${Date.now()}.csv`)}
                   >
                     CSV brakow
-                  </button>
+                  </Button>
                 </div>
               )}
               {tasks.map(t => {
@@ -185,12 +190,12 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask, onOpenSettleme
                       </div>
                     )}
                     <div style={dm.actions}>
-                      <button type="button" style={dm.openTaskBtn} onClick={() => onOpenTask?.(t.id)}>
+                      <Button variant="secondary" size="sm" style={dm.openTaskBtn} rightIcon={ExternalLink} onClick={() => onOpenTask?.(t.id)}>
                         Otworz zlecenie
-                      </button>
-                      <button type="button" style={dm.primaryActionBtn} onClick={() => onOpenSettlement?.(t.id)}>
+                      </Button>
+                      <Button variant="primary" size="sm" style={dm.primaryActionBtn} onClick={() => onOpenSettlement?.(t.id)}>
                         Uzupelnij rozliczenie
-                      </button>
+                      </Button>
                     </div>
                     {hasFinancials ? (
                     <div style={dm.breakdown}>
@@ -215,7 +220,7 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask, onOpenSettleme
         {!loading && tasks.length > 0 && (
           <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{tasks.length} zleceń (maks. 100)</span>
-            <button style={dm.csvBtn} onClick={() => downloadCSV(tasks, `drill-${Date.now()}.csv`)}>⬇ CSV</button>
+            <Button variant="secondary" size="sm" style={dm.csvBtn} leftIcon={Download} onClick={() => downloadCSV(tasks, `drill-${Date.now()}.csv`)}>CSV</Button>
           </div>
         )}
       </div>
@@ -503,25 +508,27 @@ export default function BiDashboard() {
           <div className="bi-dashboard-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <div className="bi-dashboard-periods" style={s.periodRow}>
               {PERIODS.map(p => (
-                <button key={p.days} type="button"
+                <Button key={p.days}
+                  variant={days === p.days ? 'primary' : 'secondary'}
+                  size="sm"
                   onClick={() => setDays(p.days)}
                   style={{ ...s.periodBtn, ...(days === p.days ? s.periodBtnActive : {}) }}>
                   {p.label}
-                </button>
+                </Button>
               ))}
             </div>
-            <button type="button" onClick={load} disabled={loading} style={s.refreshBtn}>
-              {loading ? 'Laduje...' : 'Odswiez'}
-            </button>
-            <button type="button" style={s.refreshBtn} title="Eksportuj CSV"
+            <Button variant="secondary" size="sm" onClick={load} loading={loading} style={s.refreshBtn} leftIcon={RefreshCw}>
+              Odswiez
+            </Button>
+            <Button variant="secondary" size="sm" style={s.refreshBtn} title="Eksportuj CSV" leftIcon={Download}
               onClick={() => {
                 if (activeTab === 'branches') downloadCSV(branches, `oddzialy-${days}d.csv`);
                 else if (activeTab === 'teams') downloadCSV(teams, `ekipy-${days}d.csv`);
                 else if (activeTab === 'services') downloadCSV(serviceMix, `uslugi-${days}d.csv`);
                 else if (activeTab === 'plan') downloadCSV(planVsReal?.tasks || [], `plan-vs-real-${days}d.csv`);
                 else if (activeTab === 'overview' && ov) downloadCSV([ov], `kpi-${days}d.csv`);
-              }}>CSV</button>
-            <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>Powrot</button>
+              }}>CSV</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/kierownik')} style={s.backBtn} leftIcon={ArrowLeft}>Powrot</Button>
           </div>
         </div>
 
@@ -530,11 +537,13 @@ export default function BiDashboard() {
         {/* Tabs */}
         <div className="bi-dashboard-tabs" style={s.tabs}>
           {TABS.map(tab => (
-            <button key={tab.key} type="button"
+            <Button key={tab.key}
+              variant={activeTab === tab.key ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => setActiveTab(tab.key)}
               style={{ ...s.tab, ...(activeTab === tab.key ? s.tabActive : {}) }}>
               {tab.label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -883,9 +892,9 @@ export default function BiDashboard() {
                     Wymaga skonfigurowanego SMTP_HOST, SMTP_USER, SMTP_PASS na serwerze
                   </div>
                 </div>
-                <button style={al.btn} disabled={alertChecking} onClick={checkAlerts}>
-                  {alertChecking ? '⏳ Sprawdzam…' : '🔍 Sprawdź teraz i wyślij e-mail'}
-                </button>
+                <Button variant="primary" style={al.btn} loading={alertChecking} onClick={checkAlerts} leftIcon={Search}>
+                  Sprawdź teraz i wyślij e-mail
+                </Button>
               </div>
             </div>
 

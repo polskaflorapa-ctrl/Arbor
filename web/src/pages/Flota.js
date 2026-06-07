@@ -160,20 +160,21 @@ function MaintenanceControlPanel({ summary, activeFilter, onOpenRepairs, onNewRe
           </h2>
         </div>
         <div style={S.maintenanceActions}>
-          <button type="button" style={S.maintenanceSecondaryBtn} onClick={onExport}>Eksport CSV</button>
-          <button type="button" style={S.maintenancePrimaryBtn} onClick={onNewRepair}>Nowa naprawa</button>
+          <Button variant="secondary" size="sm" style={S.maintenanceSecondaryBtn} leftIcon={FileText} onClick={onExport}>Eksport CSV</Button>
+          <Button size="sm" style={S.maintenancePrimaryBtn} leftIcon={Plus} onClick={onNewRepair}>Nowa naprawa</Button>
         </div>
       </div>
       <div style={S.maintenanceFilters}>
         {filters.map((filter) => (
-          <button
+          <Button
             key={filter.key}
-            type="button"
+            variant={activeFilter === filter.key ? 'primary' : 'secondary'}
+            size="sm"
             style={{ ...S.maintenanceFilterBtn, ...(activeFilter === filter.key ? S.maintenanceFilterBtnActive : {}) }}
             onClick={() => onOpenRepairs(filter.key)}
           >
             {filter.label} <strong>{filter.count}</strong>
-          </button>
+          </Button>
         ))}
       </div>
       <div style={S.maintenanceGrid}>
@@ -210,10 +211,10 @@ function MaintenanceControlPanel({ summary, activeFilter, onOpenRepairs, onNewRe
       </div>
       <div style={S.maintenanceTopList}>
         {summary.topRepairs.length ? summary.topRepairs.map((repair) => (
-          <button key={repair.id} type="button" style={S.maintenanceTopItem} onClick={() => onOpenRepairs('all')}>
+          <Button key={repair.id} variant="secondary" style={S.maintenanceTopItem} onClick={() => onOpenRepairs('all')}>
             <span>{repair.assetLabel}</span>
             <strong>{formatMoney(repair.costValue)}</strong>
-          </button>
+          </Button>
         )) : (
           <div style={S.maintenanceEmpty}>Brak kosztow napraw do analizy.</div>
         )}
@@ -244,6 +245,7 @@ export default function Flota() {
   const [repairSaving, setRepairSaving] = useState(false);
   const [assetPhotos, setAssetPhotos] = useState({});
   const [assetDocuments, setAssetDocuments] = useState({});
+  const [assetHistory, setAssetHistory] = useState({});
   const [photoUploadingKey, setPhotoUploadingKey] = useState('');
   const [documentUploadingKey, setDocumentUploadingKey] = useState('');
   const [repairInvoices, setRepairInvoices] = useState({});
@@ -543,6 +545,17 @@ export default function Flota() {
     }
   };
 
+  const loadAssetHistory = async (type, id) => {
+    const key = assetKey(type, id);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/flota/${type}/${id}/historia`, { headers: authHeaders(token), dedupe: false });
+      setAssetHistory((prev) => ({ ...prev, [key]: Array.isArray(data) ? data : [] }));
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie pobrac historii zasobu.')));
+    }
+  };
+
   const uploadAssetDocument = async (type, item, file) => {
     if (!file) return;
     const key = assetKey(type, item.id);
@@ -777,6 +790,23 @@ export default function Flota() {
     }
   };
 
+  const openAssetDetail = (type, item) => {
+    const params = new URLSearchParams(location.search || '');
+    params.set('asset', `${type}:${item.id}`);
+    if (type === 'sprzet') params.set('tab', 'sprzet');
+    if (type === 'pojazdy') params.set('tab', 'pojazdy');
+    navigate(`/flota?${params.toString()}`);
+    void loadAssetPhotos(type, item.id);
+    void loadAssetDocuments(type, item.id);
+    void loadAssetHistory(type, item.id);
+  };
+
+  const closeAssetDetail = () => {
+    const params = new URLSearchParams(location.search || '');
+    params.delete('asset');
+    navigate(`/flota?${params.toString()}`);
+  };
+
   const openRepairsForAsset = (kind, item) => {
     const params = new URLSearchParams({
       tab: 'naprawy',
@@ -859,6 +889,8 @@ export default function Flota() {
       return {
         id: `vehicle-${p.id}`,
         itemId: p.id,
+        assetType: 'pojazdy',
+        asset: p,
         kind: 'vehicle',
         type: 'Pojazd',
         title: [p.marka, p.model].filter(Boolean).join(' ') || `Pojazd #${p.id}`,
@@ -886,6 +918,8 @@ export default function Flota() {
       return {
         id: `equipment-${s.id}`,
         itemId: s.id,
+        assetType: 'sprzet',
+        asset: s,
         kind: 'equipment',
         type: 'Sprzet',
         title: s.nazwa || `Sprzet #${s.id}`,
@@ -949,6 +983,58 @@ export default function Flota() {
       nextAction,
     };
   }, [filtrPojazdy, filtrSprzet, naprawy, overdueResourceCount, repairCostTotal, resourceAlertCount, resourceRiskCards]);
+
+  const selectedAssetDetail = useMemo(() => {
+    const raw = new URLSearchParams(location.search || '').get('asset') || '';
+    const [type, id] = raw.split(':');
+    if (!['pojazdy', 'sprzet'].includes(type) || !id) return null;
+    const item = (type === 'pojazdy' ? pojazdy : sprzet).find((row) => String(row.id) === String(id));
+    if (!item) return null;
+    const key = assetKey(type, item.id);
+    const kind = type === 'pojazdy' ? 'pojazd' : 'sprzet';
+    const repairs = naprawy
+      .filter((repair) => normalizeRepairKind(repair.typ_zasobu) === kind && String(repair.zasob_id) === String(item.id))
+      .sort((a, b) => String(b.data_naprawy || '').localeCompare(String(a.data_naprawy || '')));
+    const repairCost = repairs.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0);
+    const downtimeLoss = repairs.reduce((sum, repair) => sum + repairDowntimeLoss(repair), 0);
+    const alerts = type === 'pojazdy'
+      ? [
+        dueAlert({ key: 'inspection', label: 'Przeglad' }, item.data_przegladu),
+        dueAlert({ key: 'insurance', label: 'OC' }, item.data_ubezpieczenia),
+      ]
+      : [dueAlert({ key: 'inspection', label: 'Przeglad' }, item.data_przegladu)];
+    return {
+      type,
+      kind,
+      item,
+      key,
+      label: type === 'pojazdy'
+        ? [item.marka, item.model, item.nr_rejestracyjny].filter(Boolean).join(' ')
+        : [item.nazwa, item.typ, item.nr_seryjny].filter(Boolean).join(' / '),
+      subtitle: [item.oddzial_nazwa, item.ekipa_nazwa || 'bez ekipy', item.status].filter(Boolean).join(' / '),
+      photos: assetPhotos[key] || [],
+      documents: assetDocuments[key] || [],
+      history: assetHistory[key] || [],
+      repairs,
+      repairCost,
+      downtimeLoss,
+      openRepairs: repairs.filter((repair) => !repairIsClosed(repair.status)).length,
+      alerts,
+    };
+  }, [assetDocuments, assetHistory, assetPhotos, location.search, naprawy, pojazdy, sprzet]);
+
+  useEffect(() => {
+    if (!selectedAssetDetail) return;
+    if (!Array.isArray(assetPhotos[selectedAssetDetail.key])) {
+      void loadAssetPhotos(selectedAssetDetail.type, selectedAssetDetail.item.id);
+    }
+    if (!Array.isArray(assetDocuments[selectedAssetDetail.key])) {
+      void loadAssetDocuments(selectedAssetDetail.type, selectedAssetDetail.item.id);
+    }
+    if (!Array.isArray(assetHistory[selectedAssetDetail.key])) {
+      void loadAssetHistory(selectedAssetDetail.type, selectedAssetDetail.item.id);
+    }
+  }, [assetDocuments, assetHistory, assetPhotos, selectedAssetDetail]);
 
   const openResourceCalendar = (card) => {
     const params = new URLSearchParams({ tab: 'equipment', modal: '0' });
@@ -1147,15 +1233,15 @@ export default function Flota() {
             </div>
           ))}
           <div className="fleet-command-actions">
-            <button type="button" onClick={() => navigate('/kalendarz-zasobow')}>
+            <Button variant="secondary" size="sm" leftIcon={CalendarDays} onClick={() => navigate('/kalendarz-zasobow')}>
               Kalendarz
-            </button>
-            <button type="button" onClick={() => setActiveTab('naprawy')}>
+            </Button>
+            <Button variant="secondary" size="sm" leftIcon={Wrench} onClick={() => setActiveTab('naprawy')}>
               Naprawy
-            </button>
-            <button type="button" onClick={() => { setActiveTab('naprawy'); openEmptyRepairDraft(); }}>
+            </Button>
+            <Button size="sm" leftIcon={Plus} onClick={() => { setActiveTab('naprawy'); openEmptyRepairDraft(); }}>
               Nowa naprawa
-            </button>
+            </Button>
           </div>
         </section>
 
@@ -1177,6 +1263,7 @@ export default function Flota() {
           cards={resourceRiskCards}
           total={resourceCards.length}
           alertCount={resourceAlertCount}
+          onOpenDetail={openAssetDetail}
           onOpenCalendar={openResourceCalendar}
         />
 
@@ -1188,11 +1275,27 @@ export default function Flota() {
           onExport={() => exportRepairsCsv(filteredNaprawy)}
         />
 
+        {selectedAssetDetail && (
+          <AssetDetailPanel
+            detail={selectedAssetDetail}
+            canEdit={canEdit}
+            onClose={closeAssetDetail}
+            onOpenRepairs={() => openRepairsForAsset(selectedAssetDetail.kind, selectedAssetDetail.item)}
+            onNewRepair={() => openRepairDraft(selectedAssetDetail.kind, selectedAssetDetail.item)}
+            onLoadPhotos={() => loadAssetPhotos(selectedAssetDetail.type, selectedAssetDetail.item.id)}
+            onLoadDocuments={() => loadAssetDocuments(selectedAssetDetail.type, selectedAssetDetail.item.id)}
+            onLoadHistory={() => loadAssetHistory(selectedAssetDetail.type, selectedAssetDetail.item.id)}
+            onDeletePhoto={(photoId) => deleteAssetPhoto(selectedAssetDetail.type, selectedAssetDetail.item, photoId)}
+            onDeleteDocument={(docId) => deleteAssetDocument(selectedAssetDetail.type, selectedAssetDetail.item, docId)}
+          />
+        )}
+
         {/* Tabs */}
         <div className="fleet-tabs" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--glass-border)', flexWrap: 'wrap' }}>
           {tabDefs.map((tab) => (
-            <button key={tab.key}
-              type="button"
+            <Button key={tab.key}
+              variant={activeTab === tab.key ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => {
                 setActiveTab(tab.key);
                 setShowForm(false);
@@ -1203,11 +1306,13 @@ export default function Flota() {
                 padding: '10px 18px', border: 'none', backgroundColor: 'transparent',
                 cursor: 'pointer', fontSize: 14, fontWeight: '500',
                 color: activeTab === tab.key ? 'var(--accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
+                borderBottomWidth: 2,
+                borderBottomStyle: 'solid',
+                borderBottomColor: activeTab === tab.key ? 'var(--accent)' : 'transparent',
                 marginBottom: -2, transition: 'all 0.2s',
               }}>
               {tab.label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -1217,8 +1322,8 @@ export default function Flota() {
             <h3 style={S.formTitle}>{editingPojazdId ? 'Edytuj pojazd' : t('pages.flota.newVehicleTitle')}</h3>
             <form onSubmit={handleAddPojazd}>
               <div style={S.quickRow}>
-                <Button size="sm" variant="warning" leftIcon={Wrench} onClick={() => setFormPojazd((prev) => ({ ...prev, typ: 'Samochod', status: 'W naprawie' }))}>Samochod w naprawie</Button>
-                <Button size="sm" variant="outline" leftIcon={CheckCircle} onClick={() => setFormPojazd((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</Button>
+                <Button type="button" size="sm" variant="warning" leftIcon={Wrench} onClick={() => setFormPojazd((prev) => ({ ...prev, typ: 'Samochod', status: 'W naprawie' }))}>Samochod w naprawie</Button>
+                <Button type="button" size="sm" variant="outline" leftIcon={CheckCircle} onClick={() => setFormPojazd((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</Button>
               </div>
               <div style={S.grid}>
                 <Field label={t('pages.flota.fieldBrand')}><input style={S.input} value={formPojazd.marka} onChange={e => setFormPojazd({ ...formPojazd, marka: e.target.value })} required placeholder="np. Mercedes" /></Field>
@@ -1254,7 +1359,7 @@ export default function Flota() {
                 )}
               </div>
               <div style={S.btnRow}>
-                <Button variant="outline" onClick={() => { setShowForm(false); resetPojazdForm(); }}>{t('common.cancel')}</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowForm(false); resetPojazdForm(); }}>{t('common.cancel')}</Button>
                 <Button type="submit" loading={saving} disabled={!isPojazdFormValid} leftIcon={Save}>{editingPojazdId ? 'Zapisz pojazd' : t('pages.flota.addVehicle')}</Button>
               </div>
             </form>
@@ -1267,8 +1372,8 @@ export default function Flota() {
             <h3 style={S.formTitle}>{editingSprzetId ? 'Edytuj sprzet' : t('pages.flota.newEquipmentTitle')}</h3>
             <form onSubmit={handleAddSprzet}>
               <div style={S.quickRow}>
-                <Button size="sm" variant="warning" leftIcon={Wrench} onClick={() => setFormSprzet((prev) => ({ ...prev, typ: 'Rebak', status: 'W naprawie' }))}>Rebak w naprawie</Button>
-                <Button size="sm" variant="outline" leftIcon={CheckCircle} onClick={() => setFormSprzet((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</Button>
+                <Button type="button" size="sm" variant="warning" leftIcon={Wrench} onClick={() => setFormSprzet((prev) => ({ ...prev, typ: 'Rebak', status: 'W naprawie' }))}>Rebak w naprawie</Button>
+                <Button type="button" size="sm" variant="outline" leftIcon={CheckCircle} onClick={() => setFormSprzet((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</Button>
               </div>
               <div style={S.grid}>
                 <Field label={t('pages.flota.fieldName')}><input aria-label={t('pages.flota.fieldName')} style={S.input} value={formSprzet.nazwa} onChange={e => setFormSprzet((prev) => ({ ...prev, nazwa: e.target.value }))} required placeholder="np. Piłarka Husqvarna 572XP" /></Field>
@@ -1302,7 +1407,7 @@ export default function Flota() {
                 )}
               </div>
               <div style={S.btnRow}>
-                <Button variant="outline" onClick={() => { setShowForm(false); resetSprzetForm(); }}>{t('common.cancel')}</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowForm(false); resetSprzetForm(); }}>{t('common.cancel')}</Button>
                 <Button type="submit" loading={saving} disabled={!isSprzetFormValid} leftIcon={Save}>{editingSprzetId ? 'Zapisz sprzet' : t('pages.flota.addEquipment')}</Button>
               </div>
             </form>
@@ -1325,10 +1430,15 @@ export default function Flota() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                      <Button
+                        variant="ghost"
+                        aria-label={`Otworz karte zasobu ${p.marka || ''} ${p.model || ''} ${p.nr_rejestracyjny || ''}`.trim()}
+                        onClick={() => openAssetDetail('pojazdy', p)}
+                        style={S.assetTitleButton}
+                      >
                         <DirectionsCarOutlined sx={{ fontSize: 22, flexShrink: 0 }} />
                         {p.marka} {p.model}
-                      </div>
+                      </Button>
                       <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{p.nr_rejestracyjny}</div>
                     </div>
                     <select
@@ -1389,6 +1499,7 @@ export default function Flota() {
                     onLoadDocuments={loadAssetDocuments}
                     onUploadDocument={uploadAssetDocument}
                     onDeleteDocument={deleteAssetDocument}
+                    onOpenDetail={openAssetDetail}
                     onOpenRepairs={openRepairsForAsset}
                   />
                   </div>
@@ -1414,10 +1525,15 @@ export default function Flota() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                      <Button
+                        variant="ghost"
+                        aria-label={`Otworz karte zasobu ${s.nazwa || ''} ${s.nr_inwentarzowy || ''}`.trim()}
+                        onClick={() => openAssetDetail('sprzet', s)}
+                        style={S.assetTitleButton}
+                      >
                         <HandymanOutlined sx={{ fontSize: 20, flexShrink: 0 }} />
                         {s.nazwa}
-                      </div>
+                      </Button>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{s.typ}</div>
                     </div>
                     <select
@@ -1470,6 +1586,7 @@ export default function Flota() {
                     onLoadDocuments={loadAssetDocuments}
                     onUploadDocument={uploadAssetDocument}
                     onDeleteDocument={deleteAssetDocument}
+                    onOpenDetail={openAssetDetail}
                     onOpenRepairs={openRepairsForAsset}
                   />
                   </div>
@@ -1512,18 +1629,19 @@ export default function Flota() {
                   ['noInvoice', 'Bez faktury'],
                   ['closed', 'Zamkniete'],
                 ].map(([key, label]) => (
-                  <button
+                  <Button
                     key={key}
-                    type="button"
+                    variant={repairQuickFilter === key ? 'primary' : 'secondary'}
+                    size="sm"
                     style={{ ...S.repairFilterBtn, ...(repairQuickFilter === key ? S.repairFilterBtnActive : {}) }}
                     onClick={() => setRepairQuickFilter(key)}
                   >
                     {label}
-                  </button>
+                  </Button>
                 ))}
-                <button type="button" style={S.repairFilterExportBtn} onClick={() => exportRepairsCsv(filteredNaprawy)}>
+                <Button variant="secondary" size="sm" style={S.repairFilterExportBtn} leftIcon={FileText} onClick={() => exportRepairsCsv(filteredNaprawy)}>
                   Eksport CSV
-                </button>
+                </Button>
               </div>
               <div className="fleet-repairs-header" style={S.repairsHeader}>
                 {(repairHeaders.length ? repairHeaders : ['Typ', 'Zasób', 'Data', 'Koszt', 'Usterka', 'Wykonawca', 'Status']).slice(0, 7).map((h) => (
@@ -1596,9 +1714,9 @@ export default function Flota() {
                     <div style={S.invoiceBox}>
                       <div style={S.invoiceTop}>
                         <span><FileText size={14} /> Faktury</span>
-                        <button type="button" style={S.invoiceGhostBtn} onClick={() => loadRepairInvoices(n.id)}>
+                        <Button variant="ghost" size="sm" style={S.invoiceGhostBtn} leftIcon={FileText} onClick={() => loadRepairInvoices(n.id)}>
                           {Array.isArray(repairInvoices[n.id]) ? `${repairInvoices[n.id].length} plikow` : `${n.faktury_count || 0} zapisane`}
-                        </button>
+                        </Button>
                       </div>
                       {canEdit && (
                         <div style={S.invoiceForm}>
@@ -1640,9 +1758,9 @@ export default function Flota() {
                                 {invoice.numer || invoice.nazwa_pliku || `Faktura #${invoice.id}`} {invoice.kwota ? `- ${formatMoney(invoice.kwota)}` : ''}
                               </a>
                               {canEdit && (
-                                <button type="button" style={S.invoiceDeleteBtn} onClick={() => deleteRepairInvoice(n, invoice.id)}>
+                                <Button variant="danger" size="sm" style={S.invoiceDeleteBtn} leftIcon={Trash2} onClick={() => deleteRepairInvoice(n, invoice.id)}>
                                   Usun
-                                </button>
+                                </Button>
                               )}
                             </div>
                           ))}
@@ -1692,7 +1810,7 @@ export default function Flota() {
   );
 }
 
-function ResourceCardsPanel({ cards, total, alertCount, onOpenCalendar }) {
+function ResourceCardsPanel({ cards, total, alertCount, onOpenDetail, onOpenCalendar }) {
   return (
     <section
       className="fleet-resource-cards-panel"
@@ -1728,15 +1846,22 @@ function ResourceCardsPanel({ cards, total, alertCount, onOpenCalendar }) {
               <article
                 key={card.id}
                 data-testid={`fleet-resource-card-${card.id}`}
-                style={{ border: `1px solid ${worst.color}`, borderLeft: `4px solid ${worst.color}`, background: 'var(--surface-glass)', borderRadius: 8, padding: 12, boxShadow: 'var(--shadow-md)', minWidth: 0 }}
+                style={{ borderWidth: '1px 1px 1px 4px', borderStyle: 'solid', borderColor: worst.color, background: 'var(--surface-glass)', borderRadius: 8, padding: 12, boxShadow: 'var(--shadow-md)', minWidth: 0 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 11, textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 800 }}>{card.type}</div>
-                    <h3 style={{ margin: '2px 0 0', fontSize: 15, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.title}</h3>
+                    <button
+                      type="button"
+                      aria-label={`Otworz karte zasobu ${card.title} ${card.subtitle}`.trim()}
+                      onClick={() => onOpenDetail?.(card.assetType, card.asset)}
+                      style={S.assetTitleButton}
+                    >
+                      <h3 style={{ margin: '2px 0 0', fontSize: 15, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.title}</h3>
+                    </button>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{card.subtitle}</div>
                   </div>
-                  <span style={{ border: `1px solid ${worst.color}`, color: worst.color, borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  <span style={{ borderWidth: 1, borderStyle: 'solid', borderColor: worst.color, color: worst.color, borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>
                     {worst.state === 'expired' ? 'STOP' : worst.state === 'soon' ? 'UWAGA' : 'KARTA'}
                   </span>
                 </div>
@@ -1753,7 +1878,7 @@ function ResourceCardsPanel({ cards, total, alertCount, onOpenCalendar }) {
                     <span
                       key={alert.key}
                       data-testid={`fleet-alert-card-${card.id}-${alert.key}`}
-                      style={{ border: `1px solid ${alert.color}`, color: alert.color, borderRadius: 8, padding: '4px 7px', fontSize: 11, fontWeight: 800 }}
+                      style={{ borderWidth: 1, borderStyle: 'solid', borderColor: alert.color, color: alert.color, borderRadius: 8, padding: '4px 7px', fontSize: 11, fontWeight: 800 }}
                       title={alert.detail}
                     >
                       {alert.label}
@@ -1827,6 +1952,7 @@ function FleetAssetControls({
   onLoadDocuments,
   onUploadDocument,
   onDeleteDocument,
+  onOpenDetail,
   onOpenRepairs,
 }) {
   const loaded = Array.isArray(photos);
@@ -1846,20 +1972,27 @@ function FleetAssetControls({
           {ekipy.map((team) => <option key={team.id} value={team.id}>{team.nazwa}</option>)}
         </select>
       </div>
-      <button type="button" style={S.assetHistoryButton} onClick={() => onOpenRepairs(kind, item)}>
-        <span>Historia</span>
-        <strong>{repairSummary?.count || 0} / {formatMoney(repairSummary?.cost || 0)}</strong>
-        <small>{repairSummary?.open ? `${repairSummary.open} otwarte` : (repairSummary?.lastDate ? `ostatnio ${fmtDate(repairSummary.lastDate)}` : 'brak napraw')}</small>
-      </button>
+      <div style={S.assetActionStack}>
+        <Button variant="secondary" style={S.assetHistoryButton} onClick={() => onOpenDetail(type, item)}>
+          <span>Karta</span>
+          <strong>{item.status || '-'}</strong>
+          <small>{item.ekipa_nazwa || 'bez ekipy'}</small>
+        </Button>
+        <Button variant="secondary" style={S.assetHistoryButton} onClick={() => onOpenRepairs(kind, item)}>
+          <span>Historia</span>
+          <strong>{repairSummary?.count || 0} / {formatMoney(repairSummary?.cost || 0)}</strong>
+          <small>{repairSummary?.open ? `${repairSummary.open} otwarte` : (repairSummary?.lastDate ? `ostatnio ${fmtDate(repairSummary.lastDate)}` : 'brak napraw')}</small>
+        </Button>
+      </div>
       <div style={S.assetPhotoPanel}>
         {canEdit && (
-          <button type="button" style={S.assetPhotoButton} onClick={() => onRenewInspection(type, item, 12)}>
-            <CheckCircle size={14} /> Przeglad +12m
-          </button>
+          <Button variant="secondary" size="sm" style={S.assetPhotoButton} leftIcon={CheckCircle} onClick={() => onRenewInspection(type, item, 12)}>
+            Przeglad +12m
+          </Button>
         )}
-        <button type="button" style={S.assetPhotoButton} onClick={() => onLoadPhotos(type, item.id)}>
-          <Image size={14} /> {loaded ? `${photos.length} zdj.` : 'Zdjecia'}
-        </button>
+        <Button variant="secondary" size="sm" style={S.assetPhotoButton} leftIcon={Image} onClick={() => onLoadPhotos(type, item.id)}>
+          {loaded ? `${photos.length} zdj.` : 'Zdjecia'}
+        </Button>
         {canEdit && (
           <label style={S.assetUploadButton}>
             <Upload size={14} /> {uploading ? 'Wgrywam' : 'Dodaj'}
@@ -1882,15 +2015,13 @@ function FleetAssetControls({
               <img src={photo.url} alt={photo.opis || 'Zdjecie zasobu'} style={S.assetThumb} />
             </a>
             {canEdit && (
-              <button type="button" style={S.assetThumbDelete} onClick={() => onDeletePhoto(type, item, photo.id)}>
-                x
-              </button>
+              <Button variant="danger" size="sm" style={S.assetThumbDelete} leftIcon={X} onClick={() => onDeletePhoto(type, item, photo.id)} aria-label="Usun zdjecie" />
             )}
           </span>
         ))}
-        <button type="button" style={S.assetPhotoButton} onClick={() => onLoadDocuments(type, item.id)}>
-          <FileText size={14} /> {docsLoaded ? `${documents.length} dok.` : 'Dokumenty'}
-        </button>
+        <Button variant="secondary" size="sm" style={S.assetPhotoButton} leftIcon={FileText} onClick={() => onLoadDocuments(type, item.id)}>
+          {docsLoaded ? `${documents.length} dok.` : 'Dokumenty'}
+        </Button>
         {canEdit && (
           <label style={S.assetUploadButton}>
             <Upload size={14} /> {documentUploading ? 'Wgrywam' : 'Dodaj dok.'}
@@ -1913,14 +2044,137 @@ function FleetAssetControls({
               {doc.kategoria || doc.nazwa_pliku || `Dokument #${doc.id}`}
             </a>
             {canEdit && (
-              <button type="button" style={S.assetDocumentDelete} onClick={() => onDeleteDocument(type, item, doc.id)}>
-                x
-              </button>
+              <Button variant="danger" size="sm" style={S.assetDocumentDelete} leftIcon={X} onClick={() => onDeleteDocument(type, item, doc.id)} aria-label="Usun dokument" />
             )}
           </span>
         ))}
       </div>
     </div>
+  );
+}
+
+function AssetDetailPanel({ detail, canEdit, onClose, onOpenRepairs, onNewRepair, onLoadPhotos, onLoadDocuments, onLoadHistory, onDeletePhoto, onDeleteDocument }) {
+  const item = detail.item;
+  const isVehicle = detail.type === 'pojazdy';
+  const openAlerts = detail.alerts.filter((alert) => alert.state !== 'ok');
+  return (
+    <section style={S.assetDetailPanel}>
+      <div style={S.assetDetailHeader}>
+        <div>
+          <div style={S.assetDetailEyebrow}>Karta zasobu</div>
+          <h2 style={S.assetDetailTitle}>{detail.label || `Zasob #${item.id}`}</h2>
+          <p style={S.assetDetailSubtitle}>{detail.subtitle}</p>
+        </div>
+        <div style={S.assetDetailActions}>
+          <Button size="sm" variant="outline" leftIcon={Wrench} onClick={onOpenRepairs}>Historia napraw</Button>
+          {canEdit && <Button size="sm" leftIcon={Plus} onClick={onNewRepair}>Nowa naprawa</Button>}
+          <Button size="sm" variant="ghost" leftIcon={X} onClick={onClose}>Zamknij</Button>
+        </div>
+      </div>
+
+      <div style={S.assetDetailGrid}>
+        <div style={S.assetDetailMetric}><span>Status</span><strong>{item.status || '-'}</strong><small>{item.ekipa_nazwa || 'bez ekipy'}</small></div>
+        <div style={S.assetDetailMetric}><span>Naprawy</span><strong>{detail.repairs.length}</strong><small>{detail.openRepairs} otwarte</small></div>
+        <div style={S.assetDetailMetric}><span>Koszt napraw</span><strong>{formatMoney(detail.repairCost)}</strong><small>faktury + wpisy</small></div>
+        <div style={S.assetDetailMetric}><span>Strata przestoju</span><strong>{formatMoney(detail.downtimeLoss)}</strong><small>{detail.repairs.reduce((sum, repair) => sum + repairDowntimeDays(repair), 0)} dni</small></div>
+      </div>
+
+      <div style={S.assetDetailColumns}>
+        <div style={S.assetDetailSection}>
+          <h3>Informacje</h3>
+          <div style={S.assetInfoGrid}>
+            <span>Oddzial</span><strong>{item.oddzial_nazwa || '-'}</strong>
+            <span>Typ</span><strong>{item.typ || '-'}</strong>
+            <span>{isVehicle ? 'Rejestracja' : 'Nr seryjny'}</span><strong>{isVehicle ? item.nr_rejestracyjny || '-' : item.nr_seryjny || '-'}</strong>
+            <span>Rok</span><strong>{item.rok_produkcji || '-'}</strong>
+            <span>Przeglad</span><strong>{fmtDate(item.data_przegladu)}</strong>
+            {isVehicle && <><span>OC</span><strong>{fmtDate(item.data_ubezpieczenia)}</strong></>}
+            {isVehicle && <><span>Przebieg</span><strong>{item.przebieg ? `${Number(item.przebieg).toLocaleString('pl-PL')} km` : '-'}</strong></>}
+            {!isVehicle && <><span>Motogodzina</span><strong>{item.koszt_motogodziny ? `${item.koszt_motogodziny} PLN` : '-'}</strong></>}
+          </div>
+        </div>
+
+        <div style={S.assetDetailSection}>
+          <h3>Alerty</h3>
+          {openAlerts.length ? openAlerts.map((alert) => (
+            <div key={alert.key} style={{ ...S.assetAlertRow, border: `1px solid ${alert.color}` }}>
+              <strong>{alert.label}</strong>
+              <span>{alert.detail}</span>
+            </div>
+          )) : <div style={S.assetEmptyLine}>Brak aktywnych alertow.</div>}
+        </div>
+      </div>
+
+      <div style={S.assetDetailColumns}>
+        <div style={S.assetDetailSection}>
+          <div style={S.assetSectionTop}>
+            <h3>Zdjecia</h3>
+            <Button variant="secondary" size="sm" style={S.assetMiniBtn} leftIcon={Image} onClick={onLoadPhotos}>Odswiez</Button>
+          </div>
+          <div style={S.assetMediaGrid}>
+            {detail.photos.length ? detail.photos.slice(0, 8).map((photo) => (
+              <span key={photo.id} style={S.assetDetailThumbWrap}>
+                <a href={photo.url} target="_blank" rel="noreferrer" style={S.assetDetailThumbLink}>
+                  <img src={photo.url} alt={photo.opis || 'Zdjecie zasobu'} style={S.assetDetailThumb} />
+                </a>
+                {canEdit && <Button variant="danger" size="sm" style={S.assetThumbDelete} leftIcon={X} onClick={() => onDeletePhoto(photo.id)} aria-label="Usun zdjecie" />}
+              </span>
+            )) : <div style={S.assetEmptyLine}>Kliknij Zdjecia albo dodaj pierwsze zdjecie na karcie.</div>}
+          </div>
+        </div>
+
+        <div style={S.assetDetailSection}>
+          <div style={S.assetSectionTop}>
+            <h3>Dokumenty</h3>
+            <Button variant="secondary" size="sm" style={S.assetMiniBtn} leftIcon={FileText} onClick={onLoadDocuments}>Odswiez</Button>
+          </div>
+          <div style={S.assetDocList}>
+            {detail.documents.length ? detail.documents.map((doc) => (
+              <div key={doc.id} style={S.assetDocRow}>
+                <a href={doc.url} target="_blank" rel="noreferrer">{doc.kategoria || doc.nazwa_pliku || `Dokument #${doc.id}`}</a>
+                <span>{doc.wazny_do ? `wazny do ${fmtDate(doc.wazny_do)}` : doc.nazwa_pliku}</span>
+                {canEdit && <Button variant="danger" size="sm" leftIcon={Trash2} onClick={() => onDeleteDocument(doc.id)}>Usun</Button>}
+              </div>
+            )) : <div style={S.assetEmptyLine}>Brak dokumentow w karcie zasobu.</div>}
+          </div>
+        </div>
+      </div>
+
+      <div style={S.assetDetailSection}>
+        <div style={S.assetSectionTop}>
+          <h3>Ostatnie naprawy</h3>
+          <Button variant="secondary" size="sm" style={S.assetMiniBtn} leftIcon={Wrench} onClick={onOpenRepairs}>Pokaz wszystkie</Button>
+        </div>
+        <div style={S.assetRepairList}>
+          {detail.repairs.length ? detail.repairs.slice(0, 5).map((repair) => (
+            <div key={repair.id} style={S.assetRepairRow}>
+              <strong>{fmtDate(repair.data_naprawy)} / {repair.status || '-'}</strong>
+              <span>{repair.opis_usterki || '-'}</span>
+              <b>{formatMoney(Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0)}</b>
+            </div>
+          )) : <div style={S.assetEmptyLine}>Brak historii napraw.</div>}
+        </div>
+      </div>
+
+      <div style={S.assetDetailSection}>
+        <div style={S.assetSectionTop}>
+          <h3>Historia zmian</h3>
+          <Button variant="secondary" size="sm" style={S.assetMiniBtn} leftIcon={CalendarDays} onClick={onLoadHistory}>Odswiez</Button>
+        </div>
+        <div style={S.assetTimeline}>
+          {detail.history.length ? detail.history.slice(0, 12).map((event) => (
+            <div key={event.id} style={S.assetTimelineRow}>
+              <div style={S.assetTimelineDot} />
+              <div style={S.assetTimelineBody}>
+                <strong>{event.action || 'Zmiana'}</strong>
+                <span>{event.detail || '-'}</span>
+                <small>{fmtDate(event.created_at)} / {event.created_by_name || 'system'}</small>
+              </div>
+            </div>
+          )) : <div style={S.assetEmptyLine}>Brak zapisanych zmian. Nowe akcje beda tu widoczne automatycznie.</div>}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -2053,6 +2307,7 @@ const S = {
   ghostBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   dangerBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   warningBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#b45309', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  assetTitleButton: { display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', color: 'var(--text)', cursor: 'pointer', padding: 0, fontSize: 15, fontWeight: 700, textAlign: 'left' },
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
   modalPanel: { width: 'min(680px, 100%)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface-glass)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 },
   modalHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: 12 },
@@ -2110,7 +2365,7 @@ const S = {
   maintenanceSecondaryBtn: { padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   maintenanceFilters: { display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 10 },
   maintenanceFilterBtn: { border: '1px solid var(--border)', borderRadius: 999, background: 'var(--surface-field)', color: 'var(--text-sub)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 850 },
-  maintenanceFilterBtnActive: { borderColor: 'rgba(20,131,79,0.38)', background: 'rgba(20,131,79,0.12)', color: 'var(--accent)' },
+  maintenanceFilterBtnActive: { border: '1px solid rgba(20,131,79,0.38)', background: 'rgba(20,131,79,0.12)', color: 'var(--accent)' },
   maintenanceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 },
   maintenanceMetric: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 10, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
   maintenanceTopList: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 10 },
@@ -2120,6 +2375,7 @@ const S = {
   assetControlMain: { display: 'grid', gridTemplateColumns: '52px 1fr', gap: 8, alignItems: 'center', minWidth: 0 },
   assetControlLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 900 },
   assetControlSelect: { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', minWidth: 0, fontSize: 12, fontWeight: 700 },
+  assetActionStack: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minWidth: 0 },
   assetHistoryButton: { display: 'grid', gridTemplateColumns: '1fr', gap: 2, textAlign: 'left', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', padding: '7px 9px', minWidth: 0 },
   assetPhotoPanel: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap', minWidth: 0 },
   assetPhotoButton: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
@@ -2131,6 +2387,33 @@ const S = {
   assetDocumentChip: { display: 'inline-grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 4, maxWidth: 150, border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, background: 'rgba(20,131,79,0.08)', padding: '5px 6px', minWidth: 0 },
   assetDocumentLink: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)', fontSize: 11, fontWeight: 900, textDecoration: 'none' },
   assetDocumentDelete: { border: 'none', background: 'transparent', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 900, padding: 0 },
+  assetDetailPanel: { marginBottom: 20, border: '1px solid var(--glass-border)', borderRadius: 8, background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 },
+  assetDetailHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 12 },
+  assetDetailEyebrow: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: 0 },
+  assetDetailTitle: { margin: '3px 0 2px', fontSize: 22, color: 'var(--text)', lineHeight: 1.15 },
+  assetDetailSubtitle: { margin: 0, color: 'var(--text-sub)', fontSize: 13, fontWeight: 700 },
+  assetDetailActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  assetDetailGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 },
+  assetDetailMetric: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 10, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
+  assetDetailColumns: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 },
+  assetDetailSection: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 12, minWidth: 0 },
+  assetSectionTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
+  assetMiniBtn: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text-sub)', cursor: 'pointer', padding: '5px 8px', fontSize: 11, fontWeight: 850 },
+  assetInfoGrid: { display: 'grid', gridTemplateColumns: '110px minmax(0, 1fr)', gap: '7px 10px', fontSize: 12, color: 'var(--text-muted)' },
+  assetAlertRow: { border: '1px solid', borderRadius: 8, padding: 9, display: 'grid', gap: 2, marginBottom: 6, background: 'var(--surface-glass)', color: 'var(--text)' },
+  assetEmptyLine: { border: '1px dashed var(--border)', borderRadius: 8, padding: 10, color: 'var(--text-muted)', fontSize: 12, fontWeight: 800 },
+  assetMediaGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', gap: 8 },
+  assetDetailThumbWrap: { position: 'relative', display: 'block', minWidth: 0 },
+  assetDetailThumbLink: { display: 'block', aspectRatio: '1 / 1', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-glass)' },
+  assetDetailThumb: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+  assetDocList: { display: 'grid', gap: 7 },
+  assetDocRow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(80px, auto) auto', gap: 8, alignItems: 'center', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', padding: 8, fontSize: 12, minWidth: 0 },
+  assetRepairList: { display: 'grid', gap: 7 },
+  assetRepairRow: { display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr) auto', gap: 10, alignItems: 'center', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', padding: 8, fontSize: 12, minWidth: 0 },
+  assetTimeline: { display: 'grid', gap: 8 },
+  assetTimelineRow: { display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr)', gap: 8, alignItems: 'start' },
+  assetTimelineDot: { width: 9, height: 9, borderRadius: 999, background: 'var(--accent)', marginTop: 5, boxShadow: '0 0 0 4px rgba(20,131,79,0.12)' },
+  assetTimelineBody: { display: 'grid', gap: 2, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', padding: 8, minWidth: 0, fontSize: 12, color: 'var(--text-sub)' },
   invoiceBox: { border: '1px solid var(--border)', borderRadius: 8, padding: 9, background: 'var(--surface-field)', display: 'flex', flexDirection: 'column', gap: 8 },
   invoiceTop: { display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', fontSize: 12, fontWeight: 900, color: 'var(--text-sub)' },
   invoiceGhostBtn: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 8px', fontSize: 11, fontWeight: 800 },
@@ -2143,6 +2426,6 @@ const S = {
   invoiceDeleteBtn: { border: '1px solid rgba(226,68,92,0.28)', borderRadius: 7, background: 'rgba(226,68,92,0.08)', color: 'var(--danger)', cursor: 'pointer', padding: '4px 7px', fontSize: 11, fontWeight: 900 },
   repairFilterBar: { display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 8 },
   repairFilterBtn: { border: '1px solid var(--border)', borderRadius: 999, background: 'var(--surface-glass)', color: 'var(--text-sub)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 850 },
-  repairFilterBtnActive: { borderColor: 'rgba(20,131,79,0.38)', background: 'rgba(20,131,79,0.12)', color: 'var(--accent)' },
+  repairFilterBtnActive: { border: '1px solid rgba(20,131,79,0.38)', background: 'rgba(20,131,79,0.12)', color: 'var(--accent)' },
   repairFilterExportBtn: { marginLeft: 'auto', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 900 },
 };

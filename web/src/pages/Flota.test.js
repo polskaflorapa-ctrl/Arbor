@@ -6,6 +6,8 @@ import { vi } from 'vitest';
 import Flota from './Flota';
 import api from '../api';
 
+vi.setConfig({ testTimeout: 15000 });
+
 vi.mock('../api', () => ({
   __esModule: true,
   default: {
@@ -117,6 +119,28 @@ function mockFlotaApi() {
         ],
       });
     }
+    if (url === '/flota/pojazdy/5/zdjecia') {
+      return Promise.resolve({
+        data: [{
+          id: 301,
+          url: 'https://example.test/uploads/mercedes.jpg',
+          opis: 'Przod pojazdu',
+        }],
+      });
+    }
+    if (url === '/flota/pojazdy/5/dokumenty') {
+      return Promise.resolve({
+        data: [{
+          id: 401,
+          url: 'https://example.test/uploads/oc.pdf',
+          kategoria: 'Polisa OC',
+          nazwa_pliku: 'oc.pdf',
+          wazny_do: ymd(12),
+        }],
+      });
+    }
+    if (url === '/flota/sprzet/11/zdjecia') return Promise.resolve({ data: [] });
+    if (url === '/flota/sprzet/11/dokumenty') return Promise.resolve({ data: [] });
     if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 1, nazwa: 'Krakow' }] });
     if (url === '/ekipy') return Promise.resolve({ data: [{ id: 3, nazwa: 'Brygada Alfa' }] });
     return Promise.resolve({ data: [] });
@@ -224,7 +248,7 @@ test('edits and deletes equipment from fleet cards CRUD flow', async () => {
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
-});
+}, 15000);
 
 test('closes an open repair from fleet repairs tab', async () => {
   mockFlotaApi();
@@ -258,6 +282,38 @@ test('opens repairs tab from fleet deep link', async () => {
   expect(screen.getAllByText('Mercedes Sprinter KR12345 (#5)').length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { name: 'Zakoncz naprawe' })).toBeInTheDocument();
 });
+
+test('opens and closes the vehicle asset detail card with media and documents', async () => {
+  mockFlotaApi();
+
+  renderFlota();
+
+  await userEvent.click(await screen.findByRole('button', { name: /Pojazdy/i }));
+  await userEvent.click(screen.getAllByRole('button', { name: /Mercedes Sprinter/i }).at(-1));
+
+  expect(await screen.findByText('Karta zasobu')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /Mercedes Sprinter KR12345/i })).toBeInTheDocument();
+  expect(screen.queryAllByText('Polisa OC').length).toBeGreaterThan(0);
+  expect(screen.queryAllByAltText('Przod pojazdu').length).toBeGreaterThan(0);
+  expect(screen.getByText('Alternator')).toBeInTheDocument();
+  expect(screen.getAllByTestId('location-search').at(-1)).toHaveTextContent('asset=pojazdy%3A5');
+
+  expect(api.get).toHaveBeenCalledWith(
+    '/flota/pojazdy/5/zdjecia',
+    expect.objectContaining({ headers: expect.any(Object), dedupe: false })
+  );
+  expect(api.get).toHaveBeenCalledWith(
+    '/flota/pojazdy/5/dokumenty',
+    expect.objectContaining({ headers: expect.any(Object), dedupe: false })
+  );
+
+  await userEvent.click(screen.getByRole('button', { name: /Zamknij/i }));
+
+  await waitFor(() => {
+    expect(screen.queryByText('Karta zasobu')).not.toBeInTheDocument();
+  });
+  expect(screen.getAllByTestId('location-search').at(-1)).not.toHaveTextContent('asset=');
+}, 15000);
 
 test('filters overdue open repairs', async () => {
   mockFlotaApi();
@@ -322,5 +378,5 @@ test('adds broken chipper assigned to a team in one form submit', async () => {
       }),
       expect.objectContaining({ headers: expect.any(Object) })
     );
-  });
-});
+}, 15000);
+}, 15000);

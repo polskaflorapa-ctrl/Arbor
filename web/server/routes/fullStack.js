@@ -59,6 +59,25 @@ function userName(state, id) {
   return u ? `${u.imie} ${u.nazwisko}` : null;
 }
 
+function addFleetHistory(state, user, typ, zasobId, action, detail, meta = {}) {
+  if (!typ || !zasobId) return null;
+  if (!state.flotaHistoria) state.flotaHistoria = [];
+  if (!state.nextFlotaHistoriaId) state.nextFlotaHistoriaId = 1;
+  const row = {
+    id: state.nextFlotaHistoriaId++,
+    typ,
+    zasob_id: Number(zasobId),
+    action: String(action || 'zmiana').slice(0, 120),
+    detail: detail ? String(detail).slice(0, 1000) : null,
+    meta,
+    created_by: user?.id || null,
+    created_by_name: userName(state, user?.id) || null,
+    created_at: new Date().toISOString(),
+  };
+  state.flotaHistoria.push(row);
+  return row;
+}
+
 function enrichRow(state, z) {
   if (!z) return null;
   const wyceniajacy_nazwa = userName(state, z.created_by);
@@ -2273,6 +2292,17 @@ module.exports = function registerFullStack(router) {
     }));
   });
 
+  router.get('/flota/:typ/:id/historia', requireAuth, (req, res) => {
+    const typ = String(req.params.typ || '');
+    const id = toNum(req.params.id);
+    if (!['pojazdy', 'sprzet'].includes(typ) || !id) return res.status(400).json({ error: 'Nieprawidlowy zasob' });
+    const rows = readOnly((s) => (s.flotaHistoria || [])
+      .filter((x) => x.typ === typ && Number(x.zasob_id) === id)
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      .slice(0, 80));
+    res.json(rows);
+  });
+
   router.get('/flota/:typ/:id/zdjecia', requireAuth, (req, res) => {
     const typ = String(req.params.typ || '');
     const id = toNum(req.params.id);
@@ -2308,6 +2338,7 @@ module.exports = function registerFullStack(router) {
         created_at: new Date().toISOString(),
       };
       s.flotaZdjecia.push(photo);
+      addFleetHistory(s, req.user, typ, id, 'Dodano zdjecie', req.file.originalname, { photo_id: photo.id });
       return photo;
     });
     if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2328,6 +2359,7 @@ module.exports = function registerFullStack(router) {
       const idx = rows.findIndex((x) => x.typ === typ && Number(x.zasob_id) === id && Number(x.id) === photoId);
       if (idx === -1) return null;
       const [photo] = rows.splice(idx, 1);
+      addFleetHistory(s, req.user, typ, id, 'Usunieto zdjecie', photo.nazwa_pliku || `Zdjecie #${photo.id}`, { photo_id: photo.id });
       return photo;
     });
     if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2378,6 +2410,7 @@ module.exports = function registerFullStack(router) {
         created_at: new Date().toISOString(),
       };
       s.flotaDokumenty.push(doc);
+      addFleetHistory(s, req.user, typ, id, 'Dodano dokument', doc.nazwa_pliku, { document_id: doc.id, kategoria: doc.kategoria });
       return doc;
     });
     if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2398,6 +2431,7 @@ module.exports = function registerFullStack(router) {
       const idx = rows.findIndex((x) => x.typ === typ && Number(x.zasob_id) === id && Number(x.id) === docId);
       if (idx === -1) return null;
       const [doc] = rows.splice(idx, 1);
+      addFleetHistory(s, req.user, typ, id, 'Usunieto dokument', doc.nazwa_pliku || `Dokument #${doc.id}`, { document_id: doc.id });
       return doc;
     });
     if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2449,6 +2483,15 @@ module.exports = function registerFullStack(router) {
         const currentCost = Number(repair.koszt || 0) || 0;
         repair.koszt = Math.max(currentCost, kwota);
       }
+      addFleetHistory(
+        s,
+        req.user,
+        repair.typ_zasobu === 'Pojazd' ? 'pojazdy' : 'sprzet',
+        repair.zasob_id,
+        'Dodano fakture naprawy',
+        [invoice.numer, invoice.kwota != null ? `${invoice.kwota} zl` : null, invoice.nazwa_pliku].filter(Boolean).join(' / '),
+        { repair_id: repair.id, invoice_id: invoice.id },
+      );
       return invoice;
     });
     if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2497,6 +2540,7 @@ module.exports = function registerFullStack(router) {
       };
       p.status = normalizeFleetText(p.status || 'Dostepny');
       s.flotaPojazdy.push(p);
+      addFleetHistory(s, req.user, 'pojazdy', id, 'Utworzono pojazd', [p.marka, p.model, p.nr_rejestracyjny].filter(Boolean).join(' '));
       return p;
     });
     res.status(201).json(row);
@@ -2515,6 +2559,7 @@ module.exports = function registerFullStack(router) {
         oddzial_id: toNum(b.oddzial_id) ?? p.oddzial_id ?? req.user.oddzial_id,
         ekipa_id: toNum(b.ekipa_id),
       });
+      addFleetHistory(s, req.user, 'pojazdy', id, 'Zmieniono karte pojazdu', [p.status, p.ekipa_id ? `ekipa #${p.ekipa_id}` : 'bez ekipy'].filter(Boolean).join(' / '), { status: p.status, ekipa_id: p.ekipa_id });
       return normalizeFleetRow(p);
     });
     if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2529,6 +2574,7 @@ module.exports = function registerFullStack(router) {
       const p = { id, ...b, status: b.status || 'Dostępny', oddzial_id: toNum(b.oddzial_id), ekipa_id: toNum(b.ekipa_id) };
       p.status = normalizeFleetText(p.status || 'Dostepny');
       s.flotaSprzet.push(p);
+      addFleetHistory(s, req.user, 'sprzet', id, 'Utworzono sprzet', [p.nazwa, p.typ, p.nr_seryjny].filter(Boolean).join(' / '));
       return p;
     });
     res.status(201).json(row);
@@ -2547,6 +2593,7 @@ module.exports = function registerFullStack(router) {
         oddzial_id: toNum(b.oddzial_id) ?? p.oddzial_id ?? req.user.oddzial_id,
         ekipa_id: toNum(b.ekipa_id),
       });
+      addFleetHistory(s, req.user, 'sprzet', id, 'Zmieniono karte sprzetu', [p.status, p.ekipa_id ? `ekipa #${p.ekipa_id}` : 'bez ekipy'].filter(Boolean).join(' / '), { status: p.status, ekipa_id: p.ekipa_id });
       return normalizeFleetRow(p);
     });
     if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2567,6 +2614,7 @@ module.exports = function registerFullStack(router) {
       s[key] = arr.filter((x) => Number(x.id) !== id);
       s.flotaZdjecia = (s.flotaZdjecia || []).filter((x) => !(x.typ === typ && Number(x.zasob_id) === id));
       s.flotaDokumenty = (s.flotaDokumenty || []).filter((x) => !(x.typ === typ && Number(x.zasob_id) === id));
+      addFleetHistory(s, req.user, typ, id, 'Usunieto zasob', item.nazwa || item.marka || `Zasob #${id}`);
       return item;
     });
     if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2608,6 +2656,15 @@ module.exports = function registerFullStack(router) {
       };
       s.flotaNaprawy.push(repair);
       if (!String(repair.status || '').toLowerCase().includes('zakoncz')) asset.status = 'W naprawie';
+      addFleetHistory(
+        s,
+        req.user,
+        typZasobu === 'Pojazd' ? 'pojazdy' : 'sprzet',
+        zasobId,
+        'Zgloszono naprawe',
+        repair.opis_usterki,
+        { repair_id: repair.id, priorytet: repair.priorytet, koszt: repair.koszt },
+      );
       return repair;
     });
     if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2640,6 +2697,15 @@ module.exports = function registerFullStack(router) {
       const assetArr = typZasobu === 'Pojazd' ? (s.flotaPojazdy || []) : (s.flotaSprzet || []);
       const asset = assetArr.find((x) => Number(x.id) === Number(zasobId));
       if (asset) asset.status = String(repair.status || '').toLowerCase().includes('zakoncz') ? 'Dostepny' : 'W naprawie';
+      addFleetHistory(
+        s,
+        req.user,
+        typZasobu === 'Pojazd' ? 'pojazdy' : 'sprzet',
+        zasobId,
+        String(repair.status || '').toLowerCase().includes('zakoncz') ? 'Zakonczono naprawe' : 'Zmieniono naprawe',
+        repair.opis_naprawy || repair.opis_usterki,
+        { repair_id: repair.id, status: repair.status, koszt: repair.koszt },
+      );
       return repair;
     });
     if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -2666,6 +2732,15 @@ module.exports = function registerFullStack(router) {
         !String(x.status || '').toLowerCase().includes('zakoncz')
       );
       if (asset && !hasOtherOpen) asset.status = 'Dostepny';
+      addFleetHistory(
+        s,
+        req.user,
+        repair.typ_zasobu === 'Pojazd' ? 'pojazdy' : 'sprzet',
+        repair.zasob_id,
+        'Usunieto naprawe',
+        repair.opis_usterki || `Naprawa #${repair.id}`,
+        { repair_id: repair.id },
+      );
       return { repair, invoices };
     });
     if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
