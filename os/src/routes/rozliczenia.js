@@ -125,7 +125,16 @@ router.get('/zadanie/:taskId', async (req, res) => {
       [taskId],
     );
 
-    res.json({ task, pomocnicy, rozliczenie, koszty_operacyjne: kosztyOperacyjne });
+    const { rows: materialy } = await pool.query(
+      `SELECT id, task_id, recorded_by, recorded_at, material_id, nazwa, ilosc,
+              jednostka, koszt_jednostkowy, koszt_laczny, notatka
+         FROM task_finish_material_usage
+        WHERE task_id = $1
+        ORDER BY recorded_at DESC, id DESC`,
+      [taskId],
+    );
+
+    res.json({ task, pomocnicy, rozliczenie, koszty_operacyjne: kosztyOperacyjne, materialy });
   } catch (err) {
     logger.error('rozliczenia.zadanie.get', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -240,6 +249,15 @@ const operationalCostSchema = z.object({
   note: z.string().trim().max(500).optional().default(''),
 });
 
+const materialCostSchema = z.object({
+  nazwa: z.string().trim().min(1).max(200),
+  ilosc: z.coerce.number().positive().max(100000).optional().nullable(),
+  jednostka: z.string().trim().max(24).optional().default(''),
+  koszt_jednostkowy: z.coerce.number().min(0).max(50000).optional().nullable(),
+  koszt_laczny: z.coerce.number().positive().max(50000).optional().nullable(),
+  notatka: z.string().trim().max(500).optional().default(''),
+});
+
 router.post('/zadanie/:taskId/koszty-operacyjne', async (req, res) => {
   try {
     if (!CALC_ROLES.includes(req.user.rola)) {
@@ -291,6 +309,74 @@ router.post('/zadanie/:taskId/koszty-operacyjne', async (req, res) => {
     res.status(201).json(rows[0]);
   } catch (err) {
     logger.error('rozliczenia.operational_cost.post', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/zadanie/:taskId/materialy', async (req, res) => {
+  try {
+    if (!CALC_ROLES.includes(req.user.rola)) {
+      return res.status(403).json({ error: 'Brak uprawnien do edycji materialow' });
+    }
+
+    const taskId = parseInt(req.params.taskId, 10);
+    if (!Number.isFinite(taskId)) return res.status(400).json({ error: 'Nieprawidlowe task_id' });
+
+    const parsed = materialCostSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Nieprawidlowe dane', details: parsed.error.errors });
+
+    const { rows: taskRows } = await pool.query(
+      'SELECT id, oddzial_id FROM tasks WHERE id = $1',
+      [taskId],
+    );
+    if (!taskRows.length) return res.status(404).json({ error: 'Zadanie nie istnieje' });
+    const task = taskRows[0];
+    if (!isDyrektorOrAdmin(req.user) && String(task.oddzial_id || '') !== String(req.user.oddzial_id || '')) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu zadania' });
+    }
+
+    const { nazwa, ilosc, jednostka, koszt_jednostkowy, koszt_laczny, notatka } = parsed.data;
+    const qty = Number.isFinite(Number(ilosc)) ? Number(ilosc) : null;
+    const unitCost = Number.isFinite(Number(koszt_jednostkowy)) ? Number(koszt_jednostkowy) : null;
+    const totalCost = Number.isFinite(Number(koszt_laczny))
+      ? Number(koszt_laczny)
+      : (qty != null && unitCost != null ? money(qty * unitCost) : null);
+
+    if (!Number.isFinite(totalCost) || totalCost <= 0) {
+      return res.status(400).json({ error: 'Podaj koszt laczny albo ilosc i koszt jednostkowy' });
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO task_finish_material_usage
+            (task_id, recorded_by, nazwa, ilosc, jednostka, koszt_jednostkowy, koszt_laczny, notatka)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, task_id, recorded_by, recorded_at, material_id, nazwa, ilosc,
+                 jednostka, koszt_jednostkowy, koszt_laczny, notatka`,
+      [
+        taskId,
+        req.user.id,
+        nazwa,
+        qty,
+        jednostka || null,
+        unitCost,
+        totalCost,
+        notatka || null,
+      ],
+    );
+
+    await req.auditLog?.({
+      action: 'task.material_cost_add',
+      entityType: 'task',
+      entityId: taskId,
+      metadata: {
+        oddzial_id: task.oddzial_id ?? req.user.oddzial_id ?? null,
+        material: rows[0],
+      },
+    });
+
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    logger.error('rozliczenia.material_cost.post', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

@@ -62,6 +62,7 @@ describe('RozliczeniaFieldEntry', () => {
             pomocnicy: [],
             rozliczenie: null,
             koszty_operacyjne: [],
+            materialy: [],
           },
         });
       }
@@ -90,6 +91,7 @@ describe('RozliczeniaFieldEntry', () => {
     expect(screen.getByText(/Warto.* brutto/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Oblicz i zapisz/i })).toBeInTheDocument();
     expect(screen.getByText(/Koszty do marzy/i)).toBeInTheDocument();
+    expect(screen.getByText(/Materialy do marzy/i)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
@@ -103,7 +105,7 @@ describe('RozliczeniaFieldEntry', () => {
     renderPage();
 
     await screen.findAllByText(/Osiedle Lesne Tarasy/i);
-    fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '120.50' } });
+    fireEvent.change(screen.getAllByPlaceholderText('0.00')[0], { target: { value: '120.50' } });
     fireEvent.change(screen.getByPlaceholderText(/paragon/i), { target: { value: 'Paragon paliwo' } });
     fireEvent.click(screen.getByRole('button', { name: /Dodaj koszt/i }));
 
@@ -115,6 +117,31 @@ describe('RozliczeniaFieldEntry', () => {
           label: 'Paliwo',
           amount: 120.5,
           note: 'Paragon paliwo',
+        }),
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
+  });
+
+  it('posts a material cost for the selected task', async () => {
+    renderPage();
+
+    await screen.findAllByText(/Osiedle Lesne Tarasy/i);
+    fireEvent.change(screen.getByPlaceholderText(/kora/i), { target: { value: 'Kora sosnowa' } });
+    fireEvent.change(screen.getByPlaceholderText('1'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText(/Koszt materialu PLN/i), { target: { value: '160.00' } });
+    fireEvent.change(screen.getByPlaceholderText(/faktura materialowa/i), { target: { value: 'Rabata' } });
+    fireEvent.click(screen.getByRole('button', { name: /Dodaj material/i }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/rozliczenia/zadanie/103/materialy',
+        expect.objectContaining({
+          nazwa: 'Kora sosnowa',
+          ilosc: 2,
+          jednostka: 'szt',
+          koszt_laczny: 160,
+          notatka: 'Rabata',
         }),
         expect.objectContaining({ headers: expect.any(Object) })
       );

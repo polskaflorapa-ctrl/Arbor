@@ -113,6 +113,18 @@ describe('Rozliczenia audit', () => {
           note: 'Paragon',
           recorded_at: '2026-06-07T08:00:00.000Z',
         }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 910,
+          task_id: 44,
+          nazwa: 'Kora sosnowa',
+          ilosc: '2',
+          jednostka: 'm3',
+          koszt_jednostkowy: '80',
+          koszt_laczny: '160',
+          notatka: 'Rabata',
+        }],
       });
     const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
 
@@ -123,6 +135,9 @@ describe('Rozliczenia audit', () => {
     expect(res.status).toBe(200);
     expect(res.body.koszty_operacyjne).toEqual([
       expect.objectContaining({ category: 'paliwo', amount: '120.50', source: 'field_settlement' }),
+    ]);
+    expect(res.body.materialy).toEqual([
+      expect.objectContaining({ nazwa: 'Kora sosnowa', koszt_laczny: '160' }),
     ]);
   });
 
@@ -171,6 +186,59 @@ describe('Rozliczenia audit', () => {
       .post('/api/rozliczenia/zadanie/44/koszty-operacyjne')
       .set('Authorization', `Bearer ${token}`)
       .send({ category: 'paliwo', amount: 120.5, note: 'Paragon' });
+
+    expect(res.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+    expect(pool.query.mock.calls[0][0]).toContain('SELECT id, oddzial_id FROM tasks');
+    expect(auditSpy).not.toHaveBeenCalled();
+  });
+
+  it('adds finish materials from field settlement and writes audit log', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 44, oddzial_id: 3 }] })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 911,
+          task_id: 44,
+          recorded_by: 8,
+          nazwa: 'Kora sosnowa',
+          ilosc: '2',
+          jednostka: 'm3',
+          koszt_jednostkowy: '80',
+          koszt_laczny: '160',
+          notatka: 'Rabata',
+          recorded_at: '2026-06-07T08:00:00.000Z',
+        }],
+      });
+    const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/rozliczenia/zadanie/44/materialy')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nazwa: 'Kora sosnowa', ilosc: 2, jednostka: 'm3', koszt_jednostkowy: 80, notatka: 'Rabata' });
+
+    expect(res.status).toBe(201);
+    expect(pool.query.mock.calls[1][0]).toContain('INSERT INTO task_finish_material_usage');
+    expect(pool.query.mock.calls[1][1]).toEqual([44, 8, 'Kora sosnowa', 2, 'm3', 80, 160, 'Rabata']);
+    expect(auditSpy).toHaveBeenCalledWith({
+      action: 'task.material_cost_add',
+      entityType: 'task',
+      entityId: 44,
+      metadata: expect.objectContaining({
+        oddzial_id: 3,
+        material: expect.objectContaining({ nazwa: 'Kora sosnowa', koszt_laczny: '160' }),
+      }),
+    });
+  });
+
+  it('blocks finish materials for tasks in another branch before insert or audit', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 44, oddzial_id: 7 }] });
+    const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/rozliczenia/zadanie/44/materialy')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nazwa: 'Kora sosnowa', koszt_laczny: 160 });
 
     expect(res.status).toBe(403);
     expect(pool.query).toHaveBeenCalledTimes(1);

@@ -42,6 +42,7 @@ const MOCK_BRANCH_GOALS_KEY = 'arbor-test-mode-branch-goals';
 const MOCK_BRANCH_SALES_KEY = 'arbor-test-mode-branch-sales';
 const MOCK_SETTLEMENTS_KEY = 'arbor-test-mode-settlements';
 const MOCK_OPERATIONAL_COSTS_KEY = 'arbor-test-mode-operational-costs';
+const MOCK_MATERIAL_COSTS_KEY = 'arbor-test-mode-material-costs';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -2986,6 +2987,7 @@ function getTestModeMockResponse(config) {
         pomocnicy: [],
         rozliczenie: getMockSettlement(mSettlement[1]),
         koszty_operacyjne: getMockOperationalCostsForTask(mSettlement[1]),
+        materialy: getMockMaterialCostsForTask(mSettlement[1]),
       },
       status: 200,
       statusText: 'OK',
@@ -3057,6 +3059,44 @@ function getTestModeMockResponse(config) {
     });
     return {
       data: cost,
+      status: 201,
+      statusText: 'Created',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mMaterialCost = path.match(/^\/rozliczenia\/zadanie\/(\d+)\/materialy$/);
+  if (mMaterialCost && method === 'post') {
+    const body = parseJsonData(config.data);
+    const qty = body.ilosc !== undefined && body.ilosc !== '' ? Number(body.ilosc) : null;
+    const unitCost = body.koszt_jednostkowy !== undefined && body.koszt_jednostkowy !== '' ? Number(body.koszt_jednostkowy) : null;
+    const totalCost = roundMoney(
+      body.koszt_laczny !== undefined && body.koszt_laczny !== ''
+        ? body.koszt_laczny
+        : (Number.isFinite(qty) && Number.isFinite(unitCost) ? qty * unitCost : 0)
+    );
+    const material = saveMockMaterialCost(mMaterialCost[1], {
+      id: Date.now(),
+      task_id: Number(mMaterialCost[1]),
+      recorded_by: 1,
+      recorded_at: new Date().toISOString(),
+      material_id: null,
+      nazwa: String(body.nazwa || 'Material').trim(),
+      ilosc: Number.isFinite(qty) ? qty : null,
+      jednostka: body.jednostka || null,
+      koszt_jednostkowy: Number.isFinite(unitCost) ? unitCost : null,
+      koszt_laczny: totalCost,
+      notatka: body.notatka || '',
+    });
+    const task = getMockTaskDetail(mMaterialCost[1]);
+    mockUpdateTaskInTestMode(mMaterialCost[1], {
+      koszt_materialow: roundMoney((Number(task.koszt_materialow || 0)) + totalCost),
+      material_cost: roundMoney((Number(task.material_cost || 0)) + totalCost),
+    });
+    return {
+      data: material,
       status: 201,
       statusText: 'Created',
       headers: {},
@@ -3343,6 +3383,31 @@ function saveMockOperationalCost(taskId, cost) {
   return cost;
 }
 
+function getMockMaterialCosts() {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MOCK_MATERIAL_COSTS_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getMockMaterialCostsForTask(taskId) {
+  const rows = getMockMaterialCosts()[String(taskId)];
+  return Array.isArray(rows) ? rows : [];
+}
+
+function saveMockMaterialCost(taskId, material) {
+  if (typeof localStorage === 'undefined') return material;
+  const all = getMockMaterialCosts();
+  const key = String(taskId);
+  const rows = Array.isArray(all[key]) ? all[key] : [];
+  all[key] = [material, ...rows];
+  localStorage.setItem(MOCK_MATERIAL_COSTS_KEY, JSON.stringify(all));
+  return material;
+}
+
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
@@ -3362,12 +3427,14 @@ function buildMockTaskFinancials(task = {}, settlement = null) {
   const helperCost = roundMoney(settlement?.koszt_pomocnikow ?? task.koszt_pomocnikow ?? 200);
   const crewLeadPay = roundMoney(settlement?.wynagrodzenie_brygadzisty ?? task.wynagrodzenie_brygadzisty ?? 270);
   const operationalCost = roundMoney(task.koszt_operacyjny ?? 0);
-  const totalKnownCost = roundMoney(helperCost + crewLeadPay + operationalCost);
+  const materialCost = roundMoney(task.koszt_materialow ?? task.material_cost ?? 0);
+  const totalKnownCost = roundMoney(helperCost + crewLeadPay + operationalCost + materialCost);
   const grossMargin = roundMoney(revenueNet - totalKnownCost);
   const marginPct = revenueNet > 0 ? roundPct((grossMargin / revenueNet) * 100) : null;
   const costSources = [
     { key: 'helper_cost', label: 'Pomocnicy', value: helperCost, source: 'demo_settlement', status: 'ok' },
     { key: 'crew_lead_pay', label: 'Brygadzista', value: crewLeadPay, source: 'demo_settlement', status: 'ok' },
+    { key: 'material_cost', label: 'Materialy', value: materialCost, source: 'demo_finish_material_usage', status: materialCost > 0 ? 'ok' : 'missing' },
     { key: 'operational_cost', label: 'Koszty operacyjne', value: operationalCost, source: 'demo_finish', status: operationalCost > 0 ? 'ok' : 'missing' },
   ];
   const missingCostFields = costSources
@@ -3383,6 +3450,7 @@ function buildMockTaskFinancials(task = {}, settlement = null) {
     direct_labor_cost: roundMoney(helperCost + crewLeadPay),
     helper_cost: helperCost,
     crew_lead_pay: crewLeadPay,
+    material_cost: materialCost,
     operational_cost: operationalCost,
     total_known_cost: totalKnownCost,
     gross_margin: grossMargin,

@@ -452,6 +452,24 @@ describe('api test-mode mocks', () => {
     });
     expect(settlement.data.wynagrodzenie_brygadzisty).toBeCloseTo(390, 2);
 
+    await api.post(`/api/rozliczenia/zadanie/${taskId}/materialy`, {
+      nazwa: 'Kora sosnowa',
+      ilosc: 2,
+      jednostka: 'm3',
+      koszt_laczny: 160,
+    });
+    await api.post(`/api/rozliczenia/zadanie/${taskId}/koszty-operacyjne`, {
+      category: 'paliwo',
+      amount: 120,
+      note: 'Paragon',
+    });
+
+    const settlementDetail = await api.get(`/api/rozliczenia/zadanie/${taskId}`, { dedupe: false });
+    expect(settlementDetail.data).toMatchObject({
+      koszty_operacyjne: [expect.objectContaining({ category: 'paliwo', amount: 120 })],
+      materialy: [expect.objectContaining({ nazwa: 'Kora sosnowa', koszt_laczny: 160 })],
+    });
+
     const afterKommo = await api.get(`/api/tasks/${taskId}/kommo-payload`, { dedupe: false });
     expect(afterKommo.data.task).toMatchObject({
       id: taskId,
@@ -465,9 +483,12 @@ describe('api test-mode mocks', () => {
       },
       financials: {
         revenue_net: 2800,
-        total_known_cost: 590,
-        gross_margin: 2210,
-        margin_pct: 78.9,
+        material_cost: 160,
+        operational_cost: 120,
+        total_known_cost: 870,
+        gross_margin: 1930,
+        margin_pct: 68.9,
+        complete: true,
       },
     });
 
@@ -488,25 +509,22 @@ describe('api test-mode mocks', () => {
       status: 'Zakonczone',
       financials: {
         revenue_net: 2800,
-        margin_pct: 78.9,
+        margin_pct: 68.9,
       },
     });
     expect(drill.data.find((task) => task.id === taskId).financials.cost_sources).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'helper_cost', status: 'ok' }),
         expect.objectContaining({ key: 'crew_lead_pay', status: 'ok' }),
-        expect.objectContaining({ key: 'operational_cost', source: 'demo_finish' }),
+        expect.objectContaining({ key: 'material_cost', status: 'ok' }),
+        expect.objectContaining({ key: 'operational_cost', status: 'ok' }),
       ])
     );
 
     const marginReview = await api.get('/api/bi/drill?needs_margin_review=1', { dedupe: false });
-    expect(marginReview.data.length).toBeGreaterThan(0);
     expect(marginReview.data.every((task) => task.status === 'Zakonczone')).toBe(true);
     expect(marginReview.data.every((task) => task.financials?.complete === false)).toBe(true);
-    expect(marginReview.data[0].financials).toEqual(expect.objectContaining({
-      margin_confidence: 'incomplete_margin_data',
-      missing_cost_fields: expect.any(Array),
-    }));
+    expect(marginReview.data.find((task) => task.id === taskId)).toBeUndefined();
 
     const kommoDiagnostics = await api.get('/api/tasks/kommo-sync/diagnostics', { dedupe: false });
     expect(kommoDiagnostics.data.summary).toMatchObject({

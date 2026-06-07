@@ -66,6 +66,7 @@ export default function RozliczeniaFieldEntry() {
   const [vatStawka, setVatStawka] = useState('8');
   const [wynKalkulatora, setWynKalkulatora] = useState(null);
   const [operationalCost, setOperationalCost] = useState({ category: 'paliwo', amount: '', note: '' });
+  const [materialCost, setMaterialCost] = useState({ nazwa: '', ilosc: '', jednostka: 'szt', koszt_laczny: '', notatka: '' });
 
   // Dzień zakładka
   const [dayData, setDayData]   = useState(null);
@@ -248,6 +249,40 @@ export default function RozliczeniaFieldEntry() {
       loadTask(taskId);
     } catch {
       showMsg('err', 'Blad zapisu kosztu operacyjnego');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const zapiszMaterial = async () => {
+    if (!taskId) { showMsg('err', 'Wpisz ID zadania'); return; }
+    if (!materialCost.nazwa.trim()) {
+      showMsg('err', 'Podaj nazwe materialu');
+      return;
+    }
+    if (!materialCost.koszt_laczny || parseFloat(materialCost.koszt_laczny) <= 0) {
+      showMsg('err', 'Podaj koszt materialu');
+      return;
+    }
+    setSaving(true);
+    try {
+      const token = getStoredToken();
+      await api.post(
+        `/rozliczenia/zadanie/${taskId}/materialy`,
+        {
+          nazwa: materialCost.nazwa,
+          ilosc: materialCost.ilosc ? parseFloat(materialCost.ilosc) : null,
+          jednostka: materialCost.jednostka,
+          koszt_laczny: parseFloat(materialCost.koszt_laczny),
+          notatka: materialCost.notatka,
+        },
+        { headers: authHeaders(token) },
+      );
+      showMsg('ok', 'Material zapisany');
+      setMaterialCost((current) => ({ ...current, nazwa: '', ilosc: '', koszt_laczny: '', notatka: '' }));
+      loadTask(taskId);
+    } catch {
+      showMsg('err', 'Blad zapisu materialu');
     } finally {
       setSaving(false);
     }
@@ -629,6 +664,91 @@ export default function RozliczeniaFieldEntry() {
                     <div key={cost.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text)' }}>
                       <span>{cost.label || cost.category}{cost.note ? ` - ${cost.note}` : ''}</span>
                       <strong>{fmt(cost.amount)} PLN</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 10 }}>Materialy do marzy</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 1fr) minmax(80px, 110px) minmax(80px, 110px) minmax(120px, 150px)', gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={labelStyle}>Nazwa</label>
+                  <input
+                    type="text"
+                    value={materialCost.nazwa}
+                    onChange={(e) => setMaterialCost((current) => ({ ...current, nazwa: e.target.value }))}
+                    placeholder="np. kora"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Ilosc</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={materialCost.ilosc}
+                    onChange={(e) => setMaterialCost((current) => ({ ...current, ilosc: e.target.value }))}
+                    placeholder="1"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Jednostka</label>
+                  <input
+                    type="text"
+                    value={materialCost.jednostka}
+                    onChange={(e) => setMaterialCost((current) => ({ ...current, jednostka: e.target.value }))}
+                    placeholder="szt"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Koszt PLN</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={materialCost.koszt_laczny}
+                    onChange={(e) => setMaterialCost((current) => ({ ...current, koszt_laczny: e.target.value }))}
+                    placeholder="0.00"
+                    aria-label="Koszt materialu PLN"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+                <div>
+                  <label style={labelStyle}>Notatka</label>
+                  <input
+                    type="text"
+                    value={materialCost.notatka}
+                    onChange={(e) => setMaterialCost((current) => ({ ...current, notatka: e.target.value }))}
+                    placeholder="np. faktura materialowa"
+                    style={inputStyle}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={zapiszMaterial}
+                  disabled={saving || !taskId || !materialCost.nazwa || !materialCost.koszt_laczny}
+                  style={{ ...primaryBtn, padding: '8px 14px' }}
+                >
+                  Dodaj material
+                </button>
+              </div>
+              {taskData?.materialy?.length > 0 && (
+                <div style={{ marginTop: 12, display: 'grid', gap: 6 }}>
+                  {taskData.materialy.map((material) => (
+                    <div key={material.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text)' }}>
+                      <span>
+                        {material.nazwa}
+                        {material.ilosc ? ` - ${material.ilosc} ${material.jednostka || ''}` : ''}
+                        {material.notatka ? ` - ${material.notatka}` : ''}
+                      </span>
+                      <strong>{fmt(material.koszt_laczny)} PLN</strong>
                     </div>
                   ))}
                 </div>
