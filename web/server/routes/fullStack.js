@@ -2525,6 +2525,8 @@ module.exports = function registerFullStack(router) {
         opis_naprawy: b.opis_naprawy ? String(b.opis_naprawy).trim().slice(0, 4000) : null,
         wykonawca: b.wykonawca ? String(b.wykonawca).trim().slice(0, 500) : null,
         koszt: toNum(b.koszt),
+        termin_odbioru: b.termin_odbioru || null,
+        priorytet: b.priorytet ? String(b.priorytet).trim().slice(0, 80) : 'Normalny',
         status: b.status || 'W toku',
         oddzial_id: toNum(b.oddzial_id) ?? asset.oddzial_id ?? req.user.oddzial_id,
         created_by: req.user.id,
@@ -2555,6 +2557,8 @@ module.exports = function registerFullStack(router) {
         typ_zasobu: typZasobu,
         zasob_id: zasobId,
         koszt: toNum(b.koszt) ?? repair.koszt ?? null,
+        termin_odbioru: b.termin_odbioru || null,
+        priorytet: b.priorytet ? String(b.priorytet).trim().slice(0, 80) : repair.priorytet || 'Normalny',
         oddzial_id: toNum(b.oddzial_id) ?? repair.oddzial_id ?? req.user.oddzial_id,
         updated_at: new Date().toISOString(),
       });

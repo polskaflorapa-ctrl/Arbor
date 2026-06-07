@@ -871,10 +871,14 @@ CREATE TABLE IF NOT EXISTS repairs (
   opis_usterki  TEXT,
   opis_naprawy  TEXT,
   wykonawca     VARCHAR(200),
+  termin_odbioru DATE,
+  priorytet     VARCHAR(80) DEFAULT 'Normalny',
   status        VARCHAR(30) DEFAULT 'Zakonczona',
   user_id       INTEGER REFERENCES users(id),
   created_at    TIMESTAMP DEFAULT NOW()
 );
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS termin_odbioru DATE;
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS priorytet VARCHAR(80) DEFAULT 'Normalny';
 
 -- ─── 25. ROLE (UPRAWNIENIA) ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS role (

@@ -71,6 +71,7 @@ function priorityWeight(state) {
 const FLEET_STATUS_OPTIONS = ['Dostepny', 'W uzyciu', 'W naprawie', 'Niedostepny'];
 const VEHICLE_TYPE_OPTIONS = ['Samochod', 'Bus', 'Ciezarowka', 'Przyczepa', 'Maszyna'];
 const EQUIPMENT_TYPE_OPTIONS = ['Pilarka', 'Rebak', 'Podnosnik', 'Narzedzie', 'Inne'];
+const REPAIR_PRIORITY_OPTIONS = ['Normalny', 'Pilny', 'Krytyczny'];
 
 function todayYmd() {
   return new Date().toISOString().slice(0, 10);
@@ -95,6 +96,18 @@ function repairIsClosed(status) {
     .includes('zakoncz');
 }
 
+function repairDueState(repair, now = new Date()) {
+  if (!repair?.termin_odbioru || repairIsClosed(repair.status)) return { state: 'none', days: null };
+  const due = new Date(repair.termin_odbioru);
+  if (Number.isNaN(due.getTime())) return { state: 'none', days: null };
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+  const days = Math.ceil((dueDay.getTime() - today.getTime()) / DAY_MS);
+  if (days < 0) return { state: 'overdue', days };
+  if (days <= 2) return { state: 'soon', days };
+  return { state: 'ok', days };
+}
+
 function normalizeFleetTab(value) {
   const text = String(value || '').toLowerCase();
   if (['sprzet', 'equipment'].includes(text)) return 'sprzet';
@@ -117,6 +130,7 @@ function MaintenanceControlPanel({ summary, activeFilter, onOpenRepairs, onNewRe
   const filters = [
     { key: 'all', label: 'Wszystkie', count: summary.allCount },
     { key: 'open', label: 'Otwarte', count: summary.openCount },
+    { key: 'overdue', label: 'Po terminie', count: summary.overdueCount },
     { key: 'noInvoice', label: 'Bez faktury', count: summary.withoutInvoiceCount },
     { key: 'closed', label: 'Zamkniete', count: summary.closedCount },
   ];
@@ -161,6 +175,11 @@ function MaintenanceControlPanel({ summary, activeFilter, onOpenRepairs, onNewRe
           <span>Faktury</span>
           <strong>{formatMoney(summary.invoiceCost)}</strong>
           <small>udokumentowane koszty</small>
+        </div>
+        <div style={S.maintenanceMetric}>
+          <span>Po terminie</span>
+          <strong style={{ color: summary.overdueCount ? 'var(--danger)' : 'var(--text)' }}>{summary.overdueCount}</strong>
+          <small>{summary.soonCount} blisko terminu</small>
         </div>
         <div style={S.maintenanceMetric}>
           <span>Bez faktury</span>
@@ -558,6 +577,8 @@ export default function Flota() {
       opis_naprawy: '',
       wykonawca: '',
       koszt: '',
+      termin_odbioru: '',
+      priorytet: 'Normalny',
       status: 'W toku',
       oddzial_id: defaultItem?.oddzial_id || currentUser?.oddzial_id || '',
     });
@@ -577,6 +598,8 @@ export default function Flota() {
       opis_naprawy: '',
       wykonawca: '',
       koszt: '',
+      termin_odbioru: '',
+      priorytet: 'Normalny',
       status: 'W toku',
       oddzial_id: item.oddzial_id || currentUser?.oddzial_id || '',
     });
@@ -598,6 +621,8 @@ export default function Flota() {
       opis_naprawy: repair.opis_naprawy || '',
       wykonawca: repair.wykonawca || '',
       koszt: repair.koszt ?? '',
+      termin_odbioru: formDate(repair.termin_odbioru),
+      priorytet: repair.priorytet || 'Normalny',
       status: repair.status || 'W toku',
       oddzial_id: repair.oddzial_id || item?.oddzial_id || currentUser?.oddzial_id || '',
     });
@@ -617,6 +642,8 @@ export default function Flota() {
         opis_naprawy: repairDraft.opis_naprawy.trim() || null,
         wykonawca: repairDraft.wykonawca.trim() || null,
         koszt: repairDraft.koszt || null,
+        termin_odbioru: repairDraft.termin_odbioru || null,
+        priorytet: repairDraft.priorytet || 'Normalny',
         status: repairDraft.status,
         oddzial_id: repairDraft.oddzial_id || currentUser?.oddzial_id,
       };
@@ -690,21 +717,27 @@ export default function Flota() {
 
   const exportRepairsCsv = (rows = naprawy) => {
     const sourceRows = Array.isArray(rows) && rows.length ? rows : naprawy;
-    const header = ['id', 'typ_zasobu', 'zasob', 'data_naprawy', 'status', 'koszt', 'faktury_kwota', 'faktury_count', 'usterka', 'wykonawca'];
+    const header = ['id', 'typ_zasobu', 'zasob', 'data_naprawy', 'termin_odbioru', 'termin_status', 'priorytet', 'status', 'koszt', 'faktury_kwota', 'faktury_count', 'usterka', 'wykonawca'];
     const csv = [
       header.join(';'),
-      ...sourceRows.map((repair) => [
-        repair.id,
-        repair.typ_zasobu,
-        getRepairAssetLabel(repair),
-        fmt(repair.data_naprawy),
-        repair.status || '',
-        Number(repair.koszt || 0) || '',
-        Number(repair.faktury_kwota || 0) || '',
-        Number(repair.faktury_count || 0) || 0,
-        repair.opis_usterki || '',
-        repair.wykonawca || '',
-      ].map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';')),
+      ...sourceRows.map((repair) => {
+        const due = repairDueState(repair);
+        return [
+          repair.id,
+          repair.typ_zasobu,
+          getRepairAssetLabel(repair),
+          fmt(repair.data_naprawy),
+          fmt(repair.termin_odbioru),
+          due.state === 'overdue' ? `${Math.abs(due.days)} dni po terminie` : due.state === 'soon' ? `${due.days} dni do terminu` : due.state,
+          repair.priorytet || 'Normalny',
+          repair.status || '',
+          Number(repair.koszt || 0) || '',
+          Number(repair.faktury_kwota || 0) || '',
+          Number(repair.faktury_count || 0) || 0,
+          repair.opis_usterki || '',
+          repair.wykonawca || '',
+        ].map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';');
+      }),
     ].join('\n');
     const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -904,6 +937,7 @@ export default function Flota() {
     if (repairQuickFilter === 'open') return focusedRows.filter((repair) => !repairIsClosed(repair.status));
     if (repairQuickFilter === 'closed') return focusedRows.filter((repair) => repairIsClosed(repair.status));
     if (repairQuickFilter === 'noInvoice') return focusedRows.filter((repair) => Number(repair.koszt || 0) > 0 && Number(repair.faktury_count || 0) === 0);
+    if (repairQuickFilter === 'overdue') return focusedRows.filter((repair) => repairDueState(repair).state === 'overdue');
     return focusedRows;
   }, [naprawy, repairAssetMetaByKey, repairFocus.kind, repairFocus.resourceId, repairFocus.teamId, repairFocusActive, repairQuickFilter]);
   const repairFocusLabel = useMemo(() => {
@@ -942,6 +976,8 @@ export default function Flota() {
   }, [naprawy]);
   const maintenanceSummary = useMemo(() => {
     const openRows = naprawy.filter((repair) => !repairIsClosed(repair.status));
+    const overdueRows = openRows.filter((repair) => repairDueState(repair).state === 'overdue');
+    const soonRows = openRows.filter((repair) => repairDueState(repair).state === 'soon');
     const invoiceCost = naprawy.reduce((sum, repair) => sum + (Number(repair.faktury_kwota || 0) || 0), 0);
     const openCost = openRows.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0);
     const withoutInvoice = naprawy.filter((repair) => Number(repair.faktury_count || 0) === 0 && Number(repair.koszt || 0) > 0);
@@ -957,6 +993,8 @@ export default function Flota() {
       invoiceCost,
       openCost,
       openCount: openRows.length,
+      overdueCount: overdueRows.length,
+      soonCount: soonRows.length,
       closedCount: naprawy.filter((repair) => repairIsClosed(repair.status)).length,
       withoutInvoiceCount: withoutInvoice.length,
       topRepairs,
@@ -1378,6 +1416,7 @@ export default function Flota() {
                 {[
                   ['all', 'Wszystkie'],
                   ['open', 'Otwarte'],
+                  ['overdue', 'Po terminie'],
                   ['noInvoice', 'Bez faktury'],
                   ['closed', 'Zamkniete'],
                 ].map(([key, label]) => (
@@ -1415,6 +1454,28 @@ export default function Flota() {
                     <div style={S.repairRow}>
                       <span style={S.repairLabel}>Data</span>
                       <span style={S.repairValue}>{fmt(n.data_naprawy)}</span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Termin</span>
+                      <span style={{
+                        ...S.repairValue,
+                        color: repairDueState(n).state === 'overdue' ? 'var(--danger)' : repairDueState(n).state === 'soon' ? '#b45309' : 'var(--text-sub)',
+                        fontWeight: repairDueState(n).state === 'overdue' ? 900 : 700,
+                      }}>
+                        {n.termin_odbioru
+                          ? `${fmt(n.termin_odbioru)}${repairDueState(n).state === 'overdue' ? ` (${Math.abs(repairDueState(n).days)} dni po)` : repairDueState(n).state === 'soon' ? ` (${repairDueState(n).days} dni)` : ''}`
+                          : '-'}
+                      </span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Priorytet</span>
+                      <span style={{
+                        ...S.repairValue,
+                        color: n.priorytet === 'Krytyczny' ? 'var(--danger)' : n.priorytet === 'Pilny' ? '#b45309' : 'var(--text-sub)',
+                        fontWeight: n.priorytet === 'Krytyczny' ? 900 : 700,
+                      }}>
+                        {n.priorytet || 'Normalny'}
+                      </span>
                     </div>
                     <div style={S.repairRow}>
                       <span style={S.repairLabel}>Koszt</span>
@@ -1783,6 +1844,16 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose, pojazdy = []
             <select style={S.input} value={draft.status} onChange={(e) => setField('status', e.target.value)}>
               <option value="W toku">W toku</option>
               <option value="Zakonczona">Zakonczona</option>
+            </select>
+          </Field>
+          <Field label="Termin odbioru">
+            <input style={S.input} type="date" value={draft.termin_odbioru || ''} onChange={(e) => setField('termin_odbioru', e.target.value)} />
+          </Field>
+          <Field label="Priorytet">
+            <select style={S.input} value={draft.priorytet || 'Normalny'} onChange={(e) => setField('priorytet', e.target.value)}>
+              {REPAIR_PRIORITY_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
             </select>
           </Field>
           <Field label="Serwis / wykonawca">

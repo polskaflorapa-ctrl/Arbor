@@ -3016,6 +3016,8 @@ components:
         opis_usterki: { type: string, nullable: true }
         opis_naprawy: { type: string, nullable: true }
         wykonawca: { type: string, nullable: true }
+        termin_odbioru: { type: string, nullable: true }
+        priorytet: { type: string, nullable: true }
         status: { type: string, nullable: true }
         oddzial_id: { type: integer, nullable: true }
     FlotaStatusBody:
