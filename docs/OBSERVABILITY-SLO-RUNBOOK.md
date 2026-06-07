@@ -131,7 +131,7 @@ GO:
 
 - `npm run verify:observability` przechodzi.
 - `/api/health`, `/api/ready` i publiczny `smoke:render` przechodza.
-- `npm run smoke:p95 -- https://<arbor-os-url>` przechodzi pod progiem 500 ms.
+- `npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5` przechodzi pod progiem 500 ms.
 - `METRICS_ENABLED=true` i `METRICS_TOKEN` sa ustawione w produkcji.
 - Znamy wlasciciela alertow P1/P2.
 - Backup i `restore:db:check` sa aktualne.

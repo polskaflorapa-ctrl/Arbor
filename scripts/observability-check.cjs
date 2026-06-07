@@ -46,6 +46,7 @@ const runbookNeedles = [
   "arbor_db_pool_waiting",
   "restore:db:check",
   "smoke:p95",
+  "npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5",
   "GO",
   "NO-GO",
 ];
