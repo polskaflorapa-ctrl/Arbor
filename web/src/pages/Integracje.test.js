@@ -62,11 +62,31 @@ function setupGetMocks({ crmApps = [], branchStatuses = null, auditItems = [] } 
     }
     if (path === '/integrations/security') {
       return Promise.resolve({
-        data: { denylist: { users: [], channels: [] }, denylist_history: [] },
+        data: {
+          denylist: { users: [], channels: [] },
+          denylist_history: [
+            {
+              id: 41,
+              action: 'manual_update',
+              actor_user_name: 'Anna Admin',
+              prev: { users: [], channels: [] },
+              next: { users: [8], channels: ['sms'] },
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 42,
+              action: 'preset:block_sms_global',
+              actor_user_name: 'Old Admin',
+              prev: { users: [], channels: [] },
+              next: { users: [], channels: ['sms'] },
+              created_at: '2026-01-01T10:00:00.000Z',
+            },
+          ],
+        },
       });
     }
     if (path === '/uzytkownicy') {
-      return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [{ id: 8, imie: 'Jan', nazwisko: 'Tester', rola: 'Kierownik' }] });
     }
     if (path === '/crm/integrations/apps') {
       return Promise.resolve({ data: crmApps });
@@ -160,6 +180,7 @@ beforeEach(() => {
 
 afterEach(() => {
   localStorage.clear();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -280,6 +301,64 @@ describe('Integracje (integration-style)', () => {
     expect(auto).not.toBeChecked();
     await userEvent.click(auto);
     expect(auto).toBeChecked();
+  });
+
+  test('manages denylist presets rollback and history export', async () => {
+    const clickMock = vi.fn();
+    const appendSpy = vi.spyOn(document.body, 'appendChild');
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tagName, options) => {
+      const element = originalCreateElement(tagName, options);
+      if (String(tagName).toLowerCase() === 'a') {
+        element.click = clickMock;
+      }
+      return element;
+    });
+
+    renderIntegracje();
+
+    expect(await screen.findByText(/Panel admina denylisty/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText(/SMS/i));
+    await userEvent.click(screen.getByRole('button', { name: /Zapisz denylist/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith(
+        '/integrations/security/denylist',
+        expect.objectContaining({ channels: expect.arrayContaining(['sms']) }),
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /blokuj SMS globalnie/i }));
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/integrations/security/denylist/preset',
+        { preset: 'block_sms_global' },
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
+
+    expect(await screen.findByText('manual_update')).toBeInTheDocument();
+    expect(screen.getByText(/niedost.pny \(14d\+\)/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button', { name: /Cofnij do tego/i })[0]);
+    expect(await screen.findByText(/Kliknij ponownie/i)).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('button', { name: /Cofnij do tego/i })[0]);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/integrations/security/denylist/rollback/41',
+        {},
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
+
+    await userEvent.click(screen.getAllByRole('button', { name: /Eksport CSV/i }).at(-1));
+    expect(window.URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(appendSpy).toHaveBeenCalledWith(expect.objectContaining({
+      download: expect.stringMatching(/^denylist-history-/),
+    }));
+    expect(clickMock).toHaveBeenCalled();
   });
 
   test('creates a CRM integration app from the integrations panel', async () => {

@@ -1,48 +1,41 @@
 # Go / No-Go Decision Sheet - Integrations Release
 
-Date: __________  
-Environment: __________  
+Date: __________
+Environment: __________
 Release owner: __________
 
-## Status sesji (automatycznie — 2026-04-21)
+## Mandatory Evidence
 
-- [x] `npm run verify` — OK lokalnie (build + 12 testów Jest, w tym `Integracje.test.js`)
-- [x] Lint clean (IDE) dla: `Integracje.js`, `ZlecenieDetail.js`, `fullStack.js`
-- [x] GitHub Actions: workflow `.github/workflows/ci.yml` (`verify` na `ubuntu-latest`, gałąź `main`)
-- [x] Remote sync: `git push origin main` — `main` zsynchronizowany z `origin/main`
+- [x] `npm run verify:integrations-release`
+- [x] `npm test -w arbor-web -- src/pages/Integracje.test.js --testTimeout 20000`
+- [x] `npm run build -w arbor-web`
+- [ ] Smoke test completed (`web/docs/smoke-test-integrations-5min.md` or production smoke URL)
+- [ ] Release checklist reviewed (`web/docs/release-checklist-integrations.md`)
 
-**Uwaga:** pełne **GO** wymaga jeszcze smoke testu w przeglądarce + podpisów właścicieli (poniżej).
+## Scope Included
 
-## Scope included
+- Integrations dashboard with logs, stats, filters, pagination and sorting.
+- Retry single + batch.
+- Rate limit + cooldown UX.
+- Denylist management, presets, history and rollback safeguards.
+- CSV exports.
+- Kommo diagnostics and owner acknowledgement.
+- Branch setup checklist for telephony + Unified Inbox.
 
-- Integrations dashboard (global logs, filters, pagination, sorting)
-- Retry single + batch
-- Rate limit + cooldown UX
-- Denylist management + presets
-- Denylist history + rollback (with safeguards)
-- CSV exports (logs + denylist history)
+## Risk Review
 
-## Mandatory evidence
-
-- [x] `npm run verify` (build + unit tests)
-- [x] Lint clean for touched files
-- [x] Changes pushed to `origin/main` (feature + docs)
-- [ ] Smoke test completed (`docs/smoke-test-integrations-5min.md`)
-- [ ] Release checklist reviewed (`docs/release-checklist-integrations.md`)
-
-## Risk review
-
-- [ ] Retry endpoints protected by role checks
-- [ ] Channel-level retry permissions confirmed
-- [ ] Rollback max age restriction confirmed
-- [ ] Audit trail records actor + timestamp (+ IP where available)
+- [ ] Retry endpoints protected by role checks.
+- [ ] Channel-level retry permissions confirmed.
+- [ ] Rollback max age restriction confirmed.
+- [ ] Audit trail records actor, timestamp and request metadata where available.
+- [ ] Denylist blocks retry for denied users/channels.
 
 ## Decision
 
 - [ ] **GO**
 - [ ] **NO-GO**
 
-Decision owner: __________  
+Decision owner: __________
 Time: __________
 
 ## If NO-GO
@@ -50,4 +43,3 @@ Time: __________
 - Primary blocker: ______________________
 - Workaround available: Yes / No
 - Next re-test window: __________________
-

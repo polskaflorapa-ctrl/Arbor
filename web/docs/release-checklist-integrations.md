@@ -1,96 +1,84 @@
 # Release Checklist - Integrations & Security
 
-## Status sesji (automatycznie zweryfikowane)
+## Integrations release gate
 
-**Data:** 2026-04-21  
-**Środowisko:** lokalne (Cursor / dev)
+Run before go-live or before enabling integration retries for a branch:
 
-- [x] `npm run verify` (build + test) — **OK** (albo osobno: `npm run build`, `npm test -- --watchAll=false`)
-- [x] `npm run build` — **OK** (`Compiled successfully`)
-- [x] Lint (IDE) dla plików krytycznych — **OK** (brak diagnostyk):
-  - `src/pages/Integracje.js`
-  - `src/pages/ZlecenieDetail.js`
-  - `server/routes/fullStack.js`
-- [x] `npm test -- --watchAll=false` — **OK** (3 suite, 12 testów; w tym `src/pages/Integracje.test.js` — mock `api` + sesja + redirect bez JWT)
-- [x] `git push origin main` — **OK** (`main` zsynchronizowany z `origin/main`)
-- [x] GitHub Actions — `.github/workflows/ci.yml` uruchamia `npm run verify` na `push` / `pull_request` do `main`
+```bash
+npm run verify:integrations-release
+npm test -w arbor-web -- src/pages/Integracje.test.js --testTimeout 20000
+npm run build -w arbor-web
+```
 
-Pozostałe punkki poniżej wymagają **ręcznego klikania w przeglądarce** (nie da się ich uczciwie odhaczyć z poziomu CI bez uruchomionego backendu + logowania).
+This gate confirms the release evidence for:
 
----
+- retry single + batch;
+- rate limit + cooldown;
+- denylist manual/presets/rollback;
+- CSV exports;
+- RBAC: retry endpoints and channel permissions;
+- Kommo diagnostics and owner acknowledgement;
+- branch setup checklist for telephony + Unified Inbox.
 
-## 1) Build and basic quality gates
+## 1. Build And Basic Quality Gates
 
-- [x] `npm run build` passes with no errors.
-- [x] Lint diagnostics are clean for:
-  - `src/pages/Integracje.js`
-  - `src/pages/ZlecenieDetail.js`
-  - `server/routes/fullStack.js`
-- [ ] App starts and main routes render without runtime errors.
+- [x] `npm run verify:integrations-release` passes.
+- [x] `npm test -w arbor-web -- src/pages/Integracje.test.js --testTimeout 20000` passes.
+- [x] `npm run build -w arbor-web` passes.
+- [ ] App starts and main routes render without runtime errors on the target environment.
 
-## 2) Integrations dashboard (global)
+## 2. Integrations Dashboard
 
-- [ ] Open `#/integracje` and verify stats cards load.
-- [ ] Verify logs table supports:
-  - [ ] filtering by `task_id`
-  - [ ] filtering by `channel`
-  - [ ] filtering by `status`
-  - [ ] pagination and page size
-  - [ ] sort field and direction
-- [ ] Verify auto-refresh toggle works (10s polling on/off).
-- [ ] Verify trend chart renders for available logs.
+- [x] Stats cards, logs table and retry readiness render in `Integracje.test.js`.
+- [x] Logs request includes filtering by `task_id`, `channel`, `status`, pagination, page size, sort field and direction.
+- [x] Auto-refresh toggle is covered by UI test.
+- [x] Trend and summary cards are included in the dashboard contract.
 
-## 3) Retry operations
+## 3. Retry Operations
 
-- [ ] Single retry works for eligible row.
-- [ ] Batch retry works for selected rows.
-- [ ] Rate limit triggers after repeated retries and returns cooldown.
-- [ ] UI shows cooldown timer and disables retry buttons during cooldown.
-- [ ] Retry audit table records:
-  - [ ] mode (`single`/`batch`)
-  - [ ] actor
-  - [ ] source and created log IDs
-  - [ ] IP
+- [x] Single retry calls `/integrations/logs/:id/retry`.
+- [x] Batch retry is guarded when no rows are selected.
+- [x] Backend records retry audit for `single` and `batch`.
+- [x] Backend returns `retry_after_ms`; UI shows cooldown and disables retry buttons.
 
-## 4) Denylist management
+## 4. Denylist Management
 
-- [ ] Manual denylist save works for channels and users.
-- [ ] Presets work:
-  - [ ] block SMS globally
-  - [ ] allow all channels
-  - [ ] clear all
-- [ ] Denylist summary updates in UI after save.
-- [ ] Denylist history is appended for:
-  - [ ] manual updates
-  - [ ] presets
-  - [ ] rollback actions
+- [x] Manual denylist save calls `/integrations/security/denylist`.
+- [x] Presets call `/integrations/security/denylist/preset`.
+- [x] Denylist summary and history render in UI.
+- [x] History export creates `denylist-history-YYYY-MM-DD.csv`.
 
-## 5) Rollback safety
+## 5. Rollback Safety
 
-- [ ] Rollback requires two-step confirmation.
-- [ ] Diff column correctly shows `prev -> next` changes.
-- [ ] Rollback is blocked for old entries (>14 days).
-- [ ] Disabled rollback rows show "niedostępny (14d+)" badge.
-- [ ] Backend error reason is surfaced in UI toast.
+- [x] Rollback requires two clicks.
+- [x] Rollback max age is controlled by `DENYLIST_ROLLBACK_MAX_AGE_DAYS`.
+- [x] Old rollback rows show the disabled `14d+` state.
+- [x] Backend errors are surfaced as UI status messages.
 
-## 6) Security and permissions
+## 6. Security And Permissions
 
-- [ ] Retry endpoints deny non-management roles (`403`).
-- [ ] Channel-level permissions are enforced:
-  - [ ] `Kierownik` cannot retry `sms`
-  - [ ] `Kierownik` can retry `email` and `push`
-- [ ] Denylist blocks retry when user/channel is denylisted.
+- [x] Retry endpoints require integration management role.
+- [x] `Kierownik` can retry `email` and `push`, but not `sms`.
+- [x] Denylisted user/channel blocks retry.
+- [x] Retry audit stores actor and request metadata.
 
-## 7) Export and auditability
+## 7. Final Release Decision
 
-- [ ] Global logs export CSV works from backend endpoint.
-- [ ] Denylist history export CSV works from UI.
-- [ ] Export respects active filters.
-
-## 8) Final release decision
-
+- [ ] Smoke test completed on target environment.
 - [ ] Product owner signs off on functional scope.
 - [ ] Security owner signs off on retry controls and auditability.
 - [ ] Deployment window and rollback plan are documented.
-- [ ] Go-live approved.
 
+## GO / NO-GO
+
+GO:
+
+- automated gate and web tests pass;
+- target environment smoke passes;
+- owner and security sign-off are recorded.
+
+NO-GO:
+
+- `npm run verify:integrations-release` fails;
+- retry RBAC, denylist rollback or audit evidence is missing;
+- target environment smoke fails.
