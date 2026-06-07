@@ -144,6 +144,7 @@ export default function Telefonia() {
   const [oddzialy, setOddzialy] = useState([]);
   const [callRows, setCallRows] = useState([]);
   const [callbacks, setCallbacks] = useState([]);
+  const [phoneDiagnostics, setPhoneDiagnostics] = useState(null);
   const [telLoading, setTelLoading] = useState(false);
   const [telError, setTelError] = useState('');
   const [telMessage, setTelMessage] = useState('');
@@ -396,14 +397,16 @@ export default function Telefonia() {
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
-      const [o, c, b] = await Promise.all([
+      const [o, c, b, d] = await Promise.all([
         api.get('/oddzialy', { headers: h }),
         api.get('/telephony/calls', { headers: h }),
         api.get('/telephony/callbacks', { headers: h }),
+        api.get('/telefon/diagnostics', { headers: h }),
       ]);
       setOddzialy(Array.isArray(o.data) ? o.data : []);
       setCallRows(Array.isArray(c.data) ? c.data : []);
       setCallbacks(Array.isArray(b.data) ? b.data : []);
+      setPhoneDiagnostics(d.data || null);
     } catch (e) {
       setTelError(getApiErrorMessage(e, 'Nie udało się pobrać danych telefonii.'));
     } finally {
@@ -3861,6 +3864,52 @@ export default function Telefonia() {
             {telLoading && <div style={s.empty}>Ładowanie…</div>}
             <div style={s.callsIntro}>
               Nowy przeplyw: specjalista klika "Zadzwon i zapisz", a przy telefonie od klienta zapisuje rozmowe jako przychodzaca i opcjonalnie tworzy oddzwonienie.
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={s.manualTitle}>Pipeline rozmow Zadarma / CRM</div>
+              <div style={s.agentHealthGrid}>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>Rozmowy</div>
+                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.total ?? 0}</strong>
+                  <div style={s.agentHistoryMeta}>Ostatnie 24h: {phoneDiagnostics?.counts?.last_24h ?? 0}</div>
+                </div>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>Nagrania</div>
+                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.with_recording ?? 0}</strong>
+                  <div style={s.agentHistoryMeta}>Gotowe do obrobki: {phoneDiagnostics?.counts?.recording_ready ?? 0}</div>
+                </div>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>Transkrypcje</div>
+                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.with_transcript ?? 0}</strong>
+                  <div style={s.agentHistoryMeta}>Czeka: {phoneDiagnostics?.counts?.needs_transcription ?? 0}</div>
+                </div>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>CRM</div>
+                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.linked_to_crm ?? 0}</strong>
+                  <div style={s.agentHistoryMeta}>Raport AI: {phoneDiagnostics?.counts?.analyzed ?? 0}</div>
+                </div>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>Bledy</div>
+                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.error ?? 0}</strong>
+                  <div style={s.agentHistoryMeta}>Status pipeline</div>
+                </div>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>Konfiguracja</div>
+                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.config?.zadarma_configured ? 'Zadarma OK' : 'Zadarma brak'}</strong>
+                  <div style={s.agentHistoryMeta}>
+                    OpenAI: {phoneDiagnostics?.config?.openai_configured ? 'OK' : 'brak'} · Claude: {phoneDiagnostics?.config?.anthropic_configured ? 'OK' : 'brak'} · Storage: {phoneDiagnostics?.config?.recording_storage || 'none'}
+                  </div>
+                </div>
+              </div>
+              {phoneDiagnostics?.issues?.length ? (
+                <div style={s.agentSmsPreview}>
+                  {phoneDiagnostics.issues.slice(0, 5).map((issue) => (
+                    <div key={issue}>{issue}</div>
+                  ))}
+                </div>
+              ) : (
+                <div style={s.agentHistoryMeta}>Brak aktywnych blokad w pipeline rozmow.</div>
+              )}
             </div>
             <form style={s.testFlowCard} onSubmit={runPhoneCrmFlowTest}>
               <div style={s.manualTitle}>Test CRM po rozmowie</div>

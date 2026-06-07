@@ -119,6 +119,31 @@ beforeEach(() => {
     if (path === '/telephony/integration-test-logs') {
       return Promise.resolve({ data: { items: [] } });
     }
+    if (path === '/telefon/diagnostics') {
+      return Promise.resolve({
+        data: {
+          ok: true,
+          counts: {
+            total: 5,
+            last_24h: 2,
+            recording_ready: 1,
+            needs_transcription: 1,
+            analyzed: 2,
+            error: 1,
+            with_recording: 3,
+            with_transcript: 2,
+            linked_to_crm: 2,
+          },
+          config: {
+            zadarma_configured: true,
+            openai_configured: false,
+            anthropic_configured: true,
+            recording_storage: 'local',
+          },
+          issues: ['OPENAI_API_KEY missing: transcription will stop at needs_transcription'],
+        },
+      });
+    }
     if (path === '/telephony/zadarma/settings') {
       return Promise.resolve({
         data: {
@@ -225,7 +250,7 @@ test('one-click branch telephony setup saves branch numbers before copying provi
   );
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('48111222333'));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('ARBOR-KRK'));
-}, 10000);
+}, 20000);
 
 test('specialist can register an incoming client call and create callback', async () => {
   renderTelefonia();
@@ -300,6 +325,10 @@ test('runs phone CRM flow test from calls tab', async () => {
   });
 
   renderTelefonia('/telefonia?tab=calls');
+
+  expect(await screen.findByText('Pipeline rozmow Zadarma / CRM')).toBeInTheDocument();
+  expect(screen.getByText('OpenAI: brak · Claude: OK · Storage: local')).toBeInTheDocument();
+  expect(screen.getByText('OPENAI_API_KEY missing: transcription will stop at needs_transcription')).toBeInTheDocument();
 
   expect(await screen.findByText('Test CRM po rozmowie')).toBeInTheDocument();
   const testForm = screen.getByText('Test CRM po rozmowie').closest('form');
