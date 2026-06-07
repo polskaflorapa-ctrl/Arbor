@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
+import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { computeEstimatorPayout } from '../utils/computeEstimatorPayout';
 import { computeEstimatorMonth, filterQuotesForEstimatorRole, resolveEstimatorContract } from '../utils/estimatorCompensation';
@@ -283,7 +285,7 @@ export default function WynagrodzenieWyceniajacych() {
           </div>
 
           <div className="estimator-pay-actions" style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" style={btnPri} onClick={zapiszReguly} disabled={!wybranyId}>Zapisz reguły (serwer + lokalnie)</button>
+            <Button style={btnPri} leftIcon={Save} onClick={zapiszReguly} disabled={!wybranyId}>Zapisz reguły (serwer + lokalnie)</Button>
           </div>
         </div>
 
@@ -293,9 +295,9 @@ export default function WynagrodzenieWyceniajacych() {
             <div className="estimator-pay-card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <h3 style={{ margin: 0, fontSize: 16 }}>Prowizje — widok kontraktowy</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button type="button" style={{ ...btnPri, padding: '6px 12px', fontSize: 13 }} onClick={() => setContractMonthYm((m) => shiftMonth(m, -1))}>‹</button>
+                <Button size="sm" style={{ ...btnPri, padding: '6px 12px', fontSize: 13 }} leftIcon={ChevronLeft} onClick={() => setContractMonthYm((m) => shiftMonth(m, -1))} aria-label="Poprzedni miesiac" />
                 <span style={{ fontWeight: 700, fontSize: 15, minWidth: 88, textAlign: 'center' }}>{contractMonthYm}</span>
-                <button type="button" style={{ ...btnPri, padding: '6px 12px', fontSize: 13 }} onClick={() => setContractMonthYm((m) => shiftMonth(m, 1))}>›</button>
+                <Button size="sm" style={{ ...btnPri, padding: '6px 12px', fontSize: 13 }} leftIcon={ChevronRight} onClick={() => setContractMonthYm((m) => shiftMonth(m, 1))} aria-label="Nastepny miesiac" />
               </div>
             </div>
 

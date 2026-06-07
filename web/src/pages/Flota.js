@@ -1825,6 +1825,12 @@ export default function Flota() {
                       </span>
                     </div>
                     <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Czesci</span>
+                      <span style={{ ...S.repairValue, color: Number(n.czesci_kwota || 0) ? 'var(--danger)' : 'var(--text-sub)', fontWeight: 700 }}>
+                        {Number(n.czesci_kwota || 0) ? `${formatMoney(n.czesci_kwota)} / ${n.czesci_count || 0}` : '-'}
+                      </span>
+                    </div>
+                    <div style={S.repairRow}>
                       <span style={S.repairLabel}>Przestoj</span>
                       <span style={{ ...S.repairValue, color: repairDowntimeLoss(n) ? 'var(--danger)' : 'var(--text-sub)', fontWeight: repairDowntimeLoss(n) ? 900 : 700 }}>
                         {repairDowntimeDays(n)} dni{repairDowntimeLoss(n) ? ` / ${formatMoney(repairDowntimeLoss(n))}` : ''}
@@ -1890,6 +1896,61 @@ export default function Flota() {
                               </a>
                               {canEdit && (
                                 <Button variant="danger" size="sm" style={S.invoiceDeleteBtn} leftIcon={Trash2} onClick={() => deleteRepairInvoice(n, invoice.id)}>
+                                  Usun
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div style={S.invoiceBox}>
+                      <div style={S.invoiceTop}>
+                        <span><Wrench size={14} /> Czesci i materialy</span>
+                        <Button variant="ghost" size="sm" style={S.invoiceGhostBtn} leftIcon={FileText} onClick={() => loadRepairParts(n.id)}>
+                          {Array.isArray(repairParts[n.id]) ? `${repairParts[n.id].length} pozycji` : `${n.czesci_count || 0} zapisane`}
+                        </Button>
+                      </div>
+                      {canEdit && (
+                        <div style={S.partForm}>
+                          <input
+                            style={S.invoiceInput}
+                            value={partDrafts[n.id]?.nazwa || ''}
+                            onChange={(e) => setPartDraft(n.id, 'nazwa', e.target.value)}
+                            placeholder="Czesc / material"
+                          />
+                          <input
+                            style={S.invoiceInput}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={partDrafts[n.id]?.ilosc || ''}
+                            onChange={(e) => setPartDraft(n.id, 'ilosc', e.target.value)}
+                            placeholder="Ilosc"
+                          />
+                          <input
+                            style={S.invoiceInput}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={partDrafts[n.id]?.cena || ''}
+                            onChange={(e) => setPartDraft(n.id, 'cena', e.target.value)}
+                            placeholder="Cena"
+                          />
+                          <Button size="sm" loading={partSavingId === String(n.id)} disabled={!String(partDrafts[n.id]?.nazwa || '').trim()} onClick={() => addRepairPart(n)}>
+                            Dodaj
+                          </Button>
+                        </div>
+                      )}
+                      {Array.isArray(repairParts[n.id]) && repairParts[n.id].length > 0 && (
+                        <div style={S.invoiceLinks}>
+                          {repairParts[n.id].slice(0, 5).map((part) => (
+                            <div key={part.id} style={S.partLinkRow}>
+                              <span style={S.invoiceLink}>
+                                {part.nazwa} / {part.ilosc} x {formatMoney(part.cena)} = {formatMoney(part.kwota_laczna)}
+                              </span>
+                              {canEdit && (
+                                <Button variant="danger" size="sm" style={S.invoiceDeleteBtn} leftIcon={Trash2} onClick={() => deleteRepairPart(n, part.id)}>
                                   Usun
                                 </Button>
                               )}
@@ -2303,7 +2364,7 @@ function AssetDetailPanel({ detail, canEdit, onClose, onOpenRepairs, onNewRepair
             <div key={repair.id} style={S.assetRepairRow}>
               <strong>{fmtDate(repair.data_naprawy)} / {repair.status || '-'}</strong>
               <span>{repair.opis_usterki || '-'}</span>
-              <b>{formatMoney(Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0)}</b>
+              <b>{formatMoney((Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0) + (Number(repair.czesci_kwota || 0) || 0))}</b>
             </div>
           )) : <div style={S.assetEmptyLine}>Brak historii napraw.</div>}
         </div>
@@ -2573,10 +2634,12 @@ const S = {
   invoiceTop: { display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', fontSize: 12, fontWeight: 900, color: 'var(--text-sub)' },
   invoiceGhostBtn: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 8px', fontSize: 11, fontWeight: 800 },
   invoiceForm: { display: 'grid', gridTemplateColumns: '1fr 0.7fr auto', gap: 6, alignItems: 'center' },
+  partForm: { display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 72px 86px auto', gap: 6, alignItems: 'center' },
   invoiceInput: { minWidth: 0, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', fontSize: 12 },
   invoiceUploadBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap', padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.3)', background: 'rgba(20,131,79,0.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   invoiceLinks: { display: 'flex', flexDirection: 'column', gap: 4 },
   invoiceLinkRow: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, alignItems: 'center', minWidth: 0 },
+  partLinkRow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, alignItems: 'center', minWidth: 0 },
   invoiceLink: { color: 'var(--accent)', fontSize: 12, fontWeight: 800, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   invoiceDeleteBtn: { border: '1px solid rgba(226,68,92,0.28)', borderRadius: 7, background: 'rgba(226,68,92,0.08)', color: 'var(--danger)', cursor: 'pointer', padding: '4px 7px', fontSize: 11, fontWeight: 900 },
   repairFilterBar: { display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 8 },

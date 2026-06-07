@@ -1048,15 +1048,16 @@ export default function CrmPipeline() {
           <div className="crm-kommo-board-area">
           <nav className="crm-kommo-stage-switcher" aria-label="Etapy CRM">
             {STAGES.map((stage) => (
-              <button
+              <Button
                 key={stage}
-                type="button"
+                variant={activeStage === stage ? 'primary' : 'secondary'}
+                size="sm"
                 className={activeStage === stage ? 'is-active' : ''}
                 onClick={() => setActiveStage(stage)}
               >
                 <span>{stage}</span>
                 <strong>{totals[stage]?.count || 0}</strong>
-              </button>
+              </Button>
             ))}
           </nav>
 
@@ -1100,9 +1101,9 @@ export default function CrmPipeline() {
                         <span className="crm-kommo-source">{lead.source || 'manual'}</span>
                         <span className="crm-kommo-avatar">{ownerInitials(lead)}</span>
                       </div>
-                      <button type="button" className="crm-kommo-lead-title" onClick={() => setSelectedLeadId(lead.id)}>
+                      <Button variant="ghost" size="sm" className="crm-kommo-lead-title" onClick={() => setSelectedLeadId(lead.id)}>
                         {lead.title}
-                      </button>
+                      </Button>
                       <div className="crm-kommo-contact">
                         {lead.client_name || lead.phone || lead.email || lead.source || '—'}
                       </div>
@@ -1598,9 +1599,10 @@ export default function CrmPipeline() {
             <div className="ios-inset crm-inspector-panel crm-inspector-activity-form" style={{ padding: 10, display: 'grid', gap: 8 }}>
               <div className="crm-inspector-action-tabs" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                 {['note', 'call', 'task'].map((tp) => (
-                  <button
+                  <Button
                     key={tp}
-                    type="button"
+                    variant={activityForm.type === tp ? 'primary' : 'secondary'}
+                    size="sm"
                     className="ios-btn"
                     style={{
                       fontWeight: activityForm.type === tp ? 700 : 500,
@@ -1609,7 +1611,7 @@ export default function CrmPipeline() {
                     onClick={() => setActivityForm((prev) => ({ ...prev, type: tp }))}
                   >
                     {activityTypeLabel(tp)}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <textarea
