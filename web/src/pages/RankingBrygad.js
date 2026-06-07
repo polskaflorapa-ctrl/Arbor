@@ -4,12 +4,13 @@ import EmojiEventsOutlined from '@mui/icons-material/EmojiEventsOutlined';
 import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
-import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
+import { RefreshCw } from 'lucide-react';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
+import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -195,9 +196,7 @@ export default function RankingBrygad() {
                   {oddzialy.map((o) => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
                 </select>
               )}
-              <button type="button" style={S.iconBtn} onClick={() => loadRanking(currentUser)} disabled={loading} title="Odswiez ranking">
-                <RefreshOutlined style={{ fontSize: 18 }} />
-              </button>
+              <Button variant="secondary" size="sm" style={S.iconBtn} leftIcon={RefreshCw} onClick={() => loadRanking(currentUser)} loading={loading} title="Odswiez ranking" aria-label="Odswiez ranking" />
             </div>
           }
         />

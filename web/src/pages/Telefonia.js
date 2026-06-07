@@ -148,6 +148,7 @@ export default function Telefonia() {
   const [telLoading, setTelLoading] = useState(false);
   const [telError, setTelError] = useState('');
   const [telMessage, setTelMessage] = useState('');
+  const [phonePipelineRetrying, setPhonePipelineRetrying] = useState(false);
   const [savingCall, setSavingCall] = useState(false);
   const [testFlowSaving, setTestFlowSaving] = useState(false);
   const [lastTestLeadId, setLastTestLeadId] = useState(null);
@@ -418,6 +419,22 @@ export default function Telefonia() {
     if (tab === 'calls' || tab === 'agent') loadTelephonyExtras();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const retryPhonePipeline = async () => {
+    setPhonePipelineRetrying(true);
+    setTelError('');
+    setTelMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post('/telefon/pipeline/retry', {}, { headers: authHeaders(token) });
+      setTelMessage(`Ponowiono pipeline dla ${data?.retried || 0} rozmow.`);
+      await loadTelephonyExtras();
+    } catch (e) {
+      setTelError(getApiErrorMessage(e, 'Nie udalo sie ponowic pipeline rozmow.'));
+    } finally {
+      setPhonePipelineRetrying(false);
+    }
+  };
 
   useEffect(() => {
     const t = searchParams.get('tab');
@@ -3910,6 +3927,21 @@ export default function Telefonia() {
               ) : (
                 <div style={s.agentHistoryMeta}>Brak aktywnych blokad w pipeline rozmow.</div>
               )}
+              {((phoneDiagnostics?.counts?.recording_ready || 0) + (phoneDiagnostics?.counts?.needs_transcription || 0) + (phoneDiagnostics?.counts?.error || 0)) > 0 ? (
+                <div style={s.inlineActions}>
+                  <button
+                    type="button"
+                    style={s.rowBtnActive}
+                    onClick={retryPhonePipeline}
+                    disabled={phonePipelineRetrying}
+                  >
+                    {phonePipelineRetrying ? 'Ponawiam...' : 'Ponow pipeline'}
+                  </button>
+                  <span style={s.agentHistoryMeta}>
+                    Ponawia maksymalnie 10 rozmow z nagraniem, ktore utknely w obrobce.
+                  </span>
+                </div>
+              ) : null}
             </div>
             <form style={s.testFlowCard} onSubmit={runPhoneCrmFlowTest}>
               <div style={s.manualTitle}>Test CRM po rozmowie</div>

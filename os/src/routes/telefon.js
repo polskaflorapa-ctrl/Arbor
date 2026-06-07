@@ -16,6 +16,7 @@ const {
 } = require('../constants/error-codes');
 const {
   ensurePhoneCallsTable,
+  processRecordingPipeline,
   upsertCallLegFromTwiml,
   publishPhoneCallArtifacts,
 } = require('../services/phone-call-pipeline');
@@ -391,6 +392,46 @@ router.get('/diagnostics', authMiddleware, forbidTelefonForTeamRoles, async (req
       });
     }
     logger.error('telefon /diagnostics', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError'), requestId: req.requestId });
+  }
+});
+
+router.post('/pipeline/retry', authMiddleware, forbidTelefonForTeamRoles, async (req, res) => {
+  try {
+    await ensurePhoneCallsTable();
+    const scope = phoneRozmowyScopeFromWhere(req.user);
+    const retryWhere = scope.whereSql
+      ? `${scope.whereSql} AND p.status IN ('recording_ready', 'needs_transcription', 'error') AND p.recording_url IS NOT NULL`
+      : `WHERE p.status IN ('recording_ready', 'needs_transcription', 'error') AND p.recording_url IS NOT NULL`;
+    const { rows } = await pool.query(
+      `SELECT p.id, p.twilio_call_sid, p.status, p.updated_at
+       ${scope.from}
+       ${retryWhere}
+       ORDER BY p.updated_at ASC
+       LIMIT 10`,
+      scope.params
+    );
+    for (const row of rows) {
+      setImmediate(() => {
+        processRecordingPipeline(row.twilio_call_sid).catch((e) =>
+          logger.error('telefon /pipeline/retry processRecordingPipeline', {
+            callSid: row.twilio_call_sid,
+            message: e.message,
+          })
+        );
+      });
+    }
+    return res.status(202).json({
+      ok: true,
+      retried: rows.length,
+      items: rows.map((row) => ({ id: row.id, call_sid: row.twilio_call_sid, status: row.status })),
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    if (e.code === '42P01') {
+      return res.status(202).json({ ok: true, retried: 0, items: [], requestId: req.requestId });
+    }
+    logger.error('telefon /pipeline/retry', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError'), requestId: req.requestId });
   }
 });

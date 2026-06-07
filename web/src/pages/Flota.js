@@ -928,11 +928,10 @@ export default function Flota() {
     const now = new Date();
     const vehicleCards = filtrPojazdy.map((p) => {
       const docs = assetDocuments[assetKey('pojazdy', p.id)] || [];
-      const docsLoaded = Array.isArray(assetDocuments[assetKey('pojazdy', p.id)]);
       const alerts = [
         dueAlert({ key: 'inspection', label: 'Przeglad' }, p.data_przegladu, now),
         dueAlert({ key: 'insurance', label: 'OC' }, p.data_ubezpieczenia, now),
-        ...(docsLoaded && docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj OC / fakture / gwarancje', color: '#676879' }] : []),
+        ...(docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj OC / fakture / gwarancje', color: '#676879' }] : []),
         ...docs.map((doc) => documentDueAlert(doc, now)).filter(Boolean),
       ];
       return {
@@ -953,10 +952,9 @@ export default function Flota() {
     });
     const equipmentCards = filtrSprzet.map((s) => {
       const docs = assetDocuments[assetKey('sprzet', s.id)] || [];
-      const docsLoaded = Array.isArray(assetDocuments[assetKey('sprzet', s.id)]);
       const alerts = [
         dueAlert({ key: 'inspection', label: 'Przeglad' }, s.data_przegladu, now),
-        ...(docsLoaded && docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj UDT / gwarancje / instrukcje', color: '#676879' }] : []),
+        ...(docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj UDT / gwarancje / instrukcje', color: '#676879' }] : []),
         ...docs.map((doc) => documentDueAlert(doc, now)).filter(Boolean),
       ];
       if (s.next_reservation_from) {
@@ -1051,9 +1049,8 @@ export default function Flota() {
     const repairCost = repairs.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0);
     const downtimeLoss = repairs.reduce((sum, repair) => sum + repairDowntimeLoss(repair), 0);
     const documents = assetDocuments[key] || [];
-    const docsLoaded = Array.isArray(assetDocuments[key]);
     const documentAlerts = documents.map((doc) => documentDueAlert(doc)).filter(Boolean);
-    const missingDocAlert = docsLoaded && documents.length === 0
+    const missingDocAlert = documents.length === 0
       ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: type === 'pojazdy' ? 'dodaj OC / fakture / gwarancje' : 'dodaj UDT / gwarancje / instrukcje', color: '#676879' }]
       : [];
     const alerts = type === 'pojazdy'

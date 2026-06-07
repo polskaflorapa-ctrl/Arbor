@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import { Button } from '../components/ui/Button';
 import { readStoredUser } from '../utils/readStoredUser';
 import { hasAnyRole } from '../utils/roleDisplay';
 
@@ -203,9 +204,9 @@ export default function Eksploruj() {
               {group.tiles.map((tile) => {
                 const isHov = hoveredPath === tile.path;
                 return (
-                  <button
+                  <Button
                     key={tile.path}
-                    type="button"
+                    variant="secondary"
                     className="explore-tile"
                     onClick={() => navigate(tile.path)}
                     onMouseEnter={() => setHoveredPath(tile.path)}
@@ -235,8 +236,9 @@ export default function Eksploruj() {
                     }}>
                       {tile.emoji}
                     </span>
-                    <div>
-                      <div style={{
+                    <span style={{ display: 'block' }}>
+                      <span style={{
+                        display: 'block',
                         fontSize: 14,
                         fontWeight: 700,
                         color: isHov ? 'var(--accent)' : 'var(--text)',
@@ -244,17 +246,18 @@ export default function Eksploruj() {
                         transition: 'color 0.15s',
                       }}>
                         {tile.label}
-                      </div>
-                      <div style={{
+                      </span>
+                      <span style={{
+                        display: 'block',
                         fontSize: 12,
                         color: 'var(--text-muted)',
                         marginTop: 3,
                         lineHeight: 1.35,
                       }}>
                         {tile.desc}
-                      </div>
-                    </div>
-                  </button>
+                      </span>
+                    </span>
+                  </Button>
                 );
               })}
             </div>

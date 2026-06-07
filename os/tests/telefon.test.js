@@ -40,6 +40,7 @@ jest.mock('../src/services/zadarma', () => ({
 
 jest.mock('../src/services/phone-call-pipeline', () => ({
   ensurePhoneCallsTable: jest.fn().mockResolvedValue(undefined),
+  processRecordingPipeline: jest.fn().mockResolvedValue(undefined),
   upsertCallLegFromTwiml: jest.fn().mockResolvedValue(undefined),
   publishPhoneCallArtifacts: jest.fn().mockResolvedValue({ id: 501, lead_id: 301 }),
 }));
@@ -47,7 +48,7 @@ jest.mock('../src/services/phone-call-pipeline', () => ({
 const pool = require('../src/config/database');
 const { env } = require('../src/config/env');
 const { isZadarmaConfiguredAsync, requestCallback } = require('../src/services/zadarma');
-const { publishPhoneCallArtifacts, upsertCallLegFromTwiml } = require('../src/services/phone-call-pipeline');
+const { processRecordingPipeline, publishPhoneCallArtifacts, upsertCallLegFromTwiml } = require('../src/services/phone-call-pipeline');
 const telefonRoutes = require('../src/routes/telefon');
 const { createTestApp } = require('./helpers/create-test-app');
 
@@ -67,6 +68,7 @@ describe('Telefon (Twilio Voice)', () => {
     jest.clearAllMocks();
     isZadarmaConfiguredAsync.mockResolvedValue(false);
     publishPhoneCallArtifacts.mockResolvedValue({ id: 501, lead_id: 301 });
+    processRecordingPipeline.mockResolvedValue(undefined);
     upsertCallLegFromTwiml.mockResolvedValue(undefined);
   });
 
@@ -251,6 +253,39 @@ describe('Telefon (Twilio Voice)', () => {
       expect.stringContaining('2 call(s) waiting for transcription'),
       expect.stringContaining('1 phone recording pipeline error'),
     ]));
+  });
+
+  it('POST /pipeline/retry schedules stuck recording pipelines', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes("p.status IN ('recording_ready', 'needs_transcription', 'error')")) {
+        return {
+          rows: [
+            { id: 11, twilio_call_sid: 'zadarma:pbx-11', status: 'needs_transcription' },
+            { id: 12, twilio_call_sid: 'zadarma:pbx-12', status: 'error' },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/telefon/pipeline/retry')
+      .set('Authorization', `Bearer ${bearerDyrektor()}`)
+      .send({});
+
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual(expect.objectContaining({
+      ok: true,
+      retried: 2,
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: 11, call_sid: 'zadarma:pbx-11' }),
+        expect.objectContaining({ id: 12, call_sid: 'zadarma:pbx-12' }),
+      ]),
+    }));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(processRecordingPipeline).toHaveBeenCalledWith('zadarma:pbx-11');
+    expect(processRecordingPipeline).toHaveBeenCalledWith('zadarma:pbx-12');
   });
 
   it('POST /test-flow blocks users from other branches before publishing artifacts', async () => {

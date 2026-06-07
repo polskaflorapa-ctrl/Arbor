@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { readStoredUser } from '../utils/readStoredUser';
@@ -257,9 +258,9 @@ export default function WyceniajacyHub() {
           <h2 style={S.secTitle}>{t('hub.quickActions')}</h2>
           <div className="estimator-hub-grid" style={S.grid}>
             {quickActions.map((a) => (
-              <button className="estimator-hub-tile" key={a.key} type="button" style={S.tile} onClick={a.onClick}>
+              <Button className="estimator-hub-tile" key={a.key} variant="secondary" style={S.tile} onClick={a.onClick}>
                 {a.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
