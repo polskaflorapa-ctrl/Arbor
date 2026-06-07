@@ -157,4 +157,56 @@ describe('CRM lead messages', () => {
     expect(res.status).toBe(403);
     expect(pool.query).toHaveBeenCalledTimes(1);
   });
+
+  it('lists phone recordings attached to an accessible lead', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('SELECT id, oddzial_id, phone FROM crm_leads WHERE id = $1')) {
+        return { rows: [{ id: 22, oddzial_id: 7, phone: '+48500100200' }] };
+      }
+      if (text.includes('CREATE TABLE') || text.includes('CREATE INDEX') || text.includes('ALTER TABLE')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM phone_call_conversations p') && text.includes('LEFT JOIN users u')) {
+        return {
+          rows: [{
+            id: 301,
+            twilio_call_sid: 'zadarma:pbx-301',
+            lead_id: 22,
+            client_number: '+48500100200',
+            recording_duration_sec: 88,
+            recording_archive_backend: 'local',
+            recording_archive_ref: '2026-06/zadarma.mp3',
+            transcript: 'Klient chce przyspieszyc ogledziny.',
+            raport: 'Ustalono kontakt jutro.',
+            wskazowki_specjalisty: 'Dopytac o adres.',
+            status: 'analyzed',
+            created_at: '2026-06-06T10:00:00.000Z',
+            imie: 'Anna',
+            nazwisko: 'Kowalska',
+            login: 'anna',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/crm/leads/22/calls')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      expect.objectContaining({
+        id: 301,
+        lead_id: 22,
+        recording_available: true,
+        recording_download_url: '/api/telefon/rozmowy/301/nagranie',
+        agent_name: 'Anna Kowalska',
+        raport: 'Ustalono kontakt jutro.',
+      }),
+    ]);
+    const selectCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('FROM phone_call_conversations p') && String(sql).includes('regexp_replace'));
+    expect(selectCall[1]).toEqual([22, '48500100200']);
+  });
 });

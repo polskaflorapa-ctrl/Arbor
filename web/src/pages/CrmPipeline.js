@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Activity, Bot, CheckCircle, MessageSquarePlus, Play, Plus, RefreshCw, RotateCcw, Send, Star, Trash2, X, XCircle } from 'lucide-react';
+import { Activity, Bot, CheckCircle, Download, MessageSquarePlus, Play, Plus, RefreshCw, RotateCcw, Send, Star, Trash2, X, XCircle } from 'lucide-react';
 import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import { Button } from '../components/ui/Button';
@@ -100,6 +100,9 @@ export default function CrmPipeline() {
   const [savingNps, setSavingNps] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [phoneCalls, setPhoneCalls] = useState([]);
+  const [phoneCallsLoading, setPhoneCallsLoading] = useState(false);
+  const [downloadingCallId, setDownloadingCallId] = useState(null);
   const [messageTemplates, setMessageTemplates] = useState([]);
   const [templateForm, setTemplateForm] = useState(EMPTY_TEMPLATE);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -251,6 +254,26 @@ export default function CrmPipeline() {
     [requestHeaders, t]
   );
 
+  const loadPhoneCalls = useCallback(
+    async (leadId) => {
+      if (!leadId) {
+        setPhoneCalls([]);
+        return;
+      }
+      try {
+        setPhoneCallsLoading(true);
+        const res = await api.get(`/crm/leads/${leadId}/calls`, { headers: requestHeaders });
+        setPhoneCalls(Array.isArray(res.data) ? res.data : []);
+      } catch (e) {
+        setMsg(getApiErrorMessage(e, t('crm.pipeline.errors.callsLoad', { defaultValue: 'Nie udało się pobrać rozmów telefonicznych leada.' })));
+        setPhoneCalls([]);
+      } finally {
+        setPhoneCallsLoading(false);
+      }
+    },
+    [requestHeaders, t]
+  );
+
   const loadWorkflowEvents = useCallback(
     async (leadId) => {
       if (!leadId) {
@@ -308,16 +331,18 @@ export default function CrmPipeline() {
     if (selectedLeadId) {
       loadActivities(selectedLeadId);
       loadMessages(selectedLeadId);
+      loadPhoneCalls(selectedLeadId);
       loadWorkflowEvents(selectedLeadId);
       loadNpsSurveys(selectedLeadId);
     } else {
       setActivities([]);
       setMessages([]);
+      setPhoneCalls([]);
       setWorkflowEvents([]);
       setNpsSurveys([]);
       setAiLead(null);
     }
-  }, [selectedLeadId, loadActivities, loadMessages, loadWorkflowEvents, loadNpsSurveys]);
+  }, [selectedLeadId, loadActivities, loadMessages, loadPhoneCalls, loadWorkflowEvents, loadNpsSurveys]);
 
   useEffect(() => {
     if (!selectedLeadId) return undefined;
@@ -542,6 +567,29 @@ export default function CrmPipeline() {
       setMsg(getApiErrorMessage(e, t('crm.pipeline.ai.error', { defaultValue: 'AI CRM nie udało się uruchomić.' })));
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const downloadPhoneCallRecording = async (call) => {
+    if (!call?.id || !call.recording_available) return;
+    setDownloadingCallId(call.id);
+    try {
+      const res = await api.get(`/telefon/rozmowy/${call.id}/nagranie`, {
+        headers: requestHeaders,
+        responseType: 'blob',
+      });
+      const blobUrl = window.URL.createObjectURL(res.data);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `rozmowa-${call.id}.mp3`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.errors.recordingDownload', { defaultValue: 'Nie udało się pobrać nagrania rozmowy.' })));
+    } finally {
+      setDownloadingCallId(null);
     }
   };
 
@@ -1266,6 +1314,81 @@ export default function CrmPipeline() {
                   </div>
                 </div>
               ) : null}
+            </div>
+
+            <div className="ios-inset crm-inspector-panel crm-inspector-calls" style={{ padding: 10, display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
+                    {t('crm.pipeline.calls.title', { defaultValue: 'Rozmowy telefoniczne' })}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {t('crm.pipeline.calls.subtitle', { defaultValue: 'Nagrania, transkrypcje i raporty AI przypiete do tego leada.' })}
+                  </div>
+                </div>
+                {phoneCallsLoading ? <span className="muted" style={{ fontSize: 12 }}>{t('common.loading', { defaultValue: 'Ladowanie...' })}</span> : null}
+              </div>
+              <div className="ios-inset-list" style={{ maxHeight: 260, overflow: 'auto' }}>
+                {phoneCalls.map((call) => (
+                  <div key={call.id} className="ios-inset-row" style={{ display: 'grid', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 800, fontSize: 12 }}>
+                        {call.client_number || selectedLead.phone || 'numer nieznany'}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatActivityWhen(call.created_at, lng)}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span>{call.status || 'status nieznany'}</span>
+                      {call.recording_duration_sec != null ? <span>{call.recording_duration_sec}s</span> : null}
+                      {call.agent_name ? <span>{call.agent_name}</span> : null}
+                    </div>
+                    {call.raport ? (
+                      <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{call.raport}</div>
+                    ) : null}
+                    {call.transcript ? (
+                      <details style={{ fontSize: 12, color: 'var(--text-sub)' }}>
+                        <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+                          {t('crm.pipeline.calls.transcript', { defaultValue: 'Transkrypcja' })}
+                        </summary>
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: 6, lineHeight: 1.45 }}>
+                          {String(call.transcript).slice(0, 3000)}
+                        </div>
+                      </details>
+                    ) : null}
+                    {call.wskazowki_specjalisty ? (
+                      <details style={{ fontSize: 12, color: 'var(--text-sub)' }}>
+                        <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+                          {t('crm.pipeline.calls.coaching', { defaultValue: 'Wskazowki dla rozmowcy' })}
+                        </summary>
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: 6, lineHeight: 1.45 }}>
+                          {call.wskazowki_specjalisty}
+                        </div>
+                      </details>
+                    ) : null}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {call.recording_available ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          leftIcon={Download}
+                          loading={downloadingCallId === call.id}
+                          disabled={downloadingCallId === call.id}
+                          onClick={() => downloadPhoneCallRecording(call)}
+                        >
+                          {t('crm.pipeline.calls.download', { defaultValue: 'Pobierz nagranie' })}
+                        </Button>
+                      ) : (
+                        <span className="muted" style={{ fontSize: 11 }}>
+                          {t('crm.pipeline.calls.noRecording', { defaultValue: 'Nagranie jeszcze niedostepne' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {!phoneCallsLoading && phoneCalls.length === 0 ? (
+                  <div className="ios-inset-row muted">{t('crm.pipeline.calls.empty', { defaultValue: 'Brak rozmow telefonicznych przy tym leadzie.' })}</div>
+                ) : null}
+              </div>
             </div>
 
             <div className="ios-inset crm-inspector-panel crm-inspector-inbox" style={{ padding: 10, display: 'grid', gap: 8 }}>

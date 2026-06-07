@@ -11,6 +11,7 @@ const { createTemplate, listTemplates, renderTemplateById } = require('../servic
 const { createNpsSurvey, getNpsSummary, listNpsSurveys } = require('../services/crmNps');
 const { getMessageProviderStatus, processMessageQueue } = require('../services/crmMessageQueue');
 const { ensureCrmLeadMessagesTable } = require('../services/crmInbox');
+const { ensurePhoneCallsTable } = require('../services/phone-call-pipeline');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -1652,6 +1653,74 @@ router.get('/leads/:id/messages', async (req, res) => {
   } catch (err) {
     logger.error('crm.messages.get', { message: err.message });
     res.status(500).json({ error: 'Blad odczytu wiadomosci CRM' });
+  }
+});
+
+router.get('/leads/:id/calls', async (req, res) => {
+  const id = toInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
+  try {
+    const lead = (await pool.query('SELECT id, oddzial_id, phone FROM crm_leads WHERE id = $1', [id])).rows[0];
+    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
+
+    await ensurePhoneCallsTable();
+    const phoneDigits = String(lead.phone || '').replace(/\D/g, '');
+    const params = [id];
+    let contactSql = 'p.lead_id = $1';
+    if (phoneDigits) {
+      params.push(phoneDigits);
+      contactSql = `(p.lead_id = $1 OR regexp_replace(COALESCE(p.client_number, ''), '\\D', '', 'g') = $2)`;
+    }
+    const { rows } = await pool.query(
+      `SELECT
+         p.id,
+         p.twilio_call_sid,
+         p.twilio_recording_sid,
+         p.user_id,
+         p.task_id,
+         p.lead_id,
+         p.staff_number,
+         p.client_number,
+         p.recording_duration_sec,
+         p.recording_archive_backend,
+         p.recording_archive_ref,
+         p.recording_archive_url,
+         p.transcript,
+         p.raport,
+         p.wskazowki_specjalisty,
+         p.status,
+         p.error_message,
+         p.created_at,
+         p.updated_at,
+         u.imie,
+         u.nazwisko,
+         u.login
+       FROM phone_call_conversations p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE ${contactSql}
+       ORDER BY p.created_at DESC, p.id DESC
+       LIMIT 50`,
+      params
+    );
+
+    res.json(rows.map((row) => {
+      const hasRecording = Boolean(row.recording_archive_backend || row.recording_archive_ref || row.recording_archive_url);
+      return {
+        ...row,
+        agent_name: [row.imie, row.nazwisko].filter(Boolean).join(' ').trim() || row.login || null,
+        recording_available: hasRecording,
+        recording_download_url: hasRecording ? `/api/telefon/rozmowy/${row.id}/nagranie` : null,
+        imie: undefined,
+        nazwisko: undefined,
+        login: undefined,
+      };
+    }));
+  } catch (err) {
+    logger.error('crm.calls.get', { message: err.message });
+    res.status(500).json({ error: 'Nie udalo sie pobrac rozmow leada' });
   }
 });
 

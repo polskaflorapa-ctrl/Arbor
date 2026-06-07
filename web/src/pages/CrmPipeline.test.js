@@ -98,6 +98,20 @@ test('opens a lead detail panel from lead_id URL parameter', async () => {
     }
     if (url === '/crm/leads/51/activities') return Promise.resolve({ data: [] });
     if (url === '/crm/leads/51/messages') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/calls') {
+      return Promise.resolve({
+        data: [{
+          id: 301,
+          client_number: '+48500100200',
+          recording_duration_sec: 88,
+          recording_available: true,
+          transcript: 'Klient chce przyspieszyc ogledziny.',
+          raport: 'Ustalono kontakt jutro.',
+          status: 'analyzed',
+          created_at: '2026-06-06T10:00:00.000Z',
+        }],
+      });
+    }
     if (url === '/crm/leads/51/workflow-events') return Promise.resolve({ data: [] });
     if (url === '/crm/leads/51/nps-surveys') return Promise.resolve({ data: [] });
     if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Smoke oddzial' }] });
@@ -114,9 +128,13 @@ test('opens a lead detail panel from lead_id URL parameter', async () => {
 
   await screen.findByText('Deep linked lead');
   expect(await screen.findByText('Unified Inbox')).toBeInTheDocument();
+  expect(await screen.findByText('Rozmowy telefoniczne')).toBeInTheDocument();
+  expect(await screen.findByText('Ustalono kontakt jutro.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Pobierz nagranie/i })).toBeInTheDocument();
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith('/crm/leads/51/activities', expect.objectContaining({ headers: expect.any(Object) }));
     expect(api.get).toHaveBeenCalledWith('/crm/leads/51/messages', expect.objectContaining({ headers: expect.any(Object) }));
+    expect(api.get).toHaveBeenCalledWith('/crm/leads/51/calls', expect.objectContaining({ headers: expect.any(Object) }));
   });
 });
 
