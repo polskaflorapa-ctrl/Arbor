@@ -29,6 +29,11 @@ describe('OpenAPI docs', () => {
     expect(res.text).toContain('/telefon/test-flow:');
     expect(res.text).toContain('/flota/rezerwacje:');
     expect(res.text).toContain('FlotaRezerwacjaCreate:');
+    expect(res.text).toContain('/rozliczenia/zadanie/{taskId}:');
+    expect(res.text).toContain('/rozliczenia/zadanie/{taskId}/koszty-operacyjne:');
+    expect(res.text).toContain('/rozliczenia/zadanie/{taskId}/materialy:');
+    expect(res.text).toContain('OperationalCostCreate:');
+    expect(res.text).toContain('MaterialCostCreate:');
     expect(res.text).toContain('/raporty/mobile:');
     expect(res.text).toContain('/mobile/reports:');
   });
