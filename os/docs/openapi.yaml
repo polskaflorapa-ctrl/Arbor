@@ -450,6 +450,91 @@ paths:
       responses:
         "200":
           description: Sumy + tablica `miesiace`
+  /rozliczenia/zadanie/{taskId}:
+    get:
+      summary: Dane rozliczenia zadania, godziny i koszty do marzy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Zadanie, pomocnicy, rozliczenie, koszty operacyjne i materialy
+        "404":
+          description: Zadanie nie istnieje
+    post:
+      summary: Oblicz i zapisz rozliczenie brutto/VAT
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wartosc_brutto]
+              properties:
+                wartosc_brutto: { type: number, minimum: 0 }
+                vat_stawka: { type: number, minimum: 0, maximum: 100, default: 8 }
+                procent_brygadzisty: { type: number, minimum: 0, maximum: 100 }
+      responses:
+        "200":
+          description: Zapisane rozliczenie
+        "403":
+          description: Brak roli
+  /rozliczenia/zadanie/{taskId}/koszty-operacyjne:
+    post:
+      summary: Dodaj koszt operacyjny do marzy zadania
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperationalCostCreate'
+      responses:
+        "201":
+          description: Zapisany koszt operacyjny (`task_operational_costs`)
+        "403":
+          description: Brak roli lub dostepu do oddzialu zadania
+        "404":
+          description: Zadanie nie istnieje
+  /rozliczenia/zadanie/{taskId}/materialy:
+    post:
+      summary: Dodaj material do marzy zadania
+      description: Zapisuje wiersz w `task_finish_material_usage`, ktory BI liczy jako lane `material_cost`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaterialCostCreate'
+      responses:
+        "201":
+          description: Zapisany material (`task_finish_material_usage`)
+        "400":
+          description: Brak kosztu lacznego albo ilosci i kosztu jednostkowego
+        "403":
+          description: Brak roli lub dostepu do oddzialu zadania
+        "404":
+          description: Zadanie nie istnieje
   /mobile/me/team-day-report:
     get:
       summary: Raport dnia ekipy zalogowanego użytkownika (ekipa = users.ekipa_id)
@@ -3169,6 +3254,26 @@ components:
       required: [status]
       properties:
         status: { type: string }
+    OperationalCostCreate:
+      type: object
+      required: [category, amount]
+      properties:
+        category:
+          type: string
+          enum: [sprzet, paliwo, utylizacja, inne]
+        amount: { type: number, minimum: 0 }
+        label: { type: string, maxLength: 120 }
+        note: { type: string, maxLength: 500 }
+    MaterialCostCreate:
+      type: object
+      required: [nazwa]
+      properties:
+        nazwa: { type: string, maxLength: 200 }
+        ilosc: { type: number, nullable: true }
+        jednostka: { type: string, maxLength: 24, nullable: true }
+        koszt_jednostkowy: { type: number, nullable: true }
+        koszt_laczny: { type: number, nullable: true }
+        notatka: { type: string, maxLength: 500, nullable: true }
     TaskFinishBody:
       type: object
       properties:
