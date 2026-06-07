@@ -6,6 +6,7 @@ import {
   saveRecentCity
 } from '../utils/citySuggestions';
 import { normalizeCityName } from '../utils/cityFormat';
+import { Button } from './ui/Button';
 
 export default function CityInput({
   value,
@@ -61,9 +62,10 @@ export default function CityInput({
             Ostatnie:
           </span>
           {recentCities.map((city) => (
-            <button
+            <Button
               key={city}
-              type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => applyCityValue(city)}
               style={{
                 border: '1px solid var(--border)',
@@ -75,10 +77,11 @@ export default function CityInput({
                 cursor: 'pointer',
               }}>
               {city}
-            </button>
+            </Button>
           ))}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               clearRecentCities();
               refreshRecentCities();
@@ -93,7 +96,7 @@ export default function CityInput({
               cursor: 'pointer',
             }}>
             Wyczyść
-          </button>
+          </Button>
         </div>
       )}
       <datalist id={resolvedListId}>

@@ -213,6 +213,11 @@ function MaintenanceControlPanel({ summary, activeFilter, onOpenRepairs, onNewRe
           <small>udokumentowane koszty</small>
         </div>
         <div style={S.maintenanceMetric}>
+          <span>Czesci</span>
+          <strong>{formatMoney(summary.partsCost)}</strong>
+          <small>materialy w naprawach</small>
+        </div>
+        <div style={S.maintenanceMetric}>
           <span>Po terminie</span>
           <strong style={{ color: summary.overdueCount ? 'var(--danger)' : 'var(--text)' }}>{summary.overdueCount}</strong>
           <small>{summary.soonCount} blisko terminu</small>
@@ -266,6 +271,9 @@ export default function Flota() {
   const [repairInvoices, setRepairInvoices] = useState({});
   const [invoiceDrafts, setInvoiceDrafts] = useState({});
   const [invoiceUploadingId, setInvoiceUploadingId] = useState('');
+  const [repairParts, setRepairParts] = useState({});
+  const [partDrafts, setPartDrafts] = useState({});
+  const [partSavingId, setPartSavingId] = useState('');
   const [repairQuickFilter, setRepairQuickFilter] = useState('all');
 
   const [formPojazd, setFormPojazd] = useState({
@@ -669,6 +677,63 @@ export default function Flota() {
     }
   };
 
+  const loadRepairParts = async (repairId) => {
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/flota/naprawy/${repairId}/czesci`, { headers: authHeaders(token), dedupe: false });
+      setRepairParts((prev) => ({ ...prev, [repairId]: Array.isArray(data) ? data : [] }));
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie pobrac czesci naprawy.')));
+    }
+  };
+
+  const setPartDraft = (repairId, field, value) => {
+    setPartDrafts((prev) => ({
+      ...prev,
+      [repairId]: {
+        nazwa: '',
+        ilosc: '1',
+        cena: '',
+        kategoria: 'Czesc',
+        ...(prev[repairId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const addRepairPart = async (repair) => {
+    const draft = partDrafts[repair.id] || {};
+    if (!String(draft.nazwa || '').trim()) return;
+    setPartSavingId(String(repair.id));
+    try {
+      const token = getStoredToken();
+      await api.post(`/flota/naprawy/${repair.id}/czesci`, {
+        nazwa: draft.nazwa,
+        ilosc: draft.ilosc || 1,
+        cena: draft.cena || 0,
+        kategoria: draft.kategoria || 'Czesc',
+      }, { headers: authHeaders(token) });
+      showMsg(successMessage('Czesc dodana do naprawy.'));
+      setPartDrafts((prev) => ({ ...prev, [repair.id]: { nazwa: '', ilosc: '1', cena: '', kategoria: 'Czesc' } }));
+      await Promise.all([loadRepairParts(repair.id), loadAll()]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie dodac czesci.')));
+    } finally {
+      setPartSavingId('');
+    }
+  };
+
+  const deleteRepairPart = async (repair, partId) => {
+    try {
+      const token = getStoredToken();
+      await api.delete(`/flota/naprawy/${repair.id}/czesci/${partId}`, { headers: authHeaders(token) });
+      showMsg(successMessage('Czesc usunieta z naprawy.'));
+      await Promise.all([loadRepairParts(repair.id), loadAll()]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie usunac czesci.')));
+    }
+  };
+
   const openEmptyRepairDraft = () => {
     const defaultItem = filtrSprzet[0] || filtrPojazdy[0] || null;
     const kind = defaultItem && filtrSprzet[0] ? 'sprzet' : 'pojazd';
@@ -853,7 +918,7 @@ export default function Flota() {
 
   const exportRepairsCsv = (rows = naprawy) => {
     const sourceRows = Array.isArray(rows) && rows.length ? rows : naprawy;
-    const header = ['id', 'typ_zasobu', 'zasob', 'data_naprawy', 'data_zakonczenia', 'przestoj_dni', 'strata_dzienna', 'strata_przestoju', 'termin_odbioru', 'termin_status', 'priorytet', 'status', 'koszt', 'faktury_kwota', 'faktury_count', 'usterka', 'wykonawca'];
+    const header = ['id', 'typ_zasobu', 'zasob', 'data_naprawy', 'data_zakonczenia', 'przestoj_dni', 'strata_dzienna', 'strata_przestoju', 'termin_odbioru', 'termin_status', 'priorytet', 'status', 'koszt', 'faktury_kwota', 'faktury_count', 'czesci_kwota', 'czesci_count', 'usterka', 'wykonawca'];
     const csv = [
       header.join(';'),
       ...sourceRows.map((repair) => {
@@ -874,6 +939,8 @@ export default function Flota() {
           Number(repair.koszt || 0) || '',
           Number(repair.faktury_kwota || 0) || '',
           Number(repair.faktury_count || 0) || 0,
+          Number(repair.czesci_kwota || 0) || '',
+          Number(repair.czesci_count || 0) || 0,
           repair.opis_usterki || '',
           repair.wykonawca || '',
         ].map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';');
@@ -1003,7 +1070,7 @@ export default function Flota() {
     [resourceCards],
   );
   const repairCostTotal = useMemo(
-    () => naprawy.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0),
+    () => naprawy.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0) + (Number(repair.czesci_kwota || 0) || 0), 0),
     [naprawy],
   );
   const fleetCommand = useMemo(() => {
@@ -1046,7 +1113,7 @@ export default function Flota() {
     const repairs = naprawy
       .filter((repair) => normalizeRepairKind(repair.typ_zasobu) === kind && String(repair.zasob_id) === String(item.id))
       .sort((a, b) => String(b.data_naprawy || '').localeCompare(String(a.data_naprawy || '')));
-    const repairCost = repairs.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0);
+    const repairCost = repairs.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0) + (Number(repair.czesci_kwota || 0) || 0), 0);
     const downtimeLoss = repairs.reduce((sum, repair) => sum + repairDowntimeLoss(repair), 0);
     const documents = assetDocuments[key] || [];
     const documentAlerts = documents.map((doc) => documentDueAlert(doc)).filter(Boolean);
@@ -1188,7 +1255,7 @@ export default function Flota() {
       const current = rows.get(key) || { count: 0, open: 0, cost: 0, lastDate: null };
       current.count += 1;
       if (!repairIsClosed(repair.status)) current.open += 1;
-      current.cost += Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0;
+      current.cost += (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0) + (Number(repair.czesci_kwota || 0) || 0);
       if (!current.lastDate || String(repair.data_naprawy || '') > String(current.lastDate || '')) {
         current.lastDate = repair.data_naprawy || null;
       }
@@ -1203,10 +1270,11 @@ export default function Flota() {
     const downtimeDays = naprawy.reduce((sum, repair) => sum + repairDowntimeDays(repair), 0);
     const downtimeLoss = naprawy.reduce((sum, repair) => sum + repairDowntimeLoss(repair), 0);
     const invoiceCost = naprawy.reduce((sum, repair) => sum + (Number(repair.faktury_kwota || 0) || 0), 0);
-    const openCost = openRows.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0);
+    const partsCost = naprawy.reduce((sum, repair) => sum + (Number(repair.czesci_kwota || 0) || 0), 0);
+    const openCost = openRows.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0) + (Number(repair.czesci_kwota || 0) || 0), 0);
     const withoutInvoice = naprawy.filter((repair) => Number(repair.faktury_count || 0) === 0 && Number(repair.koszt || 0) > 0);
     const topRepairs = [...naprawy]
-      .map((repair) => ({ ...repair, costValue: Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0 }))
+      .map((repair) => ({ ...repair, costValue: (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0) + (Number(repair.czesci_kwota || 0) || 0) }))
       .filter((repair) => repair.costValue > 0)
       .sort((a, b) => b.costValue - a.costValue)
       .slice(0, 4)
@@ -1215,6 +1283,7 @@ export default function Flota() {
       allCount: naprawy.length,
       totalCost: repairCostTotal,
       invoiceCost,
+      partsCost,
       openCost,
       openCount: openRows.length,
       overdueCount: overdueRows.length,

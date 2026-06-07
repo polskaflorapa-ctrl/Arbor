@@ -5,6 +5,7 @@ import {
   isTaskClosed,
   isTaskInProgress,
 } from '../utils/taskWorkflow';
+import { Button } from './ui/Button';
 
 function day(value) {
   return value ? String(value).slice(0, 10) : '';
@@ -164,14 +165,14 @@ export default function TaskCommandCenter({
           <span style={s.valueLabel}>Wartość</span>
           <span style={s.value}>{formatCurrency ? formatCurrency(value) : value}</span>
         </div>
-        <button type="button" style={s.primaryBtn} onClick={runMove}>
+        <Button style={s.primaryBtn} onClick={runMove}>
           Otwórz akcję
-        </button>
+        </Button>
       </div>
 
       <div style={s.grid}>
         {checks.map((item) => (
-          <button key={item.key} type="button" style={s.check} onClick={() => onOpenTab?.(item.target)}>
+          <Button key={item.key} variant="secondary" style={s.check} onClick={() => onOpenTab?.(item.target)}>
             <span style={{ ...s.dot, background: item.ok ? 'var(--accent)' : 'var(--warning)' }} />
             <span style={s.checkText}>
               <span style={s.checkLabel}>{item.label}</span>
@@ -180,7 +181,7 @@ export default function TaskCommandCenter({
             <span style={{ ...s.state, color: item.ok ? 'var(--accent)' : 'var(--warning)' }}>
               {item.ok ? 'OK' : 'Do uzupełnienia'}
             </span>
-          </button>
+          </Button>
         ))}
       </div>
     </section>

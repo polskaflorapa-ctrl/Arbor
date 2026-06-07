@@ -97,6 +97,7 @@ export default function MagazynMobileScreen() {
       </View>
       <ScrollView
         style={S.scroll}
+        contentContainerStyle={S.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={theme.accent} />
         }
@@ -111,7 +112,7 @@ export default function MagazynMobileScreen() {
         {items.map((it) => {
           const low = it.minQty > 0 && it.qty < it.minQty;
           return (
-            <View key={it.id} style={[S.card, low && { borderColor: theme.danger }]}>
+            <View key={it.id} style={[S.card, low && { borderColor: theme.danger, backgroundColor: theme.dangerBg }]}>
               <View style={S.rowTop}>
                 <Text style={S.label}>{it.label}</Text>
                 <TouchableOpacity onPress={() => Alert.alert('', t('warehouse.confirmRemove'), [
@@ -166,29 +167,29 @@ function makeStyles(theme: Theme) {
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg },
     header: {
       backgroundColor: theme.cardBg,
-      marginHorizontal: 14,
-      marginTop: 12,
-      marginBottom: 10,
+      marginHorizontal: 12,
+      marginTop: 10,
+      marginBottom: 8,
       paddingHorizontal: 12,
-      paddingTop: 18,
-      paddingBottom: 16,
-      borderRadius: 20,
+      paddingTop: 14,
+      paddingBottom: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       ...shadowStyle(theme, {
-        opacity: theme.shadowOpacity * 0.14,
-        radius: theme.shadowRadius * 0.45,
-        offsetY: 3,
-        elevation: theme.cardElevation + 1,
+        opacity: theme.shadowOpacity * 0.18,
+        radius: theme.shadowRadius * 0.46,
+        offsetY: 2,
+        elevation: Math.max(1, theme.cardElevation),
       }),
     },
     backBtn: {
       width: 42,
       height: 42,
-      borderRadius: 14,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface2,
@@ -198,7 +199,7 @@ function makeStyles(theme: Theme) {
     headerIcon: {
       width: 44,
       height: 44,
-      borderRadius: 15,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: theme.accent,
       backgroundColor: theme.accentLight,
@@ -213,12 +214,12 @@ function makeStyles(theme: Theme) {
       textTransform: 'uppercase',
       letterSpacing: 0,
     },
-    headerTitle: { color: theme.text, fontSize: 20, lineHeight: 24, fontWeight: '900', marginTop: 2 },
+    headerTitle: { color: theme.text, fontSize: 19, lineHeight: 23, fontWeight: '900', marginTop: 2 },
     headerSub: { color: theme.textSub, fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
     headerCount: {
       minWidth: 58,
       minHeight: 48,
-      borderRadius: 14,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface2,
@@ -230,7 +231,7 @@ function makeStyles(theme: Theme) {
     headerCountLabel: { color: theme.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
     statsRow: {
       flexDirection: 'row',
-      marginHorizontal: 14,
+      marginHorizontal: 12,
       marginBottom: 8,
       gap: 8,
     },
@@ -238,7 +239,7 @@ function makeStyles(theme: Theme) {
       flex: 1,
       minHeight: 74,
       backgroundColor: theme.cardBg,
-      borderRadius: 15,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       alignItems: 'center',
@@ -247,14 +248,15 @@ function makeStyles(theme: Theme) {
     },
     statValue: { color: theme.text, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
     statLabel: { color: theme.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
-    scroll: { flex: 1, paddingHorizontal: 14, paddingTop: 4 },
+    scroll: { flex: 1, paddingHorizontal: 12, paddingTop: 4 },
+    scrollContent: { paddingBottom: 24 },
     hint: { color: theme.textMuted, marginBottom: 12, fontSize: 13, fontWeight: '700', lineHeight: 18 },
     empty: {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
       minHeight: 140,
-      borderRadius: 18,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       backgroundColor: theme.cardBg,
@@ -263,29 +265,34 @@ function makeStyles(theme: Theme) {
     emptyTitle: { color: theme.textMuted, fontSize: 13, fontWeight: '800' },
     card: {
       backgroundColor: theme.cardBg,
-      borderRadius: 18,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: theme.cardBorder,
-      padding: 14,
+      padding: 12,
       marginBottom: 10,
+      minHeight: 118,
       ...shadowStyle(theme, {
-        opacity: theme.shadowOpacity * 0.08,
-        radius: theme.shadowRadius * 0.28,
-        offsetY: 1,
-        elevation: Math.max(1, theme.cardElevation - 1),
+        opacity: theme.shadowOpacity * 0.14,
+        radius: theme.shadowRadius * 0.4,
+        offsetY: 2,
+        elevation: Math.max(1, theme.cardElevation),
       }),
     },
-    rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    label: { fontSize: 16, fontWeight: '900', color: theme.text, flex: 1 },
-    qty: { marginTop: 7, color: theme.textSub, fontSize: 14, fontWeight: '800' },
-    btns: { flexDirection: 'row', gap: 10, marginTop: 10 },
+    rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+    label: { fontSize: 16, lineHeight: 20, fontWeight: '900', color: theme.text, flex: 1 },
+    qty: { marginTop: 7, color: theme.textSub, fontSize: 13, lineHeight: 17, fontWeight: '800' },
+    btns: { flexDirection: 'row', gap: 8, marginTop: 12 },
     qbtn: {
+      flex: 1,
+      minHeight: 44,
       paddingHorizontal: 16,
       paddingVertical: 9,
-      borderRadius: 12,
+      borderRadius: 10,
       backgroundColor: theme.surface2,
       borderWidth: 1,
       borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     qbtnTxt: { fontWeight: '900', color: theme.text },
     addRow: { flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 24 },
@@ -293,19 +300,21 @@ function makeStyles(theme: Theme) {
       flex: 1,
       borderWidth: 1,
       borderColor: theme.inputBorder,
-      borderRadius: 14,
+      borderRadius: 10,
       paddingHorizontal: 12,
       paddingVertical: 10,
+      minHeight: 48,
       color: theme.inputText,
       backgroundColor: theme.inputBg,
       fontWeight: '700',
     },
     addBtn: {
       width: 48,
+      minHeight: 48,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.accent,
-      borderRadius: 14,
+      borderRadius: 10,
     },
   });
 }

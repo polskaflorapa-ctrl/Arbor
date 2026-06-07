@@ -81,6 +81,7 @@ function migrateState(state, saveState) {
   ensure('flotaDokumenty', () => [...(seed.flotaDokumenty || [])]);
   ensure('flotaHistoria', () => [...(seed.flotaHistoria || [])]);
   ensure('flotaFakturyNapraw', () => [...(seed.flotaFakturyNapraw || [])]);
+  ensure('flotaCzesciNapraw', () => [...(seed.flotaCzesciNapraw || [])]);
   ensure('nextFlotaPojazdId', seed.nextFlotaPojazdId || 1);
   ensure('nextFlotaSprzetId', seed.nextFlotaSprzetId || 1);
   ensure('nextFlotaNaprawaId', seed.nextFlotaNaprawaId || 1);
@@ -88,6 +89,7 @@ function migrateState(state, saveState) {
   ensure('nextFlotaDokumentId', seed.nextFlotaDokumentId || 1);
   ensure('nextFlotaHistoriaId', seed.nextFlotaHistoriaId || 1);
   ensure('nextFlotaFakturaNaprawId', seed.nextFlotaFakturaNaprawId || 1);
+  ensure('nextFlotaCzescNaprawyId', seed.nextFlotaCzescNaprawyId || 1);
   ensure('equipmentReservations', () => [...(seed.equipmentReservations || [])]);
   ensure('nextEquipmentReservationId', seed.nextEquipmentReservationId || 1);
   ensure('dailyReports', () => [...(seed.dailyReports || [])]);

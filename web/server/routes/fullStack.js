@@ -2280,13 +2280,18 @@ module.exports = function registerFullStack(router) {
   router.get('/flota/naprawy', requireAuth, (req, res) => {
     res.json(readOnly((s) => {
       const invoices = s.flotaFakturyNapraw || [];
+      const parts = s.flotaCzesciNapraw || [];
       return (s.flotaNaprawy || []).map((repair) => {
         const repairInvoices = invoices.filter((x) => Number(x.naprawa_id) === Number(repair.id));
         const faktury_kwota = repairInvoices.reduce((sum, x) => sum + (Number(x.kwota) || 0), 0);
+        const repairParts = parts.filter((x) => Number(x.naprawa_id) === Number(repair.id));
+        const czesci_kwota = repairParts.reduce((sum, x) => sum + (Number(x.kwota_laczna) || 0), 0);
         return {
           ...repair,
           faktury_count: repairInvoices.length,
           faktury_kwota,
+          czesci_count: repairParts.length,
+          czesci_kwota,
         };
       });
     }));
@@ -2527,6 +2532,86 @@ module.exports = function registerFullStack(router) {
     res.json({ ok: true });
   });
 
+  router.get('/flota/naprawy/:id/czesci', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+    const rows = readOnly((s) => (s.flotaCzesciNapraw || [])
+      .filter((x) => Number(x.naprawa_id) === id)
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+    res.json(rows);
+  });
+
+  router.post('/flota/naprawy/:naprawaId/czesci', requireAuth, (req, res) => {
+    const naprawaId = toNum(req.params.naprawaId);
+    const b = req.body || {};
+    if (!naprawaId || !String(b.nazwa || '').trim()) return res.status(400).json({ error: 'Nazwa czesci jest wymagana' });
+    const row = withStore((s) => {
+      const repair = (s.flotaNaprawy || []).find((x) => Number(x.id) === naprawaId);
+      if (!repair) return null;
+      if (!canSeeAll(req.user) && String(repair.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      if (!s.flotaCzesciNapraw) s.flotaCzesciNapraw = [];
+      if (!s.nextFlotaCzescNaprawyId) s.nextFlotaCzescNaprawyId = 1;
+      const ilosc = Math.max(1, Number(b.ilosc || 1) || 1);
+      const cena = Math.max(0, Number(b.cena || 0) || 0);
+      const part = {
+        id: s.nextFlotaCzescNaprawyId++,
+        naprawa_id: naprawaId,
+        nazwa: String(b.nazwa || '').trim().slice(0, 200),
+        ilosc,
+        cena,
+        kwota_laczna: Math.round(ilosc * cena * 100) / 100,
+        kategoria: b.kategoria ? String(b.kategoria).trim().slice(0, 100) : 'Czesc',
+        created_by: req.user.id,
+        created_by_name: userName(s, req.user.id),
+        created_at: new Date().toISOString(),
+      };
+      s.flotaCzesciNapraw.push(part);
+      const currentCost = Number(repair.koszt || 0) || 0;
+      repair.koszt = Math.max(currentCost, part.kwota_laczna);
+      addFleetHistory(
+        s,
+        req.user,
+        repair.typ_zasobu === 'Pojazd' ? 'pojazdy' : 'sprzet',
+        repair.zasob_id,
+        'Dodano czesc do naprawy',
+        `${part.nazwa} / ${part.ilosc} x ${part.cena} zl`,
+        { repair_id: repair.id, part_id: part.id, kwota: part.kwota_laczna },
+      );
+      return part;
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono naprawy' });
+    res.status(201).json(row);
+  });
+
+  router.delete('/flota/naprawy/:naprawaId/czesci/:partId', requireAuth, (req, res) => {
+    const naprawaId = toNum(req.params.naprawaId);
+    const partId = toNum(req.params.partId);
+    if (!naprawaId || !partId) return res.status(400).json({ error: 'Nieprawidlowe id' });
+    const deleted = withStore((s) => {
+      const repair = (s.flotaNaprawy || []).find((x) => Number(x.id) === naprawaId);
+      if (!repair) return null;
+      if (!canSeeAll(req.user) && String(repair.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      const rows = s.flotaCzesciNapraw || [];
+      const idx = rows.findIndex((x) => Number(x.naprawa_id) === naprawaId && Number(x.id) === partId);
+      if (idx === -1) return null;
+      const [part] = rows.splice(idx, 1);
+      addFleetHistory(
+        s,
+        req.user,
+        repair.typ_zasobu === 'Pojazd' ? 'pojazdy' : 'sprzet',
+        repair.zasob_id,
+        'Usunieto czesc z naprawy',
+        part.nazwa || `Czesc #${part.id}`,
+        { repair_id: repair.id, part_id: part.id },
+      );
+      return part;
+    });
+    if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!deleted) return res.status(404).json({ error: 'Nie znaleziono czesci' });
+    res.json({ ok: true });
+  });
+
   router.post('/flota/pojazdy', requireAuth, (req, res) => {
     const b = req.body || {};
     const row = withStore((s) => {
@@ -2724,6 +2809,8 @@ module.exports = function registerFullStack(router) {
       rows.splice(idx, 1);
       const invoices = s.flotaFakturyNapraw || [];
       s.flotaFakturyNapraw = invoices.filter((x) => Number(x.naprawa_id) !== id);
+      const parts = s.flotaCzesciNapraw || [];
+      s.flotaCzesciNapraw = parts.filter((x) => Number(x.naprawa_id) !== id);
       const assetArr = repair.typ_zasobu === 'Pojazd' ? (s.flotaPojazdy || []) : (s.flotaSprzet || []);
       const asset = assetArr.find((x) => Number(x.id) === Number(repair.zasob_id));
       const hasOtherOpen = rows.some((x) =>
