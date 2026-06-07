@@ -6,9 +6,11 @@ import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
+import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { Archive, Check, Download, RefreshCw, Save } from 'lucide-react';
 
 function currentYm() {
   return new Date().toISOString().slice(0, 7);
@@ -58,9 +60,9 @@ function PayrollLineCorrectionRow({ line, reportId, locked, saving, onSave, t, b
         { label: t('payrollM11.thNote'), value: locked ? '—' : <input style={{ ...inp, maxWidth: 200 }} placeholder={t('payrollM11.lineCorrectionNotePh')} value={note} onChange={(e) => setNote(e.target.value)} />, mono: false },
       ]}
       actions={!locked ? (
-        <button type="button" style={btnPri} disabled={saving} onClick={submit}>
+        <Button type="button" size="sm" leftIcon={Save} style={btnPri} loading={saving} onClick={submit}>
           {saving ? '…' : t('payrollM11.lineCorrectionSave')}
-        </button>
+        </Button>
       ) : null}
     />
   );
@@ -411,21 +413,21 @@ export default function PayrollM11() {
             />
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <button type="button" style={btnPri} onClick={() => downloadExport('csv')}>
+            <Button type="button" leftIcon={Download} style={btnPri} onClick={() => downloadExport('csv')}>
               {t('payrollM11.exportCsv')}
-            </button>
-            <button type="button" style={btnSec} onClick={() => downloadExport('symfonia')}>
+            </Button>
+            <Button type="button" variant="outline" leftIcon={Download} style={btnSec} onClick={() => downloadExport('symfonia')}>
               {t('payrollM11.exportSymfonia')}
-            </button>
-            <button type="button" style={btnSec} onClick={() => downloadExport('optima')}>
+            </Button>
+            <Button type="button" variant="outline" leftIcon={Download} style={btnSec} onClick={() => downloadExport('optima')}>
               {t('payrollM11.exportOptima')}
-            </button>
-            <button type="button" style={btnSec} onClick={() => downloadExport('comarch')}>
+            </Button>
+            <Button type="button" variant="outline" leftIcon={Download} style={btnSec} onClick={() => downloadExport('comarch')}>
               {t('payrollM11.exportComarch')}
-            </button>
-            <button type="button" style={btnPri} onClick={() => downloadExportZip()}>
+            </Button>
+            <Button type="button" leftIcon={Archive} style={btnPri} onClick={() => downloadExportZip()}>
               {t('payrollM11.exportZip')}
-            </button>
+            </Button>
           </div>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 12, marginBottom: 0 }}>
             {t('payrollM11.exportZipHint')}
@@ -444,9 +446,9 @@ export default function PayrollM11() {
                 />
                 tylko brakujące
               </label>
-              <button type="button" style={btnSec} onClick={() => void loadDayReports()} disabled={loadingReports}>
+              <Button type="button" variant="outline" leftIcon={RefreshCw} style={btnSec} onClick={() => void loadDayReports()} loading={loadingReports}>
                 {t('payrollM11.dayReportsRefresh')}
-              </button>
+              </Button>
             </div>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8, marginBottom: 12 }}>
@@ -483,9 +485,9 @@ export default function PayrollM11() {
                 </div>
                 {!rep.approved_at ? (
                   <div style={{ marginBottom: 8 }}>
-                    <button type="button" style={btnSec} onClick={() => void approveTeamDayReport(rep.id)}>
+                    <Button type="button" variant="outline" leftIcon={Check} style={btnSec} onClick={() => void approveTeamDayReport(rep.id)}>
                       Zatwierdź raport dnia
-                    </button>
+                    </Button>
                   </div>
                 ) : null}
                 <div className="modern-data-stack">
@@ -512,12 +514,12 @@ export default function PayrollM11() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{t('payrollM11.correctionLogSection')}</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" style={btnSec} onClick={() => void loadCorrectionLog()} disabled={loadingCorrectionLog}>
+              <Button type="button" variant="outline" leftIcon={RefreshCw} style={btnSec} onClick={() => void loadCorrectionLog()} loading={loadingCorrectionLog}>
                 {t('payrollM11.correctionLogRefresh')}
-              </button>
-              <button type="button" style={btnSec} onClick={downloadCorrectionLogCsv}>
+              </Button>
+              <Button type="button" variant="outline" leftIcon={Download} style={btnSec} onClick={downloadCorrectionLogCsv}>
                 {t('payrollM11.correctionLogExportCsv')}
-              </button>
+              </Button>
             </div>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8, marginBottom: 12 }}>
@@ -555,9 +557,9 @@ export default function PayrollM11() {
         <div className="payroll-m11-card payroll-m11-estimators" style={{ ...card, marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{t('payrollM11.estimatorSection')}</h3>
-            <button type="button" style={btnSec} onClick={loadAccrual} disabled={loadingAccrual}>
+            <Button type="button" variant="outline" leftIcon={RefreshCw} style={btnSec} onClick={loadAccrual} loading={loadingAccrual}>
               {t('payrollM11.loadAccrual')}
-            </button>
+            </Button>
           </div>
           {!accrual.length && !loadingAccrual ? (
             <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 0 }}>{t('payrollM11.emptyAccrual')}</p>

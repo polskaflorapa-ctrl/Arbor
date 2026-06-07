@@ -1053,6 +1053,41 @@ paths:
           description: Rekord rozmowy (`raport`, `wskazowki_specjalisty`, transkrypt, status archiwum nagrania itd.)
         "404":
           description: Nie znaleziono lub cudzy rekord
+  /telefon/test-flow:
+    post:
+      summary: Test end-to-end rozmowy telefonicznej do CRM
+      description: |
+        Tworzy syntetyczna rozmowe telefoniczna, publikuje artefakty do CRM i zwraca powiazany `lead_id` / `crm_message_id`.
+        Endpoint sluzy do sprawdzenia przeplywu Telefonia -> CRM bez wykonywania prawdziwego polaczenia.
+        Kierownik moze testowac tylko swoj oddzial; Dyrektor / Prezes moze wskazac dowolny oddzial.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oddzial_id, phone]
+              properties:
+                oddzial_id: { type: integer, minimum: 1 }
+                phone:
+                  type: string
+                  description: Numer klienta; akceptuje np. `500100200`, `48500100200`, `+48500100200`.
+                transcript:
+                  type: string
+                  nullable: true
+                  maxLength: 4000
+                raport:
+                  type: string
+                  nullable: true
+                  maxLength: 2000
+      responses:
+        "201":
+          description: `{ ok, call, lead_id, crm_message_id, message }`
+        "400":
+          description: Nieprawidlowy numer lub walidacja body
+        "403":
+          description: Brak dostepu do oddzialu albo rola ekipy polowej
   /telefon/webhooks/recording:
     post:
       summary: Webhook Twilio — zakończenie nagrania (application/x-www-form-urlencoded)

@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -196,8 +196,7 @@ test('edits and deletes equipment from fleet cards CRUD flow', async () => {
 
   expect(screen.getByText('Edytuj sprzet')).toBeInTheDocument();
   const nameInput = screen.getByDisplayValue('Rebak Forst');
-  await userEvent.clear(nameInput);
-  await userEvent.type(nameInput, 'Rebak Forst ST8');
+  fireEvent.change(nameInput, { target: { value: 'Rebak Forst ST8' } });
   await userEvent.click(screen.getByRole('button', { name: 'Zapisz sprzet' }));
 
   await waitFor(() => {

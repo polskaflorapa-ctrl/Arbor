@@ -79,7 +79,7 @@ function zleceniaRows(state) {
 }
 
 function canSeeAll(user) {
-  return ['Prezes', 'Dyrektor'].includes(user.rola);
+  return ['Prezes', 'Dyrektor', 'Administrator'].includes(user.rola);
 }
 
 function isSalesDirector(user) {

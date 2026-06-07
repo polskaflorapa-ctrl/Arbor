@@ -21,6 +21,8 @@ const TABS = [
   { key: 'dzien',       label: '📊 Mój dzień' },
 ];
 
+const VALID_TABS = new Set(TABS.map((tab) => tab.key));
+
 const STATUS_COLOR = {
   Potwierdzone: '#4ade80',
   Odrzucone:    '#f87171',
@@ -39,9 +41,10 @@ export default function RozliczeniaFieldEntry() {
   const navigate    = useNavigate();
   const [params]    = useSearchParams();
   const taskIdParam = params.get('task_id') || '';
+  const tabParam    = params.get('tab') || '';
 
   const [user, setUser]         = useState(null);
-  const [tab, setTab]           = useState('godziny');
+  const [tab, setTab]           = useState(VALID_TABS.has(tabParam) ? tabParam : 'godziny');
   const [msg, setMsg]           = useState(null); // {type:'ok'|'err', text}
   const [saving, setSaving]     = useState(false);
 
@@ -121,6 +124,10 @@ export default function RozliczeniaFieldEntry() {
   }, [taskIdParam, loadTask]);
 
   // ─── Ładowanie dnia ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (VALID_TABS.has(tabParam)) setTab(tabParam);
+  }, [tabParam]);
+
   const loadDay = useCallback(async () => {
     if (!user?.id) return;
     try {

@@ -76,6 +76,12 @@ function todayYmd() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function addMonthsYmd(months) {
+  const date = new Date();
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString().slice(0, 10);
+}
+
 function formatMoney(value) {
   const amount = Number(value || 0);
   return `${amount.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zl`;
@@ -250,14 +256,14 @@ export default function Flota() {
     const parsed = getLocalStorageJson('user');
     if (parsed) {
       setCurrentUser(parsed);
-      if (!['Prezes', 'Dyrektor'].includes(parsed.rola)) {
+      if (!['Prezes', 'Dyrektor', 'Administrator'].includes(parsed.rola)) {
         setFiltrOddzial(parsed.oddzial_id?.toString() || '');
       }
     }
     loadAll();
   }, [navigate, loadAll]);
 
-  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
+  const isDyrektor = ['Prezes', 'Dyrektor', 'Administrator'].includes(currentUser?.rola);
   const canEdit = isDyrektor || currentUser?.rola === 'Kierownik';
 
   const resetPojazdForm = () => {
@@ -425,6 +431,24 @@ export default function Flota() {
     }
   };
 
+  const renewAssetInspection = async (type, item, months = 12) => {
+    try {
+      const token = getStoredToken();
+      const nextDate = addMonthsYmd(months);
+      const payload = {
+        ...item,
+        data_przegladu: nextDate,
+        oddzial_id: item.oddzial_id || currentUser?.oddzial_id || '',
+        ekipa_id: item.ekipa_id || '',
+      };
+      await api.put(`/flota/${type}/${item.id}`, payload, { headers: authHeaders(token) });
+      showMsg(successMessage(`Przeglad ustawiony do ${nextDate}.`));
+      await loadAll();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie odnowic przegladu.')));
+    }
+  };
+
   const loadAssetPhotos = async (type, id) => {
     const key = assetKey(type, id);
     try {
@@ -558,13 +582,34 @@ export default function Flota() {
     });
   };
 
+  const openEditRepairDraft = (repair) => {
+    const kind = normalizeRepairKind(repair?.typ_zasobu) || 'sprzet';
+    const options = kind === 'pojazd' ? pojazdy : sprzet;
+    const item = options.find((asset) => String(asset.id) === String(repair.zasob_id)) || null;
+    setRepairDraft({
+      id: repair.id,
+      kind,
+      item,
+      typ_zasobu: kind === 'pojazd' ? 'Pojazd' : 'Sprzet',
+      zasob_id: repair.zasob_id || '',
+      label: getRepairAssetLabel(repair),
+      data_naprawy: formDate(repair.data_naprawy) || todayYmd(),
+      opis_usterki: repair.opis_usterki || '',
+      opis_naprawy: repair.opis_naprawy || '',
+      wykonawca: repair.wykonawca || '',
+      koszt: repair.koszt ?? '',
+      status: repair.status || 'W toku',
+      oddzial_id: repair.oddzial_id || item?.oddzial_id || currentUser?.oddzial_id || '',
+    });
+  };
+
   const submitRepairDraft = async (event) => {
     event.preventDefault();
     if (!repairDraft || !repairDraft.zasob_id || !repairDraft.opis_usterki.trim()) return;
     setRepairSaving(true);
     try {
       const token = getStoredToken();
-      await api.post('/flota/naprawy', {
+      const payload = {
         typ_zasobu: repairDraft.typ_zasobu,
         zasob_id: repairDraft.zasob_id,
         data_naprawy: repairDraft.data_naprawy,
@@ -574,8 +619,13 @@ export default function Flota() {
         koszt: repairDraft.koszt || null,
         status: repairDraft.status,
         oddzial_id: repairDraft.oddzial_id || currentUser?.oddzial_id,
-      }, { headers: authHeaders(token) });
-      showMsg(successMessage('Naprawa zapisana.'));
+      };
+      if (repairDraft.id) {
+        await api.put(`/flota/naprawy/${repairDraft.id}`, payload, { headers: authHeaders(token) });
+      } else {
+        await api.post('/flota/naprawy', payload, { headers: authHeaders(token) });
+      }
+      showMsg(successMessage(repairDraft.id ? 'Naprawa zaktualizowana.' : 'Naprawa zapisana.'));
       setRepairDraft(null);
       await loadAll();
     } catch (err) {
@@ -1210,6 +1260,7 @@ export default function Flota() {
                     uploading={photoUploadingKey === assetKey('pojazdy', p.id)}
                     canEdit={canEdit}
                     onTeamChange={updateAssetTeam}
+                    onRenewInspection={renewAssetInspection}
                     onLoadPhotos={loadAssetPhotos}
                     onUploadPhoto={uploadAssetPhoto}
                     onDeletePhoto={deleteAssetPhoto}
@@ -1285,6 +1336,7 @@ export default function Flota() {
                     uploading={photoUploadingKey === assetKey('sprzet', s.id)}
                     canEdit={canEdit}
                     onTeamChange={updateAssetTeam}
+                    onRenewInspection={renewAssetInspection}
                     onLoadPhotos={loadAssetPhotos}
                     onUploadPhoto={uploadAssetPhoto}
                     onDeletePhoto={deleteAssetPhoto}
@@ -1434,6 +1486,11 @@ export default function Flota() {
                         </div>
                       )}
                     </div>
+                    {canEdit && (
+                      <Button fullWidth variant="outline" leftIcon={Pencil} onClick={() => openEditRepairDraft(n)}>
+                        Edytuj naprawe
+                      </Button>
+                    )}
                     {!repairIsClosed(n.status) && canEdit && (
                       <div style={S.repairCloseActions}>
                         {repairFocus.returnTo && (
@@ -1589,7 +1646,7 @@ function Field({ label, children }) {
   );
 }
 
-function FleetAssetControls({ type, item, ekipy, photos, repairSummary, uploading, canEdit, onTeamChange, onLoadPhotos, onUploadPhoto, onDeletePhoto, onOpenRepairs }) {
+function FleetAssetControls({ type, item, ekipy, photos, repairSummary, uploading, canEdit, onTeamChange, onRenewInspection, onLoadPhotos, onUploadPhoto, onDeletePhoto, onOpenRepairs }) {
   const loaded = Array.isArray(photos);
   const kind = type === 'pojazdy' ? 'pojazd' : 'sprzet';
   return (
@@ -1612,6 +1669,11 @@ function FleetAssetControls({ type, item, ekipy, photos, repairSummary, uploadin
         <small>{repairSummary?.open ? `${repairSummary.open} otwarte` : (repairSummary?.lastDate ? `ostatnio ${fmtDate(repairSummary.lastDate)}` : 'brak napraw')}</small>
       </button>
       <div style={S.assetPhotoPanel}>
+        {canEdit && (
+          <button type="button" style={S.assetPhotoButton} onClick={() => onRenewInspection(type, item, 12)}>
+            <CheckCircle size={14} /> Przeglad +12m
+          </button>
+        )}
         <button type="button" style={S.assetPhotoButton} onClick={() => onLoadPhotos(type, item.id)}>
           <Image size={14} /> {loaded ? `${photos.length} zdj.` : 'Zdjecia'}
         </button>
@@ -1690,7 +1752,7 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose, pojazdy = []
         <div style={S.modalHeader}>
           <div>
             <div style={S.modalEyebrow}>Naprawa zasobu</div>
-            <h3 style={S.modalTitle}>Zglos naprawe</h3>
+            <h3 style={S.modalTitle}>{draft.id ? 'Edytuj naprawe' : 'Zglos naprawe'}</h3>
             <p style={S.modalSubtitle}>{draft.label || `Zasob #${draft.zasob_id}`}</p>
           </div>
           <Button size="sm" variant="ghost" leftIcon={X} onClick={onClose} style={S.modalCloseBtn} aria-label="Zamknij" />
@@ -1739,7 +1801,7 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose, pojazdy = []
         <div style={S.modalActions}>
           <Button variant="outline" onClick={onClose}>Anuluj</Button>
           <Button type="submit" loading={saving} disabled={!draft.zasob_id || !draft.opis_usterki.trim()} leftIcon={Save}>
-            Zapisz naprawe
+            {draft.id ? 'Zapisz zmiany' : 'Zapisz naprawe'}
           </Button>
         </div>
       </form>

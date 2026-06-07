@@ -976,7 +976,7 @@ export default function BiDashboard() {
           loading={drill.loading}
           onClose={() => setDrill(null)}
           onOpenTask={(taskId) => navigate(`/zlecenia/${taskId}`)}
-          onOpenSettlement={(taskId) => navigate(`/rozliczenia-polowe?task_id=${taskId}`)}
+          onOpenSettlement={(taskId) => navigate(`/rozliczenia-polowe?task_id=${taskId}&tab=kalkulator`)}
         />
       )}
     </div>
