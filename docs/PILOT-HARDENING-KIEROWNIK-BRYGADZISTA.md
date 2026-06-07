@@ -14,8 +14,11 @@ npm run status:json:strict
 npm run verify:pilot-hardening
 npm run check
 npm run verify:env-runbook
+npm run deploy:prod:dry-run
 npm run smoke:critical-path
 npm run smoke:operational
+npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
+npm run smoke:web:tti -- https://<arbor-web-url> --threshold 3000
 npm run smoke:field -w arbor-os
 npm run test:offline-queue -w arbor-mobile
 npm run smoke:routes -w arbor-web
@@ -68,6 +71,7 @@ Uruchamiaj `smoke:mobile` wtedy, gdy sprawdzane sa ustawienia release albo build
 NO-GO dla startu oddzialu:
 
 - `npm run check` lub `npm run verify:pilot-hardening` nie przechodzi.
+- `npm run deploy:prod:dry-run`, `smoke:p95` albo `smoke:web:tti` nie przechodzi przed startem oddzialu.
 - Kierownik widzi lub edytuje finanse mimo `canViewFinance=false`.
 - Brygadzista widzi finanse, SMS, Kommo, BI albo audit_log.
 - Kierownik widzi zlecenia innego oddzialu bez roli Dyrektor/Admin.
@@ -82,6 +86,7 @@ Zapisz po przebiegu:
 
 - wynik `npm run verify:pilot-hardening`;
 - wynik `npm run check`;
+- wynik `npm run deploy:prod:dry-run`, `smoke:p95` i `smoke:web:tti`;
 - zrzut web z cockpitu Kierownika, Harmonogramu i szczegolu zlecenia bez finansow;
 - zrzut mobile z lista zlecen, banerem kolejki offline i szczegolem po sync;
 - ID zlecen testowych, ID oddzialu, ID ekipy i login testowych rol;
@@ -96,4 +101,4 @@ GO dla pilota jednego oddzialu:
 - Offline przechodzi START + zdjecie/problem + sync bez duplikatow.
 - RBAC zgadza sie z macierza: Kierownik branch-scoped, Brygadzista field-only, Dyrektor/Admin finance.
 - SMS, Kommo, audit_log i BI maja zielony smoke albo sa swiadomie wylaczone z wpisem w decyzjach.
-- Backup i restore dry-run sa aktualne.
+- Backup, restore dry-run, `smoke:p95` i `smoke:web:tti` sa aktualne.
