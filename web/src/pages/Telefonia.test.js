@@ -141,6 +141,14 @@ beforeEach(() => {
             recording_storage: 'local',
           },
           issues: ['OPENAI_API_KEY missing: transcription will stop at needs_transcription'],
+          stuck_calls: [{
+            id: 44,
+            call_sid: 'zadarma:pbx-44',
+            client_number: '+48600111222',
+            status: 'error',
+            error_message: 'Whisper HTTP 401',
+            updated_at: '2026-06-07T10:05:00.000Z',
+          }],
         },
       });
     }
@@ -332,6 +340,10 @@ test('runs phone CRM flow test from calls tab', async () => {
   expect(await screen.findByText('Pipeline rozmow Zadarma / CRM')).toBeInTheDocument();
   expect(screen.getByText('OpenAI: brak · Claude: OK · Storage: local')).toBeInTheDocument();
   expect(screen.getByText('OPENAI_API_KEY missing: transcription will stop at needs_transcription')).toBeInTheDocument();
+  expect(screen.getByText('Rozmowy wymagajace uwagi')).toBeInTheDocument();
+  const stuckCallRow = screen.getByText('zadarma:pbx-44').closest('div').parentElement;
+  expect(stuckCallRow).toHaveTextContent('+48600111222');
+  expect(stuckCallRow).toHaveTextContent('Whisper HTTP 401');
   await userEvent.click(screen.getByRole('button', { name: 'Ponow pipeline' }));
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(

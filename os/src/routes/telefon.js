@@ -351,6 +351,25 @@ router.get('/diagnostics', authMiddleware, forbidTelefonForTeamRoles, async (req
        ${base}`,
       scope.params
     );
+    const stuckWhere = scope.whereSql
+      ? `${scope.whereSql} AND p.status IN ('recording_ready', 'needs_transcription', 'error')`
+      : `WHERE p.status IN ('recording_ready', 'needs_transcription', 'error')`;
+    const stuck = await pool.query(
+      `SELECT
+         p.id,
+         p.twilio_call_sid,
+         p.client_number,
+         p.status,
+         p.error_message,
+         p.recording_duration_sec,
+         p.lead_id,
+         p.updated_at
+       ${scope.from}
+       ${stuckWhere}
+       ORDER BY p.updated_at DESC
+       LIMIT 5`,
+      scope.params
+    );
     const counts = { ...emptyDiagnosticsCounts(), ...(rows[0] || {}) };
     Object.keys(emptyDiagnosticsCounts()).forEach((key) => {
       counts[key] = Number(counts[key] || 0);
@@ -373,6 +392,16 @@ router.get('/diagnostics', authMiddleware, forbidTelefonForTeamRoles, async (req
         recording_storage: env.PHONE_RECORDING_STORAGE || 'none',
       },
       issues,
+      stuck_calls: stuck.rows.map((row) => ({
+        id: row.id,
+        call_sid: row.twilio_call_sid,
+        client_number: row.client_number || null,
+        status: row.status || null,
+        error_message: row.error_message || null,
+        recording_duration_sec: row.recording_duration_sec,
+        lead_id: row.lead_id || null,
+        updated_at: row.updated_at || null,
+      })),
       requestId: req.requestId,
     });
   } catch (e) {
@@ -388,6 +417,7 @@ router.get('/diagnostics', authMiddleware, forbidTelefonForTeamRoles, async (req
           recording_storage: env.PHONE_RECORDING_STORAGE || 'none',
         },
         issues: ['phone_call_conversations table does not exist yet'],
+        stuck_calls: [],
         requestId: req.requestId,
       });
     }

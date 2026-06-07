@@ -227,6 +227,20 @@ describe('Telefon (Twilio Voice)', () => {
           }],
         };
       }
+      if (text.includes("p.status IN ('recording_ready', 'needs_transcription', 'error')")) {
+        return {
+          rows: [{
+            id: 44,
+            twilio_call_sid: 'zadarma:pbx-44',
+            client_number: '+48600111222',
+            status: 'error',
+            error_message: 'Whisper HTTP 401',
+            recording_duration_sec: 31,
+            lead_id: null,
+            updated_at: '2026-06-07T10:05:00.000Z',
+          }],
+        };
+      }
       return { rows: [] };
     });
 
@@ -247,6 +261,13 @@ describe('Telefon (Twilio Voice)', () => {
         zadarma_configured: true,
         openai_configured: false,
       }),
+      stuck_calls: [expect.objectContaining({
+        id: 44,
+        call_sid: 'zadarma:pbx-44',
+        client_number: '+48600111222',
+        status: 'error',
+        error_message: 'Whisper HTTP 401',
+      })],
     }));
     expect(res.body.issues).toEqual(expect.arrayContaining([
       expect.stringContaining('OPENAI_API_KEY missing'),

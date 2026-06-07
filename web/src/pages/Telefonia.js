@@ -3942,6 +3942,31 @@ export default function Telefonia() {
                   </span>
                 </div>
               ) : null}
+              {phoneDiagnostics?.stuck_calls?.length ? (
+                <div style={{ marginTop: 10 }}>
+                  <div style={s.agentHistoryMeta}>Rozmowy wymagajace uwagi</div>
+                  <div style={s.providerChecklistList}>
+                    {phoneDiagnostics.stuck_calls.slice(0, 5).map((call) => (
+                      <div key={call.id || call.call_sid} style={s.providerChecklistItem}>
+                        <span style={String(call.status || '').toLowerCase() === 'error' ? s.reviewBadge : s.okBadge}>
+                          {call.status || 'status'}
+                        </span>
+                        <div style={{ minWidth: 0 }}>
+                          <strong>{call.call_sid || `Rozmowa #${call.id}`}</strong>
+                          <div style={s.agentHistoryMeta}>
+                            {call.client_number || 'brak numeru'} · {call.error_message || 'czeka na ponowienie pipeline'}
+                          </div>
+                        </div>
+                        {call.lead_id ? (
+                          <button type="button" style={s.rowBtn} onClick={() => navigate(`/crm/pipeline?lead_id=${call.lead_id}`)}>
+                            CRM
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <form style={s.testFlowCard} onSubmit={runPhoneCrmFlowTest}>
               <div style={s.manualTitle}>Test CRM po rozmowie</div>
