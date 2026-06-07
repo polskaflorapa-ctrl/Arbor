@@ -844,7 +844,7 @@ export default function Telefonia() {
     try {
       const token = getStoredToken();
       await api.put(`/oddzialy/${agentForm.oddzial_id}`, {
-        telefon: branchTelephonyForm.telefon.trim(),
+        telefon: normalizePhone(branchTelephonyForm.telefon.trim()).replace(/^\+/, ''),
         sms_sender_id: branchTelephonyForm.sms_sender_id.trim(),
       }, { headers: authHeaders(token) });
       setAgentMessage('Numery oddzialu zapisane. SMS i Agent AI beda uzywac tej konfiguracji oddzialowej.');
@@ -980,7 +980,7 @@ export default function Telefonia() {
   }, null, 2);
 
   const branchSetupPhonePatch = () => ({
-    telefon: branchTelephonyForm.telefon.trim(),
+    telefon: normalizePhone(branchTelephonyForm.telefon.trim()).replace(/^\+/, ''),
     sms_sender_id: branchTelephonyForm.sms_sender_id.trim(),
   });
 

@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
+import { Button } from '../components/ui/Button';
 import { loadCalendarBlocks, saveCalendarBlocks } from '../utils/calendarBlocks';
 import { getStoredToken } from '../utils/storedToken';
+import { Plus, Save, Trash2 } from 'lucide-react';
 
 function isYmd(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -185,13 +187,13 @@ export default function BlokadyKalendarza() {
       <Sidebar />
       <main className="app-main calendar-blocks-main" style={S.root}>
         <div className="calendar-blocks-header" style={S.header}>
-          <button type="button" style={S.backBtn} onClick={() => navigate(-1)} aria-label="back">
+          <Button type="button" size="sm" variant="outline" style={S.backBtn} onClick={() => navigate(-1)} aria-label="back">
             ←
-          </button>
+          </Button>
           <div style={S.title}>{t('calendarBlocks.title')}</div>
-          <button type="button" style={S.addBtn} onClick={openAdd}>
-            +
-          </button>
+          <Button type="button" style={S.addBtn} leftIcon={Plus} onClick={openAdd}>
+            Dodaj
+          </Button>
         </div>
         <StatusMessage message={msg} tone={msg ? 'warning' : undefined} style={{ margin: '12px 20px 0' }} />
         <div className="calendar-blocks-content" style={S.main}>
@@ -203,9 +205,7 @@ export default function BlokadyKalendarza() {
               <div className="calendar-blocks-card" key={b.id} style={S.card}>
                 <div style={S.cardTop}>
                   <div style={S.cardTitle}>{b.label}</div>
-                  <button type="button" style={S.trash} onClick={() => remove(b.id)} title="Usuń">
-                    🗑
-                  </button>
+                  <Button type="button" size="sm" variant="danger" style={S.trash} leftIcon={Trash2} onClick={() => remove(b.id)} title="Usuń" aria-label="Usuń" />
                 </div>
                 <div style={S.cardSub}>
                   {b.from} → {b.to}
@@ -231,12 +231,12 @@ export default function BlokadyKalendarza() {
                 placeholder={t('calendarBlocks.labelPh')}
               />
               <div style={S.row}>
-                <button type="button" style={S.btnGhost} onClick={() => setModal(false)}>
+                <Button type="button" variant="outline" onClick={() => setModal(false)}>
                   {t('common.cancel')}
-                </button>
-                <button type="button" style={S.btnPrimary} onClick={saveNew}>
+                </Button>
+                <Button type="button" leftIcon={Save} onClick={saveNew}>
                   {t('calendarBlocks.save')}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

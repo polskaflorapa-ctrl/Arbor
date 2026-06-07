@@ -126,7 +126,13 @@ describe('GET /api/bi/branch-comparison', () => {
         known_cost: '2600',
         teams_active: '2',
         settlement_count: '3',
-        cost_count: '2',
+        equipment_count: '3',
+        fuel_count: '3',
+        material_count: '2',
+        disposal_count: '2',
+        other_count: '2',
+        incomplete_margin_tasks: '1',
+        high_risk_margin_tasks: '0',
       }],
       rowCount: 1,
     });
@@ -147,6 +153,9 @@ describe('GET /api/bi/branch-comparison', () => {
       margin_threshold_pct: 20,
       profitability_tone: 'success',
       data_quality_pct: 63,
+      margin_completeness_pct: 67,
+      incomplete_margin_tasks: 1,
+      high_risk_margin_tasks: 0,
       teams_active: 2,
     }));
     expect(res.body[0].score).toBeGreaterThan(0);
@@ -218,7 +227,13 @@ describe('GET /api/bi/team-performance', () => {
           revenue_actual: '3000',
           known_cost: '900',
           settlement_count: '4',
-          cost_count: '4',
+          equipment_count: '4',
+          fuel_count: '4',
+          material_count: '4',
+          disposal_count: '4',
+          other_count: '4',
+          incomplete_margin_tasks: '0',
+          high_risk_margin_tasks: '0',
         },
         {
           team_id: 2,
@@ -231,7 +246,13 @@ describe('GET /api/bi/team-performance', () => {
           revenue_actual: '9000',
           known_cost: '8000',
           settlement_count: '1',
-          cost_count: '1',
+          equipment_count: '1',
+          fuel_count: '1',
+          material_count: '1',
+          disposal_count: '1',
+          other_count: '1',
+          incomplete_margin_tasks: '2',
+          high_risk_margin_tasks: '1',
         },
       ],
       rowCount: 2,
@@ -247,12 +268,17 @@ describe('GET /api/bi/team-performance', () => {
       team_id: 1,
       margin_pct: 70,
       data_quality_pct: 100,
+      margin_completeness_pct: 100,
+      incomplete_margin_tasks: 0,
     }));
     expect(res.body[1]).toEqual(expect.objectContaining({
       rank: 2,
       team_id: 2,
       margin_pct: 11.1,
       data_quality_pct: 25,
+      margin_completeness_pct: 0,
+      incomplete_margin_tasks: 2,
+      high_risk_margin_tasks: 1,
     }));
   });
 });
@@ -371,6 +397,56 @@ describe('GET /api/bi/drill', () => {
       complete: true,
       missing_cost_fields: [],
     });
+  });
+
+  it('filters BI drilldown to completed tasks that need margin review', async () => {
+    pool.query.mockResolvedValue({
+      rows: [
+        {
+          id: 13,
+          status: 'Zakonczone',
+          typ_uslugi: 'Frezowanie',
+          wartosc_netto_do_rozliczenia: '1800',
+          revenue_net: '1800',
+          rozliczenie_id: null,
+          koszt_pomocnikow: null,
+          wynagrodzenie_brygadzisty: null,
+          koszt_sprzetu: '120',
+          koszt_paliwa: '0',
+          koszt_materialow: '0',
+          koszt_utylizacji: '0',
+          koszt_inne: '0',
+          koszt_sprzetu_count: '1',
+          koszt_paliwa_count: '0',
+          koszt_materialow_count: '0',
+          koszt_utylizacji_count: '0',
+          koszt_inne_count: '0',
+          adres: 'Testowa 7, Krakow',
+          ekipa_nazwa: 'Ekipa Test',
+          oddzial_nazwa: 'Krakow',
+        },
+      ],
+      rowCount: 1,
+    });
+
+    const res = await request(app)
+      .get(`${PATH}&needs_margin_review=1`)
+      .set('Authorization', `Bearer ${direktorToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(pool.query.mock.calls[0][0]).toContain("AND t.status = 'Zakonczone'");
+    expect(pool.query.mock.calls[0][0]).toContain('tr.id IS NULL');
+    expect(pool.query.mock.calls[0][0]).toContain('op.koszt_paliwa_count');
+    expect(pool.query.mock.calls[0][0]).toContain('mu.koszt_materialow_count');
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      id: 13,
+      status: 'Zakonczone',
+      financials: expect.objectContaining({
+        complete: false,
+        margin_confidence: 'incomplete_margin_data',
+        missing_cost_fields: ['rozliczenie', 'paliwo', 'materialy', 'utylizacja', 'inne'],
+      }),
+    }));
   });
 
   it('keeps branch drilldown operational for kierownik but redacts task financials', async () => {
@@ -506,6 +582,31 @@ describe('POST /api/bi/alerts/check', () => {
           material_cost: '40',
           disposal_cost: '30',
           other_cost: '20',
+          rozliczenie_id: 77,
+          koszt_sprzetu_count: '1',
+          koszt_paliwa_count: '1',
+          koszt_materialow_count: '1',
+          koszt_utylizacji_count: '1',
+          koszt_inne_count: '1',
+        }, {
+          id: 908,
+          klient_nazwa: 'Niepelna Marza',
+          oddzial_id: 2,
+          threshold_pct: '20',
+          revenue_net: '1000',
+          helper_cost: '0',
+          crew_lead_pay: '0',
+          equipment_cost: '0',
+          fuel_cost: '0',
+          material_cost: '0',
+          disposal_cost: '0',
+          other_cost: '0',
+          rozliczenie_id: null,
+          koszt_sprzetu_count: '0',
+          koszt_paliwa_count: '0',
+          koszt_materialow_count: '0',
+          koszt_utylizacji_count: '0',
+          koszt_inne_count: '0',
         }],
         rowCount: 1,
       })
@@ -542,6 +643,7 @@ describe('POST /api/bi/alerts/check', () => {
     expect(res.status).toBe(200);
     expect(res.body.alerts).toEqual(expect.arrayContaining([
       expect.stringContaining('Ryzyko marzy'),
+      expect.stringContaining('Niepelna marza'),
       expect.stringContaining('Przeterminowane przeglady'),
       expect.stringContaining('Brak kompetencji'),
     ]));
@@ -550,6 +652,12 @@ describe('POST /api/bi/alerts/check', () => {
         id: 909,
         margin_pct: 13,
         threshold_pct: 20,
+      }),
+    ]);
+    expect(res.body.margin_data_risks).toEqual([
+      expect.objectContaining({
+        id: 908,
+        missing_cost_fields: ['rozliczenie', 'sprzet', 'paliwo', 'materialy', 'utylizacja', 'inne'],
       }),
     ]);
     expect(res.body.fleet_due).toEqual([

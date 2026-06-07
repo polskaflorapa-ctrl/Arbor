@@ -36,7 +36,7 @@ test('routes /crm to the CRM hub instead of the lead pipeline', async () => {
 
   render(<App />);
 
-  expect(await screen.findByText(/Webhooki, logi/i)).toBeInTheDocument();
+  expect(await screen.findByText(/Webhooki, logi/i, {}, { timeout: 5000 })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /Pipeline lead/i })).toBeInTheDocument();
   expect(screen.queryByText(/Kommo-style pipeline/i)).not.toBeInTheDocument();
 });

@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import ModernDataRow from '../components/ModernDataRow';
+import { Button } from '../components/ui/Button';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
+import { Archive, Check, Play, RefreshCw, RotateCcw, Send, User } from 'lucide-react';
 
 const MANAGEMENT_ROLES = new Set(['Administrator', 'Dyrektor', 'Kierownik']);
 const OPEN_STATUSES = new Set(['todo', 'in_progress']);
@@ -266,8 +268,8 @@ export default function ZadaniaOperatora() {
             </p>
           </div>
           <div style={S.headerActions}>
-            <button type="button" style={S.secondaryBtn} onClick={loadData}>Odśwież</button>
-            <button type="button" style={S.primaryBtn} onClick={() => navigate('/profil')}>Mój profil</button>
+            <Button type="button" variant="outline" leftIcon={RefreshCw} style={S.secondaryBtn} onClick={loadData}>Odśwież</Button>
+            <Button type="button" leftIcon={User} style={S.primaryBtn} onClick={() => navigate('/profil')}>Mój profil</Button>
           </div>
         </header>
 
@@ -342,9 +344,9 @@ export default function ZadaniaOperatora() {
                     placeholder="Szczegóły, link do zlecenia, oczekiwany wynik..."
                   />
                 </label>
-                <button type="submit" style={S.primaryWideBtn} disabled={busyId === 'create'}>
+                <Button type="submit" leftIcon={Send} style={S.primaryWideBtn} loading={busyId === 'create'} fullWidth>
                   {busyId === 'create' ? 'Wysyłam...' : 'Wyślij zadanie'}
-                </button>
+                </Button>
               </form>
             </section>
           ) : null}
@@ -419,16 +421,16 @@ export default function ZadaniaOperatora() {
                       actions={
                         <>
                           {canChange && task.status !== 'in_progress' && task.status !== 'done' && task.status !== 'archived' ? (
-                            <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'in_progress' })}>W toku</button>
+                            <Button type="button" size="sm" variant="outline" leftIcon={Play} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'in_progress' })}>W toku</Button>
                           ) : null}
                           {canChange && task.status === 'in_progress' ? (
-                            <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'todo' })}>Do zrobienia</button>
+                            <Button type="button" size="sm" variant="outline" leftIcon={RotateCcw} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'todo' })}>Do zrobienia</Button>
                           ) : null}
                           {canChange && task.status !== 'done' && task.status !== 'archived' ? (
-                            <button type="button" style={S.rowBtnPrimary} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'done' })}>Gotowe</button>
+                            <Button type="button" size="sm" leftIcon={Check} style={S.rowBtnPrimary} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'done' })}>Gotowe</Button>
                           ) : null}
                           {canManage && task.status === 'done' ? (
-                            <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'archived' })}>Archiwum</button>
+                            <Button type="button" size="sm" variant="outline" leftIcon={Archive} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'archived' })}>Archiwum</Button>
                           ) : null}
                         </>
                       }

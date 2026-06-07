@@ -37,6 +37,16 @@ router.get('/health', (_req, res) => {
   });
 });
 
+router.get('/ready', (_req, res) => {
+  res.json({
+    status: 'ready',
+    service: 'arbor-api-local',
+    mode: 'file-db',
+    storage: 'local',
+    checkedAt: new Date().toISOString(),
+  });
+});
+
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }

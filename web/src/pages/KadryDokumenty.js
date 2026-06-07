@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import ModernDataRow from '../components/ModernDataRow';
+import { Button } from '../components/ui/Button';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken } from '../utils/storedToken';
+import { Download, Edit3, FileText, RefreshCw, User } from 'lucide-react';
 
 const MANAGEMENT_ROLES = new Set(['Administrator', 'Dyrektor', 'Kierownik']);
 const FIELD_ROLES = new Set(['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia']);
@@ -213,8 +215,8 @@ export default function KadryDokumenty() {
             </p>
           </div>
           <div className="hr-docs-actions" style={S.headerActions}>
-            <button type="button" style={S.secondaryBtn} onClick={loadCards}>Odśwież</button>
-            <button type="button" style={S.primaryBtn} onClick={() => navigate('/profil')}>Edytuj kartę</button>
+            <Button type="button" variant="outline" leftIcon={RefreshCw} onClick={loadCards}>Odśwież</Button>
+            <Button type="button" leftIcon={Edit3} onClick={() => navigate('/profil')}>Edytuj kartę</Button>
           </div>
         </header>
 
@@ -253,9 +255,9 @@ export default function KadryDokumenty() {
                   <option value="all">Wszystkie role</option>
                   {roles.map((role) => <option key={role} value={role}>{role}</option>)}
                 </select>
-                <button type="button" style={S.secondaryBtn} onClick={exportCsv} disabled={!filteredCards.length}>
+                <Button type="button" variant="outline" leftIcon={Download} onClick={exportCsv} disabled={!filteredCards.length}>
                   Eksport CSV
-                </button>
+                </Button>
               </div>
               {message ? <div style={S.alert}>{message}</div> : null}
               {loading ? (
@@ -289,12 +291,12 @@ export default function KadryDokumenty() {
                         ]}
                         actions={
                           <>
-                            <button type="button" style={S.rowBtn} onClick={() => navigate(`/profil/${card.user_id}`)}>
+                            <Button type="button" size="sm" variant="outline" leftIcon={User} onClick={() => navigate(`/profil/${card.user_id}`)}>
                               Profil
-                            </button>
-                            <button type="button" style={S.rowBtnPrimary} onClick={() => navigate(`/kadry-dokumenty/druk/${card.user_id}`)}>
+                            </Button>
+                            <Button type="button" size="sm" leftIcon={FileText} onClick={() => navigate(`/kadry-dokumenty/druk/${card.user_id}`)}>
                               PDF
-                            </button>
+                            </Button>
                           </>
                         }
                       />

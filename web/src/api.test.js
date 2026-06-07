@@ -499,6 +499,15 @@ describe('api test-mode mocks', () => {
       ])
     );
 
+    const marginReview = await api.get('/api/bi/drill?needs_margin_review=1', { dedupe: false });
+    expect(marginReview.data.length).toBeGreaterThan(0);
+    expect(marginReview.data.every((task) => task.status === 'Zakonczone')).toBe(true);
+    expect(marginReview.data.every((task) => task.financials?.complete === false)).toBe(true);
+    expect(marginReview.data[0].financials).toEqual(expect.objectContaining({
+      margin_confidence: 'incomplete_margin_data',
+      missing_cost_fields: expect.any(Array),
+    }));
+
     const kommoDiagnostics = await api.get('/api/tasks/kommo-sync/diagnostics', { dedupe: false });
     expect(kommoDiagnostics.data.summary).toMatchObject({
       outbound_ok: expect.any(Number),

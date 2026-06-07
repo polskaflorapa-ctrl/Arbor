@@ -6,6 +6,8 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
+import { Button } from '../components/ui/Button';
+import { ArrowLeft, Save } from 'lucide-react';
 import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, warningMessage, successMessage } from '../utils/statusMessage';
 
@@ -111,7 +113,7 @@ export default function NowyPracownik() {
       <Sidebar />
       <div className="new-employee-main" style={styles.main}>
         <div className="new-employee-topbar" style={styles.topBar}>
-          <button style={styles.backBtn} onClick={() => navigate('/uzytkownicy')}>← {t('common.back')}</button>
+          <Button size="sm" variant="outline" leftIcon={ArrowLeft} onClick={() => navigate('/uzytkownicy')}>← {t('common.back')}</Button>
           <h1 style={styles.title}>{t('pages.nowyPracownik.title')}</h1>
         </div>
 
@@ -209,8 +211,8 @@ export default function NowyPracownik() {
           <StatusMessage message={msg} />
 
           <div className="new-employee-actions" style={styles.btnRow}>
-            <button type="button" style={styles.cancelBtn} onClick={() => navigate('/uzytkownicy')}>{t('common.cancel')}</button>
-            <button type="submit" style={styles.submitBtn} disabled={saving}>{saving ? t('common.creating') : t('pages.nowyPracownik.createAccount')}</button>
+            <Button type="button" variant="outline" onClick={() => navigate('/uzytkownicy')}>{t('common.cancel')}</Button>
+            <Button type="submit" loading={saving} leftIcon={Save}>{t('pages.nowyPracownik.createAccount')}</Button>
           </div>
         </form>
       </div>

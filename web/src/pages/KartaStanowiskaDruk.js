@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
+import { Button } from '../components/ui/Button';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken } from '../utils/storedToken';
+import { ArrowLeft, Printer } from 'lucide-react';
 
 const MANAGEMENT_ROLES = new Set(['Administrator', 'Dyrektor', 'Kierownik']);
 const FIELD_ROLES = new Set(['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia']);
@@ -175,10 +177,10 @@ export default function KartaStanowiskaDruk() {
     <div className="position-card-page" style={S.page}>
       <style>{PRINT_CSS}</style>
       <div className="no-print" style={S.actions}>
-        <button type="button" style={S.secondaryBtn} onClick={() => navigate('/kadry-dokumenty')}>Wróć do rejestru</button>
-        <button type="button" style={S.primaryBtn} onClick={() => window.print()} disabled={!card || !allowed}>
+        <Button type="button" variant="outline" leftIcon={ArrowLeft} onClick={() => navigate('/kadry-dokumenty')}>Wróć do rejestru</Button>
+        <Button type="button" leftIcon={Printer} onClick={() => window.print()} disabled={!card || !allowed}>
           Drukuj / PDF
-        </button>
+        </Button>
       </div>
 
       <main className="position-card-sheet" style={S.sheet}>

@@ -28,9 +28,53 @@ function sourceStatusLabel(status) {
   if (status === 'missing_schema') return 'Brak pola';
   return status || '---';
 }
+const MISSING_MARGIN_FIELD_LABELS = {
+  rozliczenie: 'Rozliczenie',
+  sprzet: 'Sprzet',
+  paliwo: 'Paliwo',
+  materialy: 'Materialy',
+  utylizacja: 'Utylizacja',
+  inne: 'Inne koszty',
+  operational_cost: 'Koszty operacyjne',
+};
+function marginFieldLabel(field) {
+  return MISSING_MARGIN_FIELD_LABELS[field] || field || 'Brak danych';
+}
+function summarizeMissingMarginFields(tasks = []) {
+  const counts = {};
+  tasks.forEach((task) => {
+    const fields = task.financials?.missing_cost_fields;
+    if (!Array.isArray(fields)) return;
+    fields.forEach((field) => {
+      counts[field] = (counts[field] || 0) + 1;
+    });
+  });
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([field, count]) => ({ field, count }));
+}
+function buildMarginReviewExportRows(tasks = []) {
+  return tasks.map((task) => ({
+    id: task.id,
+    numer: task.numer || '',
+    status: task.status || '',
+    typ_uslugi: task.typ_uslugi || '',
+    oddzial: task.oddzial_nazwa || '',
+    ekipa: task.ekipa_nazwa || '',
+    data_planowana: task.data_planowana || '',
+    revenue_net: task.financials?.revenue_net ?? '',
+    total_known_cost: task.financials?.total_known_cost ?? '',
+    margin_pct: task.financials?.margin_pct ?? '',
+    missing_cost_fields: Array.isArray(task.financials?.missing_cost_fields)
+      ? task.financials.missing_cost_fields.map(marginFieldLabel).join(', ')
+      : '',
+    margin_confidence: task.financials?.margin_confidence || '',
+  }));
+}
 function marginConfidenceLabel(fin = {}) {
   if (!fin || fin.complete) return 'Kompletna';
   if (fin.margin_confidence === 'no_revenue') return 'Brak przychodu';
+  if (fin.margin_confidence === 'incomplete_margin_data') return 'Niepelne dane';
   if (fin.margin_confidence === 'high_risk_margin') return 'Wysokie ryzyko';
   if (fin.margin_confidence === 'medium_risk_margin') return 'Srednie ryzyko';
   if (fin.margin_confidence === 'low_risk_margin') return 'Niskie ryzyko';
@@ -68,7 +112,9 @@ function downloadCSV(rows, filename) {
 
 // ─── Drill-down modal ────────────────────────────────────────────────────────
 
-function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
+function DrillModal({ title, tasks, loading, onClose, onOpenTask, onOpenSettlement }) {
+  const missingSummary = summarizeMissingMarginFields(tasks);
+  const hasMarginReviewRows = tasks.some((task) => Array.isArray(task.financials?.missing_cost_fields) && task.financials.missing_cost_fields.length > 0);
   return (
     <div style={dm.overlay} onClick={onClose}>
       <div style={dm.panel} onClick={e => e.stopPropagation()}>
@@ -82,6 +128,26 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
           ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-sub)' }}>Brak zleceń</div>
           : (
             <div className="modern-data-stack" style={{ overflowY: 'auto', maxHeight: '60vh', padding: 12 }}>
+              {hasMarginReviewRows && (
+                <div style={dm.repairPanel}>
+                  <div>
+                    <div style={dm.repairTitle}>Kolejka uzupelnienia marzy</div>
+                    <div style={dm.repairSub}>{tasks.length} zlecen wymaga sprawdzenia kosztow lub rozliczenia</div>
+                  </div>
+                  <div style={dm.repairChips}>
+                    {missingSummary.map((item) => (
+                      <span key={item.field} style={dm.missingChip}>{marginFieldLabel(item.field)}: {item.count}</span>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    style={dm.csvBtn}
+                    onClick={() => downloadCSV(buildMarginReviewExportRows(tasks), `marza-do-sprawdzenia-${Date.now()}.csv`)}
+                  >
+                    CSV brakow
+                  </button>
+                </div>
+              )}
               {tasks.map(t => {
                 const hasFinancials = Boolean(t.financials);
                 const fin = t.financials || {};
@@ -110,12 +176,20 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
                     {hasFinancials && missingCostFields.length > 0 && (
                       <div style={dm.marginWarning}>
                         <strong>Nie traktuj tej marzy jako finalnej.</strong>
-                        <span> Brakuje: {missingCostFields.join(', ')}.</span>
+                        <span> Brakuje:</span>
+                        <div style={dm.missingChipRow}>
+                          {missingCostFields.map((field) => (
+                            <span key={field} style={dm.missingChip}>{marginFieldLabel(field)}</span>
+                          ))}
+                        </div>
                       </div>
                     )}
                     <div style={dm.actions}>
                       <button type="button" style={dm.openTaskBtn} onClick={() => onOpenTask?.(t.id)}>
                         Otworz zlecenie
+                      </button>
+                      <button type="button" style={dm.primaryActionBtn} onClick={() => onOpenSettlement?.(t.id)}>
+                        Uzupelnij rozliczenie
                       </button>
                     </div>
                     {hasFinancials ? (
@@ -160,6 +234,12 @@ const dm = {
   td:      { padding: '9px 10px', color: 'var(--text)', verticalAlign: 'middle' },
   badge:   { display: 'inline-block', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: '#fff', fontWeight: 600 },
   csvBtn:  { padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12 },
+  repairPanel: { display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 2fr auto', gap: 10, alignItems: 'center', padding: 12, borderRadius: 8, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.10)' },
+  repairTitle: { fontSize: 13, fontWeight: 800, color: 'var(--text)' },
+  repairSub: { fontSize: 12, color: 'var(--text-sub)', marginTop: 2 },
+  repairChips: { display: 'flex', gap: 6, flexWrap: 'wrap' },
+  missingChipRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 },
+  missingChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '2px 7px', borderRadius: 6, border: '1px solid rgba(194,65,12,0.22)', background: 'rgba(255,247,237,0.70)', color: '#9a3412', fontSize: 11, fontWeight: 800 },
   drillItem: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', overflow: 'hidden' },
   breakdown: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 8, padding: '10px 12px', borderTop: '1px solid var(--border)' },
   costPill: { display: 'grid', gap: 2, minHeight: 52, padding: '8px 10px', borderRadius: 7, background: 'var(--surface-glass)', border: '1px solid var(--glass-border)' },
@@ -170,8 +250,9 @@ const dm = {
   marginWarning: { padding: '10px 12px', borderTop: '1px solid rgba(194,65,12,0.24)', background: 'rgba(245,158,11,0.10)', color: '#9a3412', fontSize: 12, lineHeight: 1.4 },
   redacted: { padding: '10px 12px', borderTop: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   finNote: { padding: '0 12px 10px', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
-  actions: { display: 'flex', justifyContent: 'flex-end', padding: '0 12px 10px' },
+  actions: { display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 12px 10px', flexWrap: 'wrap' },
   openTaskBtn: { padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
+  primaryActionBtn: { padding: '6px 10px', border: '1px solid var(--accent)', borderRadius: 7, background: 'var(--accent)', color: 'var(--on-accent, #fff)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
 };
 
 // ─── Inline SVG bar chart ────────────────────────────────────────────────────
@@ -267,13 +348,25 @@ function DonutChart({ data, valueKey, labelKey, size = 160 }) {
 
 // ─── KPI card ────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, tone, deltaPct }) {
+function KpiCard({ label, value, sub, tone, deltaPct, onClick }) {
   const { t } = useTranslation();
   const bg = tone === 'ok' ? '#dcfce7' : tone === 'warn' ? '#fef9c3' : tone === 'bad' ? '#fee2e2' : 'var(--surface-glass)';
   const fg = tone === 'ok' ? '#16a34a' : tone === 'warn' ? '#ca8a04' : tone === 'bad' ? '#dc2626' : 'var(--text)';
   const d = delta(deltaPct);
   return (
-    <div className="bi-kpi-card" style={{ ...s.kpiCard, background: bg }}>
+    <div
+      className="bi-kpi-card"
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
+      style={{ ...s.kpiCard, background: bg, ...(onClick ? s.kpiCardClickable : {}) }}
+    >
       <div style={{ ...s.kpiValue, color: fg }}>{value}</div>
       {d && <div style={{ fontSize: 11, color: d.color, fontWeight: 700 }}>{d.label} {t('biDashboard.kpi.vsPrevious')}</div>}
       <div style={s.kpiLabel}>{label}</div>
@@ -360,7 +453,7 @@ export default function BiDashboard() {
   useEffect(() => { load(); }, [load]);
 
   // ── Drill-down ──────────────────────────────────────────────────────────────
-  const openDrill = useCallback(async ({ title, dim, id, val }) => {
+  const openDrill = useCallback(async ({ title, dim, id, val, needsMarginReview }) => {
     setDrill({ title, tasks: [], loading: true });
     const token = getStoredToken();
     const h = authHeaders(token);
@@ -368,6 +461,7 @@ export default function BiDashboard() {
       const params = new URLSearchParams({ dim, days });
       if (id)  params.set('id', id);
       if (val) params.set('val', val);
+      if (needsMarginReview) params.set('needs_margin_review', '1');
       const res = await api.get(`/bi/drill?${params}`, { headers: h });
       setDrill({ title, tasks: Array.isArray(res.data) ? res.data : [], loading: false });
     } catch {
@@ -460,6 +554,12 @@ export default function BiDashboard() {
                 tone={ov?.tasks_overdue > 0 ? 'warn' : 'ok'} />
               <KpiCard label={t('biDashboard.kpi.unassigned')} value={num(ov?.tasks_unassigned)}
                 tone={ov?.tasks_unassigned > 0 ? 'warn' : 'ok'} />
+              <KpiCard label="Kompletność marży" value={pct(ov?.margin_completeness_pct)}
+                tone={ov?.margin_completeness_pct >= 80 ? 'ok' : ov?.margin_completeness_pct >= 50 ? 'warn' : 'bad'} />
+              <KpiCard label="Marża do sprawdzenia" value={num(ov?.incomplete_margin_tasks)}
+                sub={ov?.high_risk_margin_tasks ? `${ov.high_risk_margin_tasks} wysokie ryzyko` : ''}
+                tone={ov?.incomplete_margin_tasks > 0 ? 'warn' : 'ok'}
+                onClick={ov?.incomplete_margin_tasks > 0 ? () => openDrill({ title: 'Marża do sprawdzenia', dim: 'all', needsMarginReview: true }) : undefined} />
             </div>
 
             {/* Revenue trend */}
@@ -501,7 +601,12 @@ export default function BiDashboard() {
                     status={b.profitability_tone === 'danger' ? 'LOW MARGIN' : b.completion_pct >= 80 ? 'ON TRACK' : 'WATCH'}
                     statusValue={b.profitability_tone === 'danger' ? 'danger' : b.completion_pct >= 80 ? 'success' : 'warning'}
                     statusState={b.profitability_tone === 'danger' ? 'danger' : b.completion_pct >= 80 ? 'success' : 'warning'}
-                    onClick={() => openDrill({ title: `Zlecenia — ${b.oddzial_nazwa}`, dim: 'oddzial', id: b.oddzial_id })}
+                    onClick={() => openDrill({
+                      title: b.incomplete_margin_tasks > 0 ? `Marża do sprawdzenia — ${b.oddzial_nazwa}` : `Zlecenia — ${b.oddzial_nazwa}`,
+                      dim: 'oddzial',
+                      id: b.oddzial_id,
+                      needsMarginReview: b.incomplete_margin_tasks > 0,
+                    })}
                     metrics={[
                       { label: 'Zlecenia', value: num(b.tasks_total) },
                       { label: 'Ukończone', value: num(b.tasks_done), tone: 'success' },
@@ -510,6 +615,8 @@ export default function BiDashboard() {
                       { label: 'Plan PLN', value: pln(b.revenue_planned) },
                       { label: 'Real PLN', value: pln(b.revenue_actual), tone: 'success' },
                       { label: 'Marża', value: `${pln(b.gross_margin)} / ${pct(b.margin_pct)}`, tone: b.profitability_tone === 'danger' ? 'danger' : 'success' },
+                      { label: 'Kompletność marży', value: pct(b.margin_completeness_pct), tone: b.margin_completeness_pct >= 80 ? 'success' : b.margin_completeness_pct >= 50 ? 'warning' : 'danger' },
+                      { label: 'Marża do sprawdzenia', value: num(b.incomplete_margin_tasks), tone: b.incomplete_margin_tasks > 0 ? 'warning' : 'success' },
                       { label: 'Próg', value: pct(b.margin_threshold_pct), tone: 'info' },
                       { label: 'Jakość danych', value: pct(b.data_quality_pct), tone: b.data_quality_pct >= 70 ? 'success' : 'warning' },
                       { label: 'Score', value: num(b.score), tone: b.score >= 70 ? 'success' : 'warning' },
@@ -545,7 +652,12 @@ export default function BiDashboard() {
                     status={tm.score >= 75 ? 'HIGH PERF' : tm.score >= 50 ? 'TRACKED' : 'WATCH'}
                     statusValue={tm.score >= 75 ? 'success' : tm.score >= 50 ? 'info' : 'warning'}
                     statusState={tm.score >= 75 ? 'success' : tm.score >= 50 ? 'info' : 'warning'}
-                    onClick={() => openDrill({ title: `Zlecenia — ${tm.team_name}`, dim: 'ekipa', id: tm.team_id })}
+                    onClick={() => openDrill({
+                      title: tm.incomplete_margin_tasks > 0 ? `Marża do sprawdzenia — ${tm.team_name}` : `Zlecenia — ${tm.team_name}`,
+                      dim: 'ekipa',
+                      id: tm.team_id,
+                      needsMarginReview: tm.incomplete_margin_tasks > 0,
+                    })}
                     metrics={[
                       { label: 'Zlecenia', value: num(tm.tasks_total) },
                       { label: 'Ukończone', value: num(tm.tasks_done), tone: 'success' },
@@ -554,6 +666,8 @@ export default function BiDashboard() {
                       { label: 'Przychód plan', value: pln(tm.revenue), tone: 'success' },
                       { label: 'Real PLN', value: pln(tm.revenue_actual), tone: 'success' },
                       { label: 'Marża', value: `${pln(tm.gross_margin)} / ${pct(tm.margin_pct)}`, tone: tm.margin_pct >= 25 ? 'success' : 'warning' },
+                      { label: 'Kompletność marży', value: pct(tm.margin_completeness_pct), tone: tm.margin_completeness_pct >= 80 ? 'success' : tm.margin_completeness_pct >= 50 ? 'warning' : 'danger' },
+                      { label: 'Marża do sprawdzenia', value: num(tm.incomplete_margin_tasks), tone: tm.incomplete_margin_tasks > 0 ? 'warning' : 'success' },
                       { label: 'Jakość danych', value: pct(tm.data_quality_pct), tone: tm.data_quality_pct >= 70 ? 'success' : 'warning' },
                       { label: 'Score', value: num(tm.score), tone: tm.score >= 75 ? 'success' : 'warning' },
                     ]}
@@ -801,6 +915,18 @@ export default function BiDashboard() {
                     ))}
                   </div>
                 ) : null}
+                {alertResult.margin_data_risks?.length ? (
+                  <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                    {alertResult.margin_data_risks.slice(0, 6).map((risk) => (
+                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.10)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
+                        <strong>#{risk.id} {risk.klient_nazwa || 'Zlecenie'}</strong>
+                        <span style={{ marginLeft: 8 }}>
+                          brakuje {(risk.missing_cost_fields || []).map(marginFieldLabel).join(', ')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {alertResult.fleet_due?.length ? (
                   <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                     {alertResult.fleet_due.slice(0, 6).map((item) => (
@@ -850,6 +976,7 @@ export default function BiDashboard() {
           loading={drill.loading}
           onClose={() => setDrill(null)}
           onOpenTask={(taskId) => navigate(`/zlecenia/${taskId}`)}
+          onOpenSettlement={(taskId) => navigate(`/rozliczenia-polowe?task_id=${taskId}`)}
         />
       )}
     </div>
@@ -874,6 +1001,7 @@ const s = {
   content:  { display: 'flex', flexDirection: 'column', gap: 16 },
   kpiRow:   { display: 'flex', gap: 12, flexWrap: 'wrap' },
   kpiCard:  { flex: 1, minWidth: 130, padding: '14px 16px', borderRadius: 8, border: '1px solid var(--border)' },
+  kpiCardClickable: { cursor: 'pointer', boxShadow: '0 0 0 1px rgba(37,99,235,0.12)' },
   kpiValue: { fontSize: 24, fontWeight: 800, marginBottom: 2 },
   kpiLabel: { fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', marginTop: 6 },
   kpiSub:   { fontSize: 11, color: 'var(--text-muted, var(--text-sub))', marginTop: 2 },

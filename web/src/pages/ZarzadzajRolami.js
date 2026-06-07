@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import CheckOutlined from '@mui/icons-material/CheckOutlined';
-import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import api from '../api';
+import { Button } from '../components/ui/Button';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage } from '../utils/statusMessage';
+import { CheckSquare, Plus, Save, Trash2, X } from 'lucide-react';
 
 // ─── Kolory ról (fallback jeśli brak w DB) ───────────────────
 const DEFAULT_ROLE_COLORS = {
@@ -189,9 +190,9 @@ export default function ZarzadzajRolami() {
         icon={<SettingsOutlined style={{ fontSize: 26 }} />}
         back={{ onClick: () => navigate('/dashboard'), label: t('nav.dashboard'), ariaLabel: t('pages.role.backToDashboard') }}
         actions={
-          <button type="button" style={S.btnAdd} onClick={openNew}>
-            + {t('pages.role.newRole')}
-          </button>
+          <Button type="button" leftIcon={Plus} style={S.btnAdd} onClick={openNew}>
+            {t('pages.role.newRole')}
+          </Button>
         }
       />
 
@@ -234,15 +235,16 @@ export default function ZarzadzajRolami() {
                     {r.stala && <span style={S.tagSystem}>system</span>}
                     {r.aktywna === false && <span style={S.tagInactive}>nieaktywna</span>}
                     {!r.stala && (
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="danger"
+                        leftIcon={Trash2}
                         style={S.btnDel}
                         onClick={(e) => { e.stopPropagation(); handleDelete(r); }}
                         title={t('common.delete')}
                         aria-label={t('common.delete')}
-                      >
-                        <DeleteOutline sx={{ fontSize: 18, color: '#F87171' }} />
-                      </button>
+                      />
                     )}
                   </div>
                 </div>
@@ -342,14 +344,14 @@ export default function ZarzadzajRolami() {
                 <div style={S.permsSectionHeader}>
                   <span style={S.permsSectionTitle}>Uprawnienia</span>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button style={S.btnSmall} onClick={() => {
+                    <Button type="button" size="sm" variant="outline" leftIcon={CheckSquare} style={S.btnSmall} onClick={() => {
                       const all = {};
                       PERMISSIONS_SCHEMA.forEach(g => g.perms.forEach(p => { all[p.key] = true; }));
                       setForm(f => ({ ...f, uprawnienia: all }));
-                    }}>Zaznacz wszystkie</button>
-                    <button style={S.btnSmall} onClick={() => {
+                    }}>Zaznacz wszystkie</Button>
+                    <Button type="button" size="sm" variant="outline" leftIcon={X} style={S.btnSmall} onClick={() => {
                       setForm(f => ({ ...f, uprawnienia: emptyPermissions() }));
-                    }}>Odznacz wszystkie</button>
+                    }}>Odznacz wszystkie</Button>
                   </div>
                 </div>
 
@@ -360,12 +362,15 @@ export default function ZarzadzajRolami() {
                       <div className="roles-admin-perm-group" key={group.group} style={S.permGroup}>
                         <div style={S.permGroupHeader}>
                           <span style={S.permGroupTitle}>{group.group}</span>
-                          <button
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={allOn ? 'danger' : 'outline'}
                             style={{ ...S.btnTiny, color: allOn ? '#EF4444' : '#34D399' }}
                             onClick={() => setGroupAll(group, !allOn, form, setForm)}
                           >
                             {allOn ? t('pages.role.deselectGroup') : t('pages.role.selectGroup')}
-                          </button>
+                          </Button>
                         </div>
                         {group.perms.map(p => (
                           <label className="roles-admin-perm-row" key={p.key} style={S.permRow}>
@@ -397,19 +402,24 @@ export default function ZarzadzajRolami() {
 
               {/* ── Akcje ── */}
               <div className="roles-admin-actions" style={S.actions}>
-                <button
+                <Button
+                  type="button"
+                  variant="outline"
                   style={S.btnCancel}
                   onClick={() => { setSelected(null); setNewForm(null); }}
                 >
                   Anuluj
-                </button>
-                <button
+                </Button>
+                <Button
+                  type="button"
+                  leftIcon={Save}
                   style={{ ...S.btnSave, opacity: saving ? 0.6 : 1 }}
                   onClick={handleSave}
-                  disabled={saving || !canSaveRole}
+                  loading={saving}
+                  disabled={!canSaveRole}
                 >
                   {saving ? t('common.saving') : (selected ? t('pages.role.saveChanges') : t('pages.role.createRole'))}
-                </button>
+                </Button>
               </div>
             </>
           )}

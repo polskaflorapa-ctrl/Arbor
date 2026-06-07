@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import ModernDataRow from '../components/ModernDataRow';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getRoleDisplayName } from '../utils/roleDisplay';
+import { ArrowLeft, Check, Plus, Save, X } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -58,7 +60,7 @@ function AddAbsenceModal({ onClose, onSaved }) {
       <div style={m.modal}>
         <div style={m.header}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('hrPanel.modal.title')}</h3>
-          <button type="button" onClick={onClose} style={m.closeBtn}>✕</button>
+          <Button type="button" size="sm" variant="ghost" leftIcon={X} onClick={onClose} style={m.closeBtn} aria-label="Zamknij" />
         </div>
         {err && <div style={m.err}>{err}</div>}
         <div style={m.body}>
@@ -89,10 +91,10 @@ function AddAbsenceModal({ onClose, onSaved }) {
             style={{ ...m.input, height: 70, resize: 'vertical' }} placeholder={t('hrPanel.modal.reasonPh')} />
         </div>
         <div style={m.footer}>
-          <button type="button" onClick={onClose} style={m.cancelBtn}>{t('hrPanel.modal.cancel')}</button>
-          <button type="button" onClick={save} disabled={saving} style={m.saveBtn}>
+          <Button type="button" variant="outline" onClick={onClose} style={m.cancelBtn}>{t('hrPanel.modal.cancel')}</Button>
+          <Button type="button" leftIcon={Save} onClick={save} loading={saving} style={m.saveBtn}>
             {saving ? t('hrPanel.modal.saving') : t('hrPanel.modal.save')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -183,13 +185,13 @@ export default function HrPanel() {
                 style={s.monthInput} />
             )}
             {tab === 'absences' && (
-              <button type="button" onClick={() => setShowAddAbs(true)} style={s.addBtn}>
-                + {t('hrPanel.addAbsence')}
-              </button>
+              <Button type="button" leftIcon={Plus} onClick={() => setShowAddAbs(true)} style={s.addBtn}>
+                {t('hrPanel.addAbsence')}
+              </Button>
             )}
-            <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>
+            <Button type="button" variant="outline" leftIcon={ArrowLeft} onClick={() => navigate('/kierownik')} style={s.backBtn}>
               Powrot
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -198,10 +200,10 @@ export default function HrPanel() {
         {/* Tabs */}
         <div className="hr-panel-tabs" style={s.tabs}>
           {TABS.map(tabItem => (
-            <button key={tabItem.key} type="button" onClick={() => setTab(tabItem.key)}
+            <Button key={tabItem.key} type="button" variant={tab === tabItem.key ? 'primary' : 'outline'} onClick={() => setTab(tabItem.key)}
               style={{ ...s.tab, ...(tab === tabItem.key ? s.tabActive : {}) }}>
               {tabItem.label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -266,8 +268,8 @@ export default function HrPanel() {
                     actions={
                       row.status === 'Oczekuje' ? (
                         <>
-                          <button type="button" style={s.approveBtn} onClick={() => updateAbsenceStatus(row.id, 'Zatwierdzona')}>OK</button>
-                          <button type="button" style={s.rejectBtn} onClick={() => updateAbsenceStatus(row.id, 'Odrzucona')}>X</button>
+                          <Button type="button" size="sm" leftIcon={Check} style={s.approveBtn} onClick={() => updateAbsenceStatus(row.id, 'Zatwierdzona')}>OK</Button>
+                          <Button type="button" size="sm" variant="danger" leftIcon={X} style={s.rejectBtn} onClick={() => updateAbsenceStatus(row.id, 'Odrzucona')}>X</Button>
                         </>
                       ) : null
                     }

@@ -251,8 +251,8 @@ test('opens repairs tab from fleet deep link', async () => {
 
   expect(await screen.findByText('Noze do wymiany')).toBeInTheDocument();
   expect(screen.getByText('Alternator')).toBeInTheDocument();
-  expect(screen.getByText('Rebak Forst / Rebak (#11)')).toBeInTheDocument();
-  expect(screen.getByText('Mercedes Sprinter KR12345 (#5)')).toBeInTheDocument();
+  expect(screen.getAllByText('Rebak Forst / Rebak (#11)').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('Mercedes Sprinter KR12345 (#5)').length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { name: 'Zakoncz naprawe' })).toBeInTheDocument();
 });
 

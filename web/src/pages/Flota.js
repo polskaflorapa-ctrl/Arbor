@@ -6,7 +6,7 @@ import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
 import { Button } from '../components/ui/Button';
-import { CalendarDays, CheckCircle, Pencil, Plus, Save, Trash2, Wrench, X } from 'lucide-react';
+import { CalendarDays, CheckCircle, FileText, Image, Pencil, Plus, Save, Trash2, Upload, Wrench, X } from 'lucide-react';
 import AutorenewOutlined from '@mui/icons-material/AutorenewOutlined';
 import BuildOutlined from '@mui/icons-material/BuildOutlined';
 import CalendarTodayOutlined from '@mui/icons-material/CalendarTodayOutlined';
@@ -76,6 +76,11 @@ function todayYmd() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function formatMoney(value) {
+  const amount = Number(value || 0);
+  return `${amount.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zl`;
+}
+
 function repairIsClosed(status) {
   return String(status || '')
     .normalize('NFD')
@@ -102,6 +107,75 @@ function normalizeRepairKind(value) {
   return '';
 }
 
+function MaintenanceControlPanel({ summary, activeFilter, onOpenRepairs, onNewRepair, onExport }) {
+  const filters = [
+    { key: 'all', label: 'Wszystkie', count: summary.allCount },
+    { key: 'open', label: 'Otwarte', count: summary.openCount },
+    { key: 'noInvoice', label: 'Bez faktury', count: summary.withoutInvoiceCount },
+    { key: 'closed', label: 'Zamkniete', count: summary.closedCount },
+  ];
+  return (
+    <section style={S.maintenancePanel}>
+      <div style={S.maintenanceHeader}>
+        <div>
+          <div style={S.maintenanceEyebrow}>Kontrola napraw</div>
+          <h2 style={S.maintenanceTitle}>
+            {summary.openCount ? `${summary.openCount} otwarte naprawy` : 'Naprawy pod kontrola'}
+          </h2>
+        </div>
+        <div style={S.maintenanceActions}>
+          <button type="button" style={S.maintenanceSecondaryBtn} onClick={onExport}>Eksport CSV</button>
+          <button type="button" style={S.maintenancePrimaryBtn} onClick={onNewRepair}>Nowa naprawa</button>
+        </div>
+      </div>
+      <div style={S.maintenanceFilters}>
+        {filters.map((filter) => (
+          <button
+            key={filter.key}
+            type="button"
+            style={{ ...S.maintenanceFilterBtn, ...(activeFilter === filter.key ? S.maintenanceFilterBtnActive : {}) }}
+            onClick={() => onOpenRepairs(filter.key)}
+          >
+            {filter.label} <strong>{filter.count}</strong>
+          </button>
+        ))}
+      </div>
+      <div style={S.maintenanceGrid}>
+        <div style={S.maintenanceMetric}>
+          <span>Koszt razem</span>
+          <strong>{formatMoney(summary.totalCost)}</strong>
+          <small>serwis, czesci, faktury</small>
+        </div>
+        <div style={S.maintenanceMetric}>
+          <span>Koszt otwarty</span>
+          <strong>{formatMoney(summary.openCost)}</strong>
+          <small>aktywnie blokuje zasoby</small>
+        </div>
+        <div style={S.maintenanceMetric}>
+          <span>Faktury</span>
+          <strong>{formatMoney(summary.invoiceCost)}</strong>
+          <small>udokumentowane koszty</small>
+        </div>
+        <div style={S.maintenanceMetric}>
+          <span>Bez faktury</span>
+          <strong>{summary.withoutInvoiceCount}</strong>
+          <small>koszt wpisany, brak dokumentu</small>
+        </div>
+      </div>
+      <div style={S.maintenanceTopList}>
+        {summary.topRepairs.length ? summary.topRepairs.map((repair) => (
+          <button key={repair.id} type="button" style={S.maintenanceTopItem} onClick={() => onOpenRepairs('all')}>
+            <span>{repair.assetLabel}</span>
+            <strong>{formatMoney(repair.costValue)}</strong>
+          </button>
+        )) : (
+          <div style={S.maintenanceEmpty}>Brak kosztow napraw do analizy.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Flota() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -122,6 +196,12 @@ export default function Flota() {
   const [editingSprzetId, setEditingSprzetId] = useState(null);
   const [repairDraft, setRepairDraft] = useState(null);
   const [repairSaving, setRepairSaving] = useState(false);
+  const [assetPhotos, setAssetPhotos] = useState({});
+  const [photoUploadingKey, setPhotoUploadingKey] = useState('');
+  const [repairInvoices, setRepairInvoices] = useState({});
+  const [invoiceDrafts, setInvoiceDrafts] = useState({});
+  const [invoiceUploadingId, setInvoiceUploadingId] = useState('');
+  const [repairQuickFilter, setRepairQuickFilter] = useState('all');
 
   const [formPojazd, setFormPojazd] = useState({
     marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '',
@@ -327,6 +407,138 @@ export default function Flota() {
     }
   };
 
+  const assetKey = (type, id) => `${type}:${id}`;
+
+  const updateAssetTeam = async (type, item, ekipaId) => {
+    try {
+      const token = getStoredToken();
+      const payload = {
+        ...item,
+        ekipa_id: ekipaId || '',
+        oddzial_id: item.oddzial_id || currentUser?.oddzial_id || '',
+      };
+      await api.put(`/flota/${type}/${item.id}`, payload, { headers: authHeaders(token) });
+      showMsg(successMessage(type === 'sprzet' ? 'Sprzet przepisany do ekipy.' : 'Pojazd przepisany do ekipy.'));
+      await loadAll();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie przepisac zasobu do ekipy.')));
+    }
+  };
+
+  const loadAssetPhotos = async (type, id) => {
+    const key = assetKey(type, id);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/flota/${type}/${id}/zdjecia`, { headers: authHeaders(token), dedupe: false });
+      setAssetPhotos((prev) => ({ ...prev, [key]: Array.isArray(data) ? data : [] }));
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie pobrac zdjec zasobu.')));
+    }
+  };
+
+  const uploadAssetPhoto = async (type, item, file) => {
+    if (!file) return;
+    const key = assetKey(type, item.id);
+    setPhotoUploadingKey(key);
+    try {
+      const token = getStoredToken();
+      const form = new FormData();
+      form.append('zdjecie', file);
+      form.append('opis', type === 'sprzet' ? 'Zdjecie sprzetu' : 'Zdjecie pojazdu');
+      await api.post(`/flota/${type}/${item.id}/zdjecia`, form, { headers: authHeaders(token) });
+      showMsg(successMessage('Zdjecie dodane do karty zasobu.'));
+      await loadAssetPhotos(type, item.id);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie dodac zdjecia.')));
+    } finally {
+      setPhotoUploadingKey('');
+    }
+  };
+
+  const deleteAssetPhoto = async (type, item, photoId) => {
+    try {
+      const token = getStoredToken();
+      await api.delete(`/flota/${type}/${item.id}/zdjecia/${photoId}`, { headers: authHeaders(token) });
+      showMsg(successMessage('Zdjecie usuniete.'));
+      await loadAssetPhotos(type, item.id);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie usunac zdjecia.')));
+    }
+  };
+
+  const loadRepairInvoices = async (repairId) => {
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/flota/naprawy/${repairId}/faktury`, { headers: authHeaders(token), dedupe: false });
+      setRepairInvoices((prev) => ({ ...prev, [repairId]: Array.isArray(data) ? data : [] }));
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie pobrac faktur naprawy.')));
+    }
+  };
+
+  const setInvoiceDraft = (repairId, field, value) => {
+    setInvoiceDrafts((prev) => ({
+      ...prev,
+      [repairId]: { numer: '', kwota: '', opis: '', ...(prev[repairId] || {}), [field]: value },
+    }));
+  };
+
+  const uploadRepairInvoice = async (repair, file) => {
+    if (!file) return;
+    const draft = invoiceDrafts[repair.id] || {};
+    setInvoiceUploadingId(String(repair.id));
+    try {
+      const token = getStoredToken();
+      const form = new FormData();
+      form.append('faktura', file);
+      form.append('numer', draft.numer || '');
+      form.append('kwota', draft.kwota || repair.koszt || '');
+      form.append('opis', draft.opis || 'Faktura naprawy');
+      await api.post(`/flota/naprawy/${repair.id}/faktury`, form, { headers: authHeaders(token) });
+      showMsg(successMessage('Faktura dodana do naprawy.'));
+      setInvoiceDrafts((prev) => ({ ...prev, [repair.id]: { numer: '', kwota: '', opis: '' } }));
+      await Promise.all([loadRepairInvoices(repair.id), loadAll()]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie dodac faktury.')));
+    } finally {
+      setInvoiceUploadingId('');
+    }
+  };
+
+  const deleteRepairInvoice = async (repair, invoiceId) => {
+    try {
+      const token = getStoredToken();
+      await api.delete(`/flota/naprawy/${repair.id}/faktury/${invoiceId}`, { headers: authHeaders(token) });
+      showMsg(successMessage('Faktura usunieta z naprawy.'));
+      await Promise.all([loadRepairInvoices(repair.id), loadAll()]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie usunac faktury.')));
+    }
+  };
+
+  const openEmptyRepairDraft = () => {
+    const defaultItem = filtrSprzet[0] || filtrPojazdy[0] || null;
+    const kind = defaultItem && filtrSprzet[0] ? 'sprzet' : 'pojazd';
+    setRepairDraft({
+      kind,
+      item: defaultItem,
+      typ_zasobu: kind === 'pojazd' ? 'Pojazd' : 'Sprzet',
+      zasob_id: defaultItem?.id || '',
+      label: defaultItem
+        ? (kind === 'pojazd'
+          ? [defaultItem.marka, defaultItem.model, defaultItem.nr_rejestracyjny].filter(Boolean).join(' ')
+          : [defaultItem.nazwa, defaultItem.typ].filter(Boolean).join(' / '))
+        : 'Wybierz zasob',
+      data_naprawy: todayYmd(),
+      opis_usterki: '',
+      opis_naprawy: '',
+      wykonawca: '',
+      koszt: '',
+      status: 'W toku',
+      oddzial_id: defaultItem?.oddzial_id || currentUser?.oddzial_id || '',
+    });
+  };
+
   const openRepairDraft = (kind, item) => {
     setRepairDraft({
       kind,
@@ -348,7 +560,7 @@ export default function Flota() {
 
   const submitRepairDraft = async (event) => {
     event.preventDefault();
-    if (!repairDraft || !repairDraft.opis_usterki.trim()) return;
+    if (!repairDraft || !repairDraft.zasob_id || !repairDraft.opis_usterki.trim()) return;
     setRepairSaving(true);
     try {
       const token = getStoredToken();
@@ -393,6 +605,64 @@ export default function Flota() {
     } finally {
       setRepairSaving(false);
     }
+  };
+
+  const deleteRepair = async (repair) => {
+    if (!repair) return;
+    const ok = typeof window !== 'undefined' && window.confirm
+      ? window.confirm('Usunac naprawe razem z fakturami?')
+      : true;
+    if (!ok) return;
+    setRepairSaving(true);
+    try {
+      const token = getStoredToken();
+      await api.delete(`/flota/naprawy/${repair.id}`, { headers: authHeaders(token) });
+      showMsg(successMessage('Naprawa usunieta.'));
+      await loadAll();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie usunac naprawy.')));
+    } finally {
+      setRepairSaving(false);
+    }
+  };
+
+  const openRepairsForAsset = (kind, item) => {
+    const params = new URLSearchParams({
+      tab: 'naprawy',
+      kind,
+      resource: String(item.id),
+    });
+    if (filtrOddzial) params.set('oddzial', filtrOddzial);
+    setRepairQuickFilter('all');
+    setActiveTab('naprawy');
+    navigate(`/flota?${params.toString()}`);
+  };
+
+  const exportRepairsCsv = (rows = naprawy) => {
+    const sourceRows = Array.isArray(rows) && rows.length ? rows : naprawy;
+    const header = ['id', 'typ_zasobu', 'zasob', 'data_naprawy', 'status', 'koszt', 'faktury_kwota', 'faktury_count', 'usterka', 'wykonawca'];
+    const csv = [
+      header.join(';'),
+      ...sourceRows.map((repair) => [
+        repair.id,
+        repair.typ_zasobu,
+        getRepairAssetLabel(repair),
+        fmt(repair.data_naprawy),
+        repair.status || '',
+        Number(repair.koszt || 0) || '',
+        Number(repair.faktury_kwota || 0) || '',
+        Number(repair.faktury_count || 0) || 0,
+        repair.opis_usterki || '',
+        repair.wykonawca || '',
+      ].map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';')),
+    ].join('\n');
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `flota-naprawy-${todayYmd()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const fmt = fmtDate;
@@ -486,6 +756,10 @@ export default function Flota() {
     () => resourceCards.filter((card) => card.alerts.some((alert) => alert.state === 'expired')).length,
     [resourceCards],
   );
+  const repairCostTotal = useMemo(
+    () => naprawy.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0),
+    [naprawy],
+  );
   const fleetCommand = useMemo(() => {
     const allResources = [...filtrPojazdy, ...filtrSprzet];
     const total = allResources.length;
@@ -508,11 +782,12 @@ export default function Flota() {
       inUse,
       inRepair,
       openRepairs,
+      repairCostTotal,
       readiness,
       nextRisk,
       nextAction,
     };
-  }, [filtrPojazdy, filtrSprzet, naprawy, overdueResourceCount, resourceAlertCount, resourceRiskCards]);
+  }, [filtrPojazdy, filtrSprzet, naprawy, overdueResourceCount, repairCostTotal, resourceAlertCount, resourceRiskCards]);
 
   const openResourceCalendar = (card) => {
     const params = new URLSearchParams({ tab: 'equipment', modal: '0' });
@@ -568,16 +843,19 @@ export default function Flota() {
     return rows;
   }, [pojazdy, sprzet]);
   const filteredNaprawy = useMemo(() => {
-    if (!repairFocusActive) return naprawy;
-    return naprawy.filter((repair) => {
+    const focusedRows = repairFocusActive ? naprawy.filter((repair) => {
       const kind = normalizeRepairKind(repair.typ_zasobu);
       const asset = repairAssetMetaByKey.get(`${kind}:${repair.zasob_id}`);
       if (repairFocus.kind && kind !== repairFocus.kind) return false;
       if (repairFocus.resourceId && String(repair.zasob_id || '') !== String(repairFocus.resourceId)) return false;
       if (repairFocus.teamId && String(asset?.teamId || '') !== String(repairFocus.teamId)) return false;
       return true;
-    });
-  }, [naprawy, repairAssetMetaByKey, repairFocus.kind, repairFocus.resourceId, repairFocus.teamId, repairFocusActive]);
+    }) : naprawy;
+    if (repairQuickFilter === 'open') return focusedRows.filter((repair) => !repairIsClosed(repair.status));
+    if (repairQuickFilter === 'closed') return focusedRows.filter((repair) => repairIsClosed(repair.status));
+    if (repairQuickFilter === 'noInvoice') return focusedRows.filter((repair) => Number(repair.koszt || 0) > 0 && Number(repair.faktury_count || 0) === 0);
+    return focusedRows;
+  }, [naprawy, repairAssetMetaByKey, repairFocus.kind, repairFocus.resourceId, repairFocus.teamId, repairFocusActive, repairQuickFilter]);
   const repairFocusLabel = useMemo(() => {
     const parts = [];
     if (repairFocus.teamId) {
@@ -595,6 +873,45 @@ export default function Flota() {
     const asset = repairAssetMetaByKey.get(`${kind}:${repair?.zasob_id}`);
     return asset?.label ? `${asset.label} (#${repair.zasob_id})` : `ID: ${repair?.zasob_id || '-'}`;
   }, [repairAssetMetaByKey]);
+  const assetRepairSummary = useMemo(() => {
+    const rows = new Map();
+    for (const repair of naprawy) {
+      const kind = normalizeRepairKind(repair.typ_zasobu);
+      if (!kind || !repair.zasob_id) continue;
+      const key = assetKey(kind === 'pojazd' ? 'pojazdy' : 'sprzet', repair.zasob_id);
+      const current = rows.get(key) || { count: 0, open: 0, cost: 0, lastDate: null };
+      current.count += 1;
+      if (!repairIsClosed(repair.status)) current.open += 1;
+      current.cost += Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0;
+      if (!current.lastDate || String(repair.data_naprawy || '') > String(current.lastDate || '')) {
+        current.lastDate = repair.data_naprawy || null;
+      }
+      rows.set(key, current);
+    }
+    return rows;
+  }, [naprawy]);
+  const maintenanceSummary = useMemo(() => {
+    const openRows = naprawy.filter((repair) => !repairIsClosed(repair.status));
+    const invoiceCost = naprawy.reduce((sum, repair) => sum + (Number(repair.faktury_kwota || 0) || 0), 0);
+    const openCost = openRows.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0), 0);
+    const withoutInvoice = naprawy.filter((repair) => Number(repair.faktury_count || 0) === 0 && Number(repair.koszt || 0) > 0);
+    const topRepairs = [...naprawy]
+      .map((repair) => ({ ...repair, costValue: Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0 }))
+      .filter((repair) => repair.costValue > 0)
+      .sort((a, b) => b.costValue - a.costValue)
+      .slice(0, 4)
+      .map((repair) => ({ ...repair, assetLabel: getRepairAssetLabel(repair) }));
+    return {
+      allCount: naprawy.length,
+      totalCost: repairCostTotal,
+      invoiceCost,
+      openCost,
+      openCount: openRows.length,
+      closedCount: naprawy.filter((repair) => repairIsClosed(repair.status)).length,
+      withoutInvoiceCount: withoutInvoice.length,
+      topRepairs,
+    };
+  }, [getRepairAssetLabel, naprawy, repairCostTotal]);
   const isPojazdFormValid = Boolean(
     formPojazd.marka.trim() &&
     formPojazd.model.trim() &&
@@ -649,6 +966,7 @@ export default function Flota() {
             { label: 'Gotowe', value: fleetCommand.available, detail: 'dostepne do planu', tone: 'good' },
             { label: 'W pracy', value: fleetCommand.inUse, detail: 'aktywnie przypisane', tone: 'blue' },
             { label: 'Naprawy', value: fleetCommand.openRepairs || fleetCommand.inRepair, detail: 'otwarte blokady', tone: (fleetCommand.openRepairs || fleetCommand.inRepair) ? 'danger' : 'good' },
+            { label: 'Koszt napraw', value: formatMoney(fleetCommand.repairCostTotal), detail: 'serwis + faktury', tone: fleetCommand.repairCostTotal ? 'danger' : 'good' },
             { label: 'Alerty', value: resourceAlertCount, detail: overdueResourceCount ? `${overdueResourceCount} po terminie` : 'przeglady i OC', tone: resourceAlertCount ? 'warning' : 'good' },
             { label: 'Najblizsze', value: fleetCommand.nextRisk?.title || '-', detail: fleetCommand.nextRisk?.alerts?.find((alert) => alert.state !== 'ok')?.label || 'brak ryzyk', tone: fleetCommand.nextRisk ? 'warning' : 'good' },
           ].map((card) => (
@@ -664,6 +982,9 @@ export default function Flota() {
             </button>
             <button type="button" onClick={() => setActiveTab('naprawy')}>
               Naprawy
+            </button>
+            <button type="button" onClick={() => { setActiveTab('naprawy'); openEmptyRepairDraft(); }}>
+              Nowa naprawa
             </button>
           </div>
         </section>
@@ -687,6 +1008,14 @@ export default function Flota() {
           total={resourceCards.length}
           alertCount={resourceAlertCount}
           onOpenCalendar={openResourceCalendar}
+        />
+
+        <MaintenanceControlPanel
+          summary={maintenanceSummary}
+          activeFilter={repairQuickFilter}
+          onOpenRepairs={(filter = 'all') => { setRepairQuickFilter(filter); setActiveTab('naprawy'); }}
+          onNewRepair={() => { setActiveTab('naprawy'); openEmptyRepairDraft(); }}
+          onExport={() => exportRepairsCsv(filteredNaprawy)}
         />
 
         {/* Tabs */}
@@ -872,6 +1201,20 @@ export default function Flota() {
                       </div>
                     )}
                   </div>
+                  <FleetAssetControls
+                    type="pojazdy"
+                    item={p}
+                    ekipy={ekipy}
+                    photos={assetPhotos[assetKey('pojazdy', p.id)]}
+                    repairSummary={assetRepairSummary.get(assetKey('pojazdy', p.id))}
+                    uploading={photoUploadingKey === assetKey('pojazdy', p.id)}
+                    canEdit={canEdit}
+                    onTeamChange={updateAssetTeam}
+                    onLoadPhotos={loadAssetPhotos}
+                    onUploadPhoto={uploadAssetPhoto}
+                    onDeletePhoto={deleteAssetPhoto}
+                    onOpenRepairs={openRepairsForAsset}
+                  />
                   </div>
                 </div>
               ))}
@@ -933,6 +1276,20 @@ export default function Flota() {
                       </div>
                     )}
                   </div>
+                  <FleetAssetControls
+                    type="sprzet"
+                    item={s}
+                    ekipy={ekipy}
+                    photos={assetPhotos[assetKey('sprzet', s.id)]}
+                    repairSummary={assetRepairSummary.get(assetKey('sprzet', s.id))}
+                    uploading={photoUploadingKey === assetKey('sprzet', s.id)}
+                    canEdit={canEdit}
+                    onTeamChange={updateAssetTeam}
+                    onLoadPhotos={loadAssetPhotos}
+                    onUploadPhoto={uploadAssetPhoto}
+                    onDeletePhoto={deleteAssetPhoto}
+                    onOpenRepairs={openRepairsForAsset}
+                  />
                   </div>
                 </div>
               ))}
@@ -965,6 +1322,26 @@ export default function Flota() {
                   </div>
                 </div>
               )}
+              <div style={S.repairFilterBar}>
+                {[
+                  ['all', 'Wszystkie'],
+                  ['open', 'Otwarte'],
+                  ['noInvoice', 'Bez faktury'],
+                  ['closed', 'Zamkniete'],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    style={{ ...S.repairFilterBtn, ...(repairQuickFilter === key ? S.repairFilterBtnActive : {}) }}
+                    onClick={() => setRepairQuickFilter(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button type="button" style={S.repairFilterExportBtn} onClick={() => exportRepairsCsv(filteredNaprawy)}>
+                  Eksport CSV
+                </button>
+              </div>
               <div className="fleet-repairs-header" style={S.repairsHeader}>
                 {(repairHeaders.length ? repairHeaders : ['Typ', 'Zasób', 'Data', 'Koszt', 'Usterka', 'Wykonawca', 'Status']).slice(0, 7).map((h) => (
                   <span key={h} style={S.repairsHeaderChip}>{h}</span>
@@ -1001,6 +1378,62 @@ export default function Flota() {
                       <span style={S.repairLabel}>Wykonawca</span>
                       <span style={S.repairValue}>{n.wykonawca || '-'}</span>
                     </div>
+                    <div style={S.invoiceBox}>
+                      <div style={S.invoiceTop}>
+                        <span><FileText size={14} /> Faktury</span>
+                        <button type="button" style={S.invoiceGhostBtn} onClick={() => loadRepairInvoices(n.id)}>
+                          {Array.isArray(repairInvoices[n.id]) ? `${repairInvoices[n.id].length} plikow` : `${n.faktury_count || 0} zapisane`}
+                        </button>
+                      </div>
+                      {canEdit && (
+                        <div style={S.invoiceForm}>
+                          <input
+                            style={S.invoiceInput}
+                            value={invoiceDrafts[n.id]?.numer || ''}
+                            onChange={(e) => setInvoiceDraft(n.id, 'numer', e.target.value)}
+                            placeholder="Nr faktury"
+                          />
+                          <input
+                            style={S.invoiceInput}
+                            type="number"
+                            step="0.01"
+                            value={invoiceDrafts[n.id]?.kwota || ''}
+                            onChange={(e) => setInvoiceDraft(n.id, 'kwota', e.target.value)}
+                            placeholder="Kwota"
+                          />
+                          <label style={S.invoiceUploadBtn}>
+                            <Upload size={14} /> {invoiceUploadingId === String(n.id) ? 'Wgrywam' : 'Dodaj fakture'}
+                            <input
+                              type="file"
+                              accept="image/*,.pdf,application/pdf"
+                              style={{ display: 'none' }}
+                              disabled={invoiceUploadingId === String(n.id)}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = '';
+                                uploadRepairInvoice(n, file);
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
+                      {Array.isArray(repairInvoices[n.id]) && repairInvoices[n.id].length > 0 && (
+                        <div style={S.invoiceLinks}>
+                          {repairInvoices[n.id].slice(0, 4).map((invoice) => (
+                            <div key={invoice.id} style={S.invoiceLinkRow}>
+                              <a href={invoice.url} target="_blank" rel="noreferrer" style={S.invoiceLink}>
+                                {invoice.numer || invoice.nazwa_pliku || `Faktura #${invoice.id}`} {invoice.kwota ? `- ${formatMoney(invoice.kwota)}` : ''}
+                              </a>
+                              {canEdit && (
+                                <button type="button" style={S.invoiceDeleteBtn} onClick={() => deleteRepairInvoice(n, invoice.id)}>
+                                  Usun
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {!repairIsClosed(n.status) && canEdit && (
                       <div style={S.repairCloseActions}>
                         {repairFocus.returnTo && (
@@ -1012,6 +1445,11 @@ export default function Flota() {
                           Zakoncz naprawe
                         </Button>
                       </div>
+                    )}
+                    {canEdit && (
+                      <Button fullWidth variant="danger" loading={repairSaving} onClick={() => deleteRepair(n)}>
+                        Usun naprawe
+                      </Button>
                     )}
                   </div>
                 ))}
@@ -1026,6 +1464,8 @@ export default function Flota() {
           onChange={setRepairDraft}
           onSubmit={submitRepairDraft}
           onClose={() => setRepairDraft(null)}
+          pojazdy={filtrPojazdy}
+          sprzet={filtrSprzet}
         />
       </main>
     </div>
@@ -1149,9 +1589,101 @@ function Field({ label, children }) {
   );
 }
 
-function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
+function FleetAssetControls({ type, item, ekipy, photos, repairSummary, uploading, canEdit, onTeamChange, onLoadPhotos, onUploadPhoto, onDeletePhoto, onOpenRepairs }) {
+  const loaded = Array.isArray(photos);
+  const kind = type === 'pojazdy' ? 'pojazd' : 'sprzet';
+  return (
+    <div style={S.assetControlBox}>
+      <div style={S.assetControlMain}>
+        <label style={S.assetControlLabel}>Ekipa</label>
+        <select
+          style={S.assetControlSelect}
+          value={item.ekipa_id || ''}
+          disabled={!canEdit}
+          onChange={(e) => onTeamChange(type, item, e.target.value)}
+        >
+          <option value="">Bez ekipy</option>
+          {ekipy.map((team) => <option key={team.id} value={team.id}>{team.nazwa}</option>)}
+        </select>
+      </div>
+      <button type="button" style={S.assetHistoryButton} onClick={() => onOpenRepairs(kind, item)}>
+        <span>Historia</span>
+        <strong>{repairSummary?.count || 0} / {formatMoney(repairSummary?.cost || 0)}</strong>
+        <small>{repairSummary?.open ? `${repairSummary.open} otwarte` : (repairSummary?.lastDate ? `ostatnio ${fmtDate(repairSummary.lastDate)}` : 'brak napraw')}</small>
+      </button>
+      <div style={S.assetPhotoPanel}>
+        <button type="button" style={S.assetPhotoButton} onClick={() => onLoadPhotos(type, item.id)}>
+          <Image size={14} /> {loaded ? `${photos.length} zdj.` : 'Zdjecia'}
+        </button>
+        {canEdit && (
+          <label style={S.assetUploadButton}>
+            <Upload size={14} /> {uploading ? 'Wgrywam' : 'Dodaj'}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              disabled={uploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                onUploadPhoto(type, item, file);
+              }}
+            />
+          </label>
+        )}
+        {loaded && photos.slice(0, 3).map((photo) => (
+          <span key={photo.id} style={S.assetThumbWrap}>
+            <a href={photo.url} target="_blank" rel="noreferrer" style={S.assetThumbLink}>
+              <img src={photo.url} alt={photo.opis || 'Zdjecie zasobu'} style={S.assetThumb} />
+            </a>
+            {canEdit && (
+              <button type="button" style={S.assetThumbDelete} onClick={() => onDeletePhoto(type, item, photo.id)}>
+                x
+              </button>
+            )}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RepairDialog({ draft, saving, onChange, onSubmit, onClose, pojazdy = [], sprzet = [] }) {
   if (!draft) return null;
   const setField = (field, value) => onChange((prev) => ({ ...prev, [field]: value }));
+  const assetOptions = draft.typ_zasobu === 'Pojazd' ? pojazdy : sprzet;
+  const setRepairAssetType = (value) => {
+    const nextType = value === 'Pojazd' ? 'Pojazd' : 'Sprzet';
+    const options = nextType === 'Pojazd' ? pojazdy : sprzet;
+    const first = options[0] || null;
+    onChange((prev) => ({
+      ...prev,
+      kind: nextType === 'Pojazd' ? 'pojazd' : 'sprzet',
+      typ_zasobu: nextType,
+      zasob_id: first?.id || '',
+      item: first,
+      label: first
+        ? (nextType === 'Pojazd'
+          ? [first.marka, first.model, first.nr_rejestracyjny].filter(Boolean).join(' ')
+          : [first.nazwa, first.typ].filter(Boolean).join(' / '))
+        : 'Wybierz zasob',
+      oddzial_id: first?.oddzial_id || prev.oddzial_id || '',
+    }));
+  };
+  const setRepairAsset = (value) => {
+    const selected = assetOptions.find((item) => String(item.id) === String(value)) || null;
+    onChange((prev) => ({
+      ...prev,
+      zasob_id: selected?.id || '',
+      item: selected,
+      label: selected
+        ? (prev.typ_zasobu === 'Pojazd'
+          ? [selected.marka, selected.model, selected.nr_rejestracyjny].filter(Boolean).join(' ')
+          : [selected.nazwa, selected.typ].filter(Boolean).join(' / '))
+        : 'Wybierz zasob',
+      oddzial_id: selected?.oddzial_id || prev.oddzial_id || '',
+    }));
+  };
   return (
     <div style={S.modalBackdrop} role="dialog" aria-modal="true" aria-label="Zglos naprawe">
       <form style={S.modalPanel} onSubmit={onSubmit}>
@@ -1164,6 +1696,24 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
           <Button size="sm" variant="ghost" leftIcon={X} onClick={onClose} style={S.modalCloseBtn} aria-label="Zamknij" />
         </div>
         <div style={S.modalGrid}>
+          <Field label="Typ zasobu">
+            <select style={S.input} value={draft.typ_zasobu} onChange={(e) => setRepairAssetType(e.target.value)}>
+              <option value="Sprzet">Sprzet</option>
+              <option value="Pojazd">Pojazd</option>
+            </select>
+          </Field>
+          <Field label="Sprzet / pojazd">
+            <select style={S.input} value={draft.zasob_id || ''} onChange={(e) => setRepairAsset(e.target.value)} required>
+              <option value="">Wybierz zasob</option>
+              {assetOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {draft.typ_zasobu === 'Pojazd'
+                    ? [item.marka, item.model, item.nr_rejestracyjny].filter(Boolean).join(' ')
+                    : [item.nazwa, item.typ, item.nr_seryjny].filter(Boolean).join(' / ')}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Data">
             <input style={S.input} type="date" value={draft.data_naprawy} onChange={(e) => setField('data_naprawy', e.target.value)} required />
           </Field>
@@ -1188,7 +1738,7 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
         </Field>
         <div style={S.modalActions}>
           <Button variant="outline" onClick={onClose}>Anuluj</Button>
-          <Button type="submit" loading={saving} disabled={!draft.opis_usterki.trim()} leftIcon={Save}>
+          <Button type="submit" loading={saving} disabled={!draft.zasob_id || !draft.opis_usterki.trim()} leftIcon={Save}>
             Zapisz naprawe
           </Button>
         </div>
@@ -1259,4 +1809,45 @@ const S = {
   repairCloseActions: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 },
   repairCloseBtn: { marginTop: 4, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.28)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   repairCloseBtnSecondary: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  maintenancePanel: { marginBottom: 22, border: '1px solid var(--glass-border)', borderRadius: 8, background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)', padding: 14 },
+  maintenanceHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 },
+  maintenanceEyebrow: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: 0 },
+  maintenanceTitle: { margin: '2px 0 0', color: 'var(--text)', fontSize: 18, lineHeight: 1.2 },
+  maintenanceActions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
+  maintenancePrimaryBtn: { padding: '8px 11px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.28)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  maintenanceSecondaryBtn: { padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  maintenanceFilters: { display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 10 },
+  maintenanceFilterBtn: { border: '1px solid var(--border)', borderRadius: 999, background: 'var(--surface-field)', color: 'var(--text-sub)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 850 },
+  maintenanceFilterBtnActive: { borderColor: 'rgba(20,131,79,0.38)', background: 'rgba(20,131,79,0.12)', color: 'var(--accent)' },
+  maintenanceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 },
+  maintenanceMetric: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 10, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
+  maintenanceTopList: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 10 },
+  maintenanceTopItem: { display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', textAlign: 'left', border: '1px solid rgba(226,68,92,0.24)', borderRadius: 8, background: 'rgba(226,68,92,0.06)', color: 'var(--text)', padding: '8px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
+  maintenanceEmpty: { border: '1px dashed var(--border)', borderRadius: 8, color: 'var(--text-muted)', padding: 10, fontSize: 12, fontWeight: 800 },
+  assetControlBox: { display: 'grid', gridTemplateColumns: 'minmax(170px, 0.8fr) minmax(180px, 0.8fr) minmax(240px, 1.2fr)', gap: 10, alignItems: 'center', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' },
+  assetControlMain: { display: 'grid', gridTemplateColumns: '52px 1fr', gap: 8, alignItems: 'center', minWidth: 0 },
+  assetControlLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 900 },
+  assetControlSelect: { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', minWidth: 0, fontSize: 12, fontWeight: 700 },
+  assetHistoryButton: { display: 'grid', gridTemplateColumns: '1fr', gap: 2, textAlign: 'left', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', padding: '7px 9px', minWidth: 0 },
+  assetPhotoPanel: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap', minWidth: 0 },
+  assetPhotoButton: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
+  assetUploadButton: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.3)', background: 'rgba(20,131,79,0.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  assetThumbWrap: { position: 'relative', display: 'inline-flex' },
+  assetThumbLink: { display: 'inline-flex', width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-field)' },
+  assetThumb: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+  assetThumbDelete: { position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: 999, border: '1px solid rgba(226,68,92,0.4)', background: 'var(--surface-glass)', color: 'var(--danger)', cursor: 'pointer', fontSize: 10, lineHeight: 1, padding: 0 },
+  invoiceBox: { border: '1px solid var(--border)', borderRadius: 8, padding: 9, background: 'var(--surface-field)', display: 'flex', flexDirection: 'column', gap: 8 },
+  invoiceTop: { display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', fontSize: 12, fontWeight: 900, color: 'var(--text-sub)' },
+  invoiceGhostBtn: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 8px', fontSize: 11, fontWeight: 800 },
+  invoiceForm: { display: 'grid', gridTemplateColumns: '1fr 0.7fr auto', gap: 6, alignItems: 'center' },
+  invoiceInput: { minWidth: 0, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', fontSize: 12 },
+  invoiceUploadBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap', padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.3)', background: 'rgba(20,131,79,0.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  invoiceLinks: { display: 'flex', flexDirection: 'column', gap: 4 },
+  invoiceLinkRow: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, alignItems: 'center', minWidth: 0 },
+  invoiceLink: { color: 'var(--accent)', fontSize: 12, fontWeight: 800, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  invoiceDeleteBtn: { border: '1px solid rgba(226,68,92,0.28)', borderRadius: 7, background: 'rgba(226,68,92,0.08)', color: 'var(--danger)', cursor: 'pointer', padding: '4px 7px', fontSize: 11, fontWeight: 900 },
+  repairFilterBar: { display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 8 },
+  repairFilterBtn: { border: '1px solid var(--border)', borderRadius: 999, background: 'var(--surface-glass)', color: 'var(--text-sub)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 850 },
+  repairFilterBtnActive: { borderColor: 'rgba(20,131,79,0.38)', background: 'rgba(20,131,79,0.12)', color: 'var(--accent)' },
+  repairFilterExportBtn: { marginLeft: 'auto', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 900 },
 };

@@ -96,13 +96,9 @@ function buildTaskFinancialDrilldown(row) {
   if (!Number(row.koszt_inne_count || 0)) missing.push('inne');
   const marginConfidence = margin.revenue_net <= 0
     ? 'no_revenue'
-    : missing.length >= 3
-      ? 'high_risk_margin'
-      : missing.length === 2
-        ? 'medium_risk_margin'
-        : missing.length === 1
-          ? 'low_risk_margin'
-          : 'complete_enough';
+    : missing.length > 0
+      ? 'incomplete_margin_data'
+      : 'complete_enough';
 
   return {
     revenue_net: margin.revenue_net,
@@ -192,17 +188,68 @@ router.get('/overview', async (req, res) => {
     const [tasks, quotes, prev] = await Promise.all([
       // Current period tasks
       pool.query(
-        `SELECT
-           COUNT(*)                                                          AS tasks_total,
-           COUNT(*) FILTER (WHERE status = 'Zakonczone')                    AS tasks_done,
+        `WITH task_metrics AS (
+           SELECT
+             t.id,
+             t.status,
+             t.data_planowana,
+             t.ekipa_id,
+             COALESCE(t.wartosc_planowana, 0)::numeric AS revenue_planned,
+             COALESCE(t.wartosc_rzeczywista, tr.wartosc_netto, t.wartosc_planowana, 0)::numeric AS revenue_actual,
+             CASE WHEN tr.id IS NOT NULL THEN 1 ELSE 0 END AS has_settlement,
+             CASE WHEN COALESCE(op.equipment_count, 0) > 0 THEN 1 ELSE 0 END AS has_equipment,
+             CASE WHEN COALESCE(op.fuel_count, 0) > 0 THEN 1 ELSE 0 END AS has_fuel,
+             CASE WHEN COALESCE(mu.material_count, 0) > 0 THEN 1 ELSE 0 END AS has_material,
+             CASE WHEN COALESCE(op.disposal_count, 0) > 0 THEN 1 ELSE 0 END AS has_disposal,
+             CASE WHEN COALESCE(op.other_count, 0) > 0 THEN 1 ELSE 0 END AS has_other
+           FROM tasks t
+           LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
+           LEFT JOIN LATERAL (
+             SELECT
+               COUNT(*) FILTER (WHERE category = 'sprzet') AS equipment_count,
+               COUNT(*) FILTER (WHERE category = 'paliwo') AS fuel_count,
+               COUNT(*) FILTER (WHERE category = 'utylizacja') AS disposal_count,
+               COUNT(*) FILTER (WHERE category = 'inne') AS other_count
+             FROM task_operational_costs c
+             WHERE c.task_id = t.id
+           ) op ON true
+           LEFT JOIN LATERAL (
+             SELECT COUNT(*) FILTER (WHERE koszt_laczny IS NOT NULL) AS material_count
+             FROM task_finish_material_usage m
+             WHERE m.task_id = t.id
+           ) mu ON true
+           WHERE t.data_planowana >= NOW() - INTERVAL '1 day' * $1 ${bc}
+         )
+         SELECT
+           COUNT(*) FILTER (WHERE status != 'Anulowane')                     AS tasks_total,
+           COUNT(*) FILTER (WHERE status = 'Zakonczone')                     AS tasks_done,
            COUNT(*) FILTER (WHERE status NOT IN ('Zakonczone','Anulowane')
                              AND data_planowana < NOW())                     AS tasks_overdue,
            COUNT(*) FILTER (WHERE status NOT IN ('Zakonczone','Anulowane')
                              AND ekipa_id IS NULL)                           AS tasks_unassigned,
-           COALESCE(SUM(wartosc_planowana) FILTER (WHERE status != 'Anulowane'), 0) AS revenue_planned,
-           COALESCE(SUM(wartosc_rzeczywista) FILTER (WHERE status = 'Zakonczone'), 0) AS revenue_actual
-         FROM tasks t
-         WHERE data_planowana >= NOW() - INTERVAL '1 day' * $1 ${bc}`,
+           COALESCE(SUM(revenue_planned) FILTER (WHERE status != 'Anulowane'), 0) AS revenue_planned,
+           COALESCE(SUM(revenue_actual) FILTER (WHERE status = 'Zakonczone'), 0) AS revenue_actual,
+           COUNT(*) FILTER (
+             WHERE status = 'Zakonczone'
+               AND (
+                 has_settlement = 0
+                 OR has_equipment = 0
+                 OR has_fuel = 0
+                 OR has_material = 0
+                 OR has_disposal = 0
+                 OR has_other = 0
+               )
+           ) AS incomplete_margin_tasks,
+           COUNT(*) FILTER (
+             WHERE status = 'Zakonczone'
+               AND has_settlement = 0
+               AND has_equipment = 0
+               AND has_fuel = 0
+               AND has_material = 0
+               AND has_disposal = 0
+               AND has_other = 0
+           ) AS high_risk_margin_tasks
+         FROM task_metrics`,
         [days, ...bp]
       ),
       // Quotation → task conversion (wyceny scoped via autor_id → users.oddzial_id)
@@ -253,6 +300,11 @@ router.get('/overview', async (req, res) => {
       revenue_actual:   Math.round(Number(cur.revenue_actual)),
       revenue_delta_pct: revDelta,
       tasks_delta_pct:   tasksDelta,
+      margin_completeness_pct: cur.tasks_done > 0
+        ? Math.round(((cur.tasks_done - cur.incomplete_margin_tasks) / cur.tasks_done) * 100)
+        : 0,
+      incomplete_margin_tasks: Number(cur.incomplete_margin_tasks),
+      high_risk_margin_tasks: Number(cur.high_risk_margin_tasks),
       quotes_total:     Number(q.quotes_total),
       quotes_converted: Number(q.quotes_converted),
       conversion_pct:   q.quotes_total > 0 ? Math.round((q.quotes_converted / q.quotes_total) * 100) : 0,
@@ -325,16 +377,27 @@ router.get('/branch-comparison', async (req, res) => {
              + COALESCE(op.known_cost, 0)::numeric
              + COALESCE(mu.material_cost, 0)::numeric AS known_cost,
            CASE WHEN tr.id IS NOT NULL THEN 1 ELSE 0 END AS has_settlement,
-           CASE WHEN COALESCE(op.known_cost, 0) > 0 OR COALESCE(mu.material_cost, 0) > 0 THEN 1 ELSE 0 END AS has_costs
+           CASE WHEN COALESCE(op.equipment_count, 0) > 0 THEN 1 ELSE 0 END AS has_equipment,
+           CASE WHEN COALESCE(op.fuel_count, 0) > 0 THEN 1 ELSE 0 END AS has_fuel,
+           CASE WHEN COALESCE(mu.material_count, 0) > 0 THEN 1 ELSE 0 END AS has_material,
+           CASE WHEN COALESCE(op.disposal_count, 0) > 0 THEN 1 ELSE 0 END AS has_disposal,
+           CASE WHEN COALESCE(op.other_count, 0) > 0 THEN 1 ELSE 0 END AS has_other
          FROM tasks t
          LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
          LEFT JOIN LATERAL (
-           SELECT COALESCE(SUM(amount), 0) AS known_cost
+           SELECT
+             COALESCE(SUM(amount), 0) AS known_cost,
+             COUNT(*) FILTER (WHERE category = 'sprzet') AS equipment_count,
+             COUNT(*) FILTER (WHERE category = 'paliwo') AS fuel_count,
+             COUNT(*) FILTER (WHERE category = 'utylizacja') AS disposal_count,
+             COUNT(*) FILTER (WHERE category = 'inne') AS other_count
            FROM task_operational_costs c
            WHERE c.task_id = t.id
          ) op ON true
          LEFT JOIN LATERAL (
-           SELECT COALESCE(SUM(koszt_laczny), 0) AS material_cost
+           SELECT
+             COALESCE(SUM(koszt_laczny), 0) AS material_cost,
+             COUNT(*) FILTER (WHERE koszt_laczny IS NOT NULL) AS material_count
            FROM task_finish_material_usage m
            WHERE m.task_id = t.id
          ) mu ON true
@@ -355,7 +418,31 @@ router.get('/branch-comparison', async (req, res) => {
          COALESCE(SUM(tm.known_cost), 0) AS known_cost,
          COUNT(DISTINCT tm.ekipa_id) AS teams_active,
          COALESCE(SUM(tm.has_settlement), 0) AS settlement_count,
-         COALESCE(SUM(tm.has_costs), 0) AS cost_count
+         COALESCE(SUM(tm.has_equipment), 0) AS equipment_count,
+         COALESCE(SUM(tm.has_fuel), 0) AS fuel_count,
+         COALESCE(SUM(tm.has_material), 0) AS material_count,
+         COALESCE(SUM(tm.has_disposal), 0) AS disposal_count,
+         COALESCE(SUM(tm.has_other), 0) AS other_count,
+         COUNT(tm.id) FILTER (
+           WHERE tm.status = 'Zakonczone'
+             AND (
+               tm.has_settlement = 0
+               OR tm.has_equipment = 0
+               OR tm.has_fuel = 0
+               OR tm.has_material = 0
+               OR tm.has_disposal = 0
+               OR tm.has_other = 0
+             )
+         ) AS incomplete_margin_tasks,
+         COUNT(tm.id) FILTER (
+           WHERE tm.status = 'Zakonczone'
+             AND tm.has_settlement = 0
+             AND tm.has_equipment = 0
+             AND tm.has_fuel = 0
+             AND tm.has_material = 0
+             AND tm.has_disposal = 0
+             AND tm.has_other = 0
+         ) AS high_risk_margin_tasks
        FROM branches o
        LEFT JOIN task_metrics tm ON tm.oddzial_id = o.id
        GROUP BY o.id, o.nazwa
@@ -371,8 +458,20 @@ router.get('/branch-comparison', async (req, res) => {
       const marginPct = revenueActual > 0 ? Math.round(((revenueActual - knownCost) / revenueActual) * 1000) / 10 : null;
       const thresholdPct = Number(row.margin_threshold_pct || 15);
       const completionPct = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0;
+      const incompleteMarginTasks = Number(row.incomplete_margin_tasks || 0);
+      const highRiskMarginTasks = Number(row.high_risk_margin_tasks || 0);
+      const marginCompletenessPct = tasksDone > 0
+        ? Math.round(((tasksDone - incompleteMarginTasks) / tasksDone) * 100)
+        : 0;
       const dataQualityPct = tasksTotal > 0
-        ? Math.round(((Number(row.settlement_count || 0) + Number(row.cost_count || 0)) / (tasksTotal * 2)) * 100)
+        ? Math.round(((
+          Number(row.settlement_count || 0)
+          + Number(row.equipment_count || 0)
+          + Number(row.fuel_count || 0)
+          + Number(row.material_count || 0)
+          + Number(row.disposal_count || 0)
+          + Number(row.other_count || 0)
+        ) / (tasksTotal * 6)) * 100)
         : 0;
       return {
         oddzial_id: row.oddzial_id,
@@ -388,6 +487,9 @@ router.get('/branch-comparison', async (req, res) => {
         margin_pct: marginPct,
         margin_threshold_pct: thresholdPct,
         profitability_tone: profitabilityTone(marginPct, thresholdPct),
+        margin_completeness_pct: marginCompletenessPct,
+        incomplete_margin_tasks: incompleteMarginTasks,
+        high_risk_margin_tasks: highRiskMarginTasks,
         data_quality_pct: dataQualityPct,
         score: scoreFromMetrics({
           completionPct,
@@ -463,16 +565,27 @@ router.get('/team-performance', async (req, res) => {
              + COALESCE(op.known_cost, 0)::numeric
              + COALESCE(mu.material_cost, 0)::numeric AS known_cost,
            CASE WHEN tr.id IS NOT NULL THEN 1 ELSE 0 END AS has_settlement,
-           CASE WHEN COALESCE(op.known_cost, 0) > 0 OR COALESCE(mu.material_cost, 0) > 0 THEN 1 ELSE 0 END AS has_costs
+           CASE WHEN COALESCE(op.equipment_count, 0) > 0 THEN 1 ELSE 0 END AS has_equipment,
+           CASE WHEN COALESCE(op.fuel_count, 0) > 0 THEN 1 ELSE 0 END AS has_fuel,
+           CASE WHEN COALESCE(mu.material_count, 0) > 0 THEN 1 ELSE 0 END AS has_material,
+           CASE WHEN COALESCE(op.disposal_count, 0) > 0 THEN 1 ELSE 0 END AS has_disposal,
+           CASE WHEN COALESCE(op.other_count, 0) > 0 THEN 1 ELSE 0 END AS has_other
          FROM tasks t
          LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
          LEFT JOIN LATERAL (
-           SELECT COALESCE(SUM(amount), 0) AS known_cost
+           SELECT
+             COALESCE(SUM(amount), 0) AS known_cost,
+             COUNT(*) FILTER (WHERE category = 'sprzet') AS equipment_count,
+             COUNT(*) FILTER (WHERE category = 'paliwo') AS fuel_count,
+             COUNT(*) FILTER (WHERE category = 'utylizacja') AS disposal_count,
+             COUNT(*) FILTER (WHERE category = 'inne') AS other_count
            FROM task_operational_costs c
            WHERE c.task_id = t.id
          ) op ON true
          LEFT JOIN LATERAL (
-           SELECT COALESCE(SUM(koszt_laczny), 0) AS material_cost
+           SELECT
+             COALESCE(SUM(koszt_laczny), 0) AS material_cost,
+             COUNT(*) FILTER (WHERE koszt_laczny IS NOT NULL) AS material_count
            FROM task_finish_material_usage m
            WHERE m.task_id = t.id
          ) mu ON true
@@ -492,7 +605,31 @@ router.get('/team-performance', async (req, res) => {
          COALESCE(SUM(tm.revenue_actual) FILTER (WHERE tm.status = 'Zakonczone'), 0) AS revenue_actual,
          COALESCE(SUM(tm.known_cost), 0) AS known_cost,
          COALESCE(SUM(tm.has_settlement), 0) AS settlement_count,
-         COALESCE(SUM(tm.has_costs), 0) AS cost_count
+         COALESCE(SUM(tm.has_equipment), 0) AS equipment_count,
+         COALESCE(SUM(tm.has_fuel), 0) AS fuel_count,
+         COALESCE(SUM(tm.has_material), 0) AS material_count,
+         COALESCE(SUM(tm.has_disposal), 0) AS disposal_count,
+         COALESCE(SUM(tm.has_other), 0) AS other_count,
+         COUNT(tm.id) FILTER (
+           WHERE tm.status = 'Zakonczone'
+             AND (
+               tm.has_settlement = 0
+               OR tm.has_equipment = 0
+               OR tm.has_fuel = 0
+               OR tm.has_material = 0
+               OR tm.has_disposal = 0
+               OR tm.has_other = 0
+             )
+         ) AS incomplete_margin_tasks,
+         COUNT(tm.id) FILTER (
+           WHERE tm.status = 'Zakonczone'
+             AND tm.has_settlement = 0
+             AND tm.has_equipment = 0
+             AND tm.has_fuel = 0
+             AND tm.has_material = 0
+             AND tm.has_disposal = 0
+             AND tm.has_other = 0
+         ) AS high_risk_margin_tasks
        FROM ekipy e
        LEFT JOIN branches o ON o.id = e.oddzial_id
        LEFT JOIN task_metrics tm ON tm.ekipa_id = e.id
@@ -510,8 +647,20 @@ router.get('/team-performance', async (req, res) => {
       const knownCost = Number(row.known_cost);
       const marginPct = revenueActual > 0 ? Math.round(((revenueActual - knownCost) / revenueActual) * 1000) / 10 : null;
       const completionPct = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0;
+      const incompleteMarginTasks = Number(row.incomplete_margin_tasks || 0);
+      const highRiskMarginTasks = Number(row.high_risk_margin_tasks || 0);
+      const marginCompletenessPct = tasksDone > 0
+        ? Math.round(((tasksDone - incompleteMarginTasks) / tasksDone) * 100)
+        : 0;
       const dataQualityPct = tasksTotal > 0
-        ? Math.round(((Number(row.settlement_count || 0) + Number(row.cost_count || 0)) / (tasksTotal * 2)) * 100)
+        ? Math.round(((
+          Number(row.settlement_count || 0)
+          + Number(row.equipment_count || 0)
+          + Number(row.fuel_count || 0)
+          + Number(row.material_count || 0)
+          + Number(row.disposal_count || 0)
+          + Number(row.other_count || 0)
+        ) / (tasksTotal * 6)) * 100)
         : 0;
       const score = scoreFromMetrics({
         completionPct,
@@ -533,6 +682,9 @@ router.get('/team-performance', async (req, res) => {
         known_cost: Math.round(knownCost),
         gross_margin: revenueActual > 0 ? Math.round(revenueActual - knownCost) : null,
         margin_pct: marginPct,
+        margin_completeness_pct: marginCompletenessPct,
+        incomplete_margin_tasks: incompleteMarginTasks,
+        high_risk_margin_tasks: highRiskMarginTasks,
         data_quality_pct: dataQualityPct,
         score,
       };
@@ -763,6 +915,7 @@ router.get('/drill', async (req, res) => {
   const dim    = req.query.dim;   // oddzial | ekipa | usluga
   const id     = Number(req.query.id) || null;
   const val    = req.query.val || null;  // dla usluga (string)
+  const needsMarginReview = String(req.query.needs_margin_review || '') === '1';
   const branchId = scopedOddzialId(req.user, null);
 
   const params = [days];
@@ -833,6 +986,15 @@ router.get('/drill', async (req, res) => {
        WHERE t.data_planowana >= NOW() - INTERVAL '1 day' * $1
          AND t.status != 'Anulowane'
          ${dimClause}
+         ${needsMarginReview ? `AND t.status = 'Zakonczone'
+         AND (
+           tr.id IS NULL
+           OR COALESCE(op.koszt_sprzetu_count, 0) = 0
+           OR COALESCE(op.koszt_paliwa_count, 0) = 0
+           OR COALESCE(mu.koszt_materialow_count, 0) = 0
+           OR COALESCE(op.koszt_utylizacji_count, 0) = 0
+           OR COALESCE(op.koszt_inne_count, 0) = 0
+         )` : ''}
        ORDER BY t.data_planowana DESC
        LIMIT 100`,
       params
@@ -883,21 +1045,33 @@ router.post('/alerts/check', async (req, res) => {
               COALESCE(op.koszt_paliwa, 0)::numeric AS fuel_cost,
               COALESCE(mu.koszt_materialow, 0)::numeric AS material_cost,
               COALESCE(op.koszt_utylizacji, 0)::numeric AS disposal_cost,
-              COALESCE(op.koszt_inne, 0)::numeric AS other_cost
+              COALESCE(op.koszt_inne, 0)::numeric AS other_cost,
+              tr.id AS rozliczenie_id,
+              COALESCE(op.koszt_sprzetu_count, 0)::int AS koszt_sprzetu_count,
+              COALESCE(op.koszt_paliwa_count, 0)::int AS koszt_paliwa_count,
+              COALESCE(mu.koszt_materialow_count, 0)::int AS koszt_materialow_count,
+              COALESCE(op.koszt_utylizacji_count, 0)::int AS koszt_utylizacji_count,
+              COALESCE(op.koszt_inne_count, 0)::int AS koszt_inne_count
          FROM tasks t
-         JOIN task_rozliczenie tr ON tr.task_id = t.id
+         LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
          LEFT JOIN branches b ON b.id = t.oddzial_id
          LEFT JOIN LATERAL (
            SELECT
              COALESCE(SUM(amount) FILTER (WHERE category = 'sprzet'), 0) AS koszt_sprzetu,
              COALESCE(SUM(amount) FILTER (WHERE category = 'paliwo'), 0) AS koszt_paliwa,
              COALESCE(SUM(amount) FILTER (WHERE category = 'utylizacja'), 0) AS koszt_utylizacji,
-             COALESCE(SUM(amount) FILTER (WHERE category = 'inne'), 0) AS koszt_inne
+             COALESCE(SUM(amount) FILTER (WHERE category = 'inne'), 0) AS koszt_inne,
+             COUNT(*) FILTER (WHERE category = 'sprzet') AS koszt_sprzetu_count,
+             COUNT(*) FILTER (WHERE category = 'paliwo') AS koszt_paliwa_count,
+             COUNT(*) FILTER (WHERE category = 'utylizacja') AS koszt_utylizacji_count,
+             COUNT(*) FILTER (WHERE category = 'inne') AS koszt_inne_count
            FROM task_operational_costs c
            WHERE c.task_id = t.id
          ) op ON true
          LEFT JOIN LATERAL (
-           SELECT COALESCE(SUM(koszt_laczny), 0) AS koszt_materialow
+           SELECT
+             COALESCE(SUM(koszt_laczny), 0) AS koszt_materialow,
+             COUNT(*) FILTER (WHERE koszt_laczny IS NOT NULL) AS koszt_materialow_count
            FROM task_finish_material_usage m
            WHERE m.task_id = t.id
          ) mu ON true
@@ -911,6 +1085,13 @@ router.post('/alerts/check', async (req, res) => {
     const marginRisks = marginRiskResult.rows
       .map((item) => {
         const margin = calculateTaskMargin(item);
+        const missing = [];
+        if (!item.rozliczenie_id) missing.push('rozliczenie');
+        if (!Number(item.koszt_sprzetu_count || 0)) missing.push('sprzet');
+        if (!Number(item.koszt_paliwa_count || 0)) missing.push('paliwo');
+        if (!Number(item.koszt_materialow_count || 0)) missing.push('materialy');
+        if (!Number(item.koszt_utylizacji_count || 0)) missing.push('utylizacja');
+        if (!Number(item.koszt_inne_count || 0)) missing.push('inne');
         return {
           id: item.id,
           klient_nazwa: item.klient_nazwa,
@@ -920,10 +1101,31 @@ router.post('/alerts/check', async (req, res) => {
           total_known_cost: margin.total_known_cost,
           margin_pct: margin.margin_pct,
           gross_margin: margin.gross_margin,
+          complete: missing.length === 0,
+          missing_cost_fields: missing,
         };
       })
-      .filter((item) => item.margin_pct != null && item.margin_pct < item.threshold_pct)
+      .filter((item) => item.complete && item.margin_pct != null && item.margin_pct < item.threshold_pct)
       .sort((a, b) => (a.margin_pct ?? 999) - (b.margin_pct ?? 999))
+      .slice(0, 10);
+    const marginDataRisks = marginRiskResult.rows
+      .map((item) => {
+        const missing = [];
+        if (!item.rozliczenie_id) missing.push('rozliczenie');
+        if (!Number(item.koszt_sprzetu_count || 0)) missing.push('sprzet');
+        if (!Number(item.koszt_paliwa_count || 0)) missing.push('paliwo');
+        if (!Number(item.koszt_materialow_count || 0)) missing.push('materialy');
+        if (!Number(item.koszt_utylizacji_count || 0)) missing.push('utylizacja');
+        if (!Number(item.koszt_inne_count || 0)) missing.push('inne');
+        return {
+          id: item.id,
+          klient_nazwa: item.klient_nazwa,
+          oddzial_id: item.oddzial_id,
+          missing_cost_fields: missing,
+        };
+      })
+      .filter((item) => item.missing_cost_fields.length > 0)
+      .sort((a, b) => b.missing_cost_fields.length - a.missing_cost_fields.length)
       .slice(0, 10);
 
     const { clause: fleetScope, params: fleetParams } = scopeClause(branchId, 2, 'x');
@@ -1022,6 +1224,9 @@ router.post('/alerts/check', async (req, res) => {
     if (marginRisks.length > 0) {
       alerts.push(`Ryzyko marzy: ${marginRisks.length} zlec. ponizej progu oddzialu`);
     }
+    if (marginDataRisks.length > 0) {
+      alerts.push(`Niepelna marza: ${marginDataRisks.length} zlec. wymaga uzupelnienia kosztow/rozliczenia`);
+    }
     if (fleetDue.length > 0) {
       alerts.push(`Przeterminowane przeglady/OC: ${fleetDue.length} zasobow floty i sprzetu`);
     }
@@ -1041,6 +1246,7 @@ router.post('/alerts/check', async (req, res) => {
         `Przeterminowane: ${overdue}`,
         '',
         ...marginRisks.map((m) => `Marza #${m.id} ${m.klient_nazwa || ''}: ${m.margin_pct}% / prog ${m.threshold_pct}%`),
+        ...marginDataRisks.map((m) => `Niepelna marza #${m.id} ${m.klient_nazwa || ''}: brakuje ${m.missing_cost_fields.join(', ')}`),
         ...fleetDue.map((f) => `Flota ${f.kind} #${f.id} ${f.label || ''}: ${f.due_type} ${f.due_date}`),
         ...competencyRisks.map((c) => `Kompetencje #${c.id} ${c.klient_nazwa || ''}: brakuje ${c.missing_competencies.join(', ')}`),
       ].join('\n');
@@ -1059,6 +1265,7 @@ router.post('/alerts/check', async (req, res) => {
       tasks_total: total,
       tasks_overdue: overdue,
       margin_risks: marginRisks,
+      margin_data_risks: marginDataRisks,
       fleet_due: fleetDue,
       competency_risks: competencyRisks,
       alerts,

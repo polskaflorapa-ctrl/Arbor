@@ -617,6 +617,7 @@ test('reminds all teams with pending route brief confirmations', async () => {
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
   await userEvent.click(screen.getByRole('button', { name: /Podgl.d planu/i }));
+  expect(await screen.findByText('Brygada Alfa')).toBeInTheDocument();
 
   const remindAllButton = await screen.findByRole('button', {
     name: 'Przypomnij wszystkim oczekujacym (3)',

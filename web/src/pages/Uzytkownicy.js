@@ -4,6 +4,7 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
+import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -12,12 +13,12 @@ import { getRolaColor } from '../theme';
 import { telHref } from '../utils/telLink';
 import PayrollRatesPanel from '../components/PayrollRatesPanel';
 import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined';
-import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import EditOutlined from '@mui/icons-material/EditOutlined';
 import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined';
 import LockOutlined from '@mui/icons-material/LockOutlined';
 import VisibilityOffOutlined from '@mui/icons-material/VisibilityOffOutlined';
 import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
+import { ArrowLeft, KeyRound, Pencil, Plus, Save, Trash2, UserCircle, UserX, X } from 'lucide-react';
 
 export default function Uzytkownicy() {
   const [uzytkownicy, setUzytkownicy] = useState([]);
@@ -327,7 +328,7 @@ export default function Uzytkownicy() {
                 <p style={s.sub}>Zarządzanie pracownikami i uprawnieniami</p>
               </div>
               {mozeEdytowac && (
-                <button style={s.btnPrimary} onClick={otworzNowy}>+ Nowy użytkownik</button>
+                <Button leftIcon={Plus} onClick={otworzNowy}>+ Nowy użytkownik</Button>
               )}
             </div>
 
@@ -355,9 +356,9 @@ export default function Uzytkownicy() {
                 </select>
               )}
               {(filtrRola || filtrOddzial || szukaj) && (
-                <button style={s.clearBtn} onClick={() => { setFiltrRola(''); setFiltrOddzial(''); setSzukaj(''); }}>
+                <Button size="sm" variant="danger" leftIcon={X} onClick={() => { setFiltrRola(''); setFiltrOddzial(''); setSzukaj(''); }}>
                   Wyczyść
-                </button>
+                </Button>
               )}
               <span style={s.countBadge}>{filtrowane.length} / {uzytkownicy.length}</span>
             </div>
@@ -463,17 +464,17 @@ export default function Uzytkownicy() {
           <>
             <div className="users-header-panel" style={s.headerRow}>
               <div style={s.breadcrumb}>
-                <button style={s.backBtn} onClick={() => setTryb('lista')}>← Powrót</button>
+                <Button size="sm" variant="outline" leftIcon={ArrowLeft} onClick={() => setTryb('lista')}>← Powrót</Button>
                 <h1 style={s.title}>{wybranyUser.imie} {wybranyUser.nazwisko}</h1>
               </div>
               {mozeEdytowac && (
                 <div style={s.headerActions}>
-                  <button style={s.btnSecondary} onClick={() => navigate(`/profil/${wybranyUser.id}`)}>Profil pracownika</button>
-                  <button style={s.btnSecondary} onClick={() => otworzEdycje(wybranyUser)}>Edytuj</button>
-                  <button style={{ ...s.btnSecondary, backgroundColor: wybranyUser.aktywny ? 'rgba(248,113,113,0.12)' : 'var(--accent-surface)', color: wybranyUser.aktywny ? 'var(--danger)' : 'var(--accent-dk)' }}
+                  <Button variant="outline" leftIcon={UserCircle} onClick={() => navigate(`/profil/${wybranyUser.id}`)}>Profil pracownika</Button>
+                  <Button variant="outline" leftIcon={Pencil} onClick={() => otworzEdycje(wybranyUser)}>Edytuj</Button>
+                  <Button variant={wybranyUser.aktywny ? 'danger' : 'outline'} leftIcon={wybranyUser.aktywny ? UserX : UserCircle}
                     onClick={() => zmienAktywnosc(wybranyUser.id, !wybranyUser.aktywny)}>
                     {wybranyUser.aktywny ? 'Dezaktywuj' : 'Aktywuj'}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -604,7 +605,7 @@ export default function Uzytkownicy() {
               <div className="users-card" style={s.card}>
                 <div style={s.cardTitle}>Zmiana hasła</div>
                 {!pokazFormHaslo ? (
-                  <button style={s.btnSecondary} onClick={() => setPokazFormHaslo(true)}>Zmień hasło</button>
+                  <Button variant="outline" leftIcon={KeyRound} onClick={() => setPokazFormHaslo(true)}>Zmień hasło</Button>
                 ) : (
                   <div style={s.inlineForm}>
                     <div style={{ position: 'relative' }}>
@@ -615,8 +616,8 @@ export default function Uzytkownicy() {
                         {pokazHaslo ? <VisibilityOffOutlined style={s.iconSm} /> : <VisibilityOutlined style={s.iconSm} />}
                       </button>
                     </div>
-                    <button style={s.btnPrimary} onClick={zmienHaslo}>Zapisz</button>
-                    <button style={s.btnGray} onClick={() => { setPokazFormHaslo(false); setNoweHaslo(''); }}>Anuluj</button>
+                    <Button leftIcon={Save} onClick={zmienHaslo}>Zapisz</Button>
+                    <Button variant="outline" onClick={() => { setPokazFormHaslo(false); setNoweHaslo(''); }}>Anuluj</Button>
                   </div>
                 )}
               </div>
@@ -627,7 +628,7 @@ export default function Uzytkownicy() {
               <div style={{ ...s.cardTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Kompetencje ({kompetencje.length})</span>
                 {mozeEdytowac && (
-                  <button style={s.btnSmGreen} onClick={() => setPokazFormKomp(!pokazFormKomp)}>+ Dodaj</button>
+                  <Button size="sm" leftIcon={Plus} onClick={() => setPokazFormKomp(!pokazFormKomp)}>+ Dodaj</Button>
                 )}
               </div>
  
@@ -671,8 +672,8 @@ export default function Uzytkownicy() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                    <button style={s.btnPrimary} onClick={dodajKompetencje}>Dodaj kompetencję</button>
-                    <button style={s.btnGray} onClick={() => setPokazFormKomp(false)}>Anuluj</button>
+                    <Button leftIcon={Plus} onClick={dodajKompetencje}>Dodaj kompetencję</Button>
+                    <Button variant="outline" onClick={() => setPokazFormKomp(false)}>Anuluj</Button>
                   </div>
                 </div>
               )}
@@ -701,14 +702,15 @@ export default function Uzytkownicy() {
                         ]}
                         actions={
                           mozeEdytowac ? (
-                            <button
-                              style={{ ...s.actionIconBtn, ...s.actionIconBtnDanger }}
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              leftIcon={Trash2}
                               title="Usuń kompetencję"
                               aria-label="Usuń kompetencję"
                               onClick={() => usunKompetencje(k.id)}
-                            >
-                              <DeleteOutline style={s.iconSm} />
-                            </button>
+                              style={{ minHeight: 32, padding: '6px 9px' }}
+                            />
                           ) : null
                         }
                       />
@@ -725,7 +727,7 @@ export default function Uzytkownicy() {
           <>
             <div className="users-header-panel" style={s.headerRow}>
               <div style={s.breadcrumb}>
-                <button style={s.backBtn} onClick={() => setTryb(wybranyUser ? 'szczegoly' : 'lista')}>← Powrót</button>
+                <Button size="sm" variant="outline" leftIcon={ArrowLeft} onClick={() => setTryb(wybranyUser ? 'szczegoly' : 'lista')}>← Powrót</Button>
                 <h1 style={s.title}>{tryb === 'nowy' ? 'Nowy użytkownik' : `Edytuj użytkownika: ${wybranyUser?.imie} ${wybranyUser?.nazwisko}`}</h1>
               </div>
             </div>
@@ -850,12 +852,12 @@ export default function Uzytkownicy() {
             </div>
  
             <div style={s.formButtons}>
-              <button style={s.btnPrimary} onClick={zapiszUzytkownika}>
+              <Button leftIcon={Save} onClick={zapiszUzytkownika}>
                 {tryb === 'nowy' ? 'Utwórz użytkownika' : 'Zapisz zmiany'}
-              </button>
-              <button style={s.btnGray} onClick={() => setTryb(wybranyUser ? 'szczegoly' : 'lista')}>
+              </Button>
+              <Button variant="outline" onClick={() => setTryb(wybranyUser ? 'szczegoly' : 'lista')}>
                 Anuluj
-              </button>
+              </Button>
             </div>
           </>
         )}

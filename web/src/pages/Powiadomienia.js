@@ -5,13 +5,14 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
+import { Button } from '../components/ui/Button';
 import NotificationsNoneOutlined from '@mui/icons-material/NotificationsNoneOutlined';
-import DoneAllOutlined from '@mui/icons-material/DoneAllOutlined';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { Check, CheckCheck, Plus, Send, Trash2, X } from 'lucide-react';
 
 
 const TYP_META = [
@@ -206,16 +207,13 @@ export default function Powiadomienia() {
             <>
               <StatusMessage message={msg} />
               {unreadCount > 0 && (
-                <button type="button" style={styles.readAllBtn} onClick={odczytajWszystkie}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <DoneAllOutlined style={{ fontSize: 18 }} aria-hidden />
-                    {t('pages.powiadomienia.markAllRead')}
-                  </span>
-                </button>
+                <Button type="button" variant="outline" leftIcon={CheckCheck} style={styles.readAllBtn} onClick={odczytajWszystkie}>
+                  {t('pages.powiadomienia.markAllRead')}
+                </Button>
               )}
-              <button type="button" style={styles.addBtn} onClick={() => setShowForm(!showForm)}>
-                {showForm ? t('common.cancel') : `+ ${t('pages.powiadomienia.newRequest')}`}
-              </button>
+              <Button type="button" leftIcon={showForm ? X : Plus} style={styles.addBtn} onClick={() => setShowForm(!showForm)}>
+                {showForm ? t('common.cancel') : t('pages.powiadomienia.newRequest')}
+              </Button>
             </>
           }
         />
@@ -277,10 +275,10 @@ export default function Powiadomienia() {
               </div>
 
               <div style={styles.btnRow}>
-                <button type="button" style={styles.cancelBtn} onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
-                <button type="submit" style={styles.submitBtn} disabled={sending || !isNotificationValid}>
+                <Button type="button" variant="outline" style={styles.cancelBtn} onClick={() => setShowForm(false)}>{t('common.cancel')}</Button>
+                <Button type="submit" leftIcon={Send} style={styles.submitBtn} loading={sending} disabled={!isNotificationValid}>
                   {sending ? t('common.sending') : t('pages.powiadomienia.submit')}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -374,18 +372,21 @@ export default function Powiadomienia() {
                         <span style={styles.notifTime}>{fmtTime(n.data_utworzenia)}</span>
                         <div style={styles.notifActions}>
                           {n.status === 'Nowe' && (isRouteBrief ? (
-                            <button
+                            <Button
+                              type="button"
+                              size="sm"
+                              leftIcon={Check}
                               style={styles.confirmBriefBtn}
                               onClick={() => confirmRouteBrief(n)}
-                              disabled={confirmingBrief === String(n.id)}
+                              loading={confirmingBrief === String(n.id)}
                             >
                               {confirmingBrief === String(n.id) ? 'Potwierdzam...' : 'Potwierdz odprawe'}
-                            </button>
+                            </Button>
                           ) : (
-                            <button style={styles.readBtn} onClick={() => odczytaj(n.id)}>{t('pages.powiadomienia.markRead')}</button>
+                            <Button type="button" size="sm" variant="outline" leftIcon={Check} style={styles.readBtn} onClick={() => odczytaj(n.id)}>{t('pages.powiadomienia.markRead')}</Button>
                           )
                           )}
-                          <button style={styles.deleteBtn} onClick={() => usunPowiadomienie(n.id)}>{t('pages.powiadomienia.delete')}</button>
+                          <Button type="button" size="sm" variant="danger" leftIcon={Trash2} style={styles.deleteBtn} onClick={() => usunPowiadomienie(n.id)}>{t('pages.powiadomienia.delete')}</Button>
                         </div>
                       </div>
                     </div>

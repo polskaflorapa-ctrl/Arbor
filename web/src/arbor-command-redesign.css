@@ -1977,6 +1977,14 @@ body.theme-dark .dashboard-main > section:not(.dashboard-decision-strip):not(.da
   .fleet-command-radar {
     grid-template-columns: 1fr;
   }
+
+  .fleet-resource-row [style*="grid-template-columns: minmax(170px, 0.8fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .fleet-repair-card [style*="grid-template-columns: 1fr 0.7fr auto"] {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .ekipy-summary-grid {

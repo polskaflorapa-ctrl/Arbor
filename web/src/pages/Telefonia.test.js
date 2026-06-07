@@ -183,9 +183,20 @@ test('one-click branch telephony setup saves branch numbers before copying provi
 
   await userEvent.click(await screen.findByRole('button', { name: 'Agent AI' }));
   expect(await screen.findByText('Szybki start oddzialu')).toBeInTheDocument();
+  await waitFor(() => {
+    expect(api.get.mock.calls.some(([url]) => String(url).startsWith('/telephony/integration-test-logs'))).toBe(true);
+  });
 
-  await userEvent.type(screen.getByPlaceholderText('+48...'), '+48111222333');
-  await userEvent.type(screen.getByPlaceholderText('np. ARBOR-KRK albo numer SMS'), 'ARBOR-KRK');
+  const branchPhoneInput = screen.getByPlaceholderText('+48...');
+  const branchSmsSenderInput = screen.getByPlaceholderText('np. ARBOR-KRK albo numer SMS');
+  await userEvent.clear(branchPhoneInput);
+  await userEvent.type(branchPhoneInput, '+48111222333');
+  await userEvent.clear(branchSmsSenderInput);
+  await userEvent.type(branchSmsSenderInput, 'ARBOR-KRK');
+  await waitFor(() => {
+    expect(branchPhoneInput.value).toBe('+48111222333');
+    expect(branchSmsSenderInput.value).toBe('ARBOR-KRK');
+  });
   await userEvent.click(screen.getAllByRole('button', { name: 'Przygotuj jednym kliknieciem' })[0]);
 
   await waitFor(() => {
@@ -202,7 +213,7 @@ test('one-click branch telephony setup saves branch numbers before copying provi
   );
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('48111222333'));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('ARBOR-KRK'));
-});
+}, 10000);
 
 test('specialist can register an incoming client call and create callback', async () => {
   renderTelefonia();

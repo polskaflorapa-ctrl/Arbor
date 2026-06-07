@@ -9,6 +9,7 @@ const { TASK_STATUS, isTaskDone, isValidTaskStatus, normalizeTaskStatus } = requ
 
 const UP_ZDJ = path.join(__dirname, '..', 'uploads', 'zlecenia');
 const UP_DOK = path.join(__dirname, '..', 'uploads', 'zlecenia');
+const UP_FLEET = path.join(__dirname, '..', 'uploads', 'flota');
 
 function ensureDir(d) {
   fs.mkdirSync(d, { recursive: true });
@@ -20,6 +21,13 @@ function safeUnlink(filePath) {
   } catch (_e) {
     // ignore local file delete errors in demo backend
   }
+}
+
+function safeUploadName(value) {
+  return String(value || 'plik')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 140) || 'plik';
 }
 
 function toNum(v) {
@@ -399,6 +407,33 @@ const diskDok = multer.diskStorage({
   },
 });
 const upDok = multer({ storage: diskDok, limits: { fileSize: 100 * 1024 * 1024 } });
+
+const diskFleet = multer.diskStorage({
+  destination: (req, _file, cb) => {
+    const dir = path.join(
+      UP_FLEET,
+      safeUploadName(req.params.typ || 'naprawy'),
+      safeUploadName(req.params.id || req.params.naprawaId || '0')
+    );
+    ensureDir(dir);
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '') || '.bin';
+    const base = safeUploadName(path.basename(file.originalname || 'plik', ext));
+    cb(null, `${Date.now()}_${base}${ext}`);
+  },
+});
+
+const upFleetFile = multer({
+  storage: diskFleet,
+  limits: { fileSize: 40 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const mime = String(file.mimetype || '');
+    if (mime.startsWith('image/') || mime === 'application/pdf') return cb(null, true);
+    return cb(new Error('Dozwolone sa zdjecia albo PDF'));
+  },
+});
 
 module.exports = function registerFullStack(router) {
   router.get('/auth/me', requireAuth, (req, res) => {
@@ -2224,7 +2259,159 @@ module.exports = function registerFullStack(router) {
     res.json(readOnly((s) => (s.flotaSprzet || []).map(normalizeFleetRow)));
   });
   router.get('/flota/naprawy', requireAuth, (req, res) => {
-    res.json(readOnly((s) => s.flotaNaprawy || []));
+    res.json(readOnly((s) => {
+      const invoices = s.flotaFakturyNapraw || [];
+      return (s.flotaNaprawy || []).map((repair) => {
+        const repairInvoices = invoices.filter((x) => Number(x.naprawa_id) === Number(repair.id));
+        const faktury_kwota = repairInvoices.reduce((sum, x) => sum + (Number(x.kwota) || 0), 0);
+        return {
+          ...repair,
+          faktury_count: repairInvoices.length,
+          faktury_kwota,
+        };
+      });
+    }));
+  });
+
+  router.get('/flota/:typ/:id/zdjecia', requireAuth, (req, res) => {
+    const typ = String(req.params.typ || '');
+    const id = toNum(req.params.id);
+    if (!['pojazdy', 'sprzet'].includes(typ) || !id) return res.status(400).json({ error: 'Nieprawidlowy zasob' });
+    const rows = readOnly((s) => (s.flotaZdjecia || [])
+      .filter((x) => x.typ === typ && Number(x.zasob_id) === id)
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+    res.json(rows);
+  });
+
+  router.post('/flota/:typ/:id/zdjecia', requireAuth, upFleetFile.single('zdjecie'), (req, res) => {
+    const typ = String(req.params.typ || '');
+    const id = toNum(req.params.id);
+    if (!['pojazdy', 'sprzet'].includes(typ) || !id) return res.status(400).json({ error: 'Nieprawidlowy zasob' });
+    if (!req.file) return res.status(400).json({ error: 'Brak pliku' });
+    const row = withStore((s) => {
+      const asset = (typ === 'pojazdy' ? s.flotaPojazdy : s.flotaSprzet || []).find((x) => Number(x.id) === id);
+      if (!asset) return null;
+      if (!canSeeAll(req.user) && String(asset.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      if (!s.flotaZdjecia) s.flotaZdjecia = [];
+      if (!s.nextFlotaZdjecieId) s.nextFlotaZdjecieId = 1;
+      const rel = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path).split(path.sep).join('/');
+      const photo = {
+        id: s.nextFlotaZdjecieId++,
+        typ,
+        zasob_id: id,
+        url: `/api/uploads/${rel}`,
+        nazwa_pliku: req.file.originalname,
+        mime: req.file.mimetype || null,
+        opis: req.body?.opis ? String(req.body.opis).trim().slice(0, 1000) : null,
+        created_by: req.user.id,
+        created_by_name: userName(s, req.user.id),
+        created_at: new Date().toISOString(),
+      };
+      s.flotaZdjecia.push(photo);
+      return photo;
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono zasobu' });
+    res.status(201).json(row);
+  });
+
+  router.delete('/flota/:typ/:id/zdjecia/:photoId', requireAuth, (req, res) => {
+    const typ = String(req.params.typ || '');
+    const id = toNum(req.params.id);
+    const photoId = toNum(req.params.photoId);
+    if (!['pojazdy', 'sprzet'].includes(typ) || !id || !photoId) return res.status(400).json({ error: 'Nieprawidlowy zasob' });
+    const deleted = withStore((s) => {
+      const asset = (typ === 'pojazdy' ? (s.flotaPojazdy || []) : (s.flotaSprzet || [])).find((x) => Number(x.id) === id);
+      if (!asset) return null;
+      if (!canSeeAll(req.user) && String(asset.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      const rows = s.flotaZdjecia || [];
+      const idx = rows.findIndex((x) => x.typ === typ && Number(x.zasob_id) === id && Number(x.id) === photoId);
+      if (idx === -1) return null;
+      const [photo] = rows.splice(idx, 1);
+      return photo;
+    });
+    if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!deleted) return res.status(404).json({ error: 'Nie znaleziono zdjecia' });
+    if (deleted.url) {
+      const rel = String(deleted.url).replace(/^\/api\/uploads\/?/, '');
+      const root = path.resolve(path.join(__dirname, '..', 'uploads'));
+      const abs = path.resolve(path.join(root, rel));
+      if (abs.startsWith(root)) safeUnlink(abs);
+    }
+    res.json({ ok: true });
+  });
+
+  router.get('/flota/naprawy/:id/faktury', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+    const rows = readOnly((s) => (s.flotaFakturyNapraw || [])
+      .filter((x) => Number(x.naprawa_id) === id)
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+    res.json(rows);
+  });
+
+  router.post('/flota/naprawy/:naprawaId/faktury', requireAuth, upFleetFile.single('faktura'), (req, res) => {
+    const naprawaId = toNum(req.params.naprawaId);
+    if (!naprawaId) return res.status(400).json({ error: 'Nieprawidlowe id' });
+    if (!req.file) return res.status(400).json({ error: 'Brak pliku faktury' });
+    const row = withStore((s) => {
+      const repair = (s.flotaNaprawy || []).find((x) => Number(x.id) === naprawaId);
+      if (!repair) return null;
+      if (!canSeeAll(req.user) && String(repair.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      if (!s.flotaFakturyNapraw) s.flotaFakturyNapraw = [];
+      if (!s.nextFlotaFakturaNaprawId) s.nextFlotaFakturaNaprawId = 1;
+      const kwota = toNum(req.body?.kwota);
+      const rel = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path).split(path.sep).join('/');
+      const invoice = {
+        id: s.nextFlotaFakturaNaprawId++,
+        naprawa_id: naprawaId,
+        url: `/api/uploads/${rel}`,
+        nazwa_pliku: req.file.originalname,
+        numer: req.body?.numer ? String(req.body.numer).trim().slice(0, 120) : null,
+        kwota,
+        opis: req.body?.opis ? String(req.body.opis).trim().slice(0, 1000) : null,
+        created_by: req.user.id,
+        created_by_name: userName(s, req.user.id),
+        created_at: new Date().toISOString(),
+      };
+      s.flotaFakturyNapraw.push(invoice);
+      if (kwota != null) {
+        const currentCost = Number(repair.koszt || 0) || 0;
+        repair.koszt = Math.max(currentCost, kwota);
+      }
+      return invoice;
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono naprawy' });
+    res.status(201).json(row);
+  });
+
+  router.delete('/flota/naprawy/:naprawaId/faktury/:invoiceId', requireAuth, (req, res) => {
+    const naprawaId = toNum(req.params.naprawaId);
+    const invoiceId = toNum(req.params.invoiceId);
+    if (!naprawaId || !invoiceId) return res.status(400).json({ error: 'Nieprawidlowe id' });
+    const deleted = withStore((s) => {
+      const repair = (s.flotaNaprawy || []).find((x) => Number(x.id) === naprawaId);
+      if (!repair) return null;
+      if (!canSeeAll(req.user) && String(repair.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      const rows = s.flotaFakturyNapraw || [];
+      const idx = rows.findIndex((x) => Number(x.naprawa_id) === naprawaId && Number(x.id) === invoiceId);
+      if (idx === -1) return null;
+      const [invoice] = rows.splice(idx, 1);
+      const remaining = rows.filter((x) => Number(x.naprawa_id) === naprawaId);
+      const maxInvoice = remaining.reduce((max, x) => Math.max(max, Number(x.kwota || 0) || 0), 0);
+      if (Number(repair.koszt || 0) === Number(invoice.kwota || 0)) repair.koszt = maxInvoice || null;
+      return invoice;
+    });
+    if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!deleted) return res.status(404).json({ error: 'Nie znaleziono faktury' });
+    if (deleted.url) {
+      const rel = String(deleted.url).replace(/^\/api\/uploads\/?/, '');
+      const root = path.resolve(path.join(__dirname, '..', 'uploads'));
+      const abs = path.resolve(path.join(root, rel));
+      if (abs.startsWith(root)) safeUnlink(abs);
+    }
+    res.json({ ok: true });
   });
 
   router.post('/flota/pojazdy', requireAuth, (req, res) => {
@@ -2245,6 +2432,26 @@ module.exports = function registerFullStack(router) {
     res.status(201).json(row);
   });
 
+  router.put('/flota/pojazdy/:id', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    const b = req.body || {};
+    const row = withStore((s) => {
+      const p = (s.flotaPojazdy || []).find((x) => x.id === id);
+      if (!p) return null;
+      if (!canSeeAll(req.user) && String(p.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      Object.assign(p, b, {
+        id,
+        status: normalizeFleetText(b.status || p.status || 'Dostepny'),
+        oddzial_id: toNum(b.oddzial_id) ?? p.oddzial_id ?? req.user.oddzial_id,
+        ekipa_id: toNum(b.ekipa_id),
+      });
+      return normalizeFleetRow(p);
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
+    res.json(row);
+  });
+
   router.post('/flota/sprzet', requireAuth, (req, res) => {
     const b = req.body || {};
     const row = withStore((s) => {
@@ -2257,7 +2464,143 @@ module.exports = function registerFullStack(router) {
     res.status(201).json(row);
   });
 
+  router.put('/flota/sprzet/:id', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    const b = req.body || {};
+    const row = withStore((s) => {
+      const p = (s.flotaSprzet || []).find((x) => x.id === id);
+      if (!p) return null;
+      if (!canSeeAll(req.user) && String(p.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      Object.assign(p, b, {
+        id,
+        status: normalizeFleetText(b.status || p.status || 'Dostepny'),
+        oddzial_id: toNum(b.oddzial_id) ?? p.oddzial_id ?? req.user.oddzial_id,
+        ekipa_id: toNum(b.ekipa_id),
+      });
+      return normalizeFleetRow(p);
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
+    res.json(row);
+  });
+
+  router.delete('/flota/:typ/:id', requireAuth, (req, res) => {
+    const typ = String(req.params.typ || '');
+    const id = toNum(req.params.id);
+    if (!['pojazdy', 'sprzet'].includes(typ) || !id) return res.status(400).json({ error: 'Nieprawidlowy zasob' });
+    const deleted = withStore((s) => {
+      const key = typ === 'pojazdy' ? 'flotaPojazdy' : 'flotaSprzet';
+      const arr = s[key] || [];
+      const item = arr.find((x) => Number(x.id) === id);
+      if (!item) return null;
+      if (!canSeeAll(req.user) && String(item.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      s[key] = arr.filter((x) => Number(x.id) !== id);
+      s.flotaZdjecia = (s.flotaZdjecia || []).filter((x) => !(x.typ === typ && Number(x.zasob_id) === id));
+      return item;
+    });
+    if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!deleted) return res.status(404).json({ error: 'Nie znaleziono' });
+    res.json({ ok: true });
+  });
+
   const REZ_STATUSES = ['Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane'];
+  router.post('/flota/naprawy', requireAuth, (req, res) => {
+    const b = req.body || {};
+    const typZasobu = String(b.typ_zasobu || '').toLowerCase().includes('pojazd') ? 'Pojazd' : 'Sprzet';
+    const zasobId = toNum(b.zasob_id);
+    if (!zasobId || !String(b.opis_usterki || '').trim()) return res.status(400).json({ error: 'Zasob i opis usterki sa wymagane' });
+    const row = withStore((s) => {
+      const assetArr = typZasobu === 'Pojazd' ? (s.flotaPojazdy || []) : (s.flotaSprzet || []);
+      const asset = assetArr.find((x) => Number(x.id) === zasobId);
+      if (!asset) return null;
+      if (!canSeeAll(req.user) && String(asset.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      if (!s.flotaNaprawy) s.flotaNaprawy = [];
+      if (!s.nextFlotaNaprawaId) s.nextFlotaNaprawaId = 1;
+      const repair = {
+        id: s.nextFlotaNaprawaId++,
+        typ_zasobu: typZasobu,
+        zasob_id: zasobId,
+        data_naprawy: b.data_naprawy || new Date().toISOString().slice(0, 10),
+        opis_usterki: String(b.opis_usterki || '').trim().slice(0, 4000),
+        opis_naprawy: b.opis_naprawy ? String(b.opis_naprawy).trim().slice(0, 4000) : null,
+        wykonawca: b.wykonawca ? String(b.wykonawca).trim().slice(0, 500) : null,
+        koszt: toNum(b.koszt),
+        status: b.status || 'W toku',
+        oddzial_id: toNum(b.oddzial_id) ?? asset.oddzial_id ?? req.user.oddzial_id,
+        created_by: req.user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      s.flotaNaprawy.push(repair);
+      if (!String(repair.status || '').toLowerCase().includes('zakoncz')) asset.status = 'W naprawie';
+      return repair;
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono zasobu' });
+    res.status(201).json(row);
+  });
+
+  router.put('/flota/naprawy/:id', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    const b = req.body || {};
+    const row = withStore((s) => {
+      const repair = (s.flotaNaprawy || []).find((x) => Number(x.id) === id);
+      if (!repair) return null;
+      if (!canSeeAll(req.user) && String(repair.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      const typZasobu = b.typ_zasobu ? (String(b.typ_zasobu).toLowerCase().includes('pojazd') ? 'Pojazd' : 'Sprzet') : repair.typ_zasobu;
+      const zasobId = toNum(b.zasob_id) ?? repair.zasob_id;
+      Object.assign(repair, {
+        ...b,
+        id,
+        typ_zasobu: typZasobu,
+        zasob_id: zasobId,
+        koszt: toNum(b.koszt) ?? repair.koszt ?? null,
+        oddzial_id: toNum(b.oddzial_id) ?? repair.oddzial_id ?? req.user.oddzial_id,
+        updated_at: new Date().toISOString(),
+      });
+      const assetArr = typZasobu === 'Pojazd' ? (s.flotaPojazdy || []) : (s.flotaSprzet || []);
+      const asset = assetArr.find((x) => Number(x.id) === Number(zasobId));
+      if (asset) asset.status = String(repair.status || '').toLowerCase().includes('zakoncz') ? 'Dostepny' : 'W naprawie';
+      return repair;
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
+    res.json(row);
+  });
+
+  router.delete('/flota/naprawy/:id', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    const deleted = withStore((s) => {
+      const rows = s.flotaNaprawy || [];
+      const idx = rows.findIndex((x) => Number(x.id) === id);
+      if (idx === -1) return null;
+      const repair = rows[idx];
+      if (!canSeeAll(req.user) && String(repair.oddzial_id || '') !== String(req.user.oddzial_id || '')) return { _forbidden: true };
+      rows.splice(idx, 1);
+      const invoices = s.flotaFakturyNapraw || [];
+      s.flotaFakturyNapraw = invoices.filter((x) => Number(x.naprawa_id) !== id);
+      const assetArr = repair.typ_zasobu === 'Pojazd' ? (s.flotaPojazdy || []) : (s.flotaSprzet || []);
+      const asset = assetArr.find((x) => Number(x.id) === Number(repair.zasob_id));
+      const hasOtherOpen = rows.some((x) =>
+        String(x.typ_zasobu) === String(repair.typ_zasobu) &&
+        Number(x.zasob_id) === Number(repair.zasob_id) &&
+        !String(x.status || '').toLowerCase().includes('zakoncz')
+      );
+      if (asset && !hasOtherOpen) asset.status = 'Dostepny';
+      return { repair, invoices };
+    });
+    if (deleted?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!deleted) return res.status(404).json({ error: 'Nie znaleziono' });
+    for (const invoice of deleted.invoices || []) {
+      if (!invoice.url) continue;
+      const rel = String(invoice.url).replace(/^\/api\/uploads\/?/, '');
+      const root = path.resolve(path.join(__dirname, '..', 'uploads'));
+      const abs = path.resolve(path.join(root, rel));
+      if (abs.startsWith(root)) safeUnlink(abs);
+    }
+    res.json({ ok: true });
+  });
+
   const dateYmd = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
   /** Musi być przed `/flota/:typ/:id/status`, żeby nie połapać `typ=rezerwacje`. */

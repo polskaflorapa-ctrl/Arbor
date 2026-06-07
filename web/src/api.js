@@ -3060,20 +3060,26 @@ function getTestModeMockResponse(config) {
         gross_margin: 0,
         teams_active: 0,
         tasks_overdue: 0,
+        tasks: [],
       };
       current.tasks_total += 1;
       if (String(task.status || '') === 'Zakonczone') current.tasks_done += 1;
       current.revenue_actual += Number(task.financials?.revenue_net || 0);
       current.gross_margin += Number(task.financials?.gross_margin || 0);
       current.teams_active = Math.max(current.teams_active, task.ekipa_id ? 1 : 0);
+      current.tasks.push(task);
       byBranch.set(id, current);
     });
-    const data = [...byBranch.values()].map((row) => ({
-      ...row,
-      completion_pct: row.tasks_total ? roundPct((row.tasks_done / row.tasks_total) * 100) : 0,
-      margin_pct: row.revenue_actual > 0 ? roundPct((row.gross_margin / row.revenue_actual) * 100) : 0,
-      profitability_tone: row.revenue_actual > 0 && row.gross_margin / row.revenue_actual < 0.3 ? 'danger' : 'success',
-    }));
+    const data = [...byBranch.values()].map((row) => {
+      const { tasks, ...cleanRow } = row;
+      return {
+        ...cleanRow,
+        ...buildMockMarginQuality(tasks),
+        completion_pct: row.tasks_total ? roundPct((row.tasks_done / row.tasks_total) * 100) : 0,
+        margin_pct: row.revenue_actual > 0 ? roundPct((row.gross_margin / row.revenue_actual) * 100) : 0,
+        profitability_tone: row.revenue_actual > 0 && row.gross_margin / row.revenue_actual < 0.3 ? 'danger' : 'success',
+      };
+    });
     return { data, status: 200, statusText: 'OK', headers: {}, config, request: {} };
   }
 
@@ -3103,15 +3109,39 @@ function getTestModeMockResponse(config) {
         revenue: 0,
         gross_margin: 0,
         logged_hours: 0,
+        tasks: [],
       };
       current.tasks_total += 1;
       if (String(task.status || '') === 'Zakonczone') current.tasks_done += 1;
       current.revenue += Number(task.financials?.revenue_net || 0);
       current.gross_margin += Number(task.financials?.gross_margin || 0);
       current.logged_hours += Number(task.czas_planowany_godziny || 0);
+      current.tasks.push(task);
       byTeam.set(id, current);
     });
-    return { data: [...byTeam.values()], status: 200, statusText: 'OK', headers: {}, config, request: {} };
+    return {
+      data: [...byTeam.values()].map((row, index) => {
+        const { tasks, ekipa_nazwa, ...cleanRow } = row;
+        const marginQuality = buildMockMarginQuality(tasks);
+        const revenueActual = Number(row.revenue || 0);
+        return {
+          ...cleanRow,
+          ...marginQuality,
+          rank: index + 1,
+          team_name: ekipa_nazwa,
+          revenue_actual: revenueActual,
+          margin_pct: revenueActual > 0 ? roundPct((Number(row.gross_margin || 0) / revenueActual) * 100) : null,
+          completion_pct: row.tasks_total ? roundPct((row.tasks_done / row.tasks_total) * 100) : 0,
+          data_quality_pct: marginQuality.margin_completeness_pct,
+          score: 75,
+        };
+      }),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
   }
 
   if (path === '/bi/funnel' && method === 'get') {
@@ -3160,7 +3190,11 @@ function getTestModeMockResponse(config) {
   }
 
   if (path === '/bi/drill' && method === 'get') {
-    return { data: buildMockBiRows().slice(0, 100), status: 200, statusText: 'OK', headers: {}, config, request: {} };
+    const url = String(config.url || '');
+    const needsMarginReview = new URLSearchParams(url.split('?')[1] || '').get('needs_margin_review') === '1';
+    const rows = buildMockBiRows()
+      .filter((task) => !needsMarginReview || (String(task.status || '') === 'Zakonczone' && task.financials?.complete === false));
+    return { data: rows.slice(0, 100), status: 200, statusText: 'OK', headers: {}, config, request: {} };
   }
 
   const mockData = getMockData(path);
@@ -3277,13 +3311,9 @@ function buildMockTaskFinancials(task = {}, settlement = null) {
     .map((source) => source.key);
   const marginConfidence = revenueNet <= 0
     ? 'no_revenue'
-    : missingCostFields.length >= 3
-      ? 'high_risk_margin'
-      : missingCostFields.length === 2
-        ? 'medium_risk_margin'
-        : missingCostFields.length === 1
-          ? 'low_risk_margin'
-          : 'complete_enough';
+    : missingCostFields.length > 0
+      ? 'incomplete_margin_data'
+      : 'complete_enough';
   return {
     revenue_net: revenueNet,
     direct_labor_cost: roundMoney(helperCost + crewLeadPay),
@@ -3343,12 +3373,24 @@ function buildMockBiRows() {
   });
 }
 
+function buildMockMarginQuality(rows = []) {
+  const done = rows.filter((task) => String(task.status || '') === 'Zakonczone');
+  const incomplete = done.filter((task) => !task.financials?.complete);
+  const highRisk = done.filter((task) => task.financials?.margin_confidence === 'high_risk_margin');
+  return {
+    margin_completeness_pct: done.length ? roundPct(((done.length - incomplete.length) / done.length) * 100) : 0,
+    incomplete_margin_tasks: incomplete.length,
+    high_risk_margin_tasks: highRisk.length,
+  };
+}
+
 function buildMockBiOverview() {
   const rows = buildMockBiRows();
   const done = rows.filter((task) => String(task.status || '') === 'Zakonczone');
   const revenuePlanned = rows.reduce((sum, task) => sum + Number(task.wartosc_planowana || 0), 0);
   const revenueActual = done.reduce((sum, task) => sum + Number(task.financials?.revenue_net || 0), 0);
   const grossMargin = done.reduce((sum, task) => sum + Number(task.financials?.gross_margin || 0), 0);
+  const marginQuality = buildMockMarginQuality(rows);
   return {
     revenue_planned: revenuePlanned,
     revenue_actual: revenueActual,
@@ -3360,6 +3402,9 @@ function buildMockBiOverview() {
     completion_pct: rows.length ? roundPct((done.length / rows.length) * 100) : 0,
     tasks_overdue: 0,
     tasks_unassigned: rows.filter((task) => !task.ekipa_id).length,
+    margin_completeness_pct: marginQuality.margin_completeness_pct,
+    incomplete_margin_tasks: marginQuality.incomplete_margin_tasks,
+    high_risk_margin_tasks: marginQuality.high_risk_margin_tasks,
     zadarma_calls: 1,
     kommo_sync_errors: 0,
     generated_at: new Date().toISOString(),
