@@ -126,6 +126,7 @@ beforeEach(() => {
           caller_id: 'ARBOR',
           api_key_masked: 'key***',
           sms_webhook_url: 'https://arbor.example/api/telephony/zadarma/sms/webhook',
+          phone_webhook_url: 'https://arbor.example/api/telefon/webhooks/zadarma',
         },
       });
     }
@@ -365,4 +366,16 @@ test('starts Zadarma WebRTC phone from Arbor and stores auto-start preference', 
   } finally {
     appendSpy.mockRestore();
   }
+});
+
+test('shows Zadarma phone recording webhook for CRM call ingestion', async () => {
+  renderTelefonia('/telefonia?tab=zadarma');
+
+  expect(await screen.findByText('Webhook rozmow i nagran')).toBeInTheDocument();
+  expect(screen.getAllByText('https://arbor.example/api/telefon/webhooks/zadarma').length).toBeGreaterThan(0);
+
+  const row = screen.getByText('Webhook rozmow i nagran').closest('div');
+  await userEvent.click(within(row.parentElement).getByRole('button', { name: 'Kopiuj' }));
+
+  expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://arbor.example/api/telefon/webhooks/zadarma');
 });

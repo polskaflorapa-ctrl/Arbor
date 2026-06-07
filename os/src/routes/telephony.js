@@ -162,6 +162,7 @@ function publicZadarmaSettings(config) {
     caller_id: config.callerId || '',
     updated_at: config.updated_at || null,
     sms_webhook_url: base ? `${base}/api/sms/webhooks/zadarma` : null,
+    phone_webhook_url: base ? `${base}/api/telefon/webhooks/zadarma` : null,
   };
 }
 

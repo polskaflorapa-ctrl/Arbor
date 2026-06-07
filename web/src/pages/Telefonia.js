@@ -2638,6 +2638,13 @@ export default function Telefonia() {
                     {zadarmaSettings?.sms_webhook_url || 'Ustaw PUBLIC_BASE_URL na backendzie.'}
                   </div>
                 </div>
+                <div style={s.agentHealthItem}>
+                  <div style={s.agentHealthTop}>Webhook rozmow</div>
+                  <strong style={s.agentHealthValue}>{zadarmaSettings?.phone_webhook_url ? 'Gotowy' : 'Brak PUBLIC_BASE_URL'}</strong>
+                  <div style={s.agentHistoryMeta}>
+                    {zadarmaSettings?.phone_webhook_url || 'Ustaw PUBLIC_BASE_URL na backendzie.'}
+                  </div>
+                </div>
               </div>
             </div>
             <div style={s.agentGrid}>
@@ -2742,7 +2749,19 @@ export default function Telefonia() {
                     ) : null}
                   </div>
                   <div style={s.providerChecklistItem}>
-                    <span style={s.okBadge}>3</span>
+                    <span style={zadarmaSettings?.phone_webhook_url ? s.okBadge : s.reviewBadge}>{zadarmaSettings?.phone_webhook_url ? 'OK' : '3'}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <strong>Webhook rozmow i nagran</strong>
+                      <div style={s.agentHistoryMeta}>{zadarmaSettings?.phone_webhook_url || 'Najpierw ustaw PUBLIC_BASE_URL.'}</div>
+                    </div>
+                    {zadarmaSettings?.phone_webhook_url ? (
+                      <button type="button" style={s.rowBtn} onClick={() => copyAgentText(zadarmaSettings.phone_webhook_url, 'Webhook rozmow Zadarma')}>
+                        Kopiuj
+                      </button>
+                    ) : null}
+                  </div>
+                  <div style={s.providerChecklistItem}>
+                    <span style={s.okBadge}>4</span>
                     <div>
                       <strong>WebRTC widget</strong>
                       <div style={s.agentHistoryMeta}>Dodaj domene ARBOR w WebRTC widget integration i przypisz numer DID do SIP/PBX. Potem uzyj pola Telefon w przegladarce.</div>

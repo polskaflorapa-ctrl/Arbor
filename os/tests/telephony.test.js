@@ -422,6 +422,7 @@ describe('Telephony routes', () => {
       api_secret_masked: 'zada***cret',
       caller_id: 'ARBOR',
       sms_webhook_url: 'https://api.test.example/api/sms/webhooks/zadarma',
+      phone_webhook_url: 'https://api.test.example/api/telefon/webhooks/zadarma',
     }));
     expect(res.text).not.toContain('zadarma-secret');
   });
