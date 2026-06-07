@@ -52,6 +52,14 @@ describe('phone call pipeline Kommo publishing', () => {
       expect.stringContaining('UPDATE phone_call_conversations SET lead_id = $2'),
       ['zadarma:pbx-call-3', 12]
     );
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('SELECT id'),
+      [12, '%CallSid: zadarma:pbx-call-3%']
+    );
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO crm_lead_activities'),
+      expect.arrayContaining([12, expect.stringContaining('CallSid: zadarma:pbx-call-3')])
+    );
     expect(syncPhoneCallToKommo).toHaveBeenCalledWith(expect.objectContaining({
       callSid: 'zadarma:pbx-call-3',
       clientNumber: '+48500600700',
@@ -77,6 +85,49 @@ describe('phone call pipeline Kommo publishing', () => {
     expect(logger.warn).toHaveBeenCalledWith('phone-call-pipeline kommo sync failed', {
       callSid: 'zadarma:pbx-call-4',
       message: 'Kommo HTTP 500',
+    });
+  });
+
+  test('does not duplicate phone follow-up task for the same call', async () => {
+    appendCrmMessageForContact.mockResolvedValue({ id: 57, lead_id: 14, body: 'Notatka rozmowy' });
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('SELECT id') && text.includes('crm_lead_activities')) {
+        return { rows: [{ id: 900 }] };
+      }
+      return { rows: [] };
+    });
+
+    await expect(publishPhoneCallArtifacts({
+      callSid: 'zadarma:pbx-call-5',
+      clientNumber: '+48500600702',
+      transcript: 'Klient prosi o oferte',
+      raport: 'Wyslac oferte jutro.',
+      status: 'analyzed',
+    })).resolves.toEqual(expect.objectContaining({ lead_id: 14 }));
+
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO crm_lead_activities'))).toBe(false);
+  });
+
+  test('keeps call processing alive when phone follow-up task fails', async () => {
+    appendCrmMessageForContact.mockResolvedValue({ id: 58, lead_id: 15, body: 'Notatka rozmowy' });
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('INSERT INTO crm_lead_activities')) throw new Error('activity write failed');
+      return { rows: [] };
+    });
+
+    await expect(publishPhoneCallArtifacts({
+      callSid: 'zadarma:pbx-call-6',
+      clientNumber: '+48500600703',
+      transcript: 'Tres rozmowy',
+      status: 'transcribed',
+    })).resolves.toEqual(expect.objectContaining({ lead_id: 15 }));
+
+    expect(logger.warn).toHaveBeenCalledWith('phone-call-pipeline followup task failed', {
+      callSid: 'zadarma:pbx-call-6',
+      leadId: 15,
+      message: 'activity write failed',
     });
   });
 });

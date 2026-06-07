@@ -366,6 +366,46 @@ async function appendPhoneCallCrmNote({ callSid, clientNumber, transcript, rapor
   });
 }
 
+function buildPhoneCallFollowupText({ callSid, raport, transcript, status }) {
+  const source = String(raport || transcript || '').trim();
+  const clip = source ? source.slice(0, 700) : 'Brak tresci rozmowy do analizy.';
+  const leadIn = status === 'analyzed'
+    ? 'Sprawdz ustalenia po rozmowie telefonicznej i domknij nastepny krok.'
+    : 'Sprawdz rozmowe telefoniczna i dopisz nastepny krok po transkrypcji.';
+  return [
+    leadIn,
+    '',
+    `CallSid: ${callSid}`,
+    '',
+    clip,
+  ].join('\n');
+}
+
+async function createPhoneCallFollowupTask({ leadId, callSid, raport, transcript, status }) {
+  if (!leadId || !callSid) return null;
+  const existing = await pool.query(
+    `SELECT id
+     FROM crm_lead_activities
+     WHERE lead_id = $1
+       AND type = 'task'
+       AND text ILIKE $2
+     ORDER BY id DESC
+     LIMIT 1`,
+    [leadId, `%CallSid: ${callSid}%`]
+  );
+  if (existing.rows[0]) return existing.rows[0];
+
+  const due = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const text = buildPhoneCallFollowupText({ callSid, raport, transcript, status });
+  const { rows } = await pool.query(
+    `INSERT INTO crm_lead_activities (lead_id, type, text, due_at, call_duration_sec, created_by, created_at)
+     VALUES ($1, 'task', $2, $3, NULL, NULL, NOW())
+     RETURNING id, lead_id, type, text, due_at, created_at`,
+    [leadId, text, due]
+  );
+  return rows[0] || null;
+}
+
 async function publishPhoneCallArtifacts(args) {
   const crmMessage = await appendPhoneCallCrmNote(args);
   if (crmMessage?.lead_id && args.callSid) {
@@ -374,6 +414,21 @@ async function publishPhoneCallArtifacts(args) {
       `UPDATE phone_call_conversations SET lead_id = $2, updated_at = NOW() WHERE twilio_call_sid = $1`,
       [args.callSid, crmMessage.lead_id]
     );
+    try {
+      await createPhoneCallFollowupTask({
+        leadId: crmMessage.lead_id,
+        callSid: args.callSid,
+        raport: args.raport,
+        transcript: args.transcript,
+        status: args.status,
+      });
+    } catch (err) {
+      logger.warn('phone-call-pipeline followup task failed', {
+        callSid: args.callSid,
+        leadId: crmMessage.lead_id,
+        message: err.message,
+      });
+    }
   }
   await syncPhoneCallToKommo({ ...args, crmMessage }).catch((err) => {
     logger.warn('phone-call-pipeline kommo sync failed', {
@@ -392,4 +447,6 @@ module.exports = {
   processRecordingPipeline,
   appendPhoneCallCrmNote,
   publishPhoneCallArtifacts,
+  buildPhoneCallFollowupText,
+  createPhoneCallFollowupTask,
 };
