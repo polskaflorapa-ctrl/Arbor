@@ -2566,8 +2566,6 @@ module.exports = function registerFullStack(router) {
         created_at: new Date().toISOString(),
       };
       s.flotaCzesciNapraw.push(part);
-      const currentCost = Number(repair.koszt || 0) || 0;
-      repair.koszt = Math.max(currentCost, part.kwota_laczna);
       addFleetHistory(
         s,
         req.user,
@@ -2923,6 +2921,15 @@ module.exports = function registerFullStack(router) {
         user_id: req.user.id,
       };
       s.equipmentReservations.push(rec);
+      addFleetHistory(
+        s,
+        req.user,
+        'sprzet',
+        sprzet_id,
+        status === 'Wydane' ? 'Wydano sprzet' : 'Zarezerwowano sprzet',
+        `${team.nazwa || `Ekipa #${ekipa_id}`} / ${data_od} - ${data_do}`,
+        { reservation_id: id, ekipa_id, status },
+      );
       return { id };
     });
     if (row.err) return res.status(row.code || 400).json({ error: row.err });
@@ -2944,6 +2951,15 @@ module.exports = function registerFullStack(router) {
         if (!eq || String(eq.oddzial_id) !== String(req.user.oddzial_id)) return false;
       }
       r.status = status;
+      addFleetHistory(
+        s,
+        req.user,
+        'sprzet',
+        r.sprzet_id,
+        `Rezerwacja: ${status}`,
+        `${r.data_od} - ${r.data_do}`,
+        { reservation_id: id, ekipa_id: r.ekipa_id, status },
+      );
       return true;
     });
     if (!ok) return res.status(404).json({ error: 'nie_znaleziono' });

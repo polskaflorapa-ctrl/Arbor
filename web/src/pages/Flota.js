@@ -86,6 +86,7 @@ const VEHICLE_TYPE_OPTIONS = ['Samochod', 'Bus', 'Ciezarowka', 'Przyczepa', 'Mas
 const EQUIPMENT_TYPE_OPTIONS = ['Pilarka', 'Rebak', 'Podnosnik', 'Narzedzie', 'Inne'];
 const REPAIR_PRIORITY_OPTIONS = ['Normalny', 'Pilny', 'Krytyczny'];
 const FLEET_DOCUMENT_OPTIONS = ['OC', 'UDT', 'Gwarancja', 'Instrukcja', 'Faktura zakupu', 'Inne'];
+const ACTIVE_RESERVATION_STATUSES = new Set(['Zarezerwowane', 'Wydane']);
 
 function todayYmd() {
   return new Date().toISOString().slice(0, 10);
@@ -95,6 +96,14 @@ function addMonthsYmd(months) {
   const date = new Date();
   date.setMonth(date.getMonth() + months);
   return date.toISOString().slice(0, 10);
+}
+
+function reservationIsActive(reservation) {
+  return ACTIVE_RESERVATION_STATUSES.has(String(reservation?.status || ''));
+}
+
+function reservationOverlaps(a, b) {
+  return String(a?.data_od || '') <= String(b?.data_do || '') && String(a?.data_do || '') >= String(b?.data_od || '');
 }
 
 function formatMoney(value) {
@@ -274,6 +283,9 @@ export default function Flota() {
   const [repairParts, setRepairParts] = useState({});
   const [partDrafts, setPartDrafts] = useState({});
   const [partSavingId, setPartSavingId] = useState('');
+  const [assetReservations, setAssetReservations] = useState({});
+  const [reservationDrafts, setReservationDrafts] = useState({});
+  const [reservationSavingKey, setReservationSavingKey] = useState('');
   const [repairQuickFilter, setRepairQuickFilter] = useState('all');
 
   const [formPojazd, setFormPojazd] = useState({
@@ -576,6 +588,89 @@ export default function Flota() {
       setAssetHistory((prev) => ({ ...prev, [key]: Array.isArray(data) ? data : [] }));
     } catch (err) {
       showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie pobrac historii zasobu.')));
+    }
+  };
+
+  const loadAssetReservations = async (type, id) => {
+    if (type !== 'sprzet') return;
+    const key = assetKey(type, id);
+    try {
+      const token = getStoredToken();
+      const from = todayYmd();
+      const to = addMonthsYmd(2);
+      const { data } = await api.get(`/flota/rezerwacje?from=${from}&to=${to}`, { headers: authHeaders(token), dedupe: false });
+      const rows = (Array.isArray(data) ? data : [])
+        .filter((row) => String(row.sprzet_id) === String(id))
+        .sort((a, b) => String(a.data_od || '').localeCompare(String(b.data_od || '')));
+      setAssetReservations((prev) => ({ ...prev, [key]: rows }));
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie pobrac rezerwacji sprzetu.')));
+    }
+  };
+
+  const setReservationDraft = (type, id, field, value) => {
+    const key = assetKey(type, id);
+    setReservationDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        ekipa_id: '',
+        data_od: todayYmd(),
+        data_do: todayYmd(),
+        ...(prev[key] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const createAssetReservation = async (item, status = 'Zarezerwowane') => {
+    const key = assetKey('sprzet', item.id);
+    const draft = reservationDrafts[key] || {};
+    const ekipaId = draft.ekipa_id || item.ekipa_id || ekipy[0]?.id || '';
+    const dataOd = draft.data_od || todayYmd();
+    const dataDo = draft.data_do || dataOd;
+    if (!ekipaId) {
+      showMsg(errorMessage('Wybierz ekipe do wydania sprzetu.'));
+      return;
+    }
+    const candidate = { data_od: dataOd, data_do: dataDo };
+    const conflict = (assetReservations[key] || []).some((row) => reservationIsActive(row) && reservationOverlaps(row, candidate));
+    if (conflict) {
+      showMsg(errorMessage('Konflikt: ten sprzet jest juz zajety w tym terminie.'));
+      return;
+    }
+    setReservationSavingKey(`${key}:${status}`);
+    try {
+      const token = getStoredToken();
+      await api.post('/flota/rezerwacje', {
+        sprzet_id: item.id,
+        ekipa_id: ekipaId,
+        data_od: dataOd,
+        data_do: dataDo,
+        caly_dzien: true,
+        status,
+      }, { headers: authHeaders(token) });
+      showMsg(successMessage(status === 'Wydane' ? 'Sprzet wydany ekipie.' : 'Sprzet zarezerwowany.'));
+      setReservationDrafts((prev) => ({ ...prev, [key]: { ekipa_id: ekipaId, data_od: todayYmd(), data_do: todayYmd() } }));
+      await Promise.all([loadAssetReservations('sprzet', item.id), loadAssetHistory('sprzet', item.id), loadAll()]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zapisac rezerwacji sprzetu.')));
+    } finally {
+      setReservationSavingKey('');
+    }
+  };
+
+  const updateReservationStatus = async (item, reservation, status) => {
+    const key = assetKey('sprzet', item.id);
+    setReservationSavingKey(`${key}:${reservation.id}:${status}`);
+    try {
+      const token = getStoredToken();
+      await api.put(`/flota/rezerwacje/${reservation.id}/status`, { status }, { headers: authHeaders(token) });
+      showMsg(successMessage(`Status rezerwacji: ${status}.`));
+      await Promise.all([loadAssetReservations('sprzet', item.id), loadAssetHistory('sprzet', item.id), loadAll()]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zmienic statusu rezerwacji.')));
+    } finally {
+      setReservationSavingKey('');
     }
   };
 
@@ -1116,9 +1211,23 @@ export default function Flota() {
     const repairCost = repairs.reduce((sum, repair) => sum + (Number(repair.faktury_kwota ?? repair.koszt ?? 0) || 0) + (Number(repair.czesci_kwota || 0) || 0), 0);
     const downtimeLoss = repairs.reduce((sum, repair) => sum + repairDowntimeLoss(repair), 0);
     const documents = assetDocuments[key] || [];
+    const reservations = type === 'sprzet' ? (assetReservations[key] || []) : [];
+    const activeReservations = reservations.filter(reservationIsActive);
+    const nextReservation = activeReservations
+      .filter((row) => String(row.data_do || '') >= todayYmd())
+      .sort((a, b) => String(a.data_od || '').localeCompare(String(b.data_od || '')))[0] || null;
+    const reservationConflict = activeReservations.some((row, index) => activeReservations.some((other, otherIndex) => (
+      otherIndex > index && String(other.sprzet_id) === String(row.sprzet_id) && reservationOverlaps(row, other)
+    )));
     const documentAlerts = documents.map((doc) => documentDueAlert(doc)).filter(Boolean);
     const missingDocAlert = documents.length === 0
       ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: type === 'pojazdy' ? 'dodaj OC / fakture / gwarancje' : 'dodaj UDT / gwarancje / instrukcje', color: '#676879' }]
+      : [];
+    const reservationAlerts = type === 'sprzet'
+      ? [
+        ...(nextReservation ? [{ key: 'reservation-next', state: 'soon', label: `Wydanie ${fmtDate(nextReservation.data_od)}`, detail: nextReservation.ekipa_nazwa || 'ekipa', color: '#579bfc' }] : []),
+        ...(reservationConflict ? [{ key: 'reservation-conflict', state: 'expired', label: 'Konflikt rezerwacji', detail: 'sprawdz terminy wydania', color: '#e2445c' }] : []),
+      ]
       : [];
     const alerts = type === 'pojazdy'
       ? [
@@ -1127,7 +1236,7 @@ export default function Flota() {
         ...missingDocAlert,
         ...documentAlerts,
       ]
-      : [dueAlert({ key: 'inspection', label: 'Przeglad' }, item.data_przegladu), ...missingDocAlert, ...documentAlerts];
+      : [dueAlert({ key: 'inspection', label: 'Przeglad' }, item.data_przegladu), ...reservationAlerts, ...missingDocAlert, ...documentAlerts];
     return {
       type,
       kind,
@@ -1140,13 +1249,16 @@ export default function Flota() {
       photos: assetPhotos[key] || [],
       documents,
       history: assetHistory[key] || [],
+      reservations,
+      activeReservations,
+      nextReservation,
       repairs,
       repairCost,
       downtimeLoss,
       openRepairs: repairs.filter((repair) => !repairIsClosed(repair.status)).length,
       alerts,
     };
-  }, [assetDocuments, assetHistory, assetPhotos, location.search, naprawy, pojazdy, sprzet]);
+  }, [assetDocuments, assetHistory, assetPhotos, assetReservations, location.search, naprawy, pojazdy, sprzet]);
 
   useEffect(() => {
     if (!selectedAssetDetail) return;
@@ -1159,7 +1271,10 @@ export default function Flota() {
     if (!Array.isArray(assetHistory[selectedAssetDetail.key])) {
       void loadAssetHistory(selectedAssetDetail.type, selectedAssetDetail.item.id);
     }
-  }, [assetDocuments, assetHistory, assetPhotos, selectedAssetDetail]);
+    if (selectedAssetDetail.type === 'sprzet' && !Array.isArray(assetReservations[selectedAssetDetail.key])) {
+      void loadAssetReservations(selectedAssetDetail.type, selectedAssetDetail.item.id);
+    }
+  }, [assetDocuments, assetHistory, assetPhotos, assetReservations, selectedAssetDetail]);
 
   const openResourceCalendar = (card) => {
     const params = new URLSearchParams({ tab: 'equipment', modal: '0' });
@@ -1406,12 +1521,19 @@ export default function Flota() {
           <AssetDetailPanel
             detail={selectedAssetDetail}
             canEdit={canEdit}
+            ekipy={ekipy}
+            reservationDraft={reservationDrafts[selectedAssetDetail.key] || {}}
+            reservationSavingKey={reservationSavingKey}
             onClose={closeAssetDetail}
             onOpenRepairs={() => openRepairsForAsset(selectedAssetDetail.kind, selectedAssetDetail.item)}
             onNewRepair={() => openRepairDraft(selectedAssetDetail.kind, selectedAssetDetail.item)}
             onLoadPhotos={() => loadAssetPhotos(selectedAssetDetail.type, selectedAssetDetail.item.id)}
             onLoadDocuments={() => loadAssetDocuments(selectedAssetDetail.type, selectedAssetDetail.item.id)}
             onLoadHistory={() => loadAssetHistory(selectedAssetDetail.type, selectedAssetDetail.item.id)}
+            onLoadReservations={() => loadAssetReservations(selectedAssetDetail.type, selectedAssetDetail.item.id)}
+            onReservationDraftChange={(field, value) => setReservationDraft(selectedAssetDetail.type, selectedAssetDetail.item.id, field, value)}
+            onCreateReservation={(status) => createAssetReservation(selectedAssetDetail.item, status)}
+            onUpdateReservationStatus={(reservation, status) => updateReservationStatus(selectedAssetDetail.item, reservation, status)}
             onDeletePhoto={(photoId) => deleteAssetPhoto(selectedAssetDetail.type, selectedAssetDetail.item, photoId)}
             onDeleteDocument={(docId) => deleteAssetDocument(selectedAssetDetail.type, selectedAssetDetail.item, docId)}
           />
@@ -2267,10 +2389,35 @@ function FleetAssetControls({
   );
 }
 
-function AssetDetailPanel({ detail, canEdit, onClose, onOpenRepairs, onNewRepair, onLoadPhotos, onLoadDocuments, onLoadHistory, onDeletePhoto, onDeleteDocument }) {
+function AssetDetailPanel({
+  detail,
+  canEdit,
+  ekipy = [],
+  reservationDraft = {},
+  reservationSavingKey = '',
+  onClose,
+  onOpenRepairs,
+  onNewRepair,
+  onLoadPhotos,
+  onLoadDocuments,
+  onLoadHistory,
+  onLoadReservations,
+  onReservationDraftChange,
+  onCreateReservation,
+  onUpdateReservationStatus,
+  onDeletePhoto,
+  onDeleteDocument,
+}) {
   const item = detail.item;
   const isVehicle = detail.type === 'pojazdy';
   const openAlerts = detail.alerts.filter((alert) => alert.state !== 'ok');
+  const reservationKey = detail.key;
+  const draftTeam = reservationDraft.ekipa_id || item.ekipa_id || ekipy[0]?.id || '';
+  const draftStart = reservationDraft.data_od || todayYmd();
+  const draftEnd = reservationDraft.data_do || draftStart;
+  const reservationCandidate = { data_od: draftStart, data_do: draftEnd };
+  const hasReservationConflict = (detail.reservations || []).some((row) => reservationIsActive(row) && reservationOverlaps(row, reservationCandidate));
+  const canSaveReservation = canEdit && !isVehicle && draftTeam && draftStart && draftEnd && draftEnd >= draftStart && !hasReservationConflict;
   return (
     <section style={S.assetDetailPanel}>
       <div style={S.assetDetailHeader}>
@@ -2353,6 +2500,104 @@ function AssetDetailPanel({ detail, canEdit, onClose, onOpenRepairs, onNewRepair
           </div>
         </div>
       </div>
+
+      {!isVehicle && (
+        <div style={S.assetDetailSection}>
+          <div style={S.assetSectionTop}>
+            <h3>Wydania i rezerwacje</h3>
+            <Button variant="secondary" size="sm" style={S.assetMiniBtn} leftIcon={CalendarDays} onClick={onLoadReservations}>Odswiez</Button>
+          </div>
+          {canEdit && (
+            <div style={S.reservationForm}>
+              <select
+                style={S.invoiceInput}
+                value={draftTeam}
+                onChange={(e) => onReservationDraftChange('ekipa_id', e.target.value)}
+              >
+                <option value="">Wybierz ekipe</option>
+                {ekipy.map((team) => (
+                  <option key={team.id} value={team.id}>{team.nazwa}</option>
+                ))}
+              </select>
+              <input
+                style={S.invoiceInput}
+                type="date"
+                value={draftStart}
+                onChange={(e) => onReservationDraftChange('data_od', e.target.value)}
+              />
+              <input
+                style={S.invoiceInput}
+                type="date"
+                value={draftEnd}
+                onChange={(e) => onReservationDraftChange('data_do', e.target.value)}
+              />
+              <Button
+                size="sm"
+                disabled={!canSaveReservation}
+                loading={reservationSavingKey === `${reservationKey}:Zarezerwowane`}
+                leftIcon={CalendarDays}
+                onClick={() => onCreateReservation('Zarezerwowane')}
+              >
+                Zarezerwuj
+              </Button>
+              <Button
+                size="sm"
+                disabled={!canSaveReservation}
+                loading={reservationSavingKey === `${reservationKey}:Wydane`}
+                leftIcon={CheckCircle}
+                onClick={() => onCreateReservation('Wydane')}
+              >
+                Wydaj sprzet
+              </Button>
+            </div>
+          )}
+          {hasReservationConflict && <div style={S.reservationWarning}>Konflikt terminu: ten sprzet jest juz zajety w wybranym zakresie.</div>}
+          <div style={S.reservationList}>
+            {detail.reservations?.length ? detail.reservations.map((reservation) => (
+              <div key={reservation.id} style={S.reservationRow}>
+                <div style={S.reservationMain}>
+                  <strong>{fmtDate(reservation.data_od)} - {fmtDate(reservation.data_do)}</strong>
+                  <span>{reservation.ekipa_nazwa || `Ekipa #${reservation.ekipa_id}`} / {reservation.status || '-'}</span>
+                </div>
+                {canEdit && (
+                  <div style={S.reservationActions}>
+                    {reservation.status === 'Zarezerwowane' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={reservationSavingKey === `${reservationKey}:${reservation.id}:Wydane`}
+                        onClick={() => onUpdateReservationStatus(reservation, 'Wydane')}
+                      >
+                        Wydaj
+                      </Button>
+                    )}
+                    {reservation.status === 'Wydane' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={reservationSavingKey === `${reservationKey}:${reservation.id}:Zwrócone`}
+                        onClick={() => onUpdateReservationStatus(reservation, 'Zwrócone')}
+                      >
+                        Zwroc
+                      </Button>
+                    )}
+                    {reservationIsActive(reservation) && (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        loading={reservationSavingKey === `${reservationKey}:${reservation.id}:Anulowane`}
+                        onClick={() => onUpdateReservationStatus(reservation, 'Anulowane')}
+                      >
+                        Anuluj
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )) : <div style={S.assetEmptyLine}>Brak aktywnych rezerwacji w najblizszych 2 miesiacach.</div>}
+          </div>
+        </div>
+      )}
 
       <div style={S.assetDetailSection}>
         <div style={S.assetSectionTop}>
@@ -2635,6 +2880,12 @@ const S = {
   invoiceGhostBtn: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 8px', fontSize: 11, fontWeight: 800 },
   invoiceForm: { display: 'grid', gridTemplateColumns: '1fr 0.7fr auto', gap: 6, alignItems: 'center' },
   partForm: { display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 72px 86px auto', gap: 6, alignItems: 'center' },
+  reservationForm: { display: 'grid', gridTemplateColumns: 'minmax(150px, 1fr) 130px 130px auto auto', gap: 7, alignItems: 'center', marginBottom: 8 },
+  reservationWarning: { border: '1px solid rgba(226,68,92,0.35)', borderRadius: 8, background: 'rgba(226,68,92,0.08)', color: 'var(--danger)', padding: 9, fontSize: 12, fontWeight: 900, marginBottom: 8 },
+  reservationList: { display: 'grid', gap: 7 },
+  reservationRow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', padding: 8, minWidth: 0 },
+  reservationMain: { display: 'grid', gap: 2, minWidth: 0, fontSize: 12, color: 'var(--text-sub)' },
+  reservationActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   invoiceInput: { minWidth: 0, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', fontSize: 12 },
   invoiceUploadBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap', padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.3)', background: 'rgba(20,131,79,0.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   invoiceLinks: { display: 'flex', flexDirection: 'column', gap: 4 },

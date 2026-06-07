@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { MessageCircle, RotateCcw, Send, X } from 'lucide-react';
 import api from '../api';
+import { Button } from './ui/Button';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 const PAGE_CONTEXT = {
@@ -118,8 +120,9 @@ export default function AiChat() {
   return (
     <>
       {/* Pływający przycisk */}
-      <button
+      <Button
         onClick={() => setOpen(o => !o)}
+        leftIcon={open ? X : MessageCircle}
         style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9000,
           width: 56, height: 56, borderRadius: '50%',
@@ -130,20 +133,8 @@ export default function AiChat() {
           transition: 'all 0.2s', color: open ? 'var(--text)' : '#fff',
         }}
         title={open ? 'Zamknij asystenta' : 'Asystent AI'}
-      >
-        {open ? (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        ) : (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            <circle cx="9" cy="10" r="1" fill="currentColor"/>
-            <circle cx="12" cy="10" r="1" fill="currentColor"/>
-            <circle cx="15" cy="10" r="1" fill="currentColor"/>
-          </svg>
-        )}
-      </button>
+        aria-label={open ? 'Zamknij asystenta' : 'Asystent AI'}
+      />
 
       {/* Panel chatu */}
       {open && (
@@ -166,11 +157,7 @@ export default function AiChat() {
                 </div>
               </div>
             </div>
-            <button onClick={clearChat} style={S.clearBtn} title="Wyczyść rozmowę">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.36"/>
-              </svg>
-            </button>
+            <Button variant="ghost" size="sm" onClick={clearChat} style={S.clearBtn} leftIcon={RotateCcw} title="Wyczyść rozmowę" aria-label="Wyczyść rozmowę" />
           </div>
 
           {/* Ostrzeżenie brak klucza */}
@@ -220,9 +207,9 @@ export default function AiChat() {
           {messages.length <= 1 && (
             <div style={S.suggestions}>
               {SUGGESTED.map(s => (
-                <button key={s} style={S.suggBtn} onClick={() => send(s)}>
+                <Button key={s} variant="secondary" size="sm" style={S.suggBtn} onClick={() => send(s)}>
                   {s}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -239,16 +226,13 @@ export default function AiChat() {
               rows={1}
               disabled={loading}
             />
-            <button
+            <Button
               style={{ ...S.sendBtn, opacity: (!input.trim() || loading) ? 0.4 : 1 }}
               onClick={() => send()}
               disabled={!input.trim() || loading}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-            </button>
+              leftIcon={Send}
+              aria-label="Wyślij"
+            />
           </div>
         </div>
       )}

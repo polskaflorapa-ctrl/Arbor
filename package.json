@@ -73,6 +73,7 @@
     "verify:planning-map": "node ./scripts/planning-map-check.cjs",
     "verify:equipment-cards": "node ./scripts/equipment-cards-check.cjs",
     "verify:fleet-repair-due-controls": "node ./scripts/fleet-repair-due-controls-check.cjs",
+    "verify:fleet-repair-parts-cost": "node ./scripts/fleet-repair-parts-cost-check.cjs",
     "verify:dispatcher-day-plan": "node ./scripts/dispatcher-day-plan-check.cjs",
     "verify:machine-cards-crud": "node ./scripts/machine-cards-crud-check.cjs",
     "verify:equipment-usage-rules": "node ./scripts/equipment-usage-rules-check.cjs",

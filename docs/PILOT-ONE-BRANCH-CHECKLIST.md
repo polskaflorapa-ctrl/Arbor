@@ -28,6 +28,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:planning-map` potwierdza mape planistyczna z pinezkami zlecen, pozycjami ekip live i przejsciem do kalendarza zasobow.
 - [ ] `npm run verify:equipment-cards` potwierdza karty pojazdow/sprzetu z przegladem, OC, alertami i najblizsza rezerwacja w Flocie.
 - [ ] `npm run verify:fleet-repair-due-controls` potwierdza terminy odbioru, priorytety, filtr po terminie i zapis napraw we Flocie.
+- [ ] `npm run verify:fleet-repair-parts-cost` potwierdza osobne liczenie kosztow czesci napraw bez mutowania bazowego kosztu naprawy.
 - [ ] `npm run verify:dispatcher-day-plan` potwierdza wczytanie zapisanego planu dispatchera do harmonogramu/cockpitu i zastosowanie go w panelu kierownika.
 - [ ] `npm run verify:machine-cards-crud` potwierdza CRUD kart maszyn, przypisanie do ekipy/oddzialu i scope oddzialu.
 - [ ] `npm run verify:equipment-usage-rules` potwierdza przypomnienia przegladow i blokade rezerwacji sprzetu po terminie.
@@ -66,6 +67,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna mape planistyczna: `docs/PLANNING-MAP-CONTRACT.md`.
 - [ ] Zespol zna karty zasobow: `docs/EQUIPMENT-CARDS-CONTRACT.md`.
 - [ ] Zespol zna kontrole terminow napraw: `docs/FLEET-REPAIR-DUE-CONTROLS-CONTRACT.md`.
+- [ ] Zespol zna koszt czesci napraw: `docs/FLEET-REPAIR-PARTS-COST-CONTRACT.md`.
 - [ ] Zespol zna wczytanie planu dispatchera: `docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md`.
 - [ ] Zespol zna CRUD kart maszyn: `docs/MACHINE-CARDS-CRUD-CONTRACT.md`.
 - [ ] Zespol zna reguly uzycia sprzetu: `docs/EQUIPMENT-USAGE-RULES-CONTRACT.md`.
@@ -159,6 +161,7 @@ npm run verify:resource-calendar-dnd
 npm run verify:planning-map
 npm run verify:equipment-cards
 npm run verify:fleet-repair-due-controls
+npm run verify:fleet-repair-parts-cost
 npm run verify:dispatcher-day-plan
 npm run verify:machine-cards-crud
 npm run verify:equipment-usage-rules

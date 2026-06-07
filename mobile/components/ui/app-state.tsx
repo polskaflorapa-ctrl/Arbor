@@ -92,8 +92,10 @@ export function OfflineQueueBanner({
   if (count <= 0) return null;
 
   return (
-    <View style={[styles.offlineInfo, { backgroundColor: warningBackgroundColor, borderBottomColor: borderColor }]}>
-      <Ionicons name="cloud-offline-outline" size={14} color={warningColor} />
+    <View style={[styles.offlineInfo, { backgroundColor: warningBackgroundColor, borderColor }]}>
+      <View style={[styles.offlineIconBox, { borderColor: warningColor + '66' }]}>
+        <Ionicons name="cloud-offline-outline" size={14} color={warningColor} />
+      </View>
       <Text style={[styles.offlineInfoText, { color: warningColor }]}>W kolejce offline: {count}</Text>
     </View>
   );
@@ -110,28 +112,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
-    marginHorizontal: 16,
-    marginVertical: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 22,
-    borderRadius: 18,
+    marginHorizontal: 12,
+    marginVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    borderRadius: 12,
     borderWidth: 1,
   },
   iconRing: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: { fontSize: 13, fontWeight: '700' },
-  title: { fontWeight: '800', fontSize: 15, textAlign: 'center' },
-  subtitle: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  title: { fontWeight: '900', fontSize: 15, textAlign: 'center' },
+  subtitle: { fontSize: 13, lineHeight: 18, textAlign: 'center', fontWeight: '700' },
   errorBox: {
-    borderRadius: 14,
+    borderRadius: 10,
     borderWidth: 1,
-    padding: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
     margin: 12,
     flexDirection: 'row',
     gap: 8,
@@ -141,13 +144,27 @@ const styles = StyleSheet.create({
   offlineInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
+    gap: 8,
+    minHeight: 48,
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 10,
+    paddingHorizontal: 10,
     paddingVertical: 8,
-    borderBottomWidth: 1,
+    borderWidth: 1,
+  },
+  offlineIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   offlineInfoText: {
+    flex: 1,
     fontSize: 12,
-    fontWeight: '600',
+    lineHeight: 16,
+    fontWeight: '900',
   },
 });

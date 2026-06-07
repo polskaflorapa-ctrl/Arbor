@@ -4,6 +4,7 @@ import {
   isTaskClosed,
   isTaskInProgress,
 } from '../utils/taskWorkflow';
+import { Button } from './ui/Button';
 
 function isoDay(value) {
   return value ? String(value).slice(0, 10) : '';
@@ -212,21 +213,21 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpe
             Radar nie widzi zaległych terminów, ekip bez pracy ani pilnych decyzji. Najbliższy ruch to przyjęcie nowego zgłoszenia albo raport dnia.
           </span>
           <div style={s.clearActions}>
-            <button type="button" style={s.clearPrimaryBtn} onClick={() => onOpenFilter?.('')}>
+            <Button style={s.clearPrimaryBtn} onClick={() => onOpenFilter?.('')}>
               Lista zleceń
-            </button>
-            <button type="button" style={s.clearSecondaryBtn} onClick={() => onOpenPath?.('/raport-dzienny')}>
+            </Button>
+            <Button variant="secondary" style={s.clearSecondaryBtn} onClick={() => onOpenPath?.('/raport-dzienny')}>
               Raport dzienny
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <>
           <div style={s.grid}>
             {model.alerts.map((alert) => (
-              <button
+              <Button
                 key={alert.key}
-                type="button"
+                variant="secondary"
                 onClick={() => onOpenFilter?.(alert.key)}
                 style={{ ...s.tile, ...(toneStyle[alert.tone] || toneStyle.neutral) }}
               >
@@ -235,7 +236,7 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpe
                   <span style={s.tileCount}>{alert.count}</span>
                 </span>
                 <span style={s.tileDetail}>{alert.detail}</span>
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -245,9 +246,9 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpe
               <div style={s.emptyRow}>Nie ma zleceń wymagających natychmiastowej reakcji.</div>
             ) : (
               model.decisions.map((row) => (
-                <button
+                <Button
                   key={`${row.decision.filterKey}-${row.task.id || row.decision.label}`}
-                  type="button"
+                  variant="secondary"
                   onClick={() => openDecision(row)}
                   style={s.decisionRow}
                 >
@@ -257,7 +258,7 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpe
                     <small style={s.decisionReason}>{row.decision.reason}</small>
                     <span style={s.decisionMeta}>{row.decision.meta}</span>
                   </span>
-                </button>
+                </Button>
               ))
             )}
           </div>

@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import CityInput from '../components/CityInput';
+import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getRoleDisplayName } from '../utils/roleDisplay';
@@ -284,20 +285,22 @@ export default function NoweZlecenie() {
               <Section title="Szczegóły zlecenia" icon={IKONY.tree} accent="var(--accent)">
                 <Field label="Tryb ankiety" icon={IKONY.note}>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      type="button"
+                    <Button
+                      variant={form.ankieta_uproszczona ? 'primary' : 'secondary'}
+                      size="sm"
                       onClick={() => setForm((f) => ({ ...f, ankieta_uproszczona: true }))}
                       style={{ ...S.toggleBtn, ...(form.ankieta_uproszczona ? S.toggleBtnActive : {}) }}
                     >
                       Uproszczona (adres + pinezka)
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant={!form.ankieta_uproszczona ? 'primary' : 'secondary'}
+                      size="sm"
                       onClick={() => setForm((f) => ({ ...f, ankieta_uproszczona: false }))}
                       style={{ ...S.toggleBtn, ...(!form.ankieta_uproszczona ? S.toggleBtnActive : {}) }}
                     >
                       Pełna
-                    </button>
+                    </Button>
                   </div>
                 </Field>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))', gap: 14 }}>
@@ -405,18 +408,19 @@ export default function NoweZlecenie() {
 
           {/* ── Przyciski ────────────────────────────────────── */}
           <div style={S.actionBar}>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => navigate(-1)}
               style={S.ghostBtn}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-sub)'; }}
             >
               Anuluj
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={loading || !isFormValid}
+              loading={loading}
+              disabled={!isFormValid}
               style={{
                 ...S.primaryBtn,
                 ...(isFormValid ? {} : S.primaryBtnDisabled),
@@ -427,15 +431,8 @@ export default function NoweZlecenie() {
               onMouseEnter={e => { if (!loading && isFormValid) e.currentTarget.style.transform = 'translateY(-2px)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
             >
-              {loading ? (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                  Zapisywanie...
-                </>
-              ) : (
-                <>{IKONY.plus} Utwórz zlecenie</>
-              )}
-            </button>
+              {IKONY.plus} Utwórz zlecenie
+            </Button>
           </div>
         </form>
       </main>

@@ -92,6 +92,11 @@ export function OfflineQueueSync() {
   const iconName = banner.kind === 'success' ? 'cloud-done-outline' : banner.kind === 'warning' ? 'cloud-offline-outline' : 'sync-outline';
   const iconColor = banner.kind === 'success' ? theme.success : banner.kind === 'warning' ? theme.warning : theme.info;
   const backgroundColor = banner.kind === 'success' ? theme.successBg : banner.kind === 'warning' ? theme.warningBg : theme.infoBg;
+  const borderColor = banner.kind === 'success'
+    ? theme.success + '66'
+    : banner.kind === 'warning'
+      ? theme.warning + '66'
+      : theme.info + '66';
 
   return (
     <View style={[styles.overlay, { top: Math.max(insets.top + 8, 18) }]}>
@@ -100,18 +105,20 @@ export function OfflineQueueSync() {
           styles.banner,
           {
             backgroundColor,
-            borderColor: theme.border,
+            borderColor,
             ...shadowStyle(theme, {
-              opacity: theme.shadowOpacity * 0.45,
-              radius: theme.shadowRadius,
-              offsetY: theme.shadowOffsetY,
-              elevation: theme.cardElevation,
+              opacity: theme.shadowOpacity * 0.24,
+              radius: theme.shadowRadius * 0.55,
+              offsetY: 2,
+              elevation: Math.max(1, theme.cardElevation),
             }),
           },
         ]}
       >
-        <Ionicons name={iconName} size={14} color={iconColor} />
-        <Text style={[styles.text, { color: iconColor }]}>{banner.message}</Text>
+        <View style={[styles.iconBox, { borderColor, backgroundColor: theme.cardBg }]}>
+          <Ionicons name={iconName} size={14} color={iconColor} />
+        </View>
+        <Text style={[styles.text, { color: iconColor }]} numberOfLines={2}>{banner.message}</Text>
         {isSyncing ? <ActivityIndicator size="small" color={iconColor} /> : null}
       </View>
     </View>
@@ -128,16 +135,26 @@ const styles = StyleSheet.create({
   },
   banner: {
     borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 12,
+    minHeight: 48,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  iconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   text: {
     flex: 1,
     fontSize: 12,
-    fontWeight: '600',
+    lineHeight: 16,
+    fontWeight: '900',
   },
 });

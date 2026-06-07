@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ArrowLeft, Camera, Video } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 
@@ -109,9 +111,9 @@ export default function OgledzinyDokumentacja() {
       <div className="inspection-doc-shell" style={S.wrap}>
         <Sidebar />
         <main className="inspection-doc-main" style={S.main}>
-          <button type="button" style={S.back} onClick={() => navigate('/ogledziny')}>
-            ← {t('inspectionDoc.back')}
-          </button>
+          <Button variant="ghost" size="sm" style={S.back} leftIcon={ArrowLeft} onClick={() => navigate('/ogledziny')}>
+            {t('inspectionDoc.back')}
+          </Button>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
             Brak parametru <code style={{ fontSize: 12 }}>ogledzinyId</code>. Otwórz ten widok z listy oględzin.
           </p>
@@ -124,9 +126,9 @@ export default function OgledzinyDokumentacja() {
     <div className="inspection-doc-shell" style={S.wrap}>
       <Sidebar />
       <main className="inspection-doc-main" style={S.main}>
-        <button type="button" style={S.back} onClick={() => navigate('/ogledziny')}>
-          ← {t('inspectionDoc.back')}
-        </button>
+        <Button variant="ghost" size="sm" style={S.back} leftIcon={ArrowLeft} onClick={() => navigate('/ogledziny')}>
+          {t('inspectionDoc.back')}
+        </Button>
         <div className="inspection-doc-hero">
           <h1 style={S.title}>{t('inspectionDoc.screenTitle')}</h1>
           <p style={S.sub}>{subtitle}</p>
@@ -138,9 +140,9 @@ export default function OgledzinyDokumentacja() {
         <div className="inspection-doc-card" style={S.card}>
           <h2 style={S.cardTitle}>{t('inspectionDoc.photoCardTitle')}</h2>
           <p style={S.cardBody}>{t('inspectionDoc.photoCardBody')}</p>
-          <button type="button" style={S.btn} onClick={pickPhoto}>
+          <Button style={S.btn} leftIcon={Camera} onClick={pickPhoto}>
             {t('inspectionDoc.photoBtn')}
-          </button>
+          </Button>
           {!wycenaId ? <p style={S.warn}>{t('inspectionDoc.noQuoteInline')}</p> : null}
         </div>
 
@@ -148,14 +150,14 @@ export default function OgledzinyDokumentacja() {
           <h2 style={S.cardTitle}>{t('inspectionDoc.videoCardTitle')}</h2>
           <p style={S.cardBody}>{t('inspectionDoc.videoCardBody')}</p>
           <p style={{ ...S.cardBody, marginBottom: 8 }}>{t('inspectionDoc.videoOfflineHint')}</p>
-          <button
-            type="button"
+          <Button
             style={{ ...S.btn, ...(busy ? S.btnDisabled : {}) }}
             onClick={pickVideo}
-            disabled={busy}
+            loading={busy}
+            leftIcon={Video}
           >
-            {busy ? '…' : t('inspectionDoc.videoBtn')}
-          </button>
+            {t('inspectionDoc.videoBtn')}
+          </Button>
           {hint ? <p style={S.hint}>{hint}</p> : null}
         </div>
       </main>
