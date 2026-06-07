@@ -137,6 +137,8 @@ export default function Telefonia() {
   const [telError, setTelError] = useState('');
   const [telMessage, setTelMessage] = useState('');
   const [savingCall, setSavingCall] = useState(false);
+  const [testFlowSaving, setTestFlowSaving] = useState(false);
+  const [lastTestLeadId, setLastTestLeadId] = useState(null);
   const [savingCb, setSavingCb] = useState(false);
   const [startingCallKey, setStartingCallKey] = useState(null);
   const [updatingCbId, setUpdatingCbId] = useState(null);
@@ -235,6 +237,10 @@ export default function Telefonia() {
     create_lead: true,
     create_callback: false,
     priority: 'high',
+  });
+  const [testFlowForm, setTestFlowForm] = useState({
+    oddzial_id: '',
+    phone: '',
   });
 
   const SMS_LIMIT = 480;
@@ -1389,6 +1395,52 @@ export default function Telefonia() {
       setTelError(getApiErrorMessage(e2, 'Nie udało się zapisać połączenia.'));
     } finally {
       setSavingCall(false);
+    }
+  };
+
+  const runPhoneCrmFlowTest = async (e) => {
+    e.preventDefault();
+    const oid = toIntLocal(testFlowForm.oddzial_id);
+    const phone = normalizePhone(testFlowForm.phone);
+    if (!oid) {
+      setTelError('Wybierz oddzial do testu.');
+      return;
+    }
+    if (!phone) {
+      setTelError('Podaj numer testowy klienta.');
+      return;
+    }
+    setTestFlowSaving(true);
+    setLastTestLeadId(null);
+    setTelError('');
+    setTelMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post(
+        '/telefon/test-flow',
+        {
+          oddzial_id: oid,
+          phone,
+          transcript: 'Testowa rozmowa ARBOR: klient pyta o termin ogledzin i prosi o kontakt zwrotny.',
+          raport: 'Test przeplywu CRM: utworzyc lead, zapisac notatke i dodac follow-up po rozmowie.',
+        },
+        { headers: authHeaders(token) }
+      );
+      await loadTelephonyExtras();
+      const leadId = data?.lead_id;
+      setTelMessage(
+        leadId
+          ? `Test OK: rozmowa trafila do CRM jako lead #${leadId}.`
+          : 'Test zapisany, ale backend nie zwrocil leada CRM.'
+      );
+      if (leadId) {
+        setLastTestLeadId(leadId);
+        setTestFlowForm((f) => ({ ...f, phone: '' }));
+      }
+    } catch (e2) {
+      setTelError(getApiErrorMessage(e2, 'Nie udalo sie uruchomic testu CRM po rozmowie.'));
+    } finally {
+      setTestFlowSaving(false);
     }
   };
 
@@ -3746,6 +3798,40 @@ export default function Telefonia() {
             <div style={s.callsIntro}>
               Nowy przeplyw: specjalista klika "Zadzwon i zapisz", a przy telefonie od klienta zapisuje rozmowe jako przychodzaca i opcjonalnie tworzy oddzwonienie.
             </div>
+            <form style={s.testFlowCard} onSubmit={runPhoneCrmFlowTest}>
+              <div style={s.manualTitle}>Test CRM po rozmowie</div>
+              <div style={s.inline2}>
+                <select
+                  value={testFlowForm.oddzial_id}
+                  onChange={(e) => setTestFlowForm((f) => ({ ...f, oddzial_id: e.target.value }))}
+                  style={s.input}
+                  required
+                >
+                  <option value="">Oddzial...</option>
+                  {oddzialy.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nazwa || `Oddzial #${o.id}`}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={testFlowForm.phone}
+                  onChange={(e) => setTestFlowForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="Numer testowy klienta"
+                  style={s.input}
+                />
+              </div>
+              <div style={s.inlineActions}>
+                <button type="submit" style={s.sendBtn} disabled={testFlowSaving}>
+                  {testFlowSaving ? 'Test...' : 'Uruchom test'}
+                </button>
+                {lastTestLeadId ? (
+                  <button type="button" style={s.rowBtnActive} onClick={() => navigate(`/crm/pipeline?lead_id=${lastTestLeadId}`)}>
+                    Otworz lead #{lastTestLeadId}
+                  </button>
+                ) : null}
+              </div>
+            </form>
             <div style={s.callsGrid}>
               <form style={s.callForm} onSubmit={saveIncomingCall}>
                 <div style={s.manualTitle}>Przyjmij telefon od klienta</div>
@@ -4769,6 +4855,16 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+  },
+  testFlowCard: {
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderRadius: 8,
+    padding: 12,
+    display: 'grid',
+    gap: 8,
+    marginBottom: 12,
     boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   inline2: {

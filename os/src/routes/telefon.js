@@ -17,6 +17,7 @@ const {
 const {
   ensurePhoneCallsTable,
   upsertCallLegFromTwiml,
+  publishPhoneCallArtifacts,
 } = require('../services/phone-call-pipeline');
 const { sendRecordingToHttpResponse } = require('../services/phone-recording-storage');
 const { isZadarmaConfiguredAsync, requestCallback } = require('../services/zadarma');
@@ -59,6 +60,13 @@ const rozmowyListQuerySchema = z.object({
 
 const rozmowaIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
+});
+
+const testFlowSchema = z.object({
+  oddzial_id: z.coerce.number().int().positive(),
+  phone: z.string().trim().min(9, 'Podaj numer klienta'),
+  transcript: z.string().trim().max(4000).optional().nullable(),
+  raport: z.string().trim().max(2000).optional().nullable(),
 });
 
 /** Połączenia z klientem i archiwum rozmów — tylko poza rolą ekipy polowej. */
@@ -301,6 +309,57 @@ router.get('/rozmowy', authMiddleware, forbidTelefonForTeamRoles, validateQuery(
     if (e.code === '42P01') return res.json([]);
     logger.error('telefon /rozmowy', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/test-flow', authMiddleware, forbidTelefonForTeamRoles, validateBody(testFlowSchema), async (req, res) => {
+  try {
+    const oddzialId = Number(req.body.oddzial_id || 0);
+    if (!isDyrektor(req.user) && Number(req.user?.oddzial_id) !== oddzialId) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied'), requestId: req.requestId });
+    }
+    const clientNumber = normalizeToE164(req.body.phone);
+    if (!clientNumber) {
+      return res.status(400).json({ error: req.t('errors.telefon.invalidDestination'), code: VALIDATION_FAILED, requestId: req.requestId });
+    }
+
+    await ensurePhoneCallsTable();
+    const callSid = `arbor-test:${Date.now()}:${req.user.id}`;
+    const transcript = String(req.body.transcript || '').trim()
+      || 'Testowa rozmowa telefoniczna ARBOR. Klient pyta o termin ogledzin i prosi o kontakt zwrotny.';
+    const raport = String(req.body.raport || '').trim()
+      || 'Test przeplywu: rozmowa ma utworzyc lead CRM, notatke, nagranie testowe i follow-up.';
+    const { rows } = await pool.query(
+      `INSERT INTO phone_call_conversations (
+        twilio_call_sid, user_id, task_id, staff_number, client_number, transcript, raport, status, updated_at
+      ) VALUES ($1,$2,NULL,NULL,$3,$4,$5,'analyzed',NOW())
+      RETURNING id, twilio_call_sid, client_number, status, created_at`,
+      [callSid, req.user.id, clientNumber, transcript, raport]
+    );
+
+    const crmMessage = await publishPhoneCallArtifacts({
+      callSid,
+      clientNumber,
+      transcript,
+      raport,
+      wskazowki: 'Sprawdz lead CRM i zamknij testowy follow-up.',
+      status: 'analyzed',
+      oddzialId,
+    });
+
+    res.status(201).json({
+      ok: true,
+      call: rows[0] || null,
+      lead_id: crmMessage?.lead_id || null,
+      crm_message_id: crmMessage?.id || null,
+      message: crmMessage?.lead_id
+        ? 'Test OK: rozmowa utworzyla/uzupelnila lead CRM i follow-up.'
+        : 'Test zapisany w telefonii, ale nie znaleziono ani nie utworzono leada CRM.',
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('telefon /test-flow', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError'), requestId: req.requestId });
   }
 });
 

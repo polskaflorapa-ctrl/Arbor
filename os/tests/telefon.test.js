@@ -38,9 +38,16 @@ jest.mock('../src/services/zadarma', () => ({
   requestCallback: jest.fn().mockResolvedValue({ status: 'success', request_id: 'ZD_callback_1' }),
 }));
 
+jest.mock('../src/services/phone-call-pipeline', () => ({
+  ensurePhoneCallsTable: jest.fn().mockResolvedValue(undefined),
+  upsertCallLegFromTwiml: jest.fn().mockResolvedValue(undefined),
+  publishPhoneCallArtifacts: jest.fn().mockResolvedValue({ id: 501, lead_id: 301 }),
+}));
+
 const pool = require('../src/config/database');
 const { env } = require('../src/config/env');
 const { isZadarmaConfiguredAsync, requestCallback } = require('../src/services/zadarma');
+const { publishPhoneCallArtifacts, upsertCallLegFromTwiml } = require('../src/services/phone-call-pipeline');
 const telefonRoutes = require('../src/routes/telefon');
 const { createTestApp } = require('./helpers/create-test-app');
 
@@ -59,6 +66,8 @@ describe('Telefon (Twilio Voice)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     isZadarmaConfiguredAsync.mockResolvedValue(false);
+    publishPhoneCallArtifacts.mockResolvedValue({ id: 501, lead_id: 301 });
+    upsertCallLegFromTwiml.mockResolvedValue(undefined);
   });
 
   it('POST /polacz-do-klienta returns 401 without token', async () => {
@@ -141,6 +150,11 @@ describe('Telefon (Twilio Voice)', () => {
     expect(res.text).toContain('+48791234567');
     expect(res.text).toContain('record-from-answer-dual');
     expect(res.text).toContain('/api/telefon/webhooks/recording');
+    expect(upsertCallLegFromTwiml).toHaveBeenCalledWith(expect.objectContaining({
+      callSid: 'CA_test_call_sid',
+      userId: 1,
+      clientNumber: '+48791234567',
+    }));
   });
 
   it('GET /twiml/dial returns reject TwiML for invalid token', async () => {
@@ -187,6 +201,17 @@ describe('Telefon (Twilio Voice)', () => {
     const countSql = pool.query.mock.calls.map((c) => String(c[0])).find((s) => s.includes('COUNT(*)') && s.includes('phone_call_conversations'));
     expect(countSql).not.toMatch(/JOIN users u/i);
     expect(countSql).not.toMatch(/WHERE p\.user_id/i);
+  });
+
+  it('POST /test-flow blocks users from other branches before publishing artifacts', async () => {
+    const res = await request(app)
+      .post('/api/telefon/test-flow')
+      .set('Authorization', `Bearer ${bearerKierownik()}`)
+      .send({ oddzial_id: 7, phone: '+48600111222' });
+
+    expect(res.status).toBe(403);
+    expect(publishPhoneCallArtifacts).not.toHaveBeenCalled();
+    expect(pool.query).not.toHaveBeenCalled();
   });
 
   it('GET /rozmowy/:id/nagranie returns 401 without token', async () => {
@@ -265,5 +290,61 @@ describe('Telefon (Twilio Voice)', () => {
       env.PHONE_RECORDINGS_DIR = prevDir;
       fs.rmSync(recRoot, { recursive: true, force: true });
     }
+  });
+
+  it('POST /test-flow creates a synthetic recording flow and CRM lead link', async () => {
+    pool.query.mockImplementation(async (sql, params) => {
+      const text = String(sql);
+      if (text.includes('INSERT INTO phone_call_conversations')) {
+        return {
+          rows: [{
+            id: 901,
+            twilio_call_sid: params[0],
+            client_number: params[2],
+            status: 'analyzed',
+            created_at: '2026-06-07T06:00:00.000Z',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/telefon/test-flow')
+      .set('Authorization', `Bearer ${bearerKierownik()}`)
+      .send({
+        oddzial_id: 2,
+        phone: '500100200',
+        transcript: 'Klient pyta o wycinke drzewa.',
+        raport: 'Oddzwonic jutro.',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual(expect.objectContaining({
+      ok: true,
+      lead_id: 301,
+      crm_message_id: 501,
+    }));
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO phone_call_conversations'),
+      expect.arrayContaining([expect.stringContaining('arbor-test:'), 10, '+48500100200'])
+    );
+    expect(publishPhoneCallArtifacts).toHaveBeenCalledWith(expect.objectContaining({
+      clientNumber: '+48500100200',
+      transcript: 'Klient pyta o wycinke drzewa.',
+      raport: 'Oddzwonic jutro.',
+      oddzialId: 2,
+      status: 'analyzed',
+    }));
+  });
+
+  it('POST /test-flow blocks branch users from testing another branch', async () => {
+    const res = await request(app)
+      .post('/api/telefon/test-flow')
+      .set('Authorization', `Bearer ${bearerKierownik()}`)
+      .send({ oddzial_id: 9, phone: '500100200' });
+
+    expect(res.status).toBe(403);
+    expect(publishPhoneCallArtifacts).not.toHaveBeenCalled();
   });
 });

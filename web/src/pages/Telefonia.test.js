@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -221,16 +221,18 @@ test('specialist can register an incoming client call and create callback', asyn
   await userEvent.click(await screen.findByRole('button', { name: /oddzwonienia/i }));
   expect(await screen.findByText('Przyjmij telefon od klienta')).toBeInTheDocument();
 
-  const selects = screen.getAllByRole('combobox');
+  const incomingForm = screen.getByPlaceholderText('Telefon klienta').closest('form');
+  const incoming = within(incomingForm);
+  const selects = incoming.getAllByRole('combobox');
   await userEvent.selectOptions(selects[0], '7');
-  await userEvent.type(screen.getByPlaceholderText('Telefon klienta'), '+48600111222');
-  await userEvent.type(screen.getByPlaceholderText('Klient / firma'), 'Jan Klient');
+  await userEvent.type(incoming.getByPlaceholderText('Telefon klienta'), '+48600111222');
+  await userEvent.type(incoming.getByPlaceholderText('Klient / firma'), 'Jan Klient');
   await userEvent.selectOptions(selects[1], 'missed');
-  await userEvent.selectOptions(screen.getByDisplayValue('Typ uslugi...'), 'ogrod');
-  await userEvent.type(screen.getByPlaceholderText('Adres ogledzin'), 'Lesna 5');
-  await userEvent.type(screen.getByPlaceholderText('Miasto'), 'Krakow');
-  await userEvent.type(screen.getByPlaceholderText('Co klient powiedzial / czego potrzebuje...'), 'Prosi o pilny kontakt');
-  await userEvent.click(screen.getByRole('button', { name: 'Zapisz przychodzace' }));
+  await userEvent.selectOptions(incoming.getByDisplayValue('Typ uslugi...'), 'ogrod');
+  await userEvent.type(incoming.getByPlaceholderText('Adres ogledzin'), 'Lesna 5');
+  await userEvent.type(incoming.getByPlaceholderText('Miasto'), 'Krakow');
+  await userEvent.type(incoming.getByPlaceholderText('Co klient powiedzial / czego potrzebuje...'), 'Prosi o pilny kontakt');
+  await userEvent.click(incoming.getByRole('button', { name: 'Zapisz przychodzace' }));
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
@@ -275,4 +277,34 @@ test('specialist can register an incoming client call and create callback', asyn
   expect(await screen.findByText(/Telefon przychodzacy zapisany/i)).toBeInTheDocument();
   expect(screen.getByText(/Lead CRM utworzony/i)).toBeInTheDocument();
   expect(screen.getByText(/Oddzwonienie utworzone/i)).toBeInTheDocument();
+});
+
+test('runs phone CRM flow test from calls tab', async () => {
+  api.post.mockImplementation((url) => {
+    if (url === '/telefon/test-flow') {
+      return Promise.resolve({ data: { ok: true, lead_id: 301, crm_message_id: 501 } });
+    }
+    return Promise.resolve({ data: { message: 'OK' } });
+  });
+
+  renderTelefonia('/telefonia?tab=calls');
+
+  expect(await screen.findByText('Test CRM po rozmowie')).toBeInTheDocument();
+  const testForm = screen.getByText('Test CRM po rozmowie').closest('form');
+  const testPanel = within(testForm);
+  await userEvent.selectOptions(testPanel.getByRole('combobox'), '7');
+  await userEvent.type(testPanel.getByPlaceholderText('Numer testowy klienta'), '+48600111222');
+  await userEvent.click(testPanel.getByRole('button', { name: 'Uruchom test' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/telefon/test-flow',
+      expect.objectContaining({
+        oddzial_id: 7,
+        phone: '+48600111222',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Otworz lead #301')).toBeInTheDocument();
 });
