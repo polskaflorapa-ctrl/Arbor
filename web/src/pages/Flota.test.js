@@ -112,6 +112,8 @@ function mockFlotaApi() {
             termin_odbioru: ymd(-3),
             priorytet: 'Normalny',
             koszt: 900,
+            czesci_kwota: 150,
+            czesci_count: 2,
             opis_usterki: 'Alternator',
             wykonawca: 'Auto Serwis',
             status: 'Zakonczona',
@@ -296,6 +298,7 @@ test('opens and closes the vehicle asset detail card with media and documents', 
   expect(screen.queryAllByText('Polisa OC').length).toBeGreaterThan(0);
   expect(screen.queryAllByAltText('Przod pojazdu').length).toBeGreaterThan(0);
   expect(screen.getByText('Alternator')).toBeInTheDocument();
+  expect(screen.queryAllByText(/1\s*050 zl/i).length).toBeGreaterThan(0);
   expect(screen.getAllByTestId('location-search').at(-1)).toHaveTextContent('asset=pojazdy%3A5');
 
   expect(api.get).toHaveBeenCalledWith(
