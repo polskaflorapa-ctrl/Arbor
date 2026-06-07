@@ -58,8 +58,41 @@ async function loginForSmoke() {
     includes: ['2.2.0-quotations', '"quotations":true'],
   });
   checks.push({
+    name: 'openapi-docs',
+    result: await check('/api/docs/openapi.yaml'),
+    expected: [200],
+    includes: [
+      'openapi:',
+      '/rozliczenia/zadanie/{taskId}:',
+      '/rozliczenia/zadanie/{taskId}/materialy:',
+    ],
+  });
+  checks.push({
     name: 'tasks-route-mounted',
     result: await check('/api/tasks/wszystkie'),
+    expected: [401, 403],
+  });
+  checks.push({
+    name: 'settlement-task-route-mounted',
+    result: await check('/api/rozliczenia/zadanie/1'),
+    expected: [401, 403],
+  });
+  checks.push({
+    name: 'settlement-operational-cost-route-mounted',
+    result: await check('/api/rozliczenia/zadanie/1/koszty-operacyjne', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: 'inne', amount: 1 }),
+    }),
+    expected: [401, 403],
+  });
+  checks.push({
+    name: 'settlement-material-route-mounted',
+    result: await check('/api/rozliczenia/zadanie/1/materialy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nazwa: 'Smoke material', koszt_laczny: 1 }),
+    }),
     expected: [401, 403],
   });
   checks.push({
