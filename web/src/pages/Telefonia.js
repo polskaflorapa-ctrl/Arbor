@@ -26,6 +26,7 @@ const BRANCH_STAGE_ORDER = {
 };
 const BRANCH_TEST_STALE_DAYS = 14;
 const ZADARMA_WEBRTC_SIP_KEY = 'arbor_zadarma_webrtc_sip_v1';
+const ZADARMA_WEBRTC_AUTO_KEY = 'arbor_zadarma_webrtc_auto_v1';
 const ZADARMA_WIDGET_SCRIPTS = [
   'https://my.zadarma.com/webphoneWebRTCWidget/v8/js/loader-phone-lib.js?v=23',
   'https://my.zadarma.com/webphoneWebRTCWidget/v8/js/loader-phone-fn.js?v=23',
@@ -57,6 +58,14 @@ function loadExternalScript(src) {
 async function loadZadarmaWidgetScripts() {
   for (const src of ZADARMA_WIDGET_SCRIPTS) {
     await loadExternalScript(src);
+  }
+}
+
+function getStoredBoolean(key) {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
   }
 }
 
@@ -127,7 +136,9 @@ export default function Telefonia() {
       return '';
     }
   });
+  const [zadarmaWebrtcAuto, setZadarmaWebrtcAuto] = useState(() => getStoredBoolean(ZADARMA_WEBRTC_AUTO_KEY));
   const [zadarmaWebrtcLoading, setZadarmaWebrtcLoading] = useState(false);
+  const [zadarmaWebrtcStartedSip, setZadarmaWebrtcStartedSip] = useState('');
 
   const [tab, setTab] = useState(() => (['sms', 'calls', 'zadarma', 'agent'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'sms'));
   const [oddzialy, setOddzialy] = useState([]);
@@ -641,7 +652,16 @@ export default function Telefonia() {
     }
   };
 
-  const startZadarmaWebPhone = async () => {
+  const setZadarmaWebrtcAutoPreference = (checked) => {
+    setZadarmaWebrtcAuto(checked);
+    try {
+      localStorage.setItem(ZADARMA_WEBRTC_AUTO_KEY, checked ? '1' : '0');
+    } catch {
+      /* localStorage can be unavailable in private mode */
+    }
+  };
+
+  const startZadarmaWebPhone = useCallback(async ({ silent = false } = {}) => {
     const sip = String(zadarmaSip || '').trim();
     if (!sip) {
       setZadarmaError('Podaj SIP login albo numer wewnetrzny PBX z Zadarmy.');
@@ -670,13 +690,24 @@ export default function Telefonia() {
         true,
         "{right:'16px',bottom:'16px'}",
       );
-      setZadarmaMessage('Telefon Zadarma uruchomiony w przegladarce. Mozesz dzwonic i odbierac po zalogowaniu do widgetu.');
+      setZadarmaWebrtcStartedSip(data.sip || sip);
+      if (!silent) {
+        setZadarmaMessage('Telefon Zadarma uruchomiony w przegladarce. Mozesz dzwonic i odbierac po zalogowaniu do widgetu.');
+      }
     } catch (err) {
       setZadarmaError(getApiErrorMessage(err, 'Nie udalo sie uruchomic telefonu WebRTC Zadarma.'));
     } finally {
       setZadarmaWebrtcLoading(false);
     }
-  };
+  }, [zadarmaSip]);
+
+  useEffect(() => {
+    const sip = String(zadarmaSip || '').trim();
+    if (tab !== 'zadarma') return;
+    if (!zadarmaWebrtcAuto || !zadarmaSettings?.configured || !sip) return;
+    if (zadarmaWebrtcLoading || zadarmaWebrtcStartedSip === sip) return;
+    startZadarmaWebPhone({ silent: true });
+  }, [tab, zadarmaWebrtcAuto, zadarmaSettings?.configured, zadarmaSip, zadarmaWebrtcLoading, zadarmaWebrtcStartedSip, startZadarmaWebPhone]);
 
   useEffect(() => {
     if (tab === 'agent' && agentForm.oddzial_id) {
@@ -2648,15 +2679,26 @@ export default function Telefonia() {
                 </div>
                 <input
                   value={zadarmaSip}
-                  onChange={(e) => setZadarmaSip(e.target.value)}
+                  onChange={(e) => {
+                    setZadarmaSip(e.target.value);
+                    setZadarmaWebrtcStartedSip('');
+                  }}
                   placeholder="SIP / numer wewnetrzny PBX, np. 101"
                   style={s.input}
                 />
+                <label style={s.checkboxWrap}>
+                  <input
+                    type="checkbox"
+                    checked={zadarmaWebrtcAuto}
+                    onChange={(e) => setZadarmaWebrtcAutoPreference(e.target.checked)}
+                  />
+                  Uruchamiaj automatycznie w Arbor
+                </label>
                 <div style={s.inlineActions}>
                   <button
                     type="button"
                     style={s.sendBtn}
-                    onClick={startZadarmaWebPhone}
+                    onClick={() => startZadarmaWebPhone()}
                     disabled={zadarmaWebrtcLoading || !zadarmaSettings?.configured}
                   >
                     {zadarmaWebrtcLoading ? 'Uruchamiam...' : 'Uruchom telefon w przegladarce'}
@@ -2669,6 +2711,9 @@ export default function Telefonia() {
                   >
                     Kopiuj SIP
                   </button>
+                </div>
+                <div style={s.agentHistoryMeta}>
+                  Status: {zadarmaWebrtcStartedSip ? `aktywny SIP ${zadarmaWebrtcStartedSip}` : zadarmaWebrtcAuto ? 'auto wlaczone, czeka na poprawny SIP i konfiguracje' : 'reczny start'}
                 </div>
                 <div style={s.agentHistoryMeta}>
                   W panelu Zadarma dodaj domene tej aplikacji w Integrations and API / WebRTC widget integration. Nie wystawiaj widgetu poza zalogowanym panelem.

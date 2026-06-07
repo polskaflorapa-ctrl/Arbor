@@ -119,12 +119,23 @@ beforeEach(() => {
     if (path === '/telephony/integration-test-logs') {
       return Promise.resolve({ data: { items: [] } });
     }
+    if (path === '/telephony/zadarma/settings') {
+      return Promise.resolve({
+        data: {
+          configured: true,
+          caller_id: 'ARBOR',
+          api_key_masked: 'key***',
+          sms_webhook_url: 'https://arbor.example/api/telephony/zadarma/sms/webhook',
+        },
+      });
+    }
     return Promise.resolve({ data: [] });
   });
 });
 
 afterEach(() => {
   localStorage.clear();
+  delete window.zadarmaWidgetFn;
   vi.clearAllMocks();
 });
 
@@ -307,4 +318,51 @@ test('runs phone CRM flow test from calls tab', async () => {
     );
   });
   expect(await screen.findByText('Otworz lead #301')).toBeInTheDocument();
+});
+
+test('starts Zadarma WebRTC phone from Arbor and stores auto-start preference', async () => {
+  api.post.mockImplementation((url) => {
+    if (url === '/telephony/zadarma/webrtc-key') {
+      return Promise.resolve({ data: { key: 'webrtc-key-101', sip: '101' } });
+    }
+    return Promise.resolve({ data: { message: 'OK' } });
+  });
+  window.zadarmaWidgetFn = vi.fn();
+  const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation((node) => {
+    const result = HTMLBodyElement.prototype.appendChild.call(document.body, node);
+    if (node.tagName === 'SCRIPT') {
+      setTimeout(() => node.onload?.());
+    }
+    return result;
+  });
+
+  try {
+    renderTelefonia('/telefonia?tab=zadarma');
+
+    expect(await screen.findByText('Telefon w przegladarce WebRTC')).toBeInTheDocument();
+    await userEvent.type(screen.getByPlaceholderText('SIP / numer wewnetrzny PBX, np. 101'), '101');
+    await userEvent.click(screen.getByLabelText('Uruchamiaj automatycznie w Arbor'));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/telephony/zadarma/webrtc-key',
+        { sip: '101' },
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
+    await waitFor(() => {
+      expect(window.zadarmaWidgetFn).toHaveBeenCalledWith(
+        'webrtc-key-101',
+        '101',
+        'square',
+        'pl',
+        true,
+        "{right:'16px',bottom:'16px'}"
+      );
+    });
+    expect(localStorage.getItem('arbor_zadarma_webrtc_auto_v1')).toBe('1');
+    expect(await screen.findByText('Status: aktywny SIP 101')).toBeInTheDocument();
+  } finally {
+    appendSpy.mockRestore();
+  }
 });
