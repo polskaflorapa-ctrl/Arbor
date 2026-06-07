@@ -230,7 +230,19 @@ async function setStatusError(callSid, message) {
 async function processRecordingPipeline(callSid) {
   await ensurePhoneCallsTable();
   const { rows } = await pool.query(
-    `SELECT id, twilio_call_sid, twilio_recording_sid, recording_url, recording_archive_url, client_number, lead_id FROM phone_call_conversations WHERE twilio_call_sid = $1`,
+    `SELECT
+       p.id,
+       p.twilio_call_sid,
+       p.twilio_recording_sid,
+       p.recording_url,
+       p.recording_archive_url,
+       p.client_number,
+       p.lead_id,
+       COALESCE(t.oddzial_id, u.oddzial_id) AS oddzial_id
+     FROM phone_call_conversations p
+     LEFT JOIN tasks t ON t.id = p.task_id
+     LEFT JOIN users u ON u.id = p.user_id
+     WHERE p.twilio_call_sid = $1`,
     [callSid]
   );
   if (!rows.length || !rows[0].recording_url) {
@@ -312,6 +324,7 @@ async function processRecordingPipeline(callSid) {
         raport: summary.raport,
         wskazowki: summary.wskazowki_specjalisty,
         status: 'analyzed',
+        oddzialId: row.oddzial_id,
         recordingUrl: row.recording_url,
         recordingArchiveUrl,
       });
@@ -333,6 +346,7 @@ async function processRecordingPipeline(callSid) {
         raport: null,
         wskazowki: null,
         status: 'transcribed',
+        oddzialId: row.oddzial_id,
         recordingUrl: row.recording_url,
         recordingArchiveUrl,
       });
@@ -343,7 +357,7 @@ async function processRecordingPipeline(callSid) {
   }
 }
 
-async function appendPhoneCallCrmNote({ callSid, clientNumber, transcript, raport, wskazowki, status }) {
+async function appendPhoneCallCrmNote({ callSid, clientNumber, transcript, raport, wskazowki, status, oddzialId }) {
   if (!clientNumber) return null;
   const parts = [
     'Rozmowa telefoniczna Zadarma/ARBOR',
@@ -353,6 +367,7 @@ async function appendPhoneCallCrmNote({ callSid, clientNumber, transcript, rapor
   ].filter(Boolean);
   if (!parts.length) return null;
   return appendCrmMessageForContact({
+    oddzialId,
     phone: clientNumber,
     channel: 'phone',
     direction: 'outbound',
@@ -362,6 +377,10 @@ async function appendPhoneCallCrmNote({ callSid, clientNumber, transcript, rapor
     status: 'received',
     externalMessageId: callSid,
     templateKey: 'phone_call_recording',
+    createLeadIfMissing: true,
+    leadTitle: `Telefon: ${clientNumber}`,
+    source: 'telefon',
+    notes: 'Lead utworzony automatycznie po nagranej rozmowie telefonicznej.',
     metadata: { source: 'phone.recording', call_sid: callSid, status },
   });
 }

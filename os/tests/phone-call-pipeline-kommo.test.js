@@ -44,10 +44,18 @@ describe('phone call pipeline Kommo publishing', () => {
       raport: 'Ustalono kontakt jutro.',
       wskazowki: 'Potwierdzic adres.',
       status: 'analyzed',
+      oddzialId: 7,
       recordingArchiveUrl: 'https://cdn.example/call.mp3',
     });
 
     expect(result).toBe(crmMessage);
+    expect(appendCrmMessageForContact).toHaveBeenCalledWith(expect.objectContaining({
+      oddzialId: 7,
+      phone: '+48500600700',
+      createLeadIfMissing: true,
+      leadTitle: 'Telefon: +48500600700',
+      source: 'telefon',
+    }));
     expect(pool.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE phone_call_conversations SET lead_id = $2'),
       ['zadarma:pbx-call-3', 12]

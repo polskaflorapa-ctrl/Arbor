@@ -87,6 +87,49 @@ async function findLeadForContact({ oddzialId, phone, email }) {
   return rows[0] || null;
 }
 
+function fallbackLeadTitle({ phone, email, channel }) {
+  const normalizedPhone = String(phone || '').trim();
+  const normalizedEmail = String(email || '').trim();
+  if (normalizedPhone) return `Telefon: ${normalizedPhone}`;
+  if (normalizedEmail) return `Kontakt: ${normalizedEmail}`;
+  const source = normalizeChannel(channel);
+  return source === 'phone' ? 'Nowy lead telefoniczny' : 'Nowy lead z wiadomosci';
+}
+
+async function createLeadForContact({
+  oddzialId,
+  phone,
+  email,
+  channel,
+  leadTitle,
+  source = null,
+  notes = null,
+  createdBy = null,
+}) {
+  const branchId = Number(oddzialId || 0);
+  if (!branchId) return null;
+  const title = String(leadTitle || '').trim() || fallbackLeadTitle({ phone, email, channel });
+  const normalizedSource = String(source || channel || '').trim().toLowerCase() || 'phone';
+  const { rows } = await pool.query(
+    `INSERT INTO crm_leads (
+      title, oddzial_id, client_id, owner_user_id, stage, source, value, phone, email, notes, tags,
+      next_action_at, created_by, created_at, updated_by, updated_at
+    ) VALUES ($1,$2,NULL,NULL,'Lead',$3,0,$4,$5,$6,$7::jsonb,NULL,$8,NOW(),$8,NOW())
+    RETURNING id`,
+    [
+      title,
+      branchId,
+      normalizedSource,
+      String(phone || '').trim() || null,
+      String(email || '').trim() || null,
+      String(notes || '').trim() || null,
+      JSON.stringify(['auto', normalizeChannel(channel)]),
+      createdBy || null,
+    ]
+  );
+  return rows[0] || null;
+}
+
 async function appendCrmLeadMessage({
   leadId,
   channel,
@@ -137,7 +180,10 @@ async function appendCrmLeadMessage({
 
 async function appendCrmMessageForContact(options) {
   try {
-    const lead = await findLeadForContact(options);
+    let lead = await findLeadForContact(options);
+    if (!lead?.id && options?.createLeadIfMissing) {
+      lead = await createLeadForContact(options);
+    }
     if (!lead?.id) return null;
     return await appendCrmLeadMessage({ ...options, leadId: lead.id });
   } catch (err) {
@@ -149,6 +195,7 @@ async function appendCrmMessageForContact(options) {
 module.exports = {
   appendCrmLeadMessage,
   appendCrmMessageForContact,
+  createLeadForContact,
   ensureCrmLeadMessagesTable,
   findLeadForContact,
 };
