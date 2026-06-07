@@ -3,18 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import BusinessOutlined from '@mui/icons-material/BusinessOutlined';
-import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import DriveEtaOutlined from '@mui/icons-material/DriveEtaOutlined';
-import EditOutlined from '@mui/icons-material/EditOutlined';
 import LocalPhoneOutlined from '@mui/icons-material/LocalPhoneOutlined';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
 import SupervisorAccountOutlined from '@mui/icons-material/SupervisorAccountOutlined';
-import SwapHorizOutlined from '@mui/icons-material/SwapHorizOutlined';
-import CloseOutlined from '@mui/icons-material/CloseOutlined';
 import PageHeader from '../components/PageHeader';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import CityInput from '../components/CityInput';
+import { Button } from '../components/ui/Button';
+import { ArrowRight, Car, Pencil, Plus, Save, Shuffle, Trash2, X } from 'lucide-react';
 import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
@@ -238,36 +236,22 @@ export default function Oddzialy() {
               <StatusMessage message={msg} />
               {isDyrektor && (
                 <>
-                  <button type="button" style={S.headerBtn('#F9A825')} onClick={() => setShowDelegacja(!showDelegacja)}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                      <DriveEtaOutlined sx={{ fontSize: 18 }} />
-                      {t('pages.oddzialy.delegation')}
-                    </span>
-                  </button>
-                  <button type="button" style={S.headerBtn('#38bdf8')} onClick={() => setShowPrzenies(!showPrzenies)}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                      <SwapHorizOutlined sx={{ fontSize: 18 }} />
-                      {t('pages.oddzialy.transfer')}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    style={S.headerBtn('var(--accent)', '#162032')}
+                  <Button variant="warning" leftIcon={Car} onClick={() => setShowDelegacja(!showDelegacja)}>
+                    {t('pages.oddzialy.delegation')}
+                  </Button>
+                  <Button variant="outline" leftIcon={Shuffle} onClick={() => setShowPrzenies(!showPrzenies)}>
+                    {t('pages.oddzialy.transfer')}
+                  </Button>
+                  <Button
+                    leftIcon={showForm ? X : Plus}
                     onClick={() => {
                       setEditOddzial(null);
                       setForm({ nazwa: '', adres: '', miasto: '', kod_pocztowy: '', telefon: '', email: '', kierownik_id: '' });
                       setShowForm(!showForm);
                     }}
                   >
-                    {showForm ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <CloseOutlined sx={{ fontSize: 18 }} />
-                        {t('common.cancel')}
-                      </span>
-                    ) : (
-                      `+ ${t('pages.oddzialy.newBranch')}`
-                    )}
-                  </button>
+                    {showForm ? t('common.cancel') : `+ ${t('pages.oddzialy.newBranch')}`}
+                  </Button>
                 </>
               )}
             </>
@@ -319,8 +303,8 @@ export default function Oddzialy() {
                 </Field>
               </div>
               <div style={S.btnRow}>
-                <button type="button" style={S.cancelBtn} onClick={() => { setShowForm(false); setEditOddzial(null); }}>Anuluj</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isOddzialFormValid}>{saving ? t('common.saving') : editOddzial ? t('pages.oddzialy.submitSave') : t('pages.oddzialy.submitCreate')}</button>
+                <Button variant="outline" onClick={() => { setShowForm(false); setEditOddzial(null); }}>Anuluj</Button>
+                <Button type="submit" loading={saving} disabled={!isOddzialFormValid} leftIcon={Save}>{editOddzial ? t('pages.oddzialy.submitSave') : t('pages.oddzialy.submitCreate')}</Button>
               </div>
             </form>
           </div>
@@ -372,8 +356,8 @@ export default function Oddzialy() {
               </div>
               <Field label="Uwagi"><textarea style={{ ...S.input, height: 60 }} value={formDelegacja.uwagi} onChange={e => setFormDelegacja({ ...formDelegacja, uwagi: e.target.value })} /></Field>
               <div style={S.btnRow}>
-                <button type="button" style={S.cancelBtn} onClick={() => setShowDelegacja(false)}>Anuluj</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isDelegacjaFormValid}>{saving ? t('common.saving') : t('pages.oddzialy.submitDelegation')}</button>
+                <Button variant="outline" onClick={() => setShowDelegacja(false)}>Anuluj</Button>
+                <Button type="submit" loading={saving} disabled={!isDelegacjaFormValid} leftIcon={Save}>{t('pages.oddzialy.submitDelegation')}</Button>
               </div>
             </form>
           </div>
@@ -399,8 +383,8 @@ export default function Oddzialy() {
                 </Field>
               </div>
               <div style={S.btnRow}>
-                <button type="button" style={S.cancelBtn} onClick={() => setShowPrzenies(false)}>Anuluj</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isPrzeniesFormValid}>{saving ? t('common.saving') : t('pages.oddzialy.submitTransfer')}</button>
+                <Button variant="outline" onClick={() => setShowPrzenies(false)}>Anuluj</Button>
+                <Button type="submit" loading={saving} disabled={!isPrzeniesFormValid} leftIcon={Save}>{t('pages.oddzialy.submitTransfer')}</Button>
               </div>
             </form>
           </div>
@@ -430,12 +414,8 @@ export default function Oddzialy() {
                   <BusinessOutlined sx={{ fontSize: 36, color: 'var(--accent)', opacity: 0.85 }} />
                   {isDyrektor && (
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button type="button" style={S.editBtn} onClick={() => handleEdit(o)} aria-label={t('common.edit')}>
-                        <EditOutlined sx={{ fontSize: 18 }} />
-                      </button>
-                      <button type="button" style={S.deleteBtn} onClick={() => handleDelete(o.id)} aria-label={t('common.delete')}>
-                        <DeleteOutline sx={{ fontSize: 18 }} />
-                      </button>
+                      <Button size="sm" variant="outline" leftIcon={Pencil} onClick={() => handleEdit(o)} aria-label={t('common.edit')} style={{ minHeight: 32, padding: '6px 9px' }} />
+                      <Button size="sm" variant="danger" leftIcon={Trash2} onClick={() => handleDelete(o.id)} aria-label={t('common.delete')} style={{ minHeight: 32, padding: '6px 9px' }} />
                     </div>
                   )}
                 </div>
@@ -466,11 +446,14 @@ export default function Oddzialy() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pracownicy</div>
                   </div>
                 </div>
-                <button
-                  style={{ width: '100%', padding: '8px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' }}
-                  onClick={() => navigate(`/oddzialy/${o.id}`)}>
+                <Button
+                  fullWidth
+                  variant="outline"
+                  rightIcon={ArrowRight}
+                  onClick={() => navigate(`/oddzialy/${o.id}`)}
+                >
                   {t('pages.oddzialy.seeDetails')}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
