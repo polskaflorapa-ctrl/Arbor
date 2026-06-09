@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: 14,
     paddingVertical: 9,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     justifyContent: 'center',
   },

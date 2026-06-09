@@ -608,7 +608,7 @@ function FieldInput({ label, value, onChangeText, keyboardType, multiline, theme
       <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textMuted, marginBottom: 6 }}>{label}</Text>
       <TextInput
         style={{
-          borderWidth: 1, borderColor: theme.inputBorder, borderRadius: 10,
+          borderWidth: 1, borderColor: theme.inputBorder, borderRadius: 6,
           padding: 12, fontSize: 14, backgroundColor: theme.inputBg, color: theme.inputText,
           ...(multiline ? { height: 80, textAlignVertical: 'top' } : {}),
         }}
@@ -636,7 +636,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 20,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     ...shadowStyle(t, {
@@ -649,7 +649,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -659,7 +659,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerIcon: {
     width: 44,
     height: 44,
-    borderRadius: 15,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -679,7 +679,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerActionBtn: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -689,7 +689,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   addHeaderBtn: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: t.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -708,13 +708,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 74,
     backgroundColor: t.cardBg,
-    borderRadius: 15,
+    borderRadius: 7,
     padding: 10,
     alignItems: 'center',
     borderWidth: 1,
     gap: 3,
   },
-  fleetHeroStatIcon: { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  fleetHeroStatIcon: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   fleetHeroStatValue: { color: t.text, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
   fleetHeroStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
   sekcjeRow: {
@@ -722,7 +722,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.cardBg,
     marginHorizontal: 14,
     marginBottom: 8,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     padding: 4,
@@ -730,14 +730,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sekcjaBtn: {
     flex: 1, minHeight: 42, paddingVertical: 9, alignItems: 'center', justifyContent: 'center',
     flexDirection: 'row', gap: 4,
-    borderRadius: 12,
+    borderRadius: 7,
   },
   sekcjaBtnActive: { backgroundColor: t.accentLight },
   sekcjaTxt: { fontSize: 11, color: t.textMuted, fontWeight: '800' },
   list: { flex: 1, paddingHorizontal: 14, paddingTop: 2 },
   card: {
     backgroundColor: t.cardBg,
-    borderRadius: 18,
+    borderRadius: 7,
     padding: 14,
     marginBottom: 10,
     borderLeftWidth: 4,
@@ -753,10 +753,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
   cardMain: { fontSize: 16, fontWeight: '900', color: t.text, flex: 1 },
   cardSub: { fontSize: 12, color: t.textMuted, fontWeight: '700', flexShrink: 1 },
-  badge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+  badge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 5 },
   badgeTxt: { color: t.accentText, fontSize: 11, fontWeight: '900' },
   statusMiniBtn: {
-    paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 7, borderRadius: 5,
     backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border,
   },
   statusMiniBtnTxt: { fontSize: 11, color: t.textSub, fontWeight: '800' },
@@ -771,14 +771,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: t.text },
   modalLbl: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   typBtn: {
-    flex: 1, paddingVertical: 10, borderRadius: 10, flexDirection: 'row',
+    flex: 1, paddingVertical: 10, borderRadius: 6, flexDirection: 'row',
     alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: t.bg, borderWidth: 1, borderColor: t.border,
   },
   typBtnTxt: { fontSize: 13, color: t.textMuted, fontWeight: '500' },
   modalBtns: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  cancelBtn: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: t.bg, alignItems: 'center', borderWidth: 1, borderColor: t.border },
+  cancelBtn: { flex: 1, padding: 14, borderRadius: 7, backgroundColor: t.bg, alignItems: 'center', borderWidth: 1, borderColor: t.border },
   cancelTxt: { color: t.textMuted, fontWeight: '600' },
-  submitBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
+  submitBtn: { flex: 1, padding: 14, borderRadius: 7, alignItems: 'center' },
   submitTxt: { fontWeight: '700' },
 });

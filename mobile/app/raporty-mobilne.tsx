@@ -224,7 +224,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 20,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     ...shadowStyle(t, {
@@ -237,7 +237,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -247,7 +247,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerIcon: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: t.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -259,7 +259,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   heroCard: {
     marginHorizontal: 14,
     marginTop: 2,
-    borderRadius: 20,
+    borderRadius: 7,
     padding: 16,
     backgroundColor: t.cardBg,
     borderWidth: 1,
@@ -279,13 +279,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: t.accentLight,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
   heroBadgeText: { color: t.accent, fontSize: 12, fontWeight: '900' },
-  progressTrack: { height: 10, borderRadius: 999, backgroundColor: t.surface2, overflow: 'hidden', marginTop: 14 },
-  progressFill: { height: '100%', borderRadius: 999, backgroundColor: t.accent },
+  progressTrack: { height: 10, borderRadius: 5, backgroundColor: t.surface2, overflow: 'hidden', marginTop: 14 },
+  progressFill: { height: '100%', borderRadius: 5, backgroundColor: t.accent },
   heroBottom: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 14 },
   heroMetaLabel: { color: t.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
   heroMetaValue: { color: t.text, fontSize: 15, fontWeight: '900', marginTop: 3 },
@@ -294,7 +294,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingHorizontal: 14, paddingTop: 12, gap: 10,
   },
   kpiCard: {
-    width: '47.5%', backgroundColor: t.cardBg, borderRadius: 16,
+    width: '47.5%', backgroundColor: t.cardBg, borderRadius: 7,
     padding: 14, alignItems: 'center', gap: 6,
     borderTopWidth: 4, borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
@@ -309,7 +309,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   quickCard: {
     marginHorizontal: 14,
     marginTop: 12,
-    borderRadius: 18,
+    borderRadius: 7,
     padding: 14,
     backgroundColor: t.cardBg,
     borderWidth: 1,
@@ -329,12 +329,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: t.border,
   },
-  quickIcon: { width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  quickIcon: { width: 36, height: 36, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   quickText: { flex: 1, minWidth: 0 },
   quickLabel: { color: t.text, fontSize: 14, fontWeight: '900' },
   quickHint: { color: t.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 },
   summaryCard: {
-    marginHorizontal: 14, borderRadius: 18, padding: 16,
+    marginHorizontal: 14, borderRadius: 7, padding: 16,
     borderWidth: 1, marginTop: 12,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.45,

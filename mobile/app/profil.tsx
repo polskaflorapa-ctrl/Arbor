@@ -485,7 +485,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingHorizontal: 18,
     marginHorizontal: 16,
     marginTop: 12,
-    borderRadius: 22,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: t.cardBorder,
     ...shadowStyle(t, {
@@ -501,7 +501,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     left: 14,
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -514,7 +514,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     right: 14,
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -538,7 +538,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginBottom: 4,
   },
   name: { fontSize: 23, fontWeight: '900', color: t.text, marginBottom: 8, textAlign: 'center' },
-  rolaBadge: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8, borderWidth: 1, borderColor: t.border },
+  rolaBadge: { borderRadius: 7, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8, borderWidth: 1, borderColor: t.border },
   rolaText: { fontSize: 12, fontWeight: '900' },
   oddzialRow: { flexDirection: 'row', alignItems: 'center' },
   oddzialText: { fontSize: 12, color: t.textSub, fontWeight: '700' },
@@ -551,7 +551,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   profileStat: {
     flex: 1,
     minHeight: 58,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -574,7 +574,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   section: {
     backgroundColor: t.cardBg, marginHorizontal: 16, marginTop: 14,
-    borderRadius: 18, padding: 14, borderWidth: 1, borderColor: t.cardBorder,
+    borderRadius: 7, padding: 14, borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.1,
       radius: t.shadowRadius * 0.34,
@@ -593,7 +593,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     minHeight: 112,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -603,7 +603,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   workActionIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
@@ -616,7 +616,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   rolePackage: { gap: 9 },
   rolePackageRow: {
     minHeight: 58,
-    borderRadius: 15,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -629,7 +629,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   rolePackageIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
@@ -639,7 +639,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   rolePackageTitle: { color: t.text, fontSize: 13, fontWeight: '900' },
   rolePackageValue: { color: t.textMuted, fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 1 },
   rolePackageStatus: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.success + '55',
     backgroundColor: t.successBg,
@@ -652,12 +652,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 12, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  infoIconBg: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  infoIconBg: { width: 36, height: 36, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   infoText: { fontSize: 14, color: t.text, flex: 1, fontWeight: '700' },
   managerGrid: { gap: 9 },
   managerAction: {
     minHeight: 48,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -670,7 +670,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   managerActionIcon: {
     width: 34,
     height: 34,
-    borderRadius: 11,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -683,25 +683,25 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   themeRow: { flexDirection: 'row', gap: 10 },
   themeCard: {
     flex: 1, alignItems: 'center', gap: 8,
-    padding: 12, borderRadius: 14,
+    padding: 12, borderRadius: 6,
     backgroundColor: t.surface2,
     borderWidth: 1.5, borderColor: t.border,
     position: 'relative',
   },
   themePrev: {
-    width: '100%', height: 44, borderRadius: 10,
+    width: '100%', height: 44, borderRadius: 6,
     justifyContent: 'center', alignItems: 'center',
   },
   themeDot: { width: 18, height: 18, borderRadius: 9 },
   themeLabel: { fontSize: 11, color: t.textSub, textAlign: 'center' },
   themeCheck: {
     position: 'absolute', top: -6, right: -6,
-    width: 20, height: 20, borderRadius: 10,
+    width: 20, height: 20, borderRadius: 6,
     alignItems: 'center', justifyContent: 'center',
   },
   settingRow: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -723,7 +723,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, margin: 16, padding: 16,
-    borderRadius: 14, backgroundColor: t.dangerBg,
+    borderRadius: 6, backgroundColor: t.dangerBg,
     borderWidth: 1, borderColor: t.danger + '44',
   },
   logoutText: {

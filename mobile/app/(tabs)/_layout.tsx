@@ -17,21 +17,23 @@ function TabGlyph({
   solid,
   color,
   focused,
+  activeBg,
 }: {
   outline: IonName;
   solid: IonName;
   color: ColorValue;
   focused: boolean;
+  activeBg: string;
 }) {
   return (
     <View
       style={{
         alignItems: 'center',
         justifyContent: 'center',
-        width: 38,
-        height: 30,
-        borderRadius: 11,
-        backgroundColor: focused ? 'rgba(21,128,61,0.10)' : 'transparent',
+        width: 42,
+        height: 32,
+        borderRadius: 6,
+        backgroundColor: focused ? activeBg : 'transparent',
       }}
     >
       <Ionicons name={focused ? solid : outline} size={TAB_ICON_PX} color={color} />
@@ -48,12 +50,12 @@ export default function TabLayout() {
       tabBarInactiveTintColor: theme.navInactive,
       tabBarButton: HapticTab,
       tabBarStyle: {
-        backgroundColor: theme.navBg,
+        backgroundColor: theme.name === 'dark' ? 'rgba(5,11,9,0.98)' : theme.navBg,
         borderTopWidth: 1,
-        borderTopColor: theme.navBorder,
+        borderTopColor: theme.name === 'dark' ? 'rgba(24,224,123,0.18)' : theme.navBorder,
         borderRadius: 0,
         paddingBottom: Platform.select({ ios: 14, default: 10 }),
-        paddingTop: 6,
+        paddingTop: 8,
         height: Platform.select({ ios: 74, default: 66 }),
         position: 'absolute' as const,
         left: 0,
@@ -74,7 +76,7 @@ export default function TabLayout() {
       },
       headerShown: false,
       tabBarItemStyle: {
-        borderRadius: 12,
+        borderRadius: 6,
         marginHorizontal: 3,
       },
     }),
@@ -93,7 +95,7 @@ export default function TabLayout() {
         options={{
           title: 'Start',
           tabBarIcon: ({ color, focused }) => (
-            <TabGlyph outline="home-outline" solid="home" color={color} focused={focused} />
+            <TabGlyph outline="home-outline" solid="home" color={color} focused={focused} activeBg={theme.name === 'dark' ? 'rgba(24,224,123,0.14)' : 'rgba(21,128,61,0.10)'} />
           ),
         }}
       />
@@ -102,7 +104,7 @@ export default function TabLayout() {
         options={{
           title: 'Raporty',
           tabBarIcon: ({ color, focused }) => (
-            <TabGlyph outline="bar-chart-outline" solid="bar-chart" color={color} focused={focused} />
+            <TabGlyph outline="bar-chart-outline" solid="bar-chart" color={color} focused={focused} activeBg={theme.name === 'dark' ? 'rgba(24,224,123,0.14)' : 'rgba(21,128,61,0.10)'} />
           ),
         }}
       />

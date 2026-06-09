@@ -16,6 +16,7 @@ import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
+import { FieldOpsBackdrop, FieldOpsHeroImage } from '../components/ui/field-ops-art';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import {
   addMagazynItem,
@@ -60,6 +61,7 @@ export default function MagazynMobileScreen() {
 
   return (
     <View style={S.root}>
+      <FieldOpsBackdrop />
       <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
@@ -73,10 +75,7 @@ export default function MagazynMobileScreen() {
           <Text style={S.headerTitle}>{t('warehouse.title')}</Text>
           <Text style={S.headerSub}>Szybka kontrola stanow dla ekip i biura.</Text>
         </View>
-        <View style={S.headerCount}>
-          <Text style={S.headerCountValue}>{items.length}</Text>
-          <Text style={S.headerCountLabel}>poz.</Text>
-        </View>
+        <FieldOpsHeroImage variant="crew" size={78} />
       </View>
       <View style={S.statsRow}>
         <View style={S.statCard}>
@@ -166,14 +165,14 @@ function makeStyles(theme: Theme) {
     root: { flex: 1, backgroundColor: theme.bg },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg },
     header: {
-      backgroundColor: theme.cardBg,
+      backgroundColor: theme.name === 'dark' ? 'rgba(9,20,16,0.94)' : 'rgba(254,255,252,0.94)',
       marginHorizontal: 12,
       marginTop: 10,
       marginBottom: 8,
       paddingHorizontal: 12,
       paddingTop: 14,
       paddingBottom: 14,
-      borderRadius: 12,
+      borderRadius: 7,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       flexDirection: 'row',
@@ -189,7 +188,7 @@ function makeStyles(theme: Theme) {
     backBtn: {
       width: 42,
       height: 42,
-      borderRadius: 10,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface2,
@@ -199,7 +198,7 @@ function makeStyles(theme: Theme) {
     headerIcon: {
       width: 44,
       height: 44,
-      borderRadius: 12,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: theme.accent,
       backgroundColor: theme.accentLight,
@@ -219,7 +218,7 @@ function makeStyles(theme: Theme) {
     headerCount: {
       minWidth: 58,
       minHeight: 48,
-      borderRadius: 10,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface2,
@@ -238,8 +237,8 @@ function makeStyles(theme: Theme) {
     statCard: {
       flex: 1,
       minHeight: 74,
-      backgroundColor: theme.cardBg,
-      borderRadius: 10,
+      backgroundColor: theme.name === 'dark' ? 'rgba(9,20,16,0.92)' : 'rgba(254,255,252,0.92)',
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       alignItems: 'center',
@@ -256,16 +255,16 @@ function makeStyles(theme: Theme) {
       justifyContent: 'center',
       gap: 8,
       minHeight: 140,
-      borderRadius: 12,
+      borderRadius: 7,
       borderWidth: 1,
       borderColor: theme.cardBorder,
-      backgroundColor: theme.cardBg,
+      backgroundColor: theme.name === 'dark' ? 'rgba(9,20,16,0.92)' : 'rgba(254,255,252,0.92)',
       marginBottom: 12,
     },
     emptyTitle: { color: theme.textMuted, fontSize: 13, fontWeight: '800' },
     card: {
-      backgroundColor: theme.cardBg,
-      borderRadius: 12,
+      backgroundColor: theme.name === 'dark' ? 'rgba(9,20,16,0.92)' : 'rgba(254,255,252,0.92)',
+      borderRadius: 7,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       padding: 12,
@@ -287,7 +286,7 @@ function makeStyles(theme: Theme) {
       minHeight: 44,
       paddingHorizontal: 16,
       paddingVertical: 9,
-      borderRadius: 10,
+      borderRadius: 6,
       backgroundColor: theme.surface2,
       borderWidth: 1,
       borderColor: theme.border,
@@ -300,7 +299,7 @@ function makeStyles(theme: Theme) {
       flex: 1,
       borderWidth: 1,
       borderColor: theme.inputBorder,
-      borderRadius: 10,
+      borderRadius: 6,
       paddingHorizontal: 12,
       paddingVertical: 10,
       minHeight: 48,
@@ -314,7 +313,7 @@ function makeStyles(theme: Theme) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.accent,
-      borderRadius: 10,
+      borderRadius: 6,
     },
   });
 }

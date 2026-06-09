@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 
 /**
  * Trasa `/uzytkownicy/:id` — przekierowanie na listę z otwarciem szczegółów (stan w Uzytkownicy.js).
@@ -20,7 +20,7 @@ export default function UzytkownikDetail() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="profile" />
       <div style={{ flex: 1, padding: 24, color: 'var(--text-muted)' }}>Przekierowanie do użytkownika…</div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import ModernDataRow from '../components/ModernDataRow';
 import { Button } from '../components/ui/Button';
 import api from '../api';
@@ -171,7 +171,7 @@ export default function HrPanel() {
 
   return (
     <div className="hr-panel-shell" style={s.shell}>
-      <Sidebar />
+      <CommandSidebar active="profile" />
       <main className="hr-panel-main" style={s.main}>
         {/* Header */}
         <div className="hr-panel-topbar" style={s.topbar}>

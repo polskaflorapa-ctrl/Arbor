@@ -23,6 +23,11 @@ vi.mock('../components/Sidebar', () => ({
   default: () => <aside data-testid="sidebar" />,
 }));
 
+vi.mock('../components/CommandSidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 const USER = {
   id: 7,
   imie: 'Anna',
@@ -240,7 +245,7 @@ test('edits and deletes equipment from fleet cards CRUD flow', async () => {
 
   renderFlota();
 
-  await userEvent.click(await screen.findByRole('button', { name: /Sprz/i }));
+  await userEvent.click(await screen.findByRole('button', { name: /^Sprz.*\(\d+\)$/i }));
   await userEvent.click(screen.getByRole('button', { name: 'Edytuj' }));
 
   expect(screen.getByText('Edytuj sprzet')).toBeInTheDocument();
@@ -343,6 +348,7 @@ test('saves equipment reservation protocol from asset detail card', async () => 
   renderFlota('/flota?asset=sprzet%3A11');
 
   expect(await screen.findByText('Karta zasobu')).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole('button', { name: /^Protokol$/i }));
   expect(await screen.findByText('Protokol wydania / zwrotu')).toBeInTheDocument();
 
   await userEvent.selectOptions(screen.getByDisplayValue('Wydanie'), 'zwrot');
@@ -411,7 +417,7 @@ test('adds broken chipper assigned to a team in one form submit', async () => {
 
   renderFlota();
 
-  await userEvent.click(await screen.findByRole('button', { name: /Sprz/i }));
+  await userEvent.click(await screen.findByRole('button', { name: /^Sprz.*\(\d+\)$/i }));
   await userEvent.click(screen.getByRole('button', { name: /\+ .*Dodaj/i }));
   await userEvent.click(screen.getByRole('button', { name: /Rebak w naprawie/i }));
   fireEvent.change(screen.getByLabelText(/Nazwa/i), { target: { value: 'Rebak awaryjny' } });

@@ -9,7 +9,7 @@ import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
 import PhoneOutlined from '@mui/icons-material/PhoneOutlined';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
@@ -1266,8 +1266,8 @@ export default function MapaLive() {
 
   return (
     <div className="app-shell mapa-live-shell">
-      <Sidebar />
-      <main className="app-main mapa-live-main" style={{ ...S.main, ...(isNarrow ? S.mainNarrow : null) }}>
+      <CommandSidebar active="schedule" />
+      <main className="app-main command-content-main mapa-live-main" style={{ ...S.main, ...(isNarrow ? S.mainNarrow : null) }}>
         <section className="mapa-live-hero" style={{ ...S.hero, ...(isNarrow ? S.heroNarrow : null) }}>
           <div style={{ ...S.heroIcon, ...(isNarrow ? S.heroIconNarrow : null) }}><MapOutlined /></div>
           <div style={{ ...S.heroCopy, ...(isNarrow ? S.fullWidth : null) }}>

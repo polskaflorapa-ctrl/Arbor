@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
 const buttonVariants = {
@@ -84,7 +83,7 @@ export const Button = React.forwardRef(({
   const isDisabled = disabled || loading;
 
   return (
-    <motion.button
+    <button
       ref={ref}
       className={className}
       style={{
@@ -98,16 +97,13 @@ export const Button = React.forwardRef(({
       }}
       disabled={isDisabled}
       type={type}
-      whileHover={!isDisabled ? { scale: 1.02 } : undefined}
-      whileTap={!isDisabled ? { scale: 0.98 } : undefined}
-      transition={{ duration: 0.15, ease: 'easeInOut' }}
       {...props}
     >
       {loading && <Loader2 size={16} style={{ animation: 'spin 0.9s linear infinite' }} aria-hidden />}
       {!loading && LeftIcon && <LeftIcon size={16} aria-hidden />}
       {children && <span style={{ minWidth: 0, opacity: loading ? 0.7 : 1, overflowWrap: 'anywhere' }}>{children}</span>}
       {!loading && RightIcon && <RightIcon size={16} aria-hidden />}
-    </motion.button>
+    </button>
   );
 });
 

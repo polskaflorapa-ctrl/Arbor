@@ -1,6 +1,6 @@
 import { safeBack } from '../../utils/navigation';
 /**
- * Lista paczek oględzin dla specjalisty ds. wyceny.
+ * Lista oględzin terenowych.
  * To jest mobilny odpowiednik jednej ścieżki: telefon w biurze -> teren -> pakiet dla biura.
  */
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { AppStatusBar } from '../../components/ui/app-status-bar';
+import { FieldOpsBackdrop, FieldOpsCockpit, FieldOpsHeroImage } from '../../components/ui/field-ops-art';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { PlatinumAppear } from '../../components/ui/platinum-appear';
 import { useTheme } from '../../constants/ThemeContext';
@@ -30,7 +31,7 @@ import { getStoredSession } from '../../utils/session';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const FIELD_PHOTO_REQUIREMENTS = [
-  { key: 'photo_wycena', label: 'Wycena', icon: 'camera-outline', type: 'wycena' },
+  { key: 'photo_wycena', label: 'Oględziny', icon: 'camera-outline', type: 'wycena' },
   { key: 'photo_szkic', label: 'Szkic', icon: 'create-outline', type: 'szkic' },
   { key: 'photo_dojazd', label: 'Dojazd', icon: 'navigate-outline', type: 'dojazd' },
 ] as const;
@@ -228,9 +229,9 @@ function taskNextFieldAction(task: FieldTaskRow): FieldTaskAction {
   const firstPhoto = taskMissingEvidence(task)[0];
   if (firstPhoto) {
     return {
-      label: `Zrob: ${firstPhoto.label}`,
-      hint: 'Najpierw komplet zdjec: wycena, szkic i dojazd.',
-      cta: 'Zrob dowod',
+      label: `Zrób: ${firstPhoto.label}`,
+      hint: 'Najpierw komplet oględzin: zdjęcie, szkic i dojazd.',
+      cta: 'Zrób dowód',
       tab: 'zdjecia',
       icon: firstPhoto.icon as IoniconName,
       tone: 'warning',
@@ -241,9 +242,9 @@ function taskNextFieldAction(task: FieldTaskRow): FieldTaskAction {
   const firstPhotoLabel = missing.find((label) => /zdj|foto|szkic|dojazd/i.test(label));
   if (firstPhotoLabel) {
     return {
-      label: `Zrob: ${firstPhotoLabel}`,
-      hint: 'Lista otworzy galerie na brakujacym typie zdjecia.',
-      cta: 'Zrob dowod',
+      label: `Zrób: ${firstPhotoLabel}`,
+      hint: 'Lista otworzy galerię na brakującym typie zdjęcia.',
+      cta: 'Zrób dowód',
       tab: 'zdjecia',
       icon: 'camera-outline',
       tone: 'warning',
@@ -253,9 +254,9 @@ function taskNextFieldAction(task: FieldTaskRow): FieldTaskAction {
   const firstField = missing.find((label) => !/zdj|foto|szkic|dojazd/i.test(label));
   if (firstField) {
     return {
-      label: `Uzupelnij: ${firstField}`,
-      hint: 'Dopisz zakres, czas, budzet albo ryzyka w pakiecie.',
-      cta: 'Uzupelnij',
+      label: `Uzupełnij: ${firstField}`,
+      hint: 'Dopisz zakres, czas, budżet albo ryzyka w pakiecie.',
+      cta: 'Uzupełnij',
       tab: 'info',
       icon: 'create-outline',
       tone: 'warning',
@@ -265,17 +266,17 @@ function taskNextFieldAction(task: FieldTaskRow): FieldTaskAction {
   if (taskReadyForOffice(task)) {
     return {
       label: 'Gotowe do biura',
-      hint: 'Pakiet moze wrocic do specjalisty do planowania ekipy.',
-      cta: 'Przekaz',
+      hint: 'Oględziny mogą wrócić do biura do planowania ekipy.',
+      cta: 'Przekaż',
       tab: 'info',
       icon: 'send-outline',
       tone: 'success',
     };
   }
   return {
-    label: 'Otworz pakiet',
-    hint: 'Sprawdz zdjecia, zakres i ustalenia z klientem.',
-    cta: 'Pakiet',
+    label: 'Otwórz oględziny',
+    hint: 'Sprawdź zdjęcia, zakres i ustalenia z klientem.',
+    cta: 'Oględziny',
     tab: 'info',
     icon: 'leaf-outline',
     tone: 'accent',
@@ -431,7 +432,7 @@ export default function WycenyTerenoweScreen() {
       setLegacyItems([]);
       setMode('field');
     } catch {
-      setErr('Błąd pobierania paczek oględzin.');
+      setErr('Błąd pobierania oględzin.');
       setFieldTasks([]);
       setLegacyItems([]);
     } finally {
@@ -469,9 +470,9 @@ export default function WycenyTerenoweScreen() {
   const nextTask = routeTasks[0] || filteredFieldTasks[0] || null;
   const routeCaption = routeTasks.length
     ? stats.openToday > 0
-      ? `${stats.openToday} otwarte dzisiaj, kolejka po godzinie wizyty.`
-      : 'Brak otwartych wizyt dzisiaj - pokazuje najbliższe otwarte paczki.'
-    : 'Brak otwartych paczek do trasy.';
+      ? `${stats.openToday} otwarte dzisiaj, kolejka po godzinie oględzin.`
+      : 'Brak otwartych oględzin dzisiaj - pokazuję najbliższe otwarte.'
+    : 'Brak otwartych oględzin do trasy.';
   const openNewFieldDraft = useCallback(() => {
     router.push(buildNewOrderRoute({ source: 'wyceny-terenowe', ...currentNewOrderDateTime() }) as never);
   }, []);
@@ -493,12 +494,13 @@ export default function WycenyTerenoweScreen() {
 
   return (
     <KeyboardSafeScreen style={s.screen}>
+      <FieldOpsBackdrop />
       <AppStatusBar />
       <View style={s.header}>
         <TouchableOpacity onPress={() => safeBack()} style={s.backBtn} accessibilityLabel="Wróć">
           <Ionicons name="chevron-back" size={26} color={theme.text} />
         </TouchableOpacity>
-        <Text style={s.title}>Oględziny terenowe</Text>
+        <Text style={s.title}>Oględziny</Text>
         <View style={{ width: 40 }} />
       </View>
       {err ? <Text style={s.err}>{err}</Text> : null}
@@ -524,14 +526,16 @@ export default function WycenyTerenoweScreen() {
                   <View style={s.heroIcon}>
                     <Ionicons name="leaf-outline" size={22} color={theme.accent} />
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={s.heroEyebrow}>Telefon - teren - biuro</Text>
-                    <Text style={s.heroTitle}>Paczki dla specjalisty ds. wyceny</Text>
+                    <Text style={s.heroTitle}>Oględziny</Text>
                     <Text style={s.heroText}>
-                      Tu wpadają oględziny utworzone przez biuro. Na miejscu dodajesz zdjęcia, szkic, zakres, czas, budżet i ryzyka.
+                      Jedna ścieżka terenowa: zdjęcia, szkic, zakres, czas, budżet i ryzyka dla biura.
                     </Text>
                   </View>
+                  <FieldOpsHeroImage variant="inspection" size={84} />
                 </View>
+                <FieldOpsCockpit variant="inspection" style={s.heroCockpit} />
                 <View style={s.statsGrid}>
                   <StatTile label="Dzisiaj" value={stats.today} color={theme.info} styles={s} />
                   <StatTile label="Do biura" value={stats.ready} color={theme.success} styles={s} />
@@ -550,7 +554,7 @@ export default function WycenyTerenoweScreen() {
                   ) : null}
                   <TouchableOpacity style={s.heroPrimaryBtn} onPress={openNewFieldDraft}>
                     <Ionicons name="flash-outline" size={16} color={theme.accentText} />
-                    <Text style={s.heroPrimaryText}>Nowy draft u klienta</Text>
+                    <Text style={s.heroPrimaryText}>Nowe oględziny</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.heroSecondaryBtn} onPress={() => router.push('/plan-ogledzin' as never)}>
                     <Ionicons name="calendar-outline" size={15} color={theme.accent} />
@@ -559,6 +563,71 @@ export default function WycenyTerenoweScreen() {
                 </View>
               </View>
             </PlatinumAppear>
+
+            {nextTask ? (
+              <View style={s.visitDeck}>
+                <View style={s.visitDeckTop}>
+                  <View style={s.visitDeckIcon}>
+                    <Ionicons name="send-outline" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.visitDeckEyebrow}>NASTĘPNA WIZYTA</Text>
+                    <Text style={s.visitDeckTitle} numberOfLines={1}>
+                      {nextTask.klient_nazwa || `Zlecenie #${nextTask.id}`}
+                    </Text>
+                    <Text style={s.visitDeckSub} numberOfLines={1}>
+                      {formatSlot(nextTask)} - {[nextTask.adres, nextTask.miasto].filter(Boolean).join(', ') || 'brak adresu'}
+                    </Text>
+                  </View>
+                  <View style={s.visitDeckScore}>
+                    <Text style={s.visitDeckScoreValue}>{taskEvidenceReadyCount(nextTask)}/{FIELD_PHOTO_REQUIREMENTS.length}</Text>
+                    <Text style={s.visitDeckScoreLabel}>pakiet</Text>
+                  </View>
+                </View>
+                <FieldOpsCockpit variant="inspection" style={s.visitDeckCockpit} />
+                <View style={s.visitDeckActions}>
+                  <TouchableOpacity
+                    style={s.visitDeckPrimary}
+                    onPress={() => openFieldTask(nextTask, taskNextFieldAction(nextTask))}
+                  >
+                    <Ionicons name={taskNextFieldAction(nextTask).icon} size={16} color={theme.accentText} />
+                    <Text style={s.visitDeckPrimaryText}>{taskNextFieldAction(nextTask).label}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.visitDeckSecondary} onPress={() => openFieldTask(nextTask, 'zdjecia')}>
+                    <Ionicons name="camera-outline" size={15} color={theme.accent} />
+                    <Text style={s.visitDeckSecondaryText}>Zdjęcia</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.visitDeckSecondary} onPress={() => openFieldTask(nextTask, 'info')}>
+                    <Ionicons name="information-circle-outline" size={15} color={theme.accent} />
+                    <Text style={s.visitDeckSecondaryText}>Info</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={s.visitDeck}>
+                <View style={s.visitDeckTop}>
+                  <View style={s.visitDeckIcon}>
+                    <Ionicons name="checkmark-done-outline" size={22} color={theme.success} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.visitDeckEyebrow}>OGLĘDZINY</Text>
+                    <Text style={s.visitDeckTitle}>Brak otwartej wizyty</Text>
+                    <Text style={s.visitDeckSub}>Możesz dodać nowe oględziny albo otworzyć plan.</Text>
+                  </View>
+                </View>
+                <FieldOpsCockpit variant="inspection" style={s.visitDeckCockpit} />
+                <View style={s.visitDeckActions}>
+                  <TouchableOpacity style={s.visitDeckPrimary} onPress={openNewFieldDraft}>
+                    <Ionicons name="flash-outline" size={16} color={theme.accentText} />
+                    <Text style={s.visitDeckPrimaryText}>Nowe oględziny</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.visitDeckSecondary} onPress={() => router.push('/plan-ogledzin' as never)}>
+                    <Ionicons name="calendar-outline" size={15} color={theme.accent} />
+                    <Text style={s.visitDeckSecondaryText}>Plan</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterStrip}>
               {fieldFilters.map((filter) => {
@@ -583,11 +652,11 @@ export default function WycenyTerenoweScreen() {
               })}
             </ScrollView>
 
-            {nextTask ? (
+            {false && nextTask ? (
               <NextFieldFocusCard task={nextTask} theme={theme} styles={s} />
             ) : null}
 
-            {nextTask ? (
+            {false && nextTask ? (
               <PlatinumAppear>
                 <View style={s.routePanel}>
                   <View style={s.routeHead}>
@@ -595,7 +664,7 @@ export default function WycenyTerenoweScreen() {
                       <Ionicons name="navigate-circle-outline" size={19} color={theme.accent} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={s.routeTitle}>Kolejka terenowa</Text>
+                      <Text style={s.routeTitle}>Kolejka oględzin</Text>
                       <Text style={s.routeSub}>{routeCaption}</Text>
                     </View>
                     <TouchableOpacity
@@ -648,12 +717,12 @@ export default function WycenyTerenoweScreen() {
               <PlatinumAppear>
                 <View style={s.emptyBox}>
                   <Ionicons name="checkmark-circle-outline" size={28} color={theme.success} />
-                  <Text style={s.emptyTitle}>Brak paczek do wyceny</Text>
-                  <Text style={s.emptyText}>Gdy specjalista z biura przyjmie telefon i przypisze specjalistę ds. wyceny, zlecenie pojawi się tutaj.</Text>
+                  <Text style={s.emptyTitle}>Brak oględzin</Text>
+                  <Text style={s.emptyText}>Gdy biuro przyjmie telefon i przypisze oględziny, zlecenie pojawi się tutaj.</Text>
                   <View style={s.emptyActions}>
                     <TouchableOpacity style={s.emptyPrimaryBtn} onPress={openNewFieldDraft}>
                       <Ionicons name="add-circle-outline" size={16} color={theme.accentText} />
-                      <Text style={s.emptyPrimaryText}>Utwórz draft terenowy</Text>
+                      <Text style={s.emptyPrimaryText}>Nowe oględziny</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={s.emptySecondaryBtn} onPress={() => router.push('/plan-ogledzin' as never)}>
                       <Text style={s.emptySecondaryText}>Otwórz plan</Text>
@@ -666,7 +735,7 @@ export default function WycenyTerenoweScreen() {
                 <View style={s.emptyBox}>
                   <Ionicons name="filter-outline" size={26} color={theme.textMuted} />
                   <Text style={s.emptyTitle}>Nic w tym filtrze</Text>
-                  <Text style={s.emptyText}>Zmien filtr albo odswiez liste paczek z biura.</Text>
+                  <Text style={s.emptyText}>Zmień filtr albo odśwież listę oględzin z biura.</Text>
                 </View>
               </PlatinumAppear>
             ) : (
@@ -683,19 +752,19 @@ export default function WycenyTerenoweScreen() {
               <View style={s.infoBox}>
                 <Text style={s.infoTitle}>Tryb zgodności</Text>
                 <Text style={s.infoText}>
-                  Backend nie ma jeszcze endpointu paczek terenowych. Pokazuję klasyczne wyceny, żeby praca nie stanęła.
+                  Backend nie ma jeszcze nowego endpointu oględzin. Pokazuję starszą listę, żeby praca nie stanęła.
                 </Text>
                 <TouchableOpacity style={s.infoBtn} onPress={() => router.push('/wycena' as never)} activeOpacity={0.78}>
-                  <Text style={s.infoBtnTxt}>Otwórz klasyczne wyceny</Text>
+                  <Text style={s.infoBtnTxt}>Otwórz starszy moduł</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.infoBtn, s.infoBtnSecondary]} onPress={openNewFieldDraft} activeOpacity={0.78}>
-                  <Text style={[s.infoBtnTxt, s.infoBtnSecondaryTxt]}>Nowy draft terenowy</Text>
+                  <Text style={[s.infoBtnTxt, s.infoBtnSecondaryTxt]}>Nowe oględziny</Text>
                 </TouchableOpacity>
               </View>
             </PlatinumAppear>
             {legacyItems.length === 0 ? (
               <PlatinumAppear>
-                <Text style={s.muted}>Brak wycen lub brak uprawnień.</Text>
+                <Text style={s.muted}>Brak oględzin lub brak uprawnień.</Text>
               </PlatinumAppear>
             ) : (
               legacyItems.map((q) => (
@@ -952,25 +1021,26 @@ function makeStyles(theme: Theme) {
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
-      backgroundColor: theme.headerBg,
+      backgroundColor: theme.name === 'dark' ? 'rgba(7,16,13,0.96)' : 'rgba(254,255,252,0.96)',
     },
     backBtn: { padding: 8 },
     title: { fontSize: 18, fontWeight: '800', color: theme.text, letterSpacing: 0 },
     err: { color: theme.danger, paddingHorizontal: 16, marginTop: 8, fontWeight: '700' },
-    list: { padding: 16, paddingBottom: 44, gap: 12 },
+    list: { padding: 12, paddingBottom: 44, gap: 12 },
     hero: {
-      backgroundColor: theme.cardBg,
-      borderRadius: 20,
+      display: 'none',
+      backgroundColor: theme.name === 'dark' ? 'rgba(9,20,16,0.94)' : 'rgba(254,255,252,0.94)',
+      borderRadius: 7,
       padding: 14,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       gap: 14,
     },
-    heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     heroIcon: {
       width: 44,
       height: 44,
-      borderRadius: 15,
+      borderRadius: 6,
       backgroundColor: theme.accentLight,
       alignItems: 'center',
       justifyContent: 'center',
@@ -980,11 +1050,15 @@ function makeStyles(theme: Theme) {
     heroEyebrow: { color: theme.accent, fontSize: 10.5, fontWeight: '900', textTransform: 'uppercase' },
     heroTitle: { color: theme.text, fontSize: 20, lineHeight: 24, fontWeight: '900', marginTop: 2 },
     heroText: { color: theme.textMuted, fontSize: 12.5, lineHeight: 18, marginTop: 4, fontWeight: '600' },
+    heroCockpit: {
+      marginTop: -2,
+      marginBottom: 0,
+    },
     heroActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     heroStartBtn: {
       flexGrow: 1.2,
       minHeight: 42,
-      borderRadius: 13,
+      borderRadius: 6,
       backgroundColor: theme.success,
       borderWidth: 1,
       borderColor: theme.success,
@@ -998,7 +1072,7 @@ function makeStyles(theme: Theme) {
     heroPrimaryBtn: {
       flexGrow: 1,
       minHeight: 42,
-      borderRadius: 13,
+      borderRadius: 6,
       backgroundColor: theme.accent,
       borderWidth: 1,
       borderColor: theme.accentDark,
@@ -1011,7 +1085,7 @@ function makeStyles(theme: Theme) {
     heroPrimaryText: { color: theme.accentText, fontSize: 12.5, fontWeight: '900' },
     heroSecondaryBtn: {
       minHeight: 42,
-      borderRadius: 13,
+      borderRadius: 6,
       backgroundColor: theme.accentLight,
       borderWidth: 1,
       borderColor: theme.accent + '55',
@@ -1026,7 +1100,7 @@ function makeStyles(theme: Theme) {
     statTile: {
       flex: 1,
       minHeight: 66,
-      borderRadius: 14,
+      borderRadius: 6,
       borderWidth: 1,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1035,11 +1109,79 @@ function makeStyles(theme: Theme) {
     },
     statValue: { fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
     statLabel: { color: theme.textMuted, fontSize: 9.5, fontWeight: '900', textAlign: 'center' },
+    visitDeck: {
+      borderRadius: 7,
+      borderWidth: 1,
+      borderColor: theme.name === 'dark' ? 'rgba(24,224,123,0.24)' : theme.cardBorder,
+      backgroundColor: theme.name === 'dark' ? 'rgba(4,11,8,0.96)' : theme.cardBg,
+      padding: 12,
+      gap: 12,
+    },
+    visitDeckCockpit: {
+      marginTop: -4,
+      marginBottom: -2,
+    },
+    visitDeckTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+    },
+    visitDeckIcon: {
+      width: 52,
+      height: 52,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.accent + '55',
+      backgroundColor: theme.accentLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    visitDeckEyebrow: { color: theme.accent, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+    visitDeckTitle: { color: theme.text, fontSize: 18, fontWeight: '900', marginTop: 2 },
+    visitDeckSub: { color: theme.textMuted, fontSize: 12, fontWeight: '800', marginTop: 3 },
+    visitDeckScore: {
+      minWidth: 58,
+      minHeight: 52,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.accent + '55',
+      backgroundColor: theme.accentLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    visitDeckScoreValue: { color: theme.accent, fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] },
+    visitDeckScoreLabel: { color: theme.textMuted, fontSize: 8.5, fontWeight: '900', textTransform: 'uppercase' },
+    visitDeckActions: { flexDirection: 'row', gap: 8 },
+    visitDeckPrimary: {
+      flex: 1.4,
+      minHeight: 48,
+      borderRadius: 8,
+      backgroundColor: theme.accentDark,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 7,
+    },
+    visitDeckPrimaryText: { color: theme.accentText, fontSize: 13, fontWeight: '900' },
+    visitDeckSecondary: {
+      flex: 1,
+      minHeight: 48,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.accent + '55',
+      backgroundColor: theme.name === 'dark' ? 'rgba(16,28,24,0.90)' : theme.accentLight,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    visitDeckSecondaryText: { color: theme.accent, fontSize: 12, fontWeight: '900' },
     filterStrip: { gap: 8, paddingRight: 2 },
     filterChip: {
       minHeight: 38,
       borderWidth: 1,
-      borderRadius: 999,
+      borderRadius: 8,
       paddingHorizontal: 10,
       paddingVertical: 7,
       flexDirection: 'row',
@@ -1049,7 +1191,7 @@ function makeStyles(theme: Theme) {
     filterChipText: { fontSize: 11.5, fontWeight: '900' },
     filterChipCount: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
     nextFocusCard: {
-      borderRadius: 18,
+      borderRadius: 7,
       borderWidth: 1,
       padding: 12,
       gap: 10,
@@ -1058,7 +1200,7 @@ function makeStyles(theme: Theme) {
     nextFocusIcon: {
       width: 40,
       height: 40,
-      borderRadius: 13,
+      borderRadius: 6,
       borderWidth: 1,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1068,7 +1210,7 @@ function makeStyles(theme: Theme) {
     nextFocusSub: { color: theme.textSub, fontSize: 11.5, marginTop: 2, fontWeight: '700' },
     nextFocusScore: {
       minWidth: 54,
-      borderRadius: 12,
+      borderRadius: 6,
       borderWidth: 1,
       backgroundColor: theme.cardBg,
       paddingHorizontal: 8,
@@ -1084,7 +1226,7 @@ function makeStyles(theme: Theme) {
       flexBasis: '46%',
       minWidth: 112,
       borderWidth: 1,
-      borderRadius: 12,
+      borderRadius: 6,
       paddingHorizontal: 8,
       paddingVertical: 7,
       flexDirection: 'row',
@@ -1097,7 +1239,7 @@ function makeStyles(theme: Theme) {
     nextFocusAction: {
       flexGrow: 1,
       minHeight: 40,
-      borderRadius: 12,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.cardBg,
@@ -1111,7 +1253,7 @@ function makeStyles(theme: Theme) {
     nextFocusPrimary: {
       flexGrow: 1.3,
       minHeight: 40,
-      borderRadius: 12,
+      borderRadius: 6,
       borderWidth: 1,
       flexDirection: 'row',
       alignItems: 'center',
@@ -1122,7 +1264,7 @@ function makeStyles(theme: Theme) {
     nextFocusPrimaryText: { color: theme.accentText, fontSize: 12, fontWeight: '900' },
     routePanel: {
       backgroundColor: theme.cardBg,
-      borderRadius: 18,
+      borderRadius: 7,
       padding: 12,
       borderWidth: 1,
       borderColor: theme.cardBorder,
@@ -1132,7 +1274,7 @@ function makeStyles(theme: Theme) {
     routeIcon: {
       width: 38,
       height: 38,
-      borderRadius: 13,
+      borderRadius: 6,
       backgroundColor: theme.accentLight,
       borderWidth: 1,
       borderColor: theme.accent + '44',
@@ -1143,7 +1285,7 @@ function makeStyles(theme: Theme) {
     routeSub: { color: theme.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2, fontWeight: '700' },
     routeOpenBtn: {
       minHeight: 34,
-      borderRadius: 999,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: theme.accent + '55',
       backgroundColor: theme.accentLight,
@@ -1162,7 +1304,7 @@ function makeStyles(theme: Theme) {
       minHeight: 54,
       borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 13,
+      borderRadius: 6,
       backgroundColor: theme.surface2,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1185,7 +1327,7 @@ function makeStyles(theme: Theme) {
     routeRow: {
       minHeight: 48,
       borderWidth: 1,
-      borderRadius: 13,
+      borderRadius: 6,
       paddingHorizontal: 9,
       paddingVertical: 7,
       flexDirection: 'row',
@@ -1195,7 +1337,7 @@ function makeStyles(theme: Theme) {
     routeIndex: {
       width: 28,
       height: 28,
-      borderRadius: 10,
+      borderRadius: 5,
       borderWidth: 1,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1204,16 +1346,16 @@ function makeStyles(theme: Theme) {
     routeClient: { color: theme.text, fontSize: 12.5, fontWeight: '900' },
     routeMeta: { color: theme.textMuted, fontSize: 10.5, marginTop: 1 },
     card: {
-      backgroundColor: theme.cardBg,
-      borderRadius: 18,
-      padding: 14,
+      backgroundColor: theme.name === 'dark' ? 'rgba(6,13,10,0.98)' : theme.cardBg,
+      borderRadius: 8,
+      padding: 12,
       borderWidth: 1,
       borderColor: theme.cardBorder,
-      gap: 12,
+      gap: 10,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
     timeBadge: {
-      borderRadius: 11,
+      borderRadius: 5,
       paddingHorizontal: 9,
       paddingVertical: 6,
       backgroundColor: theme.surface2,
@@ -1221,7 +1363,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
     },
     timeText: { color: theme.textSub, fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
-    statusBadge: { borderRadius: 11, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1 },
+    statusBadge: { borderRadius: 5, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1 },
     statusText: { fontSize: 10.5, fontWeight: '900' },
     cardTitle: { fontSize: 16, fontWeight: '900', color: theme.text, letterSpacing: 0 },
     cardSub: { marginTop: 4, color: theme.textSub, fontSize: 12.5, fontWeight: '700' },
@@ -1231,7 +1373,7 @@ function makeStyles(theme: Theme) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      borderRadius: 11,
+      borderRadius: 5,
       borderWidth: 1,
       paddingHorizontal: 8,
       paddingVertical: 6,
@@ -1242,7 +1384,7 @@ function makeStyles(theme: Theme) {
       borderWidth: 1,
       borderColor: theme.warning + '44',
       backgroundColor: theme.warningBg,
-      borderRadius: 12,
+      borderRadius: 6,
       padding: 10,
       gap: 3,
     },
@@ -1251,7 +1393,7 @@ function makeStyles(theme: Theme) {
     nextActionBox: {
       marginTop: 11,
       borderWidth: 1,
-      borderRadius: 13,
+      borderRadius: 6,
       paddingHorizontal: 10,
       paddingVertical: 9,
       flexDirection: 'row',
@@ -1264,7 +1406,7 @@ function makeStyles(theme: Theme) {
     actionBtn: {
       flex: 1,
       minHeight: 42,
-      borderRadius: 13,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface2,
@@ -1281,7 +1423,7 @@ function makeStyles(theme: Theme) {
       gap: 8,
       padding: 22,
       backgroundColor: theme.cardBg,
-      borderRadius: 18,
+      borderRadius: 7,
       borderWidth: 1,
       borderColor: theme.cardBorder,
     },
@@ -1290,7 +1432,7 @@ function makeStyles(theme: Theme) {
     emptyActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 4 },
     emptyPrimaryBtn: {
       minHeight: 40,
-      borderRadius: 12,
+      borderRadius: 6,
       backgroundColor: theme.accent,
       borderWidth: 1,
       borderColor: theme.accentDark,
@@ -1303,7 +1445,7 @@ function makeStyles(theme: Theme) {
     emptyPrimaryText: { color: theme.accentText, fontSize: 12, fontWeight: '900' },
     emptySecondaryBtn: {
       minHeight: 40,
-      borderRadius: 12,
+      borderRadius: 6,
       backgroundColor: theme.surface2,
       borderWidth: 1,
       borderColor: theme.border,
@@ -1316,7 +1458,7 @@ function makeStyles(theme: Theme) {
     price: { marginTop: 8, fontWeight: '700', color: theme.accent },
     infoBox: {
       backgroundColor: theme.surface2,
-      borderRadius: 14,
+      borderRadius: 7,
       padding: 14,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.accent,
@@ -1328,13 +1470,13 @@ function makeStyles(theme: Theme) {
       alignSelf: 'flex-start',
       paddingVertical: 8,
       paddingHorizontal: 12,
-      borderRadius: 10,
+      borderRadius: 6,
       backgroundColor: theme.accent,
     },
     infoBtnTxt: { color: theme.accentText, fontWeight: '700' },
     infoBtnSecondary: { backgroundColor: theme.accentLight, borderWidth: 1, borderColor: theme.accent + '55' },
     infoBtnSecondaryTxt: { color: theme.accent },
-    mapBtn: { marginTop: 10, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: theme.accentLight },
+    mapBtn: { marginTop: 10, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: theme.accentLight },
     mapBtnTxt: { color: theme.accent, fontWeight: '600' },
   });
 }

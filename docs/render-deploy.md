@@ -87,6 +87,29 @@ the same public URL write/read/delete test used by `/api/ops/storage-smoke`.
 
 The web service gets `VITE_API_URL` automatically from `arbor-os`.
 
+### Existing arbo-os.com setup
+
+The current public frontend domains are:
+
+```text
+https://arbo-os.com
+https://www.arbo-os.com
+https://arbo-web.onrender.com
+```
+
+For a new `arbor-os` service in the same Render workspace as `Arbo_Web` and
+`arbor-db`, use `deploy/render-arbor-os-arbo-os.env.example` as the starting
+environment template. Copy `DATABASE_URL` from the Render Postgres service
+`arbor-db` using its Internal Database URL, then set `VITE_API_URL` on
+`Arbo_Web` to the new backend URL with `/api` appended.
+
+If the old backend `https://arbor-os-b7k6.onrender.com` is recovered instead,
+do not create a duplicate service. Update its `CORS_ORIGINS` to include:
+
+```text
+https://arbo-os.com,https://www.arbo-os.com,https://arbo-web.onrender.com
+```
+
 ## 3. Create first production admin
 
 After the database migration runs, create the first login locally against Neon.

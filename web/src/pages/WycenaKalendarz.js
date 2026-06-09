@@ -7,7 +7,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import { loadCalendarBlocks, isYmdBlocked } from '../utils/calendarBlocks';
 import { buildNewOrderPath } from '../utils/newOrderRoute';
 
@@ -64,6 +64,11 @@ function getCalDays(year, month) {
 function fmt(v) {
   if (!v) return '—';
   return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(v);
+}
+
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function etaReasonLabel(reason) {
@@ -220,12 +225,17 @@ export default function WycenaKalendarz() {
   const monthOgledziny = ogledziny.filter((o) => (o.data_planowana || '').startsWith(monthPrefix));
   const monthPending = monthWyceny.filter((w) => ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty'].includes(w.status_akceptacji)).length;
   const monthApproved = monthWyceny.filter((w) => w.status_akceptacji === 'zatwierdzono').length;
+  const monthValue = monthWyceny.reduce((sum, w) => sum + num(w.wartosc_planowana), 0);
   const monthDataIssues = monthWyceny.reduce((sum, w) => {
     const q = dataQualityFlags(w);
     return sum + ((q.noPin || q.noGps || q.staleGps) ? 1 : 0);
   }, 0);
   const liveTeamsCount = Object.keys(liveByTeam).length;
   const selectedDayWork = wycenyWybrany.length + ogledzinyWybrane.length;
+  const selectedDayIssues = wycenyWybrany.reduce((sum, w) => {
+    const q = dataQualityFlags(w);
+    return sum + ((q.noPin || q.noGps || q.staleGps) ? 1 : 0);
+  }, 0);
   const calendarStats = [
     { label: 'Miesiąc: wyceny', value: monthWyceny.length, detail: `${monthApproved} zatwierdzonych`, tone: 'good' },
     { label: 'Oględziny', value: monthOgledziny.length, detail: 'wizyty terenowe', tone: 'good' },
@@ -359,9 +369,9 @@ export default function WycenaKalendarz() {
   const cells = getCalDays(year, month);
 
   return (
-    <div className="app-shell">
-      <Sidebar />
-      <main className="app-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <div className="app-shell quote-calendar-shell">
+      <CommandSidebar active="schedule" />
+      <main className="app-main command-content-main quote-calendar-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div style={S.root}>
       <div style={S.bgOrbTop} />
       <div style={S.bgOrbBottom} />
@@ -410,6 +420,34 @@ export default function WycenaKalendarz() {
       </div>
 
       <StatusMessage message={msg} style={S.msg} />
+
+      <section className="quote-calendar-command-strip" aria-label="Centrum decyzji kalendarza wycen">
+        <div className="quote-calendar-command-lead">
+          <span>Dyspozycja wycen</span>
+          <strong>{MIESIAC[month]} {year}</strong>
+          <small>{selectedYmd} · {selectedBlocked ? 'dzien zablokowany' : 'dzien otwarty'}</small>
+        </div>
+        <div className={`quote-calendar-command-card ${monthPending ? 'is-warning' : 'is-good'}`}>
+          <span>Do decyzji</span>
+          <strong>{monthPending}</strong>
+          <small>{slaOverdue.length} SLA po terminie</small>
+        </div>
+        <div className="quote-calendar-command-card is-blue">
+          <span>Wartosc miesiaca</span>
+          <strong>{fmt(monthValue)}</strong>
+          <small>{monthApproved} zatwierdzonych wycen</small>
+        </div>
+        <div className={`quote-calendar-command-card ${selectedDayIssues || monthDataIssues ? 'is-danger' : 'is-good'}`}>
+          <span>Ryzyka danych</span>
+          <strong>{selectedDayIssues}/{monthDataIssues}</strong>
+          <small>dzien / miesiac · GPS i pinezki</small>
+        </div>
+        <div className="quote-calendar-command-card">
+          <span>Wybrany dzien</span>
+          <strong>{selectedDayWork}</strong>
+          <small>{wycenyWybrany.length} wycen · {ogledzinyWybrane.length} ogledzin</small>
+        </div>
+      </section>
 
       {slaOverdue.length > 0 && (
         <div

@@ -224,10 +224,44 @@ export default function Klienci() {
     'Anulowane': 'var(--danger)', 'Wstrzymane': 'var(--text-muted)',
   }[s] || getTaskStatusColor(s, 'var(--text-muted)'));
 
+  const clientsWithWork = klienci.filter((k) => Number(k.liczba_zlecen || 0) > 0 || Number(k.liczba_ogledzen || 0) > 0).length;
+  const clientsWithoutContact = klienci.filter((k) => !k.telefon && !k.email).length;
+  const visibleSegments = new Set(klienci.map((k) => k.segment).filter(Boolean)).size;
+  const selectedClient = detail || klienci.find((k) => String(k.id) === String(selected));
+
   return (
     <div className="app-shell clients-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <CommandSidebar active="crm" user={currentUser} />
-      <main className="clients-main" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh', minWidth: 0 }}>
+      <main className="app-main command-content-main clients-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh', minWidth: 0 }}>
+        <section className="clients-command-strip" aria-label="Centrum CRM klientow">
+          <div className="clients-command-lead">
+            <span>CRM klientow</span>
+            <strong>{klienci.length}</strong>
+            <small>{loading ? 'ladowanie listy' : 'rekordow w aktualnym widoku'}</small>
+          </div>
+          <div className="clients-command-card is-blue">
+            <span>Aktywni operacyjnie</span>
+            <strong>{clientsWithWork}</strong>
+            <small>maja zlecenia lub ogledziny</small>
+          </div>
+          <div className={`clients-command-card ${clientsWithoutContact ? 'is-danger' : 'is-good'}`}>
+            <span>Bez kontaktu</span>
+            <strong>{clientsWithoutContact}</strong>
+            <small>brak telefonu i emaila</small>
+          </div>
+          <div className="clients-command-card">
+            <span>Segmenty</span>
+            <strong>{segmentFilter || visibleSegments || '-'}</strong>
+            <small>{tagFilter ? `tag: ${tagFilter}` : 'filtr CRM'}</small>
+          </div>
+          <div className="clients-command-card">
+            <span>Wybrany klient</span>
+            <strong>{selectedClient ? `#${selectedClient.id}` : '-'}</strong>
+            <small>{selectedClient ? `${selectedClient.imie || ''} ${selectedClient.nazwisko || ''}`.trim() || selectedClient.firma || 'aktywny rekord' : 'brak wyboru'}</small>
+          </div>
+        </section>
+
+        <div className="clients-workspace">
 
         {/* ── LEWA KOLUMNA: lista ── */}
         <div className="clients-list-panel" style={{ width: 360, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
@@ -552,6 +586,7 @@ export default function Klienci() {
 
             </div>
           )}
+        </div>
         </div>
       </main>
 

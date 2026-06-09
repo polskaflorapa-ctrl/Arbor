@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,13 @@ import {
   View,
 } from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
+import {
+  CRM_CLOSE_REASONS,
+  CRM_PIPELINE_STAGES,
+  isClosedLeadStage,
+  pipelineStageIndex,
+  type CrmPipelineStage,
+} from '../constants/crm-stages';
 import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
@@ -20,14 +28,13 @@ import { apiFetch, apiJsonFetch } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
-const STAGES = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane'] as const;
-type StageName = (typeof STAGES)[number];
+
 type ActivityType = 'note' | 'call' | 'task';
 
 type CrmLead = {
   id: number;
   title: string;
-  stage: StageName;
+  stage: string;
   source?: string | null;
   value?: number | null;
   phone?: string | null;
@@ -89,7 +96,7 @@ export default function CrmPipelineMobileScreen() {
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
-  const [stageFilter, setStageFilter] = useState<'ALL' | StageName>('ALL');
+  const [stageFilter, setStageFilter] = useState<'ALL' | CrmPipelineStage>('ALL');
   const [query, setQuery] = useState('');
   const [leadTitle, setLeadTitle] = useState('');
   const [leadPhone, setLeadPhone] = useState('');
@@ -99,6 +106,7 @@ export default function CrmPipelineMobileScreen() {
   const [activityText, setActivityText] = useState('');
   const [activityType, setActivityType] = useState<ActivityType>('note');
   const [activityBusy, setActivityBusy] = useState(false);
+  const [pendingClose, setPendingClose] = useState<{ leadId: number; stage: CrmPipelineStage } | null>(null);
   const S = makeStyles(theme);
 
   const selectedLead = useMemo(
@@ -226,26 +234,49 @@ export default function CrmPipelineMobileScreen() {
     }
   };
 
+  const patchLeadStage = async (leadId: number, stage: string, closeReason?: string) => {
+    if (!token) return;
+    const payload: { stage: string; close_reason?: string } = { stage };
+    if (closeReason) payload.close_reason = closeReason;
+    const res = await apiJsonFetch(`/crm/leads/${leadId}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(payload),
+    });
+    const data = await parseResponse(res);
+    if (!res.ok) {
+      throw new Error(typeof data === 'object' && data && 'error' in data ? String((data as { error?: string }).error) : 'Nie udalo sie zmienic etapu.');
+    }
+    await loadData();
+  };
+
   const moveLeadStage = async (lead: CrmLead, direction: 'prev' | 'next') => {
     if (!token) return;
-    const idx = STAGES.findIndex((stage) => stage === lead.stage);
-    if (idx < 0) return;
-    const nextIdx = direction === 'next' ? Math.min(STAGES.length - 1, idx + 1) : Math.max(0, idx - 1);
+    const idx = pipelineStageIndex(lead.stage);
+    const nextIdx = direction === 'next'
+      ? Math.min(CRM_PIPELINE_STAGES.length - 1, idx + 1)
+      : Math.max(0, idx - 1);
     if (nextIdx === idx) return;
-    const nextStage = STAGES[nextIdx];
+    const nextStage = CRM_PIPELINE_STAGES[nextIdx];
+    if (isClosedLeadStage(nextStage)) {
+      setPendingClose({ leadId: lead.id, stage: nextStage });
+      return;
+    }
     try {
-      const res = await apiJsonFetch(`/crm/leads/${lead.id}`, {
-        method: 'PATCH',
-        token,
-        body: JSON.stringify({ stage: nextStage }),
-      });
-      const data = await parseResponse(res);
-      if (!res.ok) {
-        throw new Error(typeof data === 'object' && data && 'error' in data ? String((data as { error?: string }).error) : 'Nie udalo sie zmienic etapu.');
-      }
-      await loadData();
+      await patchLeadStage(lead.id, nextStage);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad zmiany etapu';
+      Alert.alert('CRM', msg);
+    }
+  };
+
+  const confirmCloseLead = async (closeReason: string) => {
+    if (!pendingClose) return;
+    try {
+      await patchLeadStage(pendingClose.leadId, pendingClose.stage, closeReason);
+      setPendingClose(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Blad zamkniecia leada';
       Alert.alert('CRM', msg);
     }
   };
@@ -390,7 +421,7 @@ export default function CrmPipelineMobileScreen() {
             >
               <Text style={[S.stageChipText, stageFilter === 'ALL' && S.stageChipTextActive]}>Wszystkie</Text>
             </TouchableOpacity>
-            {STAGES.map((stage) => (
+            {CRM_PIPELINE_STAGES.map((stage) => (
               <TouchableOpacity
                 key={stage}
                 style={[S.stageChip, stageFilter === stage && S.stageChipActive]}
@@ -502,6 +533,29 @@ export default function CrmPipelineMobileScreen() {
         ) : null}
         <View style={{ height: 28 }} />
       </ScrollView>
+
+      <Modal visible={pendingClose != null} transparent animationType="fade" onRequestClose={() => setPendingClose(null)}>
+        <View style={S.modalBackdrop}>
+          <View style={S.modalCard}>
+            <Text style={S.sectionTitle}>Powod zamkniecia</Text>
+            <Text style={S.rowMeta}>Wybierz powod przed przeniesieniem leada do etapu zamknietego.</Text>
+            <ScrollView style={S.modalList}>
+              {CRM_CLOSE_REASONS.map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  style={S.modalReasonBtn}
+                  onPress={() => void confirmCloseLead(reason)}
+                >
+                  <Text style={S.modalReasonText}>{reason}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={S.stageBtn} onPress={() => setPendingClose(null)}>
+              <Text style={S.stageBtnText}>Anuluj</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -516,7 +570,7 @@ const makeStyles = (t: Theme) =>
       flex: 1,
       borderWidth: 1,
       borderColor: t.cardBorder,
-      borderRadius: 11,
+      borderRadius: 6,
       backgroundColor: t.cardBg,
       paddingVertical: 10,
       paddingHorizontal: 8,
@@ -526,7 +580,7 @@ const makeStyles = (t: Theme) =>
     sectionCard: {
       borderWidth: 1,
       borderColor: t.cardBorder,
-      borderRadius: 14,
+      borderRadius: 6,
       backgroundColor: t.cardBg,
       padding: 12,
       marginBottom: 10,
@@ -537,7 +591,7 @@ const makeStyles = (t: Theme) =>
     input: {
       borderWidth: 1,
       borderColor: t.inputBorder,
-      borderRadius: 10,
+      borderRadius: 6,
       paddingHorizontal: 10,
       paddingVertical: 9,
       backgroundColor: t.inputBg,
@@ -550,7 +604,7 @@ const makeStyles = (t: Theme) =>
     valueInput: { width: 110 },
     primaryBtn: {
       minHeight: 42,
-      borderRadius: 11,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: t.accentDark,
       backgroundColor: t.accent,
@@ -562,7 +616,7 @@ const makeStyles = (t: Theme) =>
     stageRow: { flexDirection: 'row', gap: 8, paddingRight: 12 },
     stageChip: {
       minHeight: 36,
-      borderRadius: 18,
+      borderRadius: 7,
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.surface2,
@@ -577,7 +631,7 @@ const makeStyles = (t: Theme) =>
     empty: {
       borderWidth: 1,
       borderColor: t.border,
-      borderRadius: 11,
+      borderRadius: 6,
       backgroundColor: t.surface2,
       padding: 14,
       marginBottom: 10,
@@ -586,7 +640,7 @@ const makeStyles = (t: Theme) =>
     rowCard: {
       borderWidth: 1,
       borderColor: t.cardBorder,
-      borderRadius: 12,
+      borderRadius: 7,
       backgroundColor: t.cardBg,
       padding: 11,
       gap: 4,
@@ -599,7 +653,7 @@ const makeStyles = (t: Theme) =>
     badge: {
       color: t.accent,
       backgroundColor: t.accentLight,
-      borderRadius: 999,
+      borderRadius: 5,
       paddingHorizontal: 8,
       paddingVertical: 3,
       fontSize: 11,
@@ -609,7 +663,7 @@ const makeStyles = (t: Theme) =>
     stageBtn: {
       flex: 1,
       minHeight: 36,
-      borderRadius: 10,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.surface2,
@@ -636,7 +690,7 @@ const makeStyles = (t: Theme) =>
     activityCard: {
       borderWidth: 1,
       borderColor: t.border,
-      borderRadius: 10,
+      borderRadius: 6,
       backgroundColor: t.surface2,
       padding: 9,
       gap: 4,
@@ -655,4 +709,31 @@ const makeStyles = (t: Theme) =>
       gap: 6,
     },
     inlineActionText: { color: t.text, fontSize: 12, fontWeight: '600' },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      justifyContent: 'center',
+      padding: 16,
+    },
+    modalCard: {
+      maxHeight: '80%',
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: t.cardBorder,
+      backgroundColor: t.cardBg,
+      padding: 14,
+      gap: 10,
+    },
+    modalList: { maxHeight: 320 },
+    modalReasonBtn: {
+      minHeight: 42,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface2,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      marginBottom: 6,
+    },
+    modalReasonText: { color: t.text, fontSize: 13, fontWeight: '600' },
   });

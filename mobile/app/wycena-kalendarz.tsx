@@ -65,7 +65,7 @@ function makeCalendarStyles(t: Theme) {
       borderWidth: 1,
       borderColor: uiBorder,
       backgroundColor: t.surface2,
-      borderRadius: 12,
+      borderRadius: 7,
       paddingVertical: 8,
       paddingHorizontal: 12,
       flexDirection: 'row',
@@ -93,7 +93,7 @@ function makeCalendarStyles(t: Theme) {
       borderWidth: 1,
       borderColor: t.warning + '66',
       backgroundColor: t.warning + '1A',
-      borderRadius: 10,
+      borderRadius: 6,
       paddingVertical: 8,
       paddingHorizontal: 10,
       flexDirection: 'row',
@@ -207,7 +207,7 @@ function makeCalendarStyles(t: Theme) {
 
     pillsScroll: { marginBottom: 6 },
     pill: {
-      backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 14,
+      backgroundColor: t.inputBg, borderRadius: 7, paddingHorizontal: 14,
       paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: t.inputBorder,
     },
     pillActive: { backgroundColor: t.success, borderColor: t.success },
@@ -216,7 +216,7 @@ function makeCalendarStyles(t: Theme) {
 
     ekipaPill: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 12,
+      backgroundColor: t.inputBg, borderRadius: 7, paddingHorizontal: 12,
       paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: t.inputBorder,
     },
     ekipaDot: { width: 8, height: 8, borderRadius: 4 },
@@ -686,7 +686,7 @@ export default function WycenaKalendarzScreen() {
 
             {selectedWyceny.length === 0 ? (
               <View style={s.emptyDay}>
-                <PlatinumIconBadge icon="calendar-outline" color={theme.textMuted} size={18} style={{ width: 36, height: 36, borderRadius: 12 }} />
+                <PlatinumIconBadge icon="calendar-outline" color={theme.textMuted} size={18} style={{ width: 36, height: 36, borderRadius: 7 }} />
                 <Text style={s.emptyDayText}>{t('wycenyCal.emptyDay')}</Text>
               </View>
             ) : (

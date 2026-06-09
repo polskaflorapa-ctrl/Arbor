@@ -356,7 +356,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 18,
     paddingBottom: 16,
-    borderRadius: 20,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     flexDirection: 'row',
@@ -372,7 +372,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -382,7 +382,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerIcon: {
     width: 44,
     height: 44,
-    borderRadius: 15,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -402,7 +402,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerCount: {
     minWidth: 58,
     minHeight: 48,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -415,7 +415,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: '900', color: t.text, marginTop: 12 },
   card: {
     backgroundColor: t.cardBg, marginHorizontal: 14, marginTop: 10,
-    borderRadius: 18, padding: 14,
+    borderRadius: 7, padding: 14,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
@@ -429,7 +429,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardIconBox: {
     width: 50,
     height: 50,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -448,7 +448,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardKierownik: { fontSize: 12, color: t.textSub, fontWeight: '700' },
   cardTel: { fontSize: 12, color: t.accent, fontWeight: '900' },
   section: {
-    backgroundColor: t.cardBg, marginHorizontal: 14, marginTop: 10, borderRadius: 18, padding: 14,
+    backgroundColor: t.cardBg, marginHorizontal: 14, marginTop: 10, borderRadius: 7, padding: 14,
     borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.08,
@@ -465,7 +465,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 74,
     backgroundColor: t.cardBg,
-    borderRadius: 15,
+    borderRadius: 7,
     padding: 10,
     alignItems: 'center',
     borderTopWidth: 3,
@@ -478,7 +478,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   rowLabel: { fontSize: 14, color: t.textMuted, fontWeight: '700' },
   rowValue: { fontSize: 14, fontWeight: '800', color: t.text, flex: 1, textAlign: 'right' },
   personRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: t.border },
-  avatar: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 40, height: 40, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 14, fontWeight: '900' },
   personNazwa: { fontSize: 14, fontWeight: '900', color: t.text },
   personRola: { fontSize: 12, color: t.textMuted, fontWeight: '700' },

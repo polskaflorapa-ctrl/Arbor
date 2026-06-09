@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
@@ -948,13 +948,49 @@ export default function Integracje() {
     const maxAgeMs = ROLLBACK_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
     return Date.now() - createdAtMs <= maxAgeMs;
   };
+  const failedLogs = logs.filter((log) => ['error', 'failed', 'blocked'].includes(String(log.status || '').toLowerCase())).length;
+  const activeCrmApps = crmApps.filter((app) => app.active !== false).length;
+  const blockedEntries = (security.denylist?.users?.length || 0) + (security.denylist?.channels?.length || 0);
+  const kommoQueueCount = kommoSync.queue.length;
+  const branchSetupTodo = branchSetupStatuses.filter((item) => {
+    const status = String(item.status || item.state || item.health || '').toLowerCase();
+    return !['ok', 'ready', 'done', 'active', 'connected'].includes(status);
+  }).length;
 
   return (
     <div className="integrations-shell" style={styles.container}>
-      <Sidebar />
-      <div className="integrations-main" style={styles.main}>
+      <CommandSidebar active="dashboard" />
+      <div className="app-main command-content-main integrations-main" style={styles.main}>
         <PageHeader title="Integracje" subtitle="Globalny dashboard logów i retry" />
         <StatusMessage message={message} />
+
+        <section className="integrations-command-strip">
+          <div className="integrations-command-lead">
+            <span>Centrum polaczen</span>
+            <strong>{totalRows || logs.length}</strong>
+            <small>logi i zdarzenia w aktualnym widoku</small>
+          </div>
+          <div className={`integrations-command-card ${failedLogs > 0 ? 'is-danger' : 'is-good'}`}>
+            <span>Bledy wysylek</span>
+            <strong>{failedLogs}</strong>
+            <small>status error / failed / blocked</small>
+          </div>
+          <div className={`integrations-command-card ${retryLocked ? 'is-warning' : 'is-good'}`}>
+            <span>Retry</span>
+            <strong>{retryLocked ? `${Math.ceil(cooldownMsLeft / 1000)}s` : 'OK'}</strong>
+            <small>{retryAudit.length} wpisow audytu</small>
+          </div>
+          <div className={`integrations-command-card ${blockedEntries > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>Bezpieczenstwo</span>
+            <strong>{blockedEntries}</strong>
+            <small>blokady uzytkownikow i kanalow</small>
+          </div>
+          <div className={`integrations-command-card ${kommoQueueCount + branchSetupTodo > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>CRM / Kommo</span>
+            <strong>{activeCrmApps}</strong>
+            <small>{kommoQueueCount} w kolejce / {branchSetupTodo} oddzialy do setupu</small>
+          </div>
+        </section>
 
         <div className="integrations-metrics" style={styles.metrics}>
           {metrics.map((m) => (

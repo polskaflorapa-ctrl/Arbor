@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { AppStatusBar } from '../components/ui/app-status-bar';
 import { DashboardSkeleton } from '../components/ui/skeleton-block';
+import { FieldOpsBackdrop, FieldOpsCockpit, FieldOpsHeroImage } from '../components/ui/field-ops-art';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { PlatinumCard } from '../components/ui/platinum-card';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
@@ -171,8 +172,8 @@ function quickCategoryForAction(path: string, _label: string): QuickCategoryId {
 function dashboardFocusHint(path: string) {
   const hints: Record<string, string> = {
     '/nowe-zlecenie': 'Szybkie przyjecie zlecenia, zdjecia i formularz terenowy.',
-    '/plan-ogledzin': 'Lista wizyt specjalisty ds. wyceny na dzisiaj.',
-    '/wyceny-terenowe': 'Wyceny u klienta, zdjecia i szkic.',
+    '/plan-ogledzin': 'Lista oględzin na dzisiaj.',
+    '/wyceny-terenowe': 'Oględziny u klienta, zdjęcia i szkic.',
     '/wyceny-do-biura': 'Pakiety z terenu do domkniecia przez biuro.',
     '/harmonogram': 'Plan ekip, terminy i kolejnosc prac.',
     '/zlecenia': 'Aktualne zlecenia i statusy pracy.',
@@ -443,7 +444,7 @@ export default function DashboardScreen() {
     };
   }, [zlecenia, ARBOR_UI]);
   const roleBrief = isWyceniajacy
-    ? { title: 'Tryb specjalisty ds. wyceny', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
+    ? { title: 'Tryb specjalisty oględzin', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
     : isSpecjalista
       ? { title: 'Tryb biura', text: 'Dopnij pakiety z terenu, telefon do klienta i gotowy termin dla ekipy.', action: 'Do opracowania', icon: 'file-tray-full-outline' as IoniconName, path: '/wyceny-do-biura' }
       : isCrew
@@ -515,10 +516,10 @@ export default function DashboardScreen() {
       { label: 'Magazyn',           icon: 'cube-outline' as IoniconName,           path: '/magazyn-mobile',   color: theme.chartCyan },
       { label: 'Oględziny',         icon: 'search-outline' as IoniconName,           path: '/ogledziny',        color: theme.info },
       { label: 'Plan ogledzin',      icon: 'map-outline' as IoniconName,              path: '/plan-ogledzin',   color: theme.success },
-      { label: 'Kal. wycen',        icon: 'calculator-outline' as IoniconName,       path: '/wycena-kalendarz', color: theme.accent },
-      { label: 'Wycena u klienta',  icon: 'document-text-outline' as IoniconName,    path: '/wyceny-terenowe', color: theme.success },
+      { label: 'Kal. oględzin',     icon: 'calculator-outline' as IoniconName,       path: '/wycena-kalendarz', color: theme.accent },
+      { label: 'Oględziny u klienta', icon: 'document-text-outline' as IoniconName,    path: '/wyceny-terenowe', color: theme.success },
       { label: 'Do opracowania',    icon: 'file-tray-full-outline' as IoniconName,   path: '/wyceny-do-biura', color: theme.warning },
-      { label: 'Zatwierdź wyceny',  icon: 'checkmark-circle-outline' as IoniconName, path: '/zatwierdz-wyceny', color: theme.warning },
+      { label: 'Zatwierdź oględziny', icon: 'checkmark-circle-outline' as IoniconName, path: '/zatwierdz-wyceny', color: theme.warning },
       { label: 'Raporty',           icon: 'bar-chart-outline' as IoniconName,      path: '/raporty-mobilne',  color: theme.info },
       { label: 'Rozliczenia',       icon: 'wallet-outline' as IoniconName,         path: '/rozliczenia',      color: theme.success },
       { label: 'Funkcje oddziałów', icon: 'settings-outline' as IoniconName,       path: '/oddzial-funkcje-admin', color: theme.warning },
@@ -535,26 +536,26 @@ export default function DashboardScreen() {
     ...(isBrygadzista ? [
       { label: 'Raport dzienny', icon: 'document-text-outline' as IoniconName, path: '/raport-dzienny', color: theme.success },
       { label: 'Oględziny',      icon: 'search-outline' as IoniconName,        path: '/ogledziny',      color: theme.info },
-      { label: 'Kal. wycen',    icon: 'calculator-outline' as IoniconName,    path: '/wycena-kalendarz', color: theme.accent },
+      { label: 'Kal. oględzin', icon: 'calculator-outline' as IoniconName,    path: '/wycena-kalendarz', color: theme.accent },
       { label: 'Rozliczenia',   icon: 'wallet-outline' as IoniconName,        path: '/rozliczenia',    color: theme.warning },
     ] : []),
     // ── Specjalista ──
     ...(isSpecjalista ? [
-      { label: 'Kal. wycen',  icon: 'calculator-outline' as IoniconName, path: '/wycena-kalendarz', color: theme.chartCyan },
+      { label: 'Kal. oględzin', icon: 'calculator-outline' as IoniconName, path: '/wycena-kalendarz', color: theme.chartCyan },
       { label: 'Do opracowania', icon: 'file-tray-full-outline' as IoniconName, path: '/wyceny-do-biura', color: theme.warning },
       { label: 'Raporty',     icon: 'bar-chart-outline' as IoniconName,  path: '/raporty-mobilne',  color: theme.info },
       { label: 'Rozliczenia', icon: 'wallet-outline' as IoniconName,     path: '/rozliczenia',      color: theme.warning },
     ] : []),
     // ── Wyceniający ──
     ...(isWyceniajacy ? [
-      { label: 'Centrum wycen', icon: 'speedometer-outline' as IoniconName, path: '/wyceniajacy-hub', color: theme.accent },
+      { label: 'Centrum oględzin', icon: 'speedometer-outline' as IoniconName, path: '/wyceniajacy-hub', color: theme.accent },
       { label: 'Nowe zlecenie terenowe', icon: 'add-circle-outline' as IoniconName, path: '/nowe-zlecenie', color: theme.success },
       { label: 'Plan ogledzin', icon: 'map-outline' as IoniconName, path: '/plan-ogledzin', color: theme.warning },
-      { label: 'Wycena u klienta', icon: 'document-text-outline' as IoniconName, path: '/wyceny-terenowe', color: theme.success },
+      { label: 'Oględziny u klienta', icon: 'document-text-outline' as IoniconName, path: '/wyceny-terenowe', color: theme.success },
       { label: 'Wynagrodzenie', icon: 'cash-outline' as IoniconName, path: '/wyceniajacy-finanse', color: theme.success },
       { label: 'Oględziny',    icon: 'search-outline' as IoniconName,      path: '/ogledziny',       color: theme.info },
-      { label: 'Kal. wycen',  icon: 'calendar-outline' as IoniconName,    path: '/wycena-kalendarz', color: theme.accent },
-      { label: 'Nowa wycena', icon: 'add-circle-outline' as IoniconName,  path: '/wycena-kalendarz', color: theme.success },
+      { label: 'Kal. oględzin', icon: 'calendar-outline' as IoniconName,    path: '/wycena-kalendarz', color: theme.accent },
+      { label: 'Nowe oględziny', icon: 'add-circle-outline' as IoniconName,  path: '/wycena-kalendarz', color: theme.success },
     ] : []),
     // ── Magazynier ──
     ...(isMagazynier ? [
@@ -663,7 +664,7 @@ export default function DashboardScreen() {
       'Magazyn': 'dashboard.warehouse',
       'Plan ogledzin': 'dashboard.inspections',
       'Oględziny': 'dashboard.inspections',
-      'Kal. wycen': 'dashboard.quoteCalendar',
+      'Kal. oględzin': 'dashboard.quoteCalendar',
       'Zatwierdź wyceny': 'dashboard.approveQuotes',
       'Raporty': 'dashboard.reports',
       'Rozliczenia': 'dashboard.settlements',
@@ -673,10 +674,10 @@ export default function DashboardScreen() {
       'Telefonia': 'dashboard.telephony',
       'Zlecenia': 'dashboard.orders',
       'Raport dzienny': 'dashboard.dailyReport',
-      'Centrum wycen': 'dashboard.estimateCenter',
+      'Centrum oględzin': 'dashboard.estimateCenter',
       'Nowe zlecenie terenowe': 'dashboard.newTask',
       'Wynagrodzenie': 'dashboard.estimatorPay',
-      'Nowa wycena': 'dashboard.newQuote',
+      'Nowe oględziny': 'dashboard.newQuote',
       'Diagnostyka API': 'dashboard.apiDiagnostics',
       'Powiadomienia': 'dashboard.notifications',
       'Profil': 'dashboard.profile',
@@ -692,7 +693,8 @@ export default function DashboardScreen() {
   if (loading) {
     return (
       <View style={S.root}>
-        <AppStatusBar backgroundColor={ARBOR_UI.paper} />
+        <FieldOpsBackdrop />
+        <AppStatusBar backgroundColor={theme.bg} />
         <DashboardSkeleton />
       </View>
     );
@@ -700,7 +702,8 @@ export default function DashboardScreen() {
 
   return (
     <View style={S.root}>
-      <AppStatusBar backgroundColor={ARBOR_UI.paper} />
+      <FieldOpsBackdrop />
+      <AppStatusBar backgroundColor={theme.bg} />
 
       {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
       <View style={S.header}>
@@ -782,14 +785,16 @@ export default function DashboardScreen() {
               <Text style={S.opsTitle}>{roleBrief.title}</Text>
               <Text style={S.opsSubtitle}>{roleBrief.text}</Text>
             </View>
+            <FieldOpsHeroImage variant="dispatch" size={82} />
           </View>
+          <FieldOpsCockpit variant="dispatch" style={S.opsCockpit} />
           <View style={S.opsHeroMetrics}>
             <View style={S.opsMetric}>
               <Text style={S.opsMetricValue}>{activeCount}</Text>
               <Text style={S.opsMetricLabel}>Aktywne</Text>
             </View>
             <View style={S.opsMetricDivider} />
-            <View style={[S.opsMetric, riskCount > 0 && { backgroundColor: ARBOR_UI.dangerSoft, borderRadius: 10 }]}>
+            <View style={[S.opsMetric, riskCount > 0 && { backgroundColor: ARBOR_UI.dangerSoft, borderRadius: 6 }]}>
               <Text style={[S.opsMetricValue, riskCount > 0 && { color: ARBOR_UI.danger }]}>{riskCount}</Text>
               <Text style={S.opsMetricLabel}>{signalCount > delayedCount ? 'Sygnały' : 'Ryzyka'}</Text>
             </View>
@@ -1267,11 +1272,11 @@ const makeStyles = (t: Theme) => {
   root: { flex: 1, backgroundColor: ARBOR_UI.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: ARBOR_UI.bg },
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 4 },
+  scrollContent: { paddingBottom: 18 },
 
   // Header
   header: {
-    backgroundColor: ARBOR_UI.paper,
+    backgroundColor: t.name === 'dark' ? 'rgba(5,11,9,0.96)' : ARBOR_UI.paper,
     paddingHorizontal: 18,
     paddingTop: 52,
     paddingBottom: 14,
@@ -1279,7 +1284,7 @@ const makeStyles = (t: Theme) => {
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: ARBOR_UI.line,
+    borderBottomColor: t.name === 'dark' ? 'rgba(24,224,123,0.16)' : ARBOR_UI.line,
   },
   headerLeft: { flex: 1 },
   greeting: { fontSize: 22, fontWeight: '900', color: ARBOR_UI.text, marginBottom: 2, letterSpacing: 0 },
@@ -1288,7 +1293,7 @@ const makeStyles = (t: Theme) => {
   rolaBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: 7,
   },
   rolaText: { fontSize: 12, fontWeight: '700' },
   oddzialText: { flex: 1, fontSize: 12, color: ARBOR_UI.muted, fontWeight: '800' },
@@ -1297,15 +1302,15 @@ const makeStyles = (t: Theme) => {
   commandCenterBtn: {
     width: 48,
     height: 48,
-    borderRadius: 999,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ARBOR_UI.paperSoft,
+    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.92)' : ARBOR_UI.paperSoft,
     borderWidth: 1,
-    borderColor: ARBOR_UI.line,
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : ARBOR_UI.line,
   },
   avatar: {
-    width: 46, height: 46, borderRadius: 23,
+    width: 46, height: 46, borderRadius: 6,
     backgroundColor: ARBOR_UI.leafSoft,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: ARBOR_UI.line,
@@ -1317,7 +1322,7 @@ const makeStyles = (t: Theme) => {
     marginTop: 14,
     marginBottom: 12,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: ARBOR_UI.warningBorder,
     backgroundColor: ARBOR_UI.warningSoft,
@@ -1327,7 +1332,7 @@ const makeStyles = (t: Theme) => {
   errorIcon: {
     width: 34,
     height: 34,
-    borderRadius: 11,
+    borderRadius: 6,
     backgroundColor: ARBOR_UI.warningSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1338,7 +1343,7 @@ const makeStyles = (t: Theme) => {
   errorActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   errorActionPrimary: {
     minHeight: 36,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1349,7 +1354,7 @@ const makeStyles = (t: Theme) => {
   errorActionPrimaryText: { color: ARBOR_UI.onAccent, fontSize: 12, fontWeight: '900' },
   errorActionSecondary: {
     minHeight: 36,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1364,35 +1369,39 @@ const makeStyles = (t: Theme) => {
   opsHero: {
     marginHorizontal: 16,
     marginTop: 12,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: ARBOR_UI.paper,
+    padding: 14,
+    borderRadius: 7,
+    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.94)' : ARBOR_UI.paper,
     borderWidth: 1,
-    borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { opacity: 0.035, radius: 8, offsetY: 1, elevation: 1 }),
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : ARBOR_UI.line,
+    ...shadowStyle(t, { opacity: t.name === 'dark' ? t.shadowOpacity * 0.85 : 0.035, radius: t.name === 'dark' ? t.shadowRadius : 8, offsetY: 3, elevation: 3 }),
     gap: 10,
   },
   opsHeroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   opsLeafBadge: {
     width: 42,
     height: 42,
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: ARBOR_UI.leafSoft,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: ARBOR_UI.line,
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.22)' : ARBOR_UI.line,
   },
   opsHeroText: { flex: 1 },
   opsEyebrow: { color: ARBOR_UI.muted, fontSize: 10, fontWeight: '900', letterSpacing: 0 },
   opsTitle: { color: ARBOR_UI.text, fontSize: 18, fontWeight: '900', letterSpacing: 0, marginTop: 2 },
   opsSubtitle: { color: ARBOR_UI.muted, fontSize: 12, lineHeight: 16, fontWeight: '700', marginTop: 3 },
+  opsCockpit: {
+    marginTop: -2,
+    marginBottom: -1,
+  },
   opsHeroMetrics: {
     flexDirection: 'row',
-    borderRadius: 8,
-    backgroundColor: ARBOR_UI.bgSoft,
+    borderRadius: 7,
+    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.82)' : ARBOR_UI.bgSoft,
     borderWidth: 1,
-    borderColor: ARBOR_UI.line,
+    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.08)' : ARBOR_UI.line,
     paddingVertical: 10,
   },
   opsMetric: { flex: 1, alignItems: 'center', gap: 2 },
@@ -1496,7 +1505,7 @@ const makeStyles = (t: Theme) => {
   signalIcon: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1521,7 +1530,7 @@ const makeStyles = (t: Theme) => {
   signalPill: {
     minHeight: 26,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 4,
     flexDirection: 'row',
@@ -1551,7 +1560,7 @@ const makeStyles = (t: Theme) => {
   workflowIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: ARBOR_UI.leafSoft,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
@@ -1562,7 +1571,7 @@ const makeStyles = (t: Theme) => {
   workflowSub: { color: ARBOR_UI.muted, fontSize: 11, lineHeight: 15, marginTop: 2 },
   workflowNowBtn: {
     minHeight: 34,
-    borderRadius: 999,
+    borderRadius: 5,
     backgroundColor: ARBOR_UI.bgSoft,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
@@ -1590,7 +1599,7 @@ const makeStyles = (t: Theme) => {
   workflowStepIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1606,7 +1615,7 @@ const makeStyles = (t: Theme) => {
   workflowStepSub: { color: ARBOR_UI.muted, fontSize: 10, fontWeight: '800' },
   roleBrief: {
     display: 'none',
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: ARBOR_UI.leafBorder,
     backgroundColor: ARBOR_UI.leafSoft,
@@ -1617,7 +1626,7 @@ const makeStyles = (t: Theme) => {
   roleBriefIcon: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: ARBOR_UI.paper,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
@@ -1629,7 +1638,7 @@ const makeStyles = (t: Theme) => {
   roleBriefBtn: {
     alignSelf: 'flex-start',
     minHeight: 34,
-    borderRadius: 999,
+    borderRadius: 5,
     backgroundColor: ARBOR_UI.forest,
     paddingHorizontal: 12,
     alignItems: 'center',
@@ -1638,7 +1647,7 @@ const makeStyles = (t: Theme) => {
   roleBriefBtnText: { color: ARBOR_UI.onAccent, fontSize: 12, fontWeight: '900' },
   workflowFooter: {
     minHeight: 34,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: ARBOR_UI.bgSoft,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
@@ -1659,7 +1668,7 @@ const makeStyles = (t: Theme) => {
     marginHorizontal: 16,
     marginTop: 12,
     padding: 14,
-    borderRadius: 20,
+    borderRadius: 7,
     backgroundColor: ARBOR_UI.paper,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
@@ -1676,7 +1685,7 @@ const makeStyles = (t: Theme) => {
   focusDeckIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: ARBOR_UI.leafSoft,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
@@ -1692,7 +1701,7 @@ const makeStyles = (t: Theme) => {
     backgroundColor: ARBOR_UI.bgSoft,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 5,
     fontSize: 12,
@@ -1706,7 +1715,7 @@ const makeStyles = (t: Theme) => {
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
     backgroundColor: ARBOR_UI.paperSoft,
-    borderRadius: 15,
+    borderRadius: 7,
     paddingHorizontal: 11,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -1720,7 +1729,7 @@ const makeStyles = (t: Theme) => {
   focusActionIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1740,7 +1749,7 @@ const makeStyles = (t: Theme) => {
   statWrap: { width: '48%' },
   statCard: {
     backgroundColor: ARBOR_UI.paper,
-    borderRadius: 16, padding: 12,
+    borderRadius: 7, padding: 12,
     alignItems: 'center', gap: 4,
     borderTopWidth: 3,
     borderWidth: 1,
@@ -1754,7 +1763,7 @@ const makeStyles = (t: Theme) => {
   section: {
     backgroundColor: ARBOR_UI.paper,
     marginHorizontal: 16, marginTop: 16,
-    borderRadius: 18, padding: 14,
+    borderRadius: 7, padding: 14,
     borderWidth: 1, borderColor: ARBOR_UI.line,
     ...shadowStyle(t, { opacity: 0.08, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
   },
@@ -1770,14 +1779,14 @@ const makeStyles = (t: Theme) => {
   oddzialFocus: { fontSize: 12, color: ARBOR_UI.muted },
   seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAll: { fontSize: 13, color: ARBOR_UI.forest, fontWeight: '800' },
-  seeAllIcon: { width: 36, height: 36, borderRadius: 10 },
+  seeAllIcon: { width: 36, height: 36, borderRadius: 6 },
   recentEmpty: { fontSize: 12, color: ARBOR_UI.muted },
   recentList: { gap: 8 },
   recentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
     backgroundColor: ARBOR_UI.paperSoft,
@@ -1806,7 +1815,7 @@ const makeStyles = (t: Theme) => {
     minHeight: 34,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: ARBOR_UI.bgSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1829,7 +1838,7 @@ const makeStyles = (t: Theme) => {
     maxWidth: 150,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    borderRadius: 999,
+    borderRadius: 5,
     backgroundColor: ARBOR_UI.paperSoft,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -1861,7 +1870,7 @@ const makeStyles = (t: Theme) => {
     marginLeft: 2,
   },
   quickListGroup: {
-    borderRadius: 12,
+    borderRadius: 7,
     overflow: 'hidden',
     backgroundColor: ARBOR_UI.paperSoft,
     borderWidth: StyleSheet.hairlineWidth,
@@ -1906,7 +1915,7 @@ const makeStyles = (t: Theme) => {
 
   // Puste
   empty: { alignItems: 'center', paddingVertical: 28, gap: 8 },
-  emptyIconBadge: { width: 52, height: 52, borderRadius: 16 },
+  emptyIconBadge: { width: 52, height: 52, borderRadius: 7 },
   emptyTitle: { fontSize: 15, fontWeight: '800', color: ARBOR_UI.text },
   emptySub: { fontSize: 13, color: ARBOR_UI.muted, textAlign: 'center' },
 
@@ -1914,7 +1923,7 @@ const makeStyles = (t: Theme) => {
   card: {
     flexDirection: 'row',
     backgroundColor: ARBOR_UI.paper,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1, borderColor: ARBOR_UI.line,
     marginBottom: 10, overflow: 'hidden',
     ...elevationCard(t),
@@ -1936,8 +1945,8 @@ const makeStyles = (t: Theme) => {
     flexDirection: 'row', alignItems: 'center',
     marginBottom: 4,
   },
-  metaIconBadge: { width: 36, height: 36, borderRadius: 10 },
-  metaMapBadge: { width: 40, height: 40, borderRadius: 12 },
+  metaIconBadge: { width: 36, height: 36, borderRadius: 6 },
+  metaMapBadge: { width: 40, height: 40, borderRadius: 7 },
   cardAddr: { fontSize: 12, color: ARBOR_UI.muted, flex: 1 },
   cardBottom: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   typChip: {
@@ -1947,7 +1956,7 @@ const makeStyles = (t: Theme) => {
   typChipText: { fontSize: 11, color: ARBOR_UI.forest, fontWeight: '800' },
   cardWartosc: { fontSize: 12, color: ARBOR_UI.forest, fontWeight: '900' },
   cardEkipa: { fontSize: 11, color: ARBOR_UI.muted },
-  chevronBadge: { width: 40, height: 40, borderRadius: 12, alignSelf: 'center', marginRight: 4 },
+  chevronBadge: { width: 40, height: 40, borderRadius: 7, alignSelf: 'center', marginRight: 4 },
 
   // Dolna nawigacja
   nav: {
@@ -1969,7 +1978,7 @@ const makeStyles = (t: Theme) => {
     justifyContent: 'center',
     gap: 3,
     minHeight: 54,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingVertical: 5,
     marginHorizontal: 2,
   },

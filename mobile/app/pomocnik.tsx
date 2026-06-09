@@ -112,11 +112,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
   card: {
-    backgroundColor: t.cardBg, padding: 16, borderRadius: 14, marginBottom: 10,
+    backgroundColor: t.cardBg, padding: 16, borderRadius: 6, marginBottom: 10,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderWidth: 1, borderColor: t.cardBorder, elevation: 1,
   },
-  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 16, fontWeight: 'bold' },
   name: { fontSize: 16, fontWeight: 'bold', color: t.text },
   rate: { fontSize: 14, color: t.accent, fontWeight: '600' },

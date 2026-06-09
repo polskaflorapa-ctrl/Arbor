@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import CityInput from '../components/CityInput';
@@ -204,7 +204,7 @@ export default function NoweZlecenie() {
 
   return (
     <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
-      <Sidebar />
+      <CommandSidebar active="orders" user={user} />
       <main className="app-main" style={{ flex: 1, padding: '28px', maxWidth: 1220, margin: '0 auto', width: '100%' }}>
 
         {/* ── Nagłówek ─────────────────────────────────────────── */}

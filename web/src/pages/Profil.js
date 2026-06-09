@@ -556,6 +556,7 @@ export default function Profil() {
   });
   const [taskBusyId, setTaskBusyId] = useState(null);
   const [taskFormMessage, setTaskFormMessage] = useState('');
+  const [quickTaskFilter, setQuickTaskFilter] = useState('active');
   const [selectedCardUserId, setSelectedCardUserId] = useState('');
   const selectedCardUserIdRef = useRef('');
   const [positionCardDraft, setPositionCardDraft] = useState(EMPTY_POSITION_CARD_DRAFT);
@@ -565,6 +566,7 @@ export default function Profil() {
   const [positionAckMessage, setPositionAckMessage] = useState('');
   const employeeDocFileRef = useRef(null);
   const profilePhotoFileRef = useRef(null);
+  const quickTaskInputRef = useRef(null);
   const [employeeDocDraft, setEmployeeDocDraft] = useState(EMPTY_EMPLOYEE_DOCUMENT_DRAFT);
   const [employeeDocBusy, setEmployeeDocBusy] = useState(false);
   const [employeeDocMessage, setEmployeeDocMessage] = useState('');
@@ -778,6 +780,16 @@ export default function Profil() {
   }, [ops.contacts, ops.closureEvents, ops.employeeDocuments, ops.operatorTasks, ops.positionCards, ops.tasks, operatorName, user]);
 
   const permissions = useMemo(() => buildRolePermissions(user), [user]);
+  const quickOperatorTasks = useMemo(() => {
+    return dashboard.operatorTaskQueue
+      .filter((task) => {
+        const due = getOperatorTaskDueMeta(task);
+        if (quickTaskFilter === 'today') return due.today;
+        if (quickTaskFilter === 'overdue') return due.overdue;
+        return true;
+      })
+      .slice(0, 3);
+  }, [dashboard.operatorTaskQueue, quickTaskFilter]);
   const canAssignTasks = MANAGEMENT_ROLES.has(actorUser?.rola);
   const canConfirmDocument = Number(actorUser?.id) === Number(user?.id);
   const canEditProfilePhoto =
@@ -817,9 +829,10 @@ export default function Profil() {
     const ownUserId = String(user.id);
     selectedCardUserIdRef.current = ownUserId;
     setSelectedCardUserId(ownUserId);
-    setAssignmentDraft((prev) => (
-      canAssignTasks ? { ...prev, assigned_to: ownUserId } : prev
-    ));
+    setAssignmentDraft((prev) => ({
+      ...prev,
+      assigned_to: canAssignTasks ? (prev.assigned_to || ownUserId) : ownUserId,
+    }));
   }, [canAssignTasks, user?.id]);
 
   useEffect(() => {
@@ -894,6 +907,26 @@ export default function Profil() {
     navigate('/zlecenia');
   };
 
+  const focusQuickTask = () => {
+    const input = quickTaskInputRef.current;
+    if (!input) return;
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window.setTimeout(() => input.focus(), 220);
+  };
+
+  const setQuickTaskDue = (dayOffset) => {
+    if (dayOffset === null) {
+      setAssignmentDraft((prev) => ({ ...prev, due_at: '' }));
+      return;
+    }
+    const due = new Date();
+    due.setDate(due.getDate() + dayOffset);
+    due.setHours(dayOffset === 0 ? 17 : 9, 0, 0, 0);
+    const pad = (value) => String(value).padStart(2, '0');
+    const value = `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T${pad(due.getHours())}:${pad(due.getMinutes())}`;
+    setAssignmentDraft((prev) => ({ ...prev, due_at: value }));
+  };
+
   const updateOperatorTaskInState = (updated) => {
     setOps((prev) => ({
       ...prev,
@@ -905,8 +938,9 @@ export default function Profil() {
 
   const createOperatorTask = async (event) => {
     event.preventDefault();
-    if (!assignmentDraft.title.trim() || !assignmentDraft.assigned_to) {
-      setTaskFormMessage('Wpisz zadanie i wybierz pracownika.');
+    const assignedTo = canAssignTasks ? assignmentDraft.assigned_to : String(user?.id || '');
+    if (!assignmentDraft.title.trim() || !assignedTo) {
+      setTaskFormMessage('Wpisz tresc zadania.');
       return;
     }
     setTaskBusyId('create');
@@ -914,12 +948,12 @@ export default function Profil() {
     try {
       const response = await api.post('/operator-tasks', {
         ...assignmentDraft,
-        assigned_to: Number(assignmentDraft.assigned_to),
+        assigned_to: Number(assignedTo),
         due_at: assignmentDraft.due_at ? new Date(assignmentDraft.due_at).toISOString() : null,
       });
       updateOperatorTaskInState(response.data);
-      setAssignmentDraft({ assigned_to: '', title: '', opis: '', priority: 'normal', due_at: '' });
-      setTaskFormMessage('Zadanie wysłane do profilu pracownika.');
+      setAssignmentDraft({ assigned_to: assignedTo, title: '', opis: '', priority: 'normal', due_at: '' });
+      setTaskFormMessage(canAssignTasks ? 'Zadanie zapisane.' : 'Twoje zadanie zapisane.');
     } catch (err) {
       setTaskFormMessage(err?.response?.data?.error || 'Nie udało się wysłać zadania.');
     } finally {
@@ -1149,6 +1183,19 @@ export default function Profil() {
       fontFamily: 'inherit',
       cursor: 'pointer',
     },
+    photoPrimaryBtn: {
+      minHeight: 34,
+      padding: '7px 12px',
+      borderRadius: 8,
+      border: '1px solid rgba(20,131,79,0.24)',
+      background: 'var(--accent-gradient)',
+      color: 'var(--on-accent)',
+      fontSize: 12,
+      fontWeight: 900,
+      fontFamily: 'inherit',
+      cursor: 'pointer',
+      boxShadow: 'var(--shadow-sm)',
+    },
     photoMessage: { color: 'var(--text-muted)', fontSize: 12, fontWeight: 750 },
     badgeRow: { gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-start' },
     profileSwitch: { display: 'grid', gap: 5, maxWidth: 360, marginTop: 10 },
@@ -1201,6 +1248,69 @@ export default function Profil() {
       boxShadow: 'var(--shadow-sm)',
       padding: 14,
       minWidth: 0,
+    },
+    quickTaskPanel: { marginBottom: 14 },
+    quickTaskForm: {
+      display: 'grid',
+      gridTemplateColumns: 'minmax(210px, 0.9fr) minmax(280px, 1.45fr) minmax(210px, 0.9fr) minmax(170px, 0.7fr)',
+      gap: 10,
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      background: 'var(--surface-field)',
+      padding: 10,
+      marginBottom: 10,
+      alignItems: 'end',
+    },
+    quickTaskField: {
+      display: 'grid',
+      gap: 6,
+      minWidth: 0,
+    },
+    quickTaskTitleField: {
+      minWidth: 260,
+    },
+    quickDueField: {
+      gridColumn: '1 / -1',
+    },
+    quickTaskList: { display: 'grid', gap: 8, marginTop: 10 },
+    quickTaskFilters: { display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 10 },
+    quickTaskFilterBtn: {
+      minHeight: 32,
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      background: 'var(--surface-field)',
+      color: 'var(--text-sub)',
+      padding: '6px 10px',
+      cursor: 'pointer',
+      fontSize: 12,
+      fontWeight: 850,
+      fontFamily: 'inherit',
+    },
+    quickTaskFilterBtnActive: {
+      border: '1px solid rgba(20,131,79,0.28)',
+      background: 'var(--accent-surface)',
+      color: 'var(--accent)',
+    },
+    quickDueRow: {
+      display: 'flex',
+      gap: 7,
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      minWidth: 0,
+    },
+    quickDueBtn: {
+      minHeight: 38,
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      background: '#ffffff',
+      color: 'var(--accent)',
+      padding: '7px 11px',
+      cursor: 'pointer',
+      fontSize: 12,
+      fontWeight: 850,
+      fontFamily: 'inherit',
+      whiteSpace: 'nowrap',
+      boxShadow: 'inset 0 0 0 1px rgba(20,131,79,0.06)',
     },
     panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', marginBottom: 10 },
     panelTitle: { color: 'var(--text)', fontSize: 16, fontWeight: 900, marginTop: 2 },
@@ -1595,6 +1705,20 @@ export default function Profil() {
                   {profilePhotoBusy ? 'Wgrywam...' : profilePhotoUrl ? 'Zmien zdjecie' : 'Dodaj zdjecie'}
                 </button>
               ) : null}
+              <button
+                type="button"
+                style={S.photoPrimaryBtn}
+                onClick={focusQuickTask}
+              >
+                Wpisz zadanie
+              </button>
+              <button
+                type="button"
+                style={S.photoBtn}
+                onClick={() => navigate('/zadania')}
+              >
+                Moje zadania
+              </button>
               {profilePhotoMessage ? <span style={S.photoMessage}>{profilePhotoMessage}</span> : null}
             </div>
             {canAssignTasks ? (
@@ -1662,6 +1786,133 @@ export default function Profil() {
             <span style={S.statLabel}>Sesja</span>
             <strong style={S.statValue}>{getStoredToken() ? 'OK' : 'Brak'}</strong>
             <span style={S.statHint}>{ops.loading ? 'synchronizacja danych' : `stan na ${formatDateTime(new Date())}`}</span>
+          </div>
+        </section>
+
+        <section className="profile-panel profile-quick-task" style={{ ...S.panel, ...S.quickTaskPanel }}>
+          <div style={S.panelHeader}>
+            <div>
+              <div style={S.eyebrow}>Moje zadania</div>
+              <div style={S.panelTitle}>Szybkie zadanie dla mnie</div>
+            </div>
+            <button type="button" style={S.shortcutBtn} onClick={() => navigate('/zadania')}>
+              Otworz pelna liste
+            </button>
+          </div>
+          <form className="profile-task-form" style={S.quickTaskForm} onSubmit={createOperatorTask}>
+            {canAssignTasks ? (
+              <label style={S.quickTaskField}>
+                <span style={S.identityLabel}>Pracownik</span>
+                <select
+                  style={S.input}
+                  value={assignmentDraft.assigned_to}
+                  onChange={(event) => setAssignmentDraft((prev) => ({ ...prev, assigned_to: event.target.value }))}
+                  aria-label="Pracownik"
+                >
+                  <option value="">Wybierz pracownika</option>
+                  {assignableUsers.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {[row.imie, row.nazwisko].filter(Boolean).join(' ') || row.login} ({getRoleDisplayName(row.rola)})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <label style={{ ...S.quickTaskField, ...S.quickTaskTitleField }}>
+              <span style={S.identityLabel}>Zadanie</span>
+              <input
+                ref={quickTaskInputRef}
+                style={S.input}
+                value={assignmentDraft.title}
+                onChange={(event) => setAssignmentDraft((prev) => ({ ...prev, title: event.target.value }))}
+                placeholder="Wpisz zadanie dla siebie..."
+              />
+            </label>
+            <label style={S.quickTaskField}>
+              <span style={S.identityLabel}>Termin</span>
+              <input
+                style={S.input}
+                type="datetime-local"
+                value={assignmentDraft.due_at}
+                onChange={(event) => setAssignmentDraft((prev) => ({ ...prev, due_at: event.target.value }))}
+              />
+            </label>
+            <div style={{ ...S.quickTaskField, ...S.quickDueField }}>
+              <span style={S.identityLabel}>Szybki termin</span>
+              <div style={S.quickDueRow}>
+                <button type="button" style={S.quickDueBtn} onClick={() => setQuickTaskDue(0)}>Dzisiaj</button>
+                <button type="button" style={S.quickDueBtn} onClick={() => setQuickTaskDue(1)}>Jutro</button>
+                <button type="button" style={S.quickDueBtn} onClick={() => setQuickTaskDue(null)}>Bez terminu</button>
+              </div>
+            </div>
+            <label style={S.quickTaskField}>
+              <span style={S.identityLabel}>Priorytet</span>
+              <select
+                style={S.input}
+                value={assignmentDraft.priority}
+                onChange={(event) => setAssignmentDraft((prev) => ({ ...prev, priority: event.target.value }))}
+                aria-label="Priorytet"
+              >
+                {Object.entries(OPERATOR_TASK_PRIORITY_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <textarea
+              style={S.textarea}
+              value={assignmentDraft.opis}
+              onChange={(event) => setAssignmentDraft((prev) => ({ ...prev, opis: event.target.value }))}
+              placeholder="Notatka, link, kontekst..."
+            />
+            <button type="submit" style={S.assignBtn} disabled={taskBusyId === 'create'}>
+              {taskBusyId === 'create' ? 'Zapisuje...' : 'Dodaj moje zadanie'}
+            </button>
+            {taskFormMessage ? <div style={S.formHint}>{taskFormMessage}</div> : null}
+          </form>
+          <div style={S.quickTaskFilters} aria-label="Filtr szybkich zadan">
+            {[
+              ['active', `Aktywne ${dashboard.operatorTaskQueue.length}`],
+              ['today', `Dzisiaj ${dashboard.operatorTaskQueue.filter((task) => getOperatorTaskDueMeta(task).today).length}`],
+              ['overdue', `Po terminie ${dashboard.operatorTaskQueue.filter((task) => getOperatorTaskDueMeta(task).overdue).length}`],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                style={{ ...S.quickTaskFilterBtn, ...(quickTaskFilter === key ? S.quickTaskFilterBtnActive : null) }}
+                onClick={() => setQuickTaskFilter(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="profile-quick-task-list" style={S.quickTaskList}>
+            {quickOperatorTasks.length === 0 ? (
+              <div style={S.empty}>Nie masz aktywnych zadan osobistych.</div>
+            ) : quickOperatorTasks.map((task) => {
+              const due = getOperatorTaskDueMeta(task);
+              return (
+                <div key={`quick-${task.id}`} style={{ ...S.row, ...(due.overdue ? S.todoOverdue : {}) }}>
+                  <div style={S.rowTop}>
+                    <strong>{task.title}</strong>
+                    <span>{OPERATOR_TASK_PRIORITY_LABELS[task.priority] || 'Normalny'}</span>
+                  </div>
+                  <div style={S.rowMeta}>
+                    {OPERATOR_TASK_STATUS_LABELS[task.status] || task.status} - {due.label}
+                  </div>
+                  {task.opis ? <div style={S.rowMeta}>{task.opis}</div> : null}
+                  <div style={S.todoActions}>
+                    {task.status !== 'in_progress' ? (
+                      <button type="button" style={S.smallBtn} disabled={taskBusyId === task.id} onClick={() => changeOperatorTaskStatus(task, 'in_progress')}>
+                        W toku
+                      </button>
+                    ) : null}
+                    <button type="button" style={S.smallBtnPrimary} disabled={taskBusyId === task.id} onClick={() => changeOperatorTaskStatus(task, 'done')}>
+                      Gotowe
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 

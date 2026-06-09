@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, ExternalLink, RefreshCw, Search, X } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import ModernDataRow from '../components/ModernDataRow';
 import { Button } from '../components/ui/Button';
 import api from '../api';
@@ -494,11 +494,15 @@ export default function BiDashboard() {
   };
 
   const ov = overview;
+  const planRevenue = Number(ov?.revenue_planned || 0);
+  const actualRevenue = Number(ov?.revenue_actual || 0);
+  const revenueExecution = planRevenue > 0 ? Math.round((actualRevenue / planRevenue) * 100) : 0;
+  const riskTasks = Number(ov?.tasks_overdue || 0) + Number(ov?.tasks_unassigned || 0) + Number(ov?.incomplete_margin_tasks || 0);
 
   return (
     <div className="bi-dashboard-shell" style={s.shell}>
-      <Sidebar />
-      <main className="bi-dashboard-main" style={s.main}>
+      <CommandSidebar active="reports" />
+      <main className="app-main command-content-main bi-dashboard-main" style={s.main}>
         {/* Header */}
         <div className="bi-dashboard-topbar" style={s.topbar}>
           <div>
@@ -531,6 +535,34 @@ export default function BiDashboard() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/kierownik')} style={s.backBtn} leftIcon={ArrowLeft}>Powrot</Button>
           </div>
         </div>
+
+        <section className="bi-command-strip">
+          <div className="bi-command-lead">
+            <span>Executive cockpit</span>
+            <strong>{pln(actualRevenue)}</strong>
+            <small>realizacja przychodu / ostatnie {days} dni</small>
+          </div>
+          <div className={`bi-command-card ${revenueExecution >= 90 ? 'is-good' : revenueExecution >= 65 ? 'is-warning' : 'is-danger'}`}>
+            <span>Wykonanie planu</span>
+            <strong>{pct(revenueExecution)}</strong>
+            <small>plan: {pln(planRevenue)}</small>
+          </div>
+          <div className={`bi-command-card ${(ov?.completion_pct || 0) >= 80 ? 'is-good' : (ov?.completion_pct || 0) >= 50 ? 'is-warning' : 'is-danger'}`}>
+            <span>Skutecznosc</span>
+            <strong>{pct(ov?.completion_pct)}</strong>
+            <small>{num(ov?.tasks_total)} zlecen w zakresie</small>
+          </div>
+          <div className={`bi-command-card ${riskTasks > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>Ryzyka operacyjne</span>
+            <strong>{num(riskTasks)}</strong>
+            <small>zalegle, bez ekipy, marza</small>
+          </div>
+          <div className={`bi-command-card ${(ov?.margin_completeness_pct || 0) >= 80 ? 'is-good' : (ov?.margin_completeness_pct || 0) >= 50 ? 'is-warning' : 'is-danger'}`}>
+            <span>Kompletnosc marzy</span>
+            <strong>{pct(ov?.margin_completeness_pct)}</strong>
+            <small>{num(ov?.high_risk_margin_tasks)} wysokie ryzyko</small>
+          </div>
+        </section>
 
         {error && <div style={s.errorBox}>{error}</div>}
 

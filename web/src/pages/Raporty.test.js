@@ -20,6 +20,11 @@ vi.mock('../components/Sidebar', () => ({
   default: () => <aside data-testid="sidebar" />,
 }));
 
+vi.mock('../components/CommandSidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 vi.mock('../components/PageHeader', () => ({
   __esModule: true,
   default: ({ title, subtitle }) => (

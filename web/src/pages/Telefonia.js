@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
@@ -2508,11 +2508,16 @@ export default function Telefonia() {
     : tab === 'agent'
       ? `Agent Ania: ${agentIntegration?.status === 'active' ? 'aktywny' : 'do podpiecia'}`
       : `Log polaczen: ${callRows.length} | kolejka oddzwonien: ${callbacks.filter((x) => x.status === 'open').length}`;
+  const branchTodoCount = branchIntegrationStatuses.filter((row) => {
+    const stage = String(row.stage || row.setup_stage || row.status || '').toLowerCase();
+    return !['gotowy', 'ready', 'ok', 'active', 'connected'].includes(stage);
+  }).length;
+  const activeCalls = callRows.filter((row) => ['incoming', 'outbound', 'answered'].includes(String(row.status || row.call_type || '').toLowerCase())).length;
 
   return (
     <div className="app-shell telefonia-shell" style={s.root}>
-      <Sidebar />
-      <div className="app-main telefonia-main" style={{ ...s.content, ...(isNarrow ? s.contentNarrow : null) }}>
+      <CommandSidebar active="dashboard" />
+      <div className="app-main command-content-main telefonia-main" style={{ ...s.content, ...(isNarrow ? s.contentNarrow : null) }}>
         <PageHeader
           icon={
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -2563,6 +2568,34 @@ export default function Telefonia() {
             </>
           }
         />
+
+        <section className="telefonia-command-strip">
+          <div className="telefonia-command-lead">
+            <span>Centrum kontaktu</span>
+            <strong>{stats.total}</strong>
+            <small>SMS w aktualnym widoku</small>
+          </div>
+          <div className={`telefonia-command-card ${stats.failed + stats.missing > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>SMS ryzyka</span>
+            <strong>{stats.failed + stats.missing}</strong>
+            <small>{stats.failed} bledy / {stats.missing} brak numeru</small>
+          </div>
+          <div className="telefonia-command-card is-blue">
+            <span>Polaczenia</span>
+            <strong>{callRows.length}</strong>
+            <small>{activeCalls} aktywne lub odebrane</small>
+          </div>
+          <div className={`telefonia-command-card ${openCallbacks.length > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>Oddzwonienia</span>
+            <strong>{openCallbacks.length}</strong>
+            <small>otwarte w kolejce</small>
+          </div>
+          <div className={`telefonia-command-card ${agentIntegration?.status === 'active' ? 'is-good' : 'is-danger'}`}>
+            <span>Agent AI</span>
+            <strong>{agentIntegration?.status === 'active' ? 'ON' : 'OFF'}</strong>
+            <small>{agentNeedsReviewCount} do sprawdzenia / {branchTodoCount} oddzialy</small>
+          </div>
+        </section>
 
         <div className="telefonia-tabs" style={{ ...s.tabRow, ...(isNarrow ? s.tabRowNarrow : null) }}>
           <button type="button" style={tab === 'sms' ? s.tabActive : s.tab} onClick={() => setTab('sms')}>

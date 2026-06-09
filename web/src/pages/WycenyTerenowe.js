@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
@@ -58,6 +58,9 @@ export default function WycenyTerenowe() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const user = useMemo(() => readStoredUser(), []);
+  const unassignedWithNoGeo = rows.filter((q) => !q.lat).length;
+  const highlightedLead = preId ? rows.find((q) => String(q.id) === String(preId)) : null;
+  const branchCount = new Set(rows.map((q) => q.oddzial_id).filter(Boolean)).size;
 
   const load = useCallback(async () => {
     const token = getStoredToken();
@@ -137,11 +140,11 @@ export default function WycenyTerenowe() {
     }
   };
 
-  if (!user || !['Kierownik', 'Prezes', 'Dyrektor', 'Specjalista', 'Wyceniający', 'Wyceniajacy'].includes(user.rola)) {
+  if (!user || !['Kierownik', 'Prezes', 'Dyrektor', 'Administrator', 'Specjalista', 'Wyceniający', 'Wyceniajacy'].includes(user.rola)) {
     return (
       <div className="field-quotes-shell" style={S.wrap}>
-        <Sidebar />
-        <main className="field-quotes-main" style={S.main}>
+        <CommandSidebar active="orders" />
+        <main className="app-main command-content-main field-quotes-main" style={S.main}>
           <PageHeader variant="hero" title={t('nav.fieldQuotes')} subtitle="" />
           <p style={{ color: 'var(--text-muted)' }}>Brak uprawnień do tego modułu.</p>
         </main>
@@ -151,9 +154,36 @@ export default function WycenyTerenowe() {
 
   return (
     <div className="field-quotes-shell" style={S.wrap}>
-      <Sidebar />
-      <main className="field-quotes-main" style={S.main}>
+      <CommandSidebar active="orders" />
+      <main className="app-main command-content-main field-quotes-main" style={S.main}>
         <PageHeader variant="hero" title={t('nav.fieldQuotes')} subtitle="Lead z Kommo -> przypisanie -> zatwierdzenia (M1)" />
+        <section className="field-quotes-command-strip" aria-label="Centrum decyzji wycen terenowych">
+          <div className="field-quotes-command-lead">
+            <span>Praca terenowa</span>
+            <strong>{rows.length + queue.length}</strong>
+            <small>leadów, przypisań i zatwierdzeń</small>
+          </div>
+          <div className={`field-quotes-command-card ${rows.length ? 'is-warning' : 'is-good'}`}>
+            <span>Do umówienia</span>
+            <strong>{rows.length}</strong>
+            <small>{branchCount || 0} oddziałów w kolejce</small>
+          </div>
+          <div className={`field-quotes-command-card ${queue.length ? 'is-blue' : 'is-good'}`}>
+            <span>Kolejka decyzji</span>
+            <strong>{queue.length}</strong>
+            <small>zatwierdzenia i zwroty</small>
+          </div>
+          <div className={`field-quotes-command-card ${unassignedWithNoGeo ? 'is-danger' : 'is-good'}`}>
+            <span>Braki danych</span>
+            <strong>{unassignedWithNoGeo}</strong>
+            <small>leadów bez geokodowania</small>
+          </div>
+          <div className="field-quotes-command-card">
+            <span>Podświetlony lead</span>
+            <strong>{highlightedLead ? `#${highlightedLead.id}` : '-'}</strong>
+            <small>{highlightedLead?.klient_nazwa || 'brak aktywnego ID'}</small>
+          </div>
+        </section>
         <div className="field-quotes-tabs" style={S.tabs}>
           <button type="button" style={S.tab(tab === 'assign')} onClick={() => setTab('assign')}>
             Wyceny do umówienia

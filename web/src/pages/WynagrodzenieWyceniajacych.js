@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
@@ -214,7 +214,7 @@ export default function WynagrodzenieWyceniajacych() {
   if (!canSee) {
     return (
       <div className="estimator-pay-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-        <Sidebar />
+        <CommandSidebar active="reports" />
         <div className="estimator-pay-main" style={{ padding: 32 }}>
           <PageHeader title="Rozliczenie specjalistów ds. wyceny" subtitle="Brak uprawnień" />
         </div>
@@ -224,7 +224,7 @@ export default function WynagrodzenieWyceniajacych() {
 
   return (
     <div className="estimator-pay-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="reports" />
       <div className="estimator-pay-main" style={{ flex: 1, padding: '20px 24px 40px', overflow: 'auto' }}>
         <PageHeader
           title="Rozliczenie specjalistów ds. wyceny"

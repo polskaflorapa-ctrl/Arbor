@@ -26,7 +26,7 @@ import {
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import Add from '@mui/icons-material/Add';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
@@ -287,15 +287,17 @@ export default function RezerwacjeSprzetu() {
     const active = rows.filter(isActiveReservation);
     const issued = rows.filter((row) => row.status === 'Wydane');
     const linkedTasks = new Set(rows.map((row) => row.task_id).filter(Boolean));
+    const blockedEquipment = sprzet.filter((item) => equipmentUsageBlocked(item, to)).length;
     return {
       total: rows.length,
       active: active.length,
       issued: issued.length,
       linkedTasks: linkedTasks.size,
       conflicts: conflictIds.size,
+      blockedEquipment,
       visible: filteredRows.length,
     };
-  }, [conflictIds.size, filteredRows.length, rows]);
+  }, [conflictIds.size, filteredRows.length, rows, sprzet, to]);
 
   const openNewReservation = (patch = {}) => {
     setForm((prev) => ({
@@ -404,8 +406,8 @@ export default function RezerwacjeSprzetu() {
 
   return (
     <Box className="equipment-res-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
-      <Sidebar />
-      <Box component="main" className="equipment-res-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
+      <CommandSidebar active="fleet" />
+      <Box component="main" className="app-main command-content-main equipment-res-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <PageHeader
           title={t('pages.equipmentReservations.title')}
           subtitle={t('pages.equipmentReservations.subtitle')}
@@ -424,6 +426,35 @@ export default function RezerwacjeSprzetu() {
           )}
         />
         <StatusMessage message={msg} />
+
+        <section className="equipment-res-command-strip">
+          <div className="equipment-res-command-lead">
+            <span>Kontrola rezerwacji</span>
+            <strong>{summary.active}</strong>
+            <small>aktywne rezerwacje w miesiacu</small>
+          </div>
+          <div className={`equipment-res-command-card ${summary.conflicts > 0 ? 'is-danger' : 'is-good'}`}>
+            <span>Kolizje</span>
+            <strong>{summary.conflicts}</strong>
+            <small>aktywny sprzet w tym samym terminie</small>
+          </div>
+          <div className={`equipment-res-command-card ${summary.issued > 0 ? 'is-blue' : 'is-good'}`}>
+            <span>Wydane</span>
+            <strong>{summary.issued}</strong>
+            <small>sprzet poza magazynem</small>
+          </div>
+          <div className={`equipment-res-command-card ${summary.blockedEquipment > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>Blokady sprzetu</span>
+            <strong>{summary.blockedEquipment}</strong>
+            <small>naprawa, serwis lub przeglad</small>
+          </div>
+          <div className={`equipment-res-command-card ${summary.linkedTasks < summary.active ? 'is-warning' : 'is-good'}`}>
+            <span>Powiazanie ze zleceniem</span>
+            <strong>{summary.linkedTasks}</strong>
+            <small>{summary.visible}/{summary.total} widoczne po filtrach</small>
+          </div>
+        </section>
+
         <Stack className="equipment-res-monthbar" direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
           <Button size="small" onClick={prevMonth} startIcon={<ChevronLeft />}>
             {t('pages.equipmentReservations.prevMonth')}

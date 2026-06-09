@@ -8,7 +8,7 @@ import LocalPhoneOutlined from '@mui/icons-material/LocalPhoneOutlined';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
 import SupervisorAccountOutlined from '@mui/icons-material/SupervisorAccountOutlined';
 import PageHeader from '../components/PageHeader';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import CityInput from '../components/CityInput';
 import { Button } from '../components/ui/Button';
@@ -223,7 +223,7 @@ export default function Oddzialy() {
 
   return (
     <div className="branches-shell" style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="profile" />
       <div className="branches-main" style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
 
         <PageHeader

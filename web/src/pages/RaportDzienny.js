@@ -18,7 +18,7 @@ import Add from '@mui/icons-material/Add';
 import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import Send from '@mui/icons-material/Send';
 import Save from '@mui/icons-material/Save';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
@@ -235,7 +235,7 @@ export default function RaportDzienny() {
 
   return (
     <Box className="app-shell raport-dzienny-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="reports" />
       <Box className="app-main raport-dzienny-main" sx={{ flex: 1, width: '100%', p: { xs: '14px 12px 24px', sm: '22px clamp(16px, 2.4vw, 30px) 32px' }, maxWidth: 1120, mx: 'auto', minWidth: 0 }}>
         <PageHeader variant="hero" title={t('pages.dailyReport.title')} subtitle={t('pages.dailyReport.subtitle')} />
         <StatusMessage message={msg} />

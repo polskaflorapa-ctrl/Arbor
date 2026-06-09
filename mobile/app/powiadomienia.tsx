@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { EmptyState, ErrorBanner } from '../components/ui/app-state';
+import { FieldOpsBackdrop, FieldOpsHeroImage } from '../components/ui/field-ops-art';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { ScreenHeader } from '../components/ui/screen-header';
@@ -360,7 +361,7 @@ export default function Powiadomienia() {
         if (res.ok) {
           setApprovalQueue((prev) => prev.filter((it) => Number(it.approval_id) !== approvalId));
           void triggerHaptic('success');
-          Alert.alert('', decyzja === 'Approved' ? 'Wycena zatwierdzona.' : 'Wycena została zwrócona.');
+          Alert.alert('', decyzja === 'Approved' ? 'Oględziny zatwierdzone.' : 'Oględziny zostały zwrócone.');
         } else if (res.status === 404) {
           void triggerHaptic('warning');
           Alert.alert(
@@ -469,6 +470,7 @@ export default function Powiadomienia() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
+      <FieldOpsBackdrop />
       <AppStatusBar />
 
       <ScreenHeader
@@ -504,6 +506,7 @@ export default function Powiadomienia() {
                 <Text style={S.inboxHeroTitle}>Decyzje i komunikaty</Text>
                 <Text style={S.inboxHeroCopy}>{inboxFocus}</Text>
               </View>
+              <FieldOpsHeroImage variant="dispatch" size={74} />
               <TouchableOpacity
                 style={S.inboxHeroAdd}
                 onPress={() => {
@@ -545,7 +548,7 @@ export default function Powiadomienia() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[S.toolbarBtn, unreadCount <= 0 && S.toolbarBtnDisabled]}
+              style={[S.toolbarBtn, S.toolbarBtnWide, unreadCount <= 0 && S.toolbarBtnDisabled]}
               onPress={() => { void markAllAsRead(); }}
               disabled={unreadCount <= 0}
             >
@@ -757,7 +760,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
@@ -768,7 +771,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 6,
     marginHorizontal: 12,
     marginTop: 8,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.warning + '55',
     paddingHorizontal: 11,
@@ -781,10 +784,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
     padding: 13,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
-    backgroundColor: t.cardBg,
+    backgroundColor: t.name === 'dark' ? 'rgba(9,20,16,0.94)' : 'rgba(254,255,252,0.94)',
     gap: 12,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.18,
@@ -801,14 +804,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inboxHeroIcon: {
     width: 46,
     height: 46,
-    borderRadius: 12,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.accentLight,
   },
-  inboxHeroText: { flex: 1, gap: 2 },
+  inboxHeroText: { flex: 1, minWidth: 0, gap: 2 },
   inboxHeroEyebrow: {
     color: t.accent,
     fontSize: 10,
@@ -820,7 +823,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inboxHeroAdd: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: t.accent,
@@ -834,10 +837,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '22%',
     minWidth: 76,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
-    backgroundColor: t.surface2,
+    backgroundColor: t.name === 'dark' ? 'rgba(14,28,23,0.9)' : 'rgba(234,240,231,0.88)',
     minHeight: 72,
     paddingVertical: 10,
     paddingHorizontal: 8,
@@ -847,7 +850,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inboxStatIcon: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -860,16 +863,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inboxStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800' },
   toolbarRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
     paddingBottom: 10,
   },
   unreadPill: {
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.infoBg,
@@ -879,16 +884,21 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   unreadPillText: { color: t.info, fontSize: 12, fontWeight: '700' },
   toolbarBtn: {
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
     paddingHorizontal: 10,
     paddingVertical: 7,
     minHeight: 40,
+    justifyContent: 'center',
+  },
+  toolbarBtnWide: {
+    flexBasis: '100%',
   },
   toolbarBtnActive: {
     backgroundColor: t.accentLight,
@@ -903,10 +913,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 12,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
-    backgroundColor: t.surface2 + 'EE',
+    backgroundColor: t.name === 'dark' ? 'rgba(14,28,23,0.92)' : 'rgba(234,240,231,0.9)',
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.12,
       radius: t.shadowRadius * 0.32,
@@ -925,24 +935,24 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   typCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     minHeight: 66,
-    padding: 12, borderRadius: 10, borderWidth: 1, borderColor: t.border,
+    padding: 12, borderRadius: 6, borderWidth: 1, borderColor: t.border,
     backgroundColor: t.surface, marginBottom: 8,
   },
-  typIconBg: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  typIconBg: { width: 40, height: 40, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   typLabel: { fontSize: 14, fontWeight: '900', color: t.text, marginBottom: 2 },
   typSub: { fontSize: 12, lineHeight: 16, color: t.textMuted, fontWeight: '700' },
-  selectBox: { backgroundColor: t.surface, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
+  selectBox: { backgroundColor: t.surface, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
   selectItem: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: t.border },
   selectText: { fontSize: 14, color: t.text, fontWeight: '700' },
   textArea: {
-    backgroundColor: t.inputBg, borderRadius: 10, padding: 12,
+    backgroundColor: t.inputBg, borderRadius: 6, padding: 12,
     fontSize: 14, borderWidth: 1, borderColor: t.inputBorder,
     minHeight: 90, textAlignVertical: 'top', color: t.inputText,
   },
   sendBtn: { marginTop: 16 },
   list: { flex: 1, paddingHorizontal: 12, paddingTop: 8 },
   approvalsSection: {
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2 + 'EE',
@@ -958,7 +968,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   approvalsTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
   approvalsSub: { color: t.textMuted, fontSize: 12, lineHeight: 16, fontWeight: '700', marginTop: 3, marginBottom: 8 },
   approvalCard: {
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
@@ -972,7 +982,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   approvalMeta: { color: t.textMuted, fontSize: 11, marginTop: 2 },
   approvalActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   approvalBtn: {
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -993,7 +1003,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'flex-start',
     backgroundColor: t.cardBg,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 12,
     marginBottom: 10,
     minHeight: 96,
@@ -1006,7 +1016,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
       elevation: Math.max(1, t.cardElevation),
     }),
   },
-  iconBg: { width: 42, height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  iconBg: { width: 42, height: 42, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   cardContent: { flex: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
   cardOd: { fontSize: 13.5, fontWeight: '900', color: t.text },

@@ -11,6 +11,11 @@ vi.mock('../components/Sidebar', () => ({
   default: () => null,
 }));
 
+vi.mock('../components/CommandSidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 vi.mock('../api', () => ({
   __esModule: true,
   default: {
@@ -245,7 +250,7 @@ test('shows a solver-ready next action when the advisor has no blockers', async 
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
-  expect(await screen.findByText('100%')).toBeInTheDocument();
+  expect((await screen.findAllByText('100%')).length).toBeGreaterThan(0);
   expect(screen.getByText('5 / 5 przypisane')).toBeInTheDocument();
   expect(screen.getByText('Zapisz, gdy plan pasuje')).toBeInTheDocument();
 }, 10000);
@@ -277,7 +282,7 @@ test('shows absent team availability returned by dispatch preview', async () => 
   await userEvent.click(screen.getByRole('button', { name: /Podgląd planu/i }));
 
   expect(await screen.findByText('Nieobecne ekipy: 1')).toBeInTheDocument();
-  expect(screen.getByText('2/3 dostepne')).toBeInTheDocument();
+  expect(screen.getAllByText('2/3 dostepne').length).toBeGreaterThan(0);
   expect(screen.getByText('Brygada Alfa')).toBeInTheDocument();
   expect(screen.getByText('Auto w serwisie')).toBeInTheDocument();
 });

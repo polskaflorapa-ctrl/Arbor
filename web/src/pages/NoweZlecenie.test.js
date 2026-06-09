@@ -18,6 +18,11 @@ vi.mock('../components/Sidebar', () => ({
   default: () => <aside data-testid="sidebar" />,
 }));
 
+vi.mock('../components/CommandSidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 function mockBootstrapData() {
   api.get.mockImplementation(async (path) => {
     if (path === '/oddzialy') {
@@ -108,7 +113,7 @@ test('shows the source badge and seeds internal notes for quotation calendar ent
   expect(screen.getByPlaceholderText(/zlecenia, instrukcje/i)).toHaveValue(
     'Zrodlo: kalendarz wycen'
   );
-  expect(screen.getByRole('button', { name: /zlecenie/i })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /utw[oó]rz zlecenie/i })).toBeDisabled();
 });
 
 test('clears the source-seeded note after navigating to bare route when user did not edit it', async () => {

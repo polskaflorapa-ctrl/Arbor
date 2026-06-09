@@ -26,7 +26,7 @@ export function TaskPhotoTypeBadge({ type, theme }: Props) {
 const styles = StyleSheet.create({
   badge: {
     maxWidth: '70%',
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 6,
     flexDirection: 'row',

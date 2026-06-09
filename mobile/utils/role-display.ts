@@ -1,6 +1,6 @@
 export const ROLE_DISPLAY_NAMES: Record<string, string> = {
-  Wyceniający: 'Specjalista ds. wyceny',
-  Wyceniajacy: 'Specjalista ds. wyceny',
+  Wyceniający: 'Specjalista oględzin',
+  Wyceniajacy: 'Specjalista oględzin',
 };
 
 export function getRoleDisplayName(role: unknown, fallback = '') {

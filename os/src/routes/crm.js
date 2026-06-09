@@ -526,6 +526,11 @@ router.get('/overview', async (req, res) => {
           callbackParams.push(oddzialId);
           callbackWhere += ` AND oddzial_id = $${callbackParams.length}`;
         }
+        const countR = await pool.query(
+          `SELECT COUNT(*)::int AS c FROM telephony_callbacks ${callbackWhere}`,
+          callbackParams
+        );
+        callbacksOpen = countR.rows[0]?.c ?? 0;
         const callbackRows = await pool.query(
           `
           SELECT id, oddzial_id, phone, task_id, lead_name, priority, due_at, status, notes, assigned_user_id, created_at
@@ -538,7 +543,6 @@ router.get('/overview', async (req, res) => {
         );
         const now = new Date();
         callbacks = callbackRows.rows || [];
-        callbacksOpen = callbacks.length;
         callbacksOverdue = callbacks.filter((row) => row.due_at && new Date(row.due_at) < now).length;
       }
     } catch (e) {

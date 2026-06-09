@@ -257,7 +257,7 @@ function makeStyles(t: Theme) {
       marginHorizontal: 14,
       marginBottom: 12,
       padding: 14,
-      borderRadius: 14,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.surface,
@@ -271,7 +271,7 @@ function makeStyles(t: Theme) {
     input: {
       borderWidth: 1,
       borderColor: t.inputBorder,
-      borderRadius: 12,
+      borderRadius: 7,
       padding: 12,
       fontSize: 16,
       color: t.inputText,
@@ -293,7 +293,7 @@ function makeStyles(t: Theme) {
     totalBar: {
       marginTop: 12,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: 7,
       borderWidth: 1,
       flexDirection: 'row',
       justifyContent: 'space-between',

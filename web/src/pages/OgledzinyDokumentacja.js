@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Camera, Video } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -66,7 +66,7 @@ export default function OgledzinyDokumentacja() {
 
   const S = {
     wrap: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-    main: { flex: 1, padding: '24px 28px 40px', maxWidth: 640 },
+    main: { flex: 1, padding: '24px 28px 40px', maxWidth: 1080 },
     title: { margin: '0 0 8px', fontSize: 22, fontWeight: 800, color: 'var(--text)' },
     sub: { margin: 0, fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.45 },
     back: {
@@ -82,7 +82,7 @@ export default function OgledzinyDokumentacja() {
     card: {
       marginTop: 16,
       padding: 18,
-      borderRadius: 12,
+      borderRadius: 8,
       border: '1px solid var(--border)',
       background: 'var(--card)',
     },
@@ -93,7 +93,7 @@ export default function OgledzinyDokumentacja() {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '10px 16px',
-      borderRadius: 10,
+      borderRadius: 8,
       border: 'none',
       background: 'var(--accent)',
       color: '#fff',
@@ -109,8 +109,8 @@ export default function OgledzinyDokumentacja() {
   if (!ogledzinyId) {
     return (
       <div className="inspection-doc-shell" style={S.wrap}>
-        <Sidebar />
-        <main className="inspection-doc-main" style={S.main}>
+        <CommandSidebar active="orders" />
+        <main className="command-content-main inspection-doc-main" style={S.main}>
           <Button variant="ghost" size="sm" style={S.back} leftIcon={ArrowLeft} onClick={() => navigate('/ogledziny')}>
             {t('inspectionDoc.back')}
           </Button>
@@ -124,41 +124,70 @@ export default function OgledzinyDokumentacja() {
 
   return (
     <div className="inspection-doc-shell" style={S.wrap}>
-      <Sidebar />
-      <main className="inspection-doc-main" style={S.main}>
+      <CommandSidebar active="orders" />
+      <main className="command-content-main inspection-doc-main" style={S.main}>
         <Button variant="ghost" size="sm" style={S.back} leftIcon={ArrowLeft} onClick={() => navigate('/ogledziny')}>
           {t('inspectionDoc.back')}
         </Button>
         <div className="inspection-doc-hero">
-          <h1 style={S.title}>{t('inspectionDoc.screenTitle')}</h1>
-          <p style={S.sub}>{subtitle}</p>
+          <div>
+            <span>Dokumentacja terenowa</span>
+            <h1 style={S.title}>{t('inspectionDoc.screenTitle')}</h1>
+            <p style={S.sub}>{subtitle}</p>
+          </div>
+          <div className="inspection-doc-hero-meta">
+            <strong>#{ogledzinyId}</strong>
+            <small>{wycenaId ? `Wycena #${wycenaId}` : 'Brak wyceny'}</small>
+          </div>
         </div>
 
         <input ref={filePhotoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onPhoto} />
         <input ref={fileVideoRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={onVideo} />
 
-        <div className="inspection-doc-card" style={S.card}>
-          <h2 style={S.cardTitle}>{t('inspectionDoc.photoCardTitle')}</h2>
-          <p style={S.cardBody}>{t('inspectionDoc.photoCardBody')}</p>
-          <Button style={S.btn} leftIcon={Camera} onClick={pickPhoto}>
-            {t('inspectionDoc.photoBtn')}
-          </Button>
-          {!wycenaId ? <p style={S.warn}>{t('inspectionDoc.noQuoteInline')}</p> : null}
-        </div>
+        <section className="inspection-doc-command-strip" aria-label="Stan dokumentacji">
+          <div className="inspection-doc-command-lead">
+            <span>Inspekcja</span>
+            <strong>{klient.trim() || 'Klient'}</strong>
+            <small>foto, szkic i wideo z terenu</small>
+          </div>
+          <div className={`inspection-doc-command-card ${wycenaId ? 'is-good' : 'is-warning'}`}>
+            <span>Rysunek</span>
+            <strong>{wycenaId ? 'Gotowy' : 'Blokada'}</strong>
+            <small>{wycenaId ? `wycena #${wycenaId}` : 'brak wyceny do szkicu'}</small>
+          </div>
+          <div className={`inspection-doc-command-card ${ogledzinyId ? 'is-good' : 'is-danger'}`}>
+            <span>Wideo</span>
+            <strong>{ogledzinyId ? 'Upload' : 'Brak ID'}</strong>
+            <small>material do historii oględzin</small>
+          </div>
+        </section>
 
-        <div className="inspection-doc-card" style={S.card}>
-          <h2 style={S.cardTitle}>{t('inspectionDoc.videoCardTitle')}</h2>
-          <p style={S.cardBody}>{t('inspectionDoc.videoCardBody')}</p>
-          <p style={{ ...S.cardBody, marginBottom: 8 }}>{t('inspectionDoc.videoOfflineHint')}</p>
-          <Button
-            style={{ ...S.btn, ...(busy ? S.btnDisabled : {}) }}
-            onClick={pickVideo}
-            loading={busy}
-            leftIcon={Video}
-          >
-            {t('inspectionDoc.videoBtn')}
-          </Button>
-          {hint ? <p style={S.hint}>{hint}</p> : null}
+        <div className="inspection-doc-grid">
+          <div className="inspection-doc-card" style={S.card}>
+            <div className="inspection-doc-card-icon"><Camera size={22} /></div>
+            <h2 style={S.cardTitle}>{t('inspectionDoc.photoCardTitle')}</h2>
+            <p style={S.cardBody}>{t('inspectionDoc.photoCardBody')}</p>
+            <Button style={S.btn} leftIcon={Camera} onClick={pickPhoto}>
+              {t('inspectionDoc.photoBtn')}
+            </Button>
+            {!wycenaId ? <p style={S.warn}>{t('inspectionDoc.noQuoteInline')}</p> : null}
+          </div>
+
+          <div className="inspection-doc-card" style={S.card}>
+            <div className="inspection-doc-card-icon is-blue"><Video size={22} /></div>
+            <h2 style={S.cardTitle}>{t('inspectionDoc.videoCardTitle')}</h2>
+            <p style={S.cardBody}>{t('inspectionDoc.videoCardBody')}</p>
+            <p style={{ ...S.cardBody, marginBottom: 8 }}>{t('inspectionDoc.videoOfflineHint')}</p>
+            <Button
+              style={{ ...S.btn, ...(busy ? S.btnDisabled : {}) }}
+              onClick={pickVideo}
+              loading={busy}
+              leftIcon={Video}
+            >
+              {t('inspectionDoc.videoBtn')}
+            </Button>
+            {hint ? <p style={S.hint}>{hint}</p> : null}
+          </div>
         </div>
       </main>
     </div>

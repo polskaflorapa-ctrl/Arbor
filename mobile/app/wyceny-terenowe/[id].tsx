@@ -1,6 +1,6 @@
 import { safeBack } from '../../utils/navigation';
 /**
- * M1 — szczegóły wyceny terenowej: wizyta GPS, obiekty, zdjęcia (ogólne + adnotacje), ważność, zakończenie wizyty.
+ * Szczegóły oględzin: GPS, obiekty, zdjęcia, ważność i zakończenie pracy terenowej.
  */
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { AppStatusBar } from '../../components/ui/app-status-bar';
+import { FieldOpsBackdrop, FieldOpsHeroImage } from '../../components/ui/field-ops-art';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { useTheme } from '../../constants/ThemeContext';
 import type { Theme } from '../../constants/theme';
@@ -123,7 +124,7 @@ export default function WycenaTerenowaDetailScreen() {
       const quotationsReady = await supportsQuotationsModule();
       if (!quotationsReady) {
         setLegacyFallback(true);
-        setErr('Ten backend działa jeszcze w trybie klasycznych wycen.');
+        setErr('Ten backend działa jeszcze w starszym trybie oględzin.');
         setQ(null);
         setItems([]);
         setNorms([]);
@@ -138,13 +139,13 @@ export default function WycenaTerenowaDetailScreen() {
       if (!rq.ok) {
         if (rq.status === 404) {
           setLegacyFallback(true);
-          setErr('Ten backend działa jeszcze w trybie klasycznych wycen.');
+          setErr('Ten backend działa jeszcze w starszym trybie oględzin.');
           setQ(null);
           setItems([]);
           setNorms([]);
           return;
         }
-        setErr(`Wycena: HTTP ${rq.status}`);
+        setErr(`Oględziny: HTTP ${rq.status}`);
         setQ(null);
         return;
       }
@@ -190,7 +191,7 @@ export default function WycenaTerenowaDetailScreen() {
   const visitStart = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Lokalizacja', 'Włącz uprawnienia GPS, aby rozpocząć wizytę.');
+      Alert.alert('Lokalizacja', 'Włącz uprawnienia GPS, aby rozpocząć oględziny.');
       return;
     }
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -219,13 +220,13 @@ export default function WycenaTerenowaDetailScreen() {
     }
     const row = await res.json();
     setQ(row);
-    Alert.alert('OK', 'Wizyta rozpoczęta.');
+    Alert.alert('OK', 'Oględziny rozpoczęte.');
   };
 
   const visitEnd = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Lokalizacja', 'Włącz GPS przed zakończeniem wizyty.');
+      Alert.alert('Lokalizacja', 'Włącz GPS przed zakończeniem oględzin.');
       return;
     }
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -253,7 +254,7 @@ export default function WycenaTerenowaDetailScreen() {
     const row = await res.json();
     setQ(row);
     void load();
-    Alert.alert('OK', 'Wizyta zakończona — wycena w zatwierdzeniu.');
+    Alert.alert('OK', 'Oględziny zakończone — przekazane do zatwierdzenia.');
   };
 
   const addItem = async () => {
@@ -317,23 +318,24 @@ export default function WycenaTerenowaDetailScreen() {
   if (!q) {
     return (
       <KeyboardSafeScreen style={s.screen}>
+        <FieldOpsBackdrop />
         <AppStatusBar />
         <View style={s.header}>
           <TouchableOpacity onPress={() => safeBack()} style={s.backBtn}>
             <Ionicons name="chevron-back" size={26} color={theme.text} />
           </TouchableOpacity>
-          <Text style={s.title}>Wycena</Text>
+          <Text style={s.title}>Oględziny</Text>
           <View style={{ width: 40 }} />
         </View>
         <ScrollView contentContainerStyle={s.body}>
           {legacyFallback ? (
             <View style={s.block}>
-              <Text style={s.h2}>Tryb klasycznych wycen</Text>
+              <Text style={s.h2}>Tryb zgodności</Text>
               <Text style={s.muted}>
-                Nowy moduł wycen terenowych jest już w aplikacji, ale produkcyjny backend czeka jeszcze na wdrożenie.
+                Nowy moduł oględzin jest już w aplikacji, ale produkcyjny backend czeka jeszcze na wdrożenie.
               </Text>
               <TouchableOpacity style={s.btn} onPress={() => router.replace('/wycena' as never)}>
-                <Text style={s.btnTxt}>Otwórz klasyczne wyceny</Text>
+                <Text style={s.btnTxt}>Otwórz starszy moduł</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -350,6 +352,7 @@ export default function WycenaTerenowaDetailScreen() {
 
   return (
     <KeyboardSafeScreen style={s.screen}>
+      <FieldOpsBackdrop />
       <AppStatusBar />
       <View style={s.header}>
         <TouchableOpacity onPress={() => safeBack()} style={s.backBtn}>
@@ -362,6 +365,14 @@ export default function WycenaTerenowaDetailScreen() {
         <Text style={s.status}>{q.status}</Text>
         <Text style={s.klient}>{q.klient_nazwa || '—'}</Text>
         <Text style={s.muted}>{[q.adres, q.miasto].filter(Boolean).join(', ')}</Text>
+
+        <View style={s.heroImageBand}>
+          <FieldOpsHeroImage variant="inspection" size={104} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={s.heroImageLabel}>Oględziny</Text>
+            <Text style={s.heroImageText}>GPS, zdjęcia, obiekty i przekazanie do biura w jednym przebiegu.</Text>
+          </View>
+        </View>
 
         {(!!q.wyslano_klientowi_at ||
           q.offer_sms_status != null ||
@@ -386,7 +397,7 @@ export default function WycenaTerenowaDetailScreen() {
 
         {canVisit ? (
           <View style={s.block}>
-            <Text style={s.h2}>Wizyta</Text>
+            <Text style={s.h2}>Oględziny</Text>
             {!q.visit_started_at ? (
               <>
                 <Text style={s.muted}>Jeśli GPS &gt; 100 m od adresu, wpisz uzasadnienie:</Text>
@@ -398,7 +409,7 @@ export default function WycenaTerenowaDetailScreen() {
                   onChangeText={setGpsOverrideNote}
                 />
                 <TouchableOpacity style={s.btn} onPress={() => void visitStart()}>
-                  <Text style={s.btnTxt}>Rozpocznij wizytę</Text>
+                  <Text style={s.btnTxt}>Rozpocznij oględziny</Text>
                 </TouchableOpacity>
               </>
             ) : null}
@@ -422,7 +433,7 @@ export default function WycenaTerenowaDetailScreen() {
                   onChangeText={setKorektaDrop}
                 />
                 <TouchableOpacity style={[s.btn, s.btnDanger]} onPress={() => void visitEnd()}>
-                  <Text style={s.btnTxt}>Zakończ wizytę (zatwierdzenie)</Text>
+                  <Text style={s.btnTxt}>Zakończ oględziny</Text>
                 </TouchableOpacity>
               </>
             ) : null}
@@ -463,7 +474,7 @@ export default function WycenaTerenowaDetailScreen() {
         ) : null}
 
         {q.wartosc_zaproponowana != null ? (
-          <Text style={s.price}>Oferta: {Number(q.wartosc_zaproponowana).toFixed(2)} PLN</Text>
+          <Text style={s.price}>Kwota: {Number(q.wartosc_zaproponowana).toFixed(2)} PLN</Text>
         ) : null}
       </ScrollView>
     </KeyboardSafeScreen>
@@ -482,6 +493,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
+      backgroundColor: theme.name === 'dark' ? 'rgba(7,16,13,0.96)' : 'rgba(254,255,252,0.96)',
     },
     backBtn: { padding: 8 },
     title: { fontSize: 18, fontWeight: '700', color: theme.text },
@@ -491,7 +503,22 @@ function makeStyles(theme: Theme) {
     status: { fontSize: 14, color: theme.accent, fontWeight: '600' },
     klient: { fontSize: 17, fontWeight: '700', color: theme.text, marginTop: 6 },
     muted: { color: theme.textMuted, marginTop: 6, fontSize: 13 },
-    block: { marginTop: 20, padding: 12, borderRadius: 12, backgroundColor: theme.cardBg, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border },
+    heroImageBand: {
+      marginTop: 14,
+      minHeight: 86,
+      borderRadius: 7,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      backgroundColor: theme.name === 'dark' ? 'rgba(9,20,16,0.94)' : 'rgba(254,255,252,0.94)',
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    heroImageLabel: { color: theme.accent, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+    heroImageText: { color: theme.textSub, fontSize: 12, lineHeight: 17, fontWeight: '800', marginTop: 3 },
+    block: { marginTop: 20, padding: 12, borderRadius: 7, backgroundColor: theme.name === 'dark' ? 'rgba(9,20,16,0.94)' : 'rgba(254,255,252,0.94)', borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border },
     h2: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 8 },
     input: {
       borderWidth: 1,
@@ -505,12 +532,12 @@ function makeStyles(theme: Theme) {
     row: { flexDirection: 'row', gap: 8, marginTop: 8 },
     flex: { flex: 1 },
     hint: { fontSize: 11, color: theme.textMuted, marginTop: 6 },
-    btn: { marginTop: 12, backgroundColor: theme.accent, padding: 14, borderRadius: 10, alignItems: 'center' },
+    btn: { marginTop: 12, backgroundColor: theme.accent, padding: 14, borderRadius: 6, alignItems: 'center' },
     btnDanger: { backgroundColor: theme.danger },
     btnTxt: { color: '#fff', fontWeight: '700' },
-    btnSecondary: { marginTop: 10, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.accent, alignItems: 'center' },
+    btnSecondary: { marginTop: 10, padding: 12, borderRadius: 6, borderWidth: 1, borderColor: theme.accent, alignItems: 'center' },
     btnSecondaryTxt: { color: theme.accent, fontWeight: '600' },
-    itemCard: { marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: theme.surface2 },
+    itemCard: { marginTop: 12, padding: 10, borderRadius: 6, backgroundColor: theme.surface2 },
     itemTitle: { fontWeight: '600', color: theme.text },
     smallBtn: { marginTop: 8, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 10, backgroundColor: theme.accentLight, borderRadius: 8 },
     smallBtnTxt: { color: theme.accent, fontWeight: '600' },

@@ -497,7 +497,7 @@ export default function PlanOgledzinScreen() {
 
   const reportDelay = async (item: VisitRow, etaMin: number) => {
     setDelaySavingId(`${item.id}:${etaMin}`);
-    const note = `Specjalista ds. wyceny raportuje opoznienie +${etaMin} min.`;
+    const note = `Specjalista oględzin raportuje opoznienie +${etaMin} min.`;
     try {
       const ok = await sendFieldEvent(item, 'delay', { etaMin, note });
       if (!ok) {
@@ -577,7 +577,7 @@ export default function PlanOgledzinScreen() {
           <Ionicons name="map-outline" size={22} color={theme.accent} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.headerEyebrow}>Trasa specjalisty ds. wyceny</Text>
+          <Text style={styles.headerEyebrow}>Trasa specjalisty oględzin</Text>
           <Text style={styles.title}>Plan ogledzin dnia</Text>
           <Text style={styles.subtitle}>Trasa, telefon, mapa i draft bez przepisywania.</Text>
         </View>
@@ -1064,7 +1064,7 @@ export default function PlanOgledzinScreen() {
 
 function Metric({ label, value, theme }: { label: string; value: string; theme: Theme }) {
   return (
-    <View style={{ flex: 1, borderWidth: 1, borderColor: theme.cardBorder, borderRadius: 12, padding: 12, backgroundColor: theme.cardBg }}>
+    <View style={{ flex: 1, borderWidth: 1, borderColor: theme.cardBorder, borderRadius: 7, padding: 12, backgroundColor: theme.cardBg }}>
       <Text style={{ color: theme.accent, fontSize: 22, fontWeight: '900', textAlign: 'center' }}>{value}</Text>
       <Text style={{ color: theme.textMuted, fontSize: 11, textAlign: 'center', marginTop: 3, fontWeight: '700' }}>{label}</Text>
     </View>
@@ -1085,7 +1085,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 20,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: theme.cardBorder,
     ...shadowStyle(theme, {
@@ -1098,7 +1098,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: theme.surface2,
@@ -1108,7 +1108,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   headerIcon: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: theme.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1122,7 +1122,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.warning + '66',
     backgroundColor: theme.warningBg,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1135,20 +1135,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   progressCard: {
     borderWidth: 1,
     borderColor: theme.cardBorder,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: theme.cardBg,
     padding: 12,
   },
   progressTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
   progressTitle: { color: theme.text, fontSize: 14, fontWeight: '900' },
   progressPct: { color: theme.accent, fontSize: 14, fontWeight: '900' },
-  progressTrack: { height: 9, borderRadius: 999, backgroundColor: theme.surface2, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 999, backgroundColor: theme.accent },
+  progressTrack: { height: 9, borderRadius: 5, backgroundColor: theme.surface2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 5, backgroundColor: theme.accent },
   progressHint: { color: theme.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
   commandCard: {
     borderWidth: 1,
     borderColor: theme.cardBorder,
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: theme.cardBg,
     padding: 13,
     gap: 12,
@@ -1157,7 +1157,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   commandIcon: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: theme.accent + '44',
     backgroundColor: theme.accentLight,
@@ -1172,7 +1172,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minHeight: 64,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 8,
     justifyContent: 'center',
@@ -1185,7 +1185,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: theme.surface2,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 9,
     gap: 4,
   },
@@ -1193,7 +1193,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   commandFlowDot: {
     width: 26,
     height: 26,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1205,14 +1205,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     left: '55%',
     right: '-55%',
     height: 2,
-    borderRadius: 999,
+    borderRadius: 5,
   },
   commandFlowText: { fontSize: 9.5, fontWeight: '900', textAlign: 'center' },
   commandWarning: {
     borderWidth: 1,
     borderColor: theme.warning + '55',
     backgroundColor: theme.warningBg,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -1223,7 +1223,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   routeControlCard: {
     borderWidth: 1,
     borderColor: theme.cardBorder,
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: theme.cardBg,
     padding: 13,
     gap: 12,
@@ -1232,7 +1232,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   routeControlIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: theme.accent + '44',
     backgroundColor: theme.accentLight,
@@ -1244,7 +1244,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   routeControlScore: {
     minWidth: 72,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 7,
     alignItems: 'center',
@@ -1258,7 +1258,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     minHeight: 66,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: theme.surface2,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -1279,7 +1279,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.accent + '55',
     backgroundColor: theme.accentLight,
-    borderRadius: 14,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -1292,7 +1292,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.accent + '66',
     backgroundColor: theme.accentLight,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1301,7 +1301,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   pickBannerIcon: {
     width: 34,
     height: 34,
-    borderRadius: 11,
+    borderRadius: 6,
     backgroundColor: theme.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1313,7 +1313,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   pickBannerClose: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: theme.border,
     alignItems: 'center',
@@ -1323,7 +1323,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   nextCard: {
     borderWidth: 1,
     borderColor: theme.accent,
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: theme.cardBg,
     padding: 14,
     gap: 12,
@@ -1332,7 +1332,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   nextBadge: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: theme.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1340,7 +1340,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   nextEyebrow: { color: theme.accent, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
   nextTitle: { color: theme.text, fontSize: 18, fontWeight: '900', marginTop: 2 },
   nextMeta: { color: theme.textMuted, fontSize: 12, lineHeight: 17, marginTop: 3 },
-  statusPill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
+  statusPill: { borderRadius: 5, paddingHorizontal: 8, paddingVertical: 4 },
   statusPillText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   nextNote: {
     color: theme.textSub,
@@ -1349,14 +1349,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: theme.surface2,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
   },
   fieldPack: {
     borderWidth: 1,
     borderColor: theme.accent + '55',
     backgroundColor: theme.accentLight,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 11,
     gap: 10,
   },
@@ -1365,7 +1365,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   fieldPackSub: { color: theme.textSub, fontSize: 11, lineHeight: 16, marginTop: 2 },
   fieldPackCta: {
     minHeight: 34,
-    borderRadius: 999,
+    borderRadius: 5,
     backgroundColor: theme.cardBg,
     borderWidth: 1,
     borderColor: theme.accent + '55',
@@ -1381,7 +1381,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.accent + '33',
     backgroundColor: theme.cardBg,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 9,
     gap: 4,
   },
@@ -1389,7 +1389,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   fieldPackStepHint: { color: theme.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700' },
   liveStrip: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1398,7 +1398,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   liveIcon: {
     width: 34,
     height: 34,
-    borderRadius: 11,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1411,7 +1411,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: theme.surface2,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 11,
     gap: 10,
   },
@@ -1423,7 +1423,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.cardBorder,
     backgroundColor: theme.cardBg,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 6,
     alignItems: 'center',
@@ -1453,7 +1453,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: theme.surface2,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingVertical: 10,
     paddingHorizontal: 10,
     alignItems: 'center',
@@ -1469,7 +1469,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.warning + '66',
     backgroundColor: theme.warningBg,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1482,7 +1482,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   emptyCard: {
     borderWidth: 1,
     borderColor: theme.cardBorder,
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: theme.cardBg,
     padding: 18,
     alignItems: 'center',
@@ -1490,7 +1490,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   emptyTitle: { color: theme.text, fontSize: 16, fontWeight: '900' },
   emptyText: { color: theme.textMuted, fontSize: 12, textAlign: 'center' },
-  emptyBtn: { marginTop: 4, backgroundColor: theme.accent, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  emptyBtn: { marginTop: 4, backgroundColor: theme.accent, borderRadius: 7, paddingHorizontal: 14, paddingVertical: 10 },
   emptyBtnText: { color: theme.accentText, fontWeight: '900', fontSize: 12 },
   listHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
   listTitle: { color: theme.text, fontSize: 15, fontWeight: '900' },
@@ -1500,7 +1500,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.success + '55',
     backgroundColor: theme.successBg,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 14,
     alignItems: 'center',
     gap: 6,
@@ -1511,7 +1511,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.cardBorder,
     backgroundColor: theme.cardBg,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 11,
     flexDirection: 'row',
     gap: 10,
@@ -1519,7 +1519,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   visitIndex: {
     width: 32,
     height: 32,
-    borderRadius: 11,
+    borderRadius: 6,
     backgroundColor: theme.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1533,7 +1533,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignSelf: 'flex-start',
     maxWidth: '100%',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 5,
     marginTop: 7,
@@ -1547,7 +1547,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   visitMiniBtn: {
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 10,
+    borderRadius: 6,
     backgroundColor: theme.surface2,
     flexDirection: 'row',
     alignItems: 'center',

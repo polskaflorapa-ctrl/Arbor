@@ -68,6 +68,7 @@ const HrPanel = lazy(() => import('./pages/HrPanel'));
 const KalendarzZasobow = lazy(() => import('./pages/KalendarzZasobow'));
 const MapaLive = lazy(() => import('./pages/MapaLive'));
 const ArborSpecPage = lazy(() => import('./pages/ArborSpecPage'));
+const StreetThemeDemo = lazy(() => import('./pages/StreetThemeDemo'));
 
 // Role constants — single source of truth for App.js route guards
 const ADMIN   = ['Prezes', 'Dyrektor', 'Administrator'];
@@ -82,7 +83,7 @@ function AuthenticatedRoute({ children }) {
 
 function AppChrome() {
   const location = useLocation();
-  const hideChat = location.pathname === '/' || location.pathname === '/login';
+  const hideChat = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/street-theme';
   return hideChat ? null : <AiChat />;
 }
 
@@ -119,6 +120,7 @@ function App() {
           <Route path="/" element={<RootEntry />} />
           <Route path="/login" element={<Login />} />
           <Route path="/arbor-os-spec" element={<ArborSpecPage />} />
+          <Route path="/street-theme" element={<StreetThemeDemo />} />
 
           {/* All authenticated users */}
           <Route path="/dashboard" element={<AuthenticatedRoute><Dashboard /></AuthenticatedRoute>} />

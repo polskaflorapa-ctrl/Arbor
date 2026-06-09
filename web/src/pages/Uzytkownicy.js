@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
 import { Button } from '../components/ui/Button';
@@ -307,11 +307,17 @@ export default function Uzytkownicy() {
     if (dni < 30) return 'soon';
     return 'ok';
   };
+  const activeUsers = uzytkownicy.filter((u) => u.aktywny).length;
+  const inactiveUsers = Math.max(0, uzytkownicy.length - activeUsers);
+  const fieldRoles = new Set(['Brygadzista', 'Pomocnik', 'Pomocnik bez doĹ›wiadczenia', 'Pomocnik bez doswiadczenia', 'WyceniajÄ…cy', 'Wyceniajacy', 'Specjalista', 'Magazynier']);
+  const fieldUsers = uzytkownicy.filter((u) => fieldRoles.has(u.rola)).length;
+  const adminUsers = uzytkownicy.filter((u) => ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyrektor SprzedaĹĽy', 'Dyrektor Sprzedazy'].includes(u.rola)).length;
+  const coveredBranches = new Set(uzytkownicy.map((u) => u.oddzial_id || u.oddzial_nazwa).filter(Boolean)).size;
  
   return (
     <div className="users-shell" style={s.container}>
-      <Sidebar />
-      <div className="users-main" style={s.main}>
+      <CommandSidebar active="profile" />
+      <div className="app-main command-content-main users-main" style={s.main}>
  
         {/* Komunikat */}
         <StatusMessage
@@ -331,6 +337,34 @@ export default function Uzytkownicy() {
                 <Button leftIcon={Plus} onClick={otworzNowy}>+ Nowy użytkownik</Button>
               )}
             </div>
+
+            <section className="users-command-strip">
+              <div className="users-command-lead">
+                <span>Kontrola zespolu</span>
+                <strong>{activeUsers}/{uzytkownicy.length}</strong>
+                <small>aktywni pracownicy w systemie</small>
+              </div>
+              <div className="users-command-card is-good">
+                <span>Teren</span>
+                <strong>{fieldUsers}</strong>
+                <small>brygady, wyceny, magazyn</small>
+              </div>
+              <div className="users-command-card is-blue">
+                <span>Administracja</span>
+                <strong>{adminUsers}</strong>
+                <small>role z dostepem operacyjnym</small>
+              </div>
+              <div className={`users-command-card ${inactiveUsers > 0 ? 'is-warning' : 'is-good'}`}>
+                <span>Nieaktywni</span>
+                <strong>{inactiveUsers}</strong>
+                <small>konta do kontroli</small>
+              </div>
+              <div className="users-command-card is-branch">
+                <span>Oddzialy</span>
+                <strong>{coveredBranches}</strong>
+                <small>z przypisanymi osobami</small>
+              </div>
+            </section>
 
             <div className="users-filters" style={s.filtryRow}>
               <input style={s.searchInput} placeholder="Szukaj po imieniu, loginie, emailu..."
@@ -386,24 +420,26 @@ export default function Uzytkownicy() {
                             </div>
                           </div>
                           <div style={s.akcjeRow} onClick={(e) => e.stopPropagation()}>
-                            <button style={s.actionIconBtn} title="Szczegóły" aria-label="Szczegóły użytkownika" onClick={() => otworzSzczegoly(u)}>
+                            <Button variant="ghost" size="sm" style={s.actionIconBtn} title="Szczegóły" aria-label="Szczegóły użytkownika" onClick={() => otworzSzczegoly(u)}>
                               <VisibilityOutlined style={s.iconSm} />
-                            </button>
-                            <button style={s.actionIconBtn} title="Profil pracownika" aria-label="Profil pracownika" onClick={() => navigate(`/profil/${u.id}`)}>
+                            </Button>
+                            <Button variant="ghost" size="sm" style={s.actionIconBtn} title="Profil pracownika" aria-label="Profil pracownika" onClick={() => navigate(`/profil/${u.id}`)}>
                               <AccountCircleOutlined style={s.iconSm} />
-                            </button>
+                            </Button>
                             {mozeEdytowac && (
                               <>
-                                <button style={s.actionIconBtn} title="Edytuj" aria-label="Edytuj użytkownika" onClick={() => otworzEdycje(u)}>
+                                <Button variant="ghost" size="sm" style={s.actionIconBtn} title="Edytuj" aria-label="Edytuj użytkownika" onClick={() => otworzEdycje(u)}>
                                   <EditOutlined style={s.iconSm} />
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   style={{ ...s.actionIconBtn, ...(u.aktywny ? s.actionIconBtnDanger : s.actionIconBtnSuccess) }}
                                   title={u.aktywny ? 'Dezaktywuj' : 'Aktywuj'}
                                   aria-label={u.aktywny ? 'Dezaktywuj użytkownika' : 'Aktywuj użytkownika'}
                                   onClick={() => zmienAktywnosc(u.id, !u.aktywny)}>
                                   {u.aktywny ? <LockOutlined style={s.iconSm} /> : <LockOpenOutlined style={s.iconSm} />}
-                                </button>
+                                </Button>
                               </>
                             )}
                           </div>
@@ -612,9 +648,9 @@ export default function Uzytkownicy() {
                       <input style={{ ...s.input, paddingRight: 40 }} type={pokazHaslo ? 'text' : 'password'}
                         placeholder="Nowe hasło (min. 6 znaków)"
                         value={noweHaslo} onChange={e => setNoweHaslo(e.target.value)} />
-                      <button style={s.eyeBtn} onClick={() => setPokazHaslo(!pokazHaslo)}>
+                      <Button variant="ghost" size="sm" style={s.eyeBtn} onClick={() => setPokazHaslo(!pokazHaslo)} aria-label={pokazHaslo ? 'Ukryj hasło' : 'Pokaż hasło'}>
                         {pokazHaslo ? <VisibilityOffOutlined style={s.iconSm} /> : <VisibilityOutlined style={s.iconSm} />}
-                      </button>
+                      </Button>
                     </div>
                     <Button leftIcon={Save} onClick={zmienHaslo}>Zapisz</Button>
                     <Button variant="outline" onClick={() => { setPokazFormHaslo(false); setNoweHaslo(''); }}>Anuluj</Button>

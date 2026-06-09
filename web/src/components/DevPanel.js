@@ -9,6 +9,8 @@ import { clearAuthSession } from '../utils/authSession';
 import { isTestModeEnabled, toggleTestMode, TEST_USERS } from '../utils/testMode';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
+import { Activity, ShieldAlert, X } from 'lucide-react';
+import { Button } from './ui/Button';
 import './DevPanel.css';
 
 const API_BASE = getReactApiBase();
@@ -207,13 +209,20 @@ export function DevPanel() {
       <div className="dev-panel-content" style={{ maxWidth: 460 }}>
         <div className="dev-panel-header">
           <h3>🛠️ Dev Panel</h3>
-          <button className="dev-panel-close" onClick={() => setIsOpen(false)} aria-label="Zamknij">×</button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="dev-panel-close"
+            onClick={() => setIsOpen(false)}
+            aria-label="Zamknij"
+            leftIcon={X}
+          />
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
           {[['testmode', '🧪 Test mode'], ['apihealth', '📡 Diagnostyka API']].map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setTab(key)} style={{
+            <Button key={key} variant={tab === key ? 'primary' : 'secondary'} size="sm" onClick={() => setTab(key)} style={{
               flex: 1,
               padding: '6px 0',
               borderRadius: 6,
@@ -223,7 +232,7 @@ export function DevPanel() {
               fontWeight: tab === key ? 700 : 400,
               fontSize: 12,
               cursor: 'pointer',
-            }}>{label}</button>
+            }}>{label}</Button>
           ))}
         </div>
 
@@ -250,9 +259,11 @@ export function DevPanel() {
               </div>
             )}
             <div className="dev-panel-section">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                fullWidth
                 onClick={handleInvalidSession}
+                leftIcon={ShieldAlert}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -265,7 +276,7 @@ export function DevPanel() {
                 }}
               >
                 Symuluj niewazny token
-              </button>
+              </Button>
               <p className="dev-panel-hint">
                 Zostawia uzytkownika w storage, ale podmienia JWT na bledny, zeby sprawdzic powrot do logowania po `401`.
               </p>
@@ -284,12 +295,12 @@ export function DevPanel() {
                   <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ width: 14, height: 14, accentColor: '#ff6b6b', cursor: 'pointer' }} />
                   auto 30s
                 </label>
-                <button type="button" disabled={running} onClick={runDiagnostics} style={{
+                <Button variant="primary" size="sm" disabled={running} loading={running} onClick={runDiagnostics} leftIcon={Activity} style={{
                   padding: '4px 12px', borderRadius: 6, border: 'none', background: '#ff6b6b',
                   color: '#fff', fontWeight: 700, fontSize: 12, cursor: running ? 'default' : 'pointer', opacity: running ? 0.6 : 1,
                 }}>
-                  {running ? '…' : 'Sprawdź'}
-                </button>
+                  Sprawdź
+                </Button>
               </div>
             </div>
 

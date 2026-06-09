@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
@@ -1075,11 +1075,17 @@ export default function AutoDispatch() {
   const absentTeams = Array.isArray(availability?.absent) ? availability.absent : [];
   const availabilityTotal = Number(availability?.total ?? 0);
   const availabilityAvailable = Number(availability?.available ?? Math.max(0, availabilityTotal - absentTeams.length));
+  const commandTotal = Number(stats?.tasks_total ?? advisor?.metrics?.tasks_total ?? 0);
+  const commandReady = Number(stats?.tasks_assigned ?? advisor?.metrics?.ready_for_dispatch ?? 0);
+  const commandBlocked = Number(advisor?.metrics?.blocked ?? preflightHold?.blocked ?? 0);
+  const commandWarnings = Number(advisor?.metrics?.warnings ?? preflightHold?.warnings ?? 0);
+  const commandCoverage = Number(stats?.coverage_pct ?? (commandTotal > 0 ? Math.round((commandReady / commandTotal) * 100) : 0));
+  const commandTeams = Number(stats?.teams_used ?? plan?.routes?.length ?? availabilityAvailable ?? 0);
 
   return (
     <div className="app-shell autodispatch-shell" style={s.shell}>
-      <Sidebar />
-      <main className="app-main autodispatch-main" style={s.main}>
+      <CommandSidebar active="schedule" />
+      <main className="app-main command-content-main autodispatch-main" style={s.main}>
         {/* Header */}
         <div className="autodispatch-topbar" style={s.topbar}>
           <div>
@@ -1117,6 +1123,34 @@ export default function AutoDispatch() {
             )}
           </div>
         </div>
+
+        <section className="autodispatch-command-strip">
+          <div className="autodispatch-command-lead">
+            <span>AI Dyspozytor</span>
+            <strong>{commandReady}/{commandTotal}</strong>
+            <small>zlecenia gotowe do planowania</small>
+          </div>
+          <div className={`autodispatch-command-card ${commandBlocked > 0 ? 'is-danger' : 'is-good'}`}>
+            <span>Blokady</span>
+            <strong>{commandBlocked}</strong>
+            <small>{commandWarnings} uwag do kontroli</small>
+          </div>
+          <div className={`autodispatch-command-card ${commandCoverage >= 90 ? 'is-good' : commandCoverage >= 60 ? 'is-warning' : 'is-danger'}`}>
+            <span>Pokrycie planu</span>
+            <strong>{commandCoverage}%</strong>
+            <small>{stats?.tasks_unassigned ?? 0} nieprzypisane</small>
+          </div>
+          <div className={`autodispatch-command-card ${absentTeams.length > 0 ? 'is-warning' : 'is-blue'}`}>
+            <span>Ekipy</span>
+            <strong>{commandTeams}</strong>
+            <small>{availabilityAvailable}/{availabilityTotal || commandTeams} dostepne</small>
+          </div>
+          <div className={`autodispatch-command-card ${pendingRouteBriefRecipients > 0 ? 'is-warning' : sentRoutesCount > 0 ? 'is-good' : 'is-blue'}`}>
+            <span>Odprawy</span>
+            <strong>{sentRoutesCount}/{dispatchableRoutes.length}</strong>
+            <small>{pendingRouteBriefRecipients} czeka na potwierdzenie</small>
+          </div>
+        </section>
 
         {plan?.competency_block && (
           <section className="autodispatch-competency-block" style={s.competencyBlock}>

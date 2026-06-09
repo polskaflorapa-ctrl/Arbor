@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { OfflineQueueBanner } from '../components/ui/app-state';
+import { FieldOpsBackdrop, FieldOpsHeroImage } from '../components/ui/field-ops-art';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
@@ -448,9 +449,10 @@ export default function RaportDzienny() {
 
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
+    <FieldOpsBackdrop />
     <AppStatusBar />
     <ScrollView
-      style={[S.container, { backgroundColor: theme.bg }]}
+      style={S.container}
       contentContainerStyle={{ paddingBottom: 48 }}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -489,6 +491,13 @@ export default function RaportDzienny() {
         warningBackgroundColor={theme.warningBg}
         borderColor={theme.border}
       />
+      <View style={S.visualBand}>
+        <FieldOpsHeroImage variant="work" size={96} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={S.visualLabel}>Zamknięcie dnia</Text>
+          <Text style={S.visualText}>Czas, materiały, problemy i podpis klienta przed wysyłką do biura.</Text>
+        </View>
+      </View>
 
       <View style={S.reportStats}>
         {reportStats.map((stat) => (
@@ -860,14 +869,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12 },
   header: {
-    backgroundColor: t.cardBg,
+    backgroundColor: t.name === 'dark' ? 'rgba(9,20,16,0.94)' : 'rgba(254,255,252,0.94)',
     marginHorizontal: 12,
     marginTop: 10,
     marginBottom: 8,
     paddingHorizontal: 12,
     paddingTop: 14,
     paddingBottom: 14,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     flexDirection: 'row',
@@ -883,7 +892,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -893,7 +902,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -907,29 +916,45 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 999,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statusText: { fontSize: 11, fontWeight: '900' },
+  visualBand: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    minHeight: 86,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    backgroundColor: t.name === 'dark' ? 'rgba(9,20,16,0.92)' : 'rgba(254,255,252,0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  visualLabel: { color: t.accent, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  visualText: { color: t.textSub, fontSize: 12, lineHeight: 17, fontWeight: '800', marginTop: 3 },
   reportStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, marginBottom: 2 },
   reportStat: {
     flex: 1,
     minWidth: '22%',
-    backgroundColor: t.cardBg,
+    backgroundColor: t.name === 'dark' ? 'rgba(9,20,16,0.92)' : 'rgba(254,255,252,0.92)',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     padding: 10,
     alignItems: 'center',
     gap: 4,
   },
-  reportStatIcon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  reportStatIcon: { width: 30, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   reportStatValue: { color: t.text, fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] },
   reportStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800' },
   section: {
     marginHorizontal: 12,
     marginTop: 10,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 14,
     borderWidth: 1,
     ...shadowStyle(t, {
@@ -945,14 +970,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   teamCloseHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
   teamCloseTitleBox: { flex: 1, minWidth: 0 },
   teamCloseSub: { fontSize: 12, fontWeight: '700', marginTop: 5, lineHeight: 17 },
-  teamScore: { minWidth: 72, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, alignItems: 'center' },
+  teamScore: { minWidth: 72, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 10, alignItems: 'center' },
   teamScoreValue: { fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
   teamScoreLabel: { fontSize: 10, fontWeight: '800', marginTop: 1 },
   checkList: { gap: 7, marginBottom: 12 },
-  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, minHeight: 44 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 10, minHeight: 44 },
   checkLabel: { flex: 1, fontSize: 12, fontWeight: '800' },
   checkValue: { fontSize: 12, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  cashBox: { borderWidth: 1, borderRadius: 10, padding: 10, gap: 6 },
+  cashBox: { borderWidth: 1, borderRadius: 6, padding: 10, gap: 6 },
   cashHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cashTitle: { fontSize: 13, fontWeight: '900' },
   cashLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 5 },
@@ -960,28 +985,28 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cashForma: { flex: 1, paddingRight: 10, fontSize: 12, fontWeight: '800' },
   cashKwota: { fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
   reviewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  reviewChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 8 },
+  reviewChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 5, paddingHorizontal: 10, paddingVertical: 8 },
   reviewChipText: { fontSize: 12, fontWeight: '900' },
   teamReportMeta: { fontSize: 12, fontWeight: '800', marginTop: 10 },
-  closeDayBtn: { marginTop: 12, borderRadius: 10, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  closeDayBtn: { marginTop: 12, borderRadius: 6, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   closeDayBtnText: { fontSize: 14, fontWeight: '900' },
-  zadanieCard: { borderRadius: 10, padding: 12, marginBottom: 10, minHeight: 118, borderLeftWidth: 4, borderWidth: 1, borderColor: t.border },
+  zadanieCard: { borderRadius: 7, padding: 12, marginBottom: 10, minHeight: 118, borderLeftWidth: 4, borderWidth: 1, borderColor: t.border },
   zadanieKlient: { fontSize: 14, fontWeight: '900', marginBottom: 2 },
   zadanieAdres: { fontSize: 12, marginBottom: 8, fontWeight: '700' },
   zadanieRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  materialCard: { borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: t.border },
+  materialCard: { borderRadius: 7, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: t.border },
   materialHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   materialIdx: { fontSize: 13, fontWeight: '900' },
   materialRow: { flexDirection: 'row', marginTop: 8 },
   fieldLabel: { fontSize: 12, marginBottom: 4, fontWeight: '800' },
-  input: { borderWidth: 1, borderRadius: 10, padding: 11, fontSize: 14, marginTop: 4, fontWeight: '700', minHeight: 44 },
-  inputSm: { borderWidth: 1, borderRadius: 10, padding: 9, fontSize: 13, fontWeight: '700', minHeight: 42 },
-  addBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, borderWidth: 1, minHeight: 40, justifyContent: 'center' },
+  input: { borderWidth: 1, borderRadius: 6, padding: 11, fontSize: 14, marginTop: 4, fontWeight: '700', minHeight: 44 },
+  inputSm: { borderWidth: 1, borderRadius: 6, padding: 9, fontSize: 13, fontWeight: '700', minHeight: 42 },
+  addBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 6, borderWidth: 1, minHeight: 40, justifyContent: 'center' },
   addBtnText: { fontSize: 13, fontWeight: '900' },
-  podpisPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 10, minHeight: 52 },
+  podpisPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 6, minHeight: 52 },
   podpisOk: { fontWeight: '600', fontSize: 14 },
   podpisZmien: { fontSize: 13, fontWeight: '600' },
-  podpisBtn: { borderWidth: 1, borderRadius: 10, minHeight: 56, padding: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
+  podpisBtn: { borderWidth: 1, borderRadius: 6, minHeight: 56, padding: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
   podpisBtnText: { fontSize: 15, fontWeight: '600' },
   btnRow: { flexDirection: 'row', gap: 10, margin: 12 },
   saveBtn: { flex: 1 },
@@ -991,17 +1016,17 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
 const P = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.9)', justifyContent: 'flex-end' },
-  modal: { borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 24, paddingBottom: 44 },
+  modal: { borderTopLeftRadius: 8, borderTopRightRadius: 8, padding: 24, paddingBottom: 44 },
   title: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   sub: { fontSize: 13, marginBottom: 16 },
-  canvas: { height: 150, borderRadius: 12, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  canvas: { height: 150, borderRadius: 7, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   canvasHint: { fontSize: 14 },
   canvasSignedText: { fontSize: 18, fontWeight: '700' },
   btnRow: { flexDirection: 'row', gap: 8 },
-  clearBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  clearBtn: { flex: 1, padding: 12, borderRadius: 6, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
   clearBtnText: { fontWeight: '600', fontSize: 13 },
-  cancelBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
+  cancelBtn: { flex: 1, padding: 12, borderRadius: 6, alignItems: 'center' },
   cancelBtnText: { fontWeight: '600', fontSize: 13 },
-  saveBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  saveBtn: { flex: 1, padding: 12, borderRadius: 6, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
   saveBtnText: { fontWeight: '700', fontSize: 13 },
 });

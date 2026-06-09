@@ -15,7 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
@@ -398,7 +398,7 @@ export default function AutoplanDnia() {
 
   return (
     <Box className="autoplan-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Sidebar />
+      <CommandSidebar active="schedule" />
       <Box className="autoplan-main" sx={{ flex: 1, p: 2, maxWidth: 1100, mx: 'auto', width: '100%' }}>
         <PageHeader title={t('pages.autoplanDay.title')} subtitle={t('pages.autoplanDay.subtitle')} />
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

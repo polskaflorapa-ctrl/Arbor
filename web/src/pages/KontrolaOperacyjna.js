@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import { Button } from '../components/ui/Button';
@@ -374,7 +374,7 @@ export default function KontrolaOperacyjna() {
 
   return (
     <div className="app-shell kontrola-shell" style={s.layout}>
-      <Sidebar />
+      <CommandSidebar active="dashboard" />
       <main className="app-main kontrola-main" style={s.main}>
         <PageHeader
           variant="hero"

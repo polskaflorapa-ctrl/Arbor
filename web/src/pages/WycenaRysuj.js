@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ArrowLeft, Eraser, Save, Trash2 } from 'lucide-react';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
+import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
@@ -210,8 +212,8 @@ export default function WycenaRysuj() {
 
   return (
     <div className="app-shell quote-draw-shell">
-      <Sidebar />
-      <main className="app-main quote-draw-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <CommandSidebar active="orders" />
+      <main className="app-main command-content-main quote-draw-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div
           className="quote-draw-topbar"
           style={{
@@ -223,21 +225,28 @@ export default function WycenaRysuj() {
             flexWrap: 'wrap',
           }}
         >
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => navigate(-1)}
+            leftIcon={ArrowLeft}
+            aria-label={t('common.back', { defaultValue: 'Powrót' })}
             style={{
               width: 40,
               height: 40,
+              minHeight: 40,
+              padding: 0,
               borderRadius: 10,
               border: '1px solid var(--border)',
               background: 'var(--surface-field)',
               cursor: 'pointer',
             }}
-          >
-            ←
-          </button>
-          <div style={{ fontWeight: 800, fontSize: 17 }}>{t('draw.pageTitle')}</div>
+          />
+          <div className="quote-draw-title-block">
+            <span>Workbench wyceny</span>
+            <strong>{t('draw.pageTitle')}</strong>
+            <small>{wycenaId ? `Wycena #${wycenaId}` : taskId ? `Zlecenie #${taskId}` : quotationId ? `Oferta #${quotationId}` : 'Tryb lokalny'}</small>
+          </div>
           {!decodedUri && (
             <label style={{ marginLeft: 'auto', fontSize: 13, cursor: 'pointer' }}>
               <input
@@ -254,6 +263,28 @@ export default function WycenaRysuj() {
         <StatusMessage message={msg} style={{ margin: '8px 16px 0' }} />
 
         <div className="quote-draw-workbench" style={{ padding: 16, maxWidth: 900, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+          <section className="quote-draw-command-strip" aria-label="Stan rysunku">
+            <div className="quote-draw-command-lead">
+              <span>Rysunek terenowy</span>
+              <strong>{ready ? 'Gotowy' : decodedUri ? 'Ładowanie' : 'Wybierz zdjęcie'}</strong>
+              <small>adnotacje zapiszą się do właściwej sprawy</small>
+            </div>
+            <div className={`quote-draw-command-card ${hasTarget ? 'is-good' : 'is-warning'}`}>
+              <span>Cel zapisu</span>
+              <strong>{hasTarget ? 'Podpięty' : 'Brak'}</strong>
+              <small>{taskId || wycenaId || quotationId || 'lokalny szkic bez backendu'}</small>
+            </div>
+            <div className={`quote-draw-command-card ${eraser ? 'is-warning' : 'is-blue'}`}>
+              <span>Narzędzie</span>
+              <strong>{eraser ? t('draw.eraser') : `${lineWidth}px`}</strong>
+              <small>{eraser ? 'gumka aktywna' : `kolor ${color}`}</small>
+            </div>
+            <div className={`quote-draw-command-card ${saving ? 'is-warning' : ready ? 'is-good' : 'is-danger'}`}>
+              <span>Status</span>
+              <strong>{saving ? 'Zapis' : ready ? 'Canvas' : 'Pusty'}</strong>
+              <small>{ready ? 'można rysować' : 'czekam na obraz'}</small>
+            </div>
+          </section>
           {!hasTarget && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>{t('draw.noTargetHint')}</p>
           )}
@@ -262,9 +293,10 @@ export default function WycenaRysuj() {
           )}
           <div className="quote-draw-toolbar" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12, alignItems: 'center' }}>
             {COLORS.map((c) => (
-              <button
+              <Button
                 key={c}
-                type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   setEraser(false);
                   setColor(c);
@@ -272,6 +304,8 @@ export default function WycenaRysuj() {
                 style={{
                   width: 28,
                   height: 28,
+                  minHeight: 28,
+                  padding: 0,
                   borderRadius: '50%',
                   background: c,
                   border: color === c && !eraser ? '2px solid var(--accent)' : '1px solid var(--border)',
@@ -291,8 +325,10 @@ export default function WycenaRysuj() {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
+            <Button
+              variant={eraser ? 'primary' : 'secondary'}
+              size="sm"
+              leftIcon={Eraser}
               onClick={() => setEraser((e) => !e)}
               style={{
                 padding: '6px 12px',
@@ -304,9 +340,11 @@ export default function WycenaRysuj() {
               }}
             >
               {t('draw.eraser')}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={Trash2}
               onClick={clearDrawing}
               style={{
                 padding: '6px 12px',
@@ -317,10 +355,11 @@ export default function WycenaRysuj() {
               }}
             >
               {t('draw.btn.clear')}
-            </button>
-            <button
-              type="button"
-              disabled={!ready || saving || !hasTarget}
+            </Button>
+            <Button
+              loading={saving}
+              disabled={!ready || !hasTarget}
+              leftIcon={Save}
               onClick={save}
               style={{
                 padding: '8px 16px',
@@ -333,8 +372,8 @@ export default function WycenaRysuj() {
                 opacity: ready && hasTarget ? 1 : 0.5,
               }}
             >
-              {saving ? t('common.saving') : t('draw.btn.save')}
-            </button>
+              {t('draw.btn.save')}
+            </Button>
           </div>
 
           <div className="quote-draw-canvas-frame" style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 12, background: '#111' }}>

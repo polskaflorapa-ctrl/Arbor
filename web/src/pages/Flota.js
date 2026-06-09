@@ -289,6 +289,7 @@ export default function Flota() {
   const [protocolDrafts, setProtocolDrafts] = useState({});
   const [protocolFiles, setProtocolFiles] = useState({});
   const [protocolSavingId, setProtocolSavingId] = useState('');
+  const [protocolOpenId, setProtocolOpenId] = useState('');
   const [repairQuickFilter, setRepairQuickFilter] = useState('all');
 
   const [formPojazd, setFormPojazd] = useState({
@@ -1479,7 +1480,7 @@ export default function Flota() {
   return (
     <div className="app-shell fleet-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <CommandSidebar active="fleet" user={currentUser} />
-      <main className="app-main fleet-main" style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
+      <main className="app-main command-content-main fleet-main" style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
 
         <PageHeader
           variant="hero"
@@ -1586,6 +1587,7 @@ export default function Flota() {
             protocolDrafts={protocolDrafts}
             protocolFiles={protocolFiles}
             protocolSavingId={protocolSavingId}
+            protocolOpenId={protocolOpenId}
             onClose={closeAssetDetail}
             onOpenRepairs={() => openRepairsForAsset(selectedAssetDetail.kind, selectedAssetDetail.item)}
             onNewRepair={() => openRepairDraft(selectedAssetDetail.kind, selectedAssetDetail.item)}
@@ -1599,6 +1601,7 @@ export default function Flota() {
             onProtocolDraftChange={setProtocolDraft}
             onProtocolFilesChange={setProtocolUploadFiles}
             onSubmitProtocol={(reservation) => submitReservationProtocol(selectedAssetDetail.item, reservation)}
+            onToggleProtocol={(reservationId) => setProtocolOpenId((prev) => (String(prev) === String(reservationId) ? '' : String(reservationId)))}
             onDeletePhoto={(photoId) => deleteAssetPhoto(selectedAssetDetail.type, selectedAssetDetail.item, photoId)}
             onDeleteDocument={(docId) => deleteAssetDocument(selectedAssetDetail.type, selectedAssetDetail.item, docId)}
           />
@@ -2463,6 +2466,7 @@ function AssetDetailPanel({
   protocolDrafts = {},
   protocolFiles = {},
   protocolSavingId = '',
+  protocolOpenId = '',
   onClose,
   onOpenRepairs,
   onNewRepair,
@@ -2476,6 +2480,7 @@ function AssetDetailPanel({
   onProtocolDraftChange,
   onProtocolFilesChange,
   onSubmitProtocol,
+  onToggleProtocol,
   onDeletePhoto,
   onDeleteDocument,
 }) {
@@ -2662,11 +2667,20 @@ function AssetDetailPanel({
                         Anuluj
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      leftIcon={FileText}
+                      onClick={() => onToggleProtocol(reservation.id)}
+                    >
+                      Protokol
+                    </Button>
                   </div>
                 )}
                 {canEdit && (
                   <ReservationProtocolCard
                     reservation={reservation}
+                    open={String(protocolOpenId) === String(reservation.id)}
                     draft={protocolDrafts[reservation.id]}
                     files={protocolFiles[reservation.id] || []}
                     saving={protocolSavingId === String(reservation.id)}
@@ -2719,7 +2733,7 @@ function AssetDetailPanel({
   );
 }
 
-function ReservationProtocolCard({ reservation, draft = {}, files = [], saving, onDraftChange, onFilesChange, onSubmit }) {
+function ReservationProtocolCard({ reservation, open = false, draft = {}, files = [], saving, onDraftChange, onFilesChange, onSubmit }) {
   const protocolDraft = {
     typ: reservation.status === 'Wydane' ? 'zwrot' : 'wydanie',
     stan: 'OK',
@@ -2733,6 +2747,18 @@ function ReservationProtocolCard({ reservation, draft = {}, files = [], saving, 
   };
   const protocols = Array.isArray(reservation.protokoly) ? reservation.protokoly : [];
   const lastProtocol = protocols.slice().sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
+  const damageCost = protocols.reduce((sum, protocol) => sum + (Number(protocol.koszt_uszkodzen || 0) || 0), 0);
+
+  if (!open) {
+    if (!protocols.length) return null;
+    return (
+      <div style={S.protocolSummary}>
+        <strong>{protocols.length} protokol(e)</strong>
+        <span>ostatni: {lastProtocol?.typ || '-'} / {lastProtocol?.stan || '-'}</span>
+        <b>{formatMoney(damageCost)}</b>
+      </div>
+    );
+  }
 
   return (
     <div style={S.protocolBox}>
@@ -3036,6 +3062,7 @@ const S = {
   reservationRow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', padding: 8, minWidth: 0 },
   reservationMain: { display: 'grid', gap: 2, minWidth: 0, fontSize: 12, color: 'var(--text-sub)' },
   reservationActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  protocolSummary: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(140px, auto) auto', gap: 8, alignItems: 'center', border: '1px solid rgba(20,131,79,0.18)', borderRadius: 8, background: 'rgba(20,131,79,0.06)', color: 'var(--text-sub)', padding: '7px 9px', fontSize: 12, minWidth: 0 },
   protocolBox: { gridColumn: '1 / -1', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 9, display: 'grid', gap: 8, minWidth: 0 },
   protocolTop: { display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--text-sub)', flexWrap: 'wrap' },
   protocolForm: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 7, alignItems: 'center' },

@@ -19,6 +19,11 @@ vi.mock('../components/Sidebar', () => ({
   default: () => <aside data-testid="sidebar" />,
 }));
 
+vi.mock('../components/CommandSidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 vi.mock('../components/StatusMessage', () => ({
   __esModule: true,
   default: ({ message }) => (message ? <div>{message}</div> : null),
@@ -138,7 +143,7 @@ test('renders the new hero stats, SLA panel, and KPI cards', async () => {
   expect(screen.getByText('SLA po terminie')).toBeInTheDocument();
   expect(screen.getByText('Tryb')).toBeInTheDocument();
   expect(screen.getByText('Miesiąc: wyceny')).toBeInTheDocument();
-  expect(screen.getByText('Ryzyka danych')).toBeInTheDocument();
+  expect(screen.getAllByText('Ryzyka danych').length).toBeGreaterThan(0);
   expect(screen.getByText('1 ekip live')).toBeInTheDocument();
   expect(screen.getByText(/SLA .*zatwierdzenia po terminie/i)).toBeInTheDocument();
   expect(screen.getAllByText(/Realny Klient/i).length).toBeGreaterThan(0);

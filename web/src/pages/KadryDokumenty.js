@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import ModernDataRow from '../components/ModernDataRow';
 import { Button } from '../components/ui/Button';
 import { readStoredUser } from '../utils/readStoredUser';
@@ -204,7 +204,7 @@ export default function KadryDokumenty() {
 
   return (
     <div className="app-shell hr-docs-shell" style={S.wrap}>
-      <Sidebar />
+      <CommandSidebar active="profile" />
       <main className="app-main hr-docs-main" style={S.main}>
         <header className="hr-docs-header" style={S.header}>
           <div>

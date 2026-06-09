@@ -45,7 +45,7 @@ export function formatTaskFieldTime(value: unknown) {
 
 export function getTaskFieldPhotoItems(task: any): FieldExecutionPhotoItem[] {
   return [
-    { key: 'wycena', label: 'Wycena', count: numberValue(task?.photo_wycena ?? task?.photos_wycena) },
+    { key: 'wycena', label: 'Oględziny', count: numberValue(task?.photo_wycena ?? task?.photos_wycena) },
     { key: 'szkic', label: 'Szkic', count: numberValue(task?.photo_szkic ?? task?.photos_szkic) },
     { key: 'dojazd', label: 'Dojazd', count: numberValue(task?.photo_dojazd ?? task?.photos_dojazd) },
   ];

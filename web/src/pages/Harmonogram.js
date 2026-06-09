@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
+import CommandSidebar from '../components/CommandSidebar';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -1491,58 +1492,9 @@ export default function Harmonogram() {
   };
 
   const filtrowaneEkipy = ekipy.filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial);
-  const commandNav = [
-    { label: 'Pulpit', path: '/dashboard' },
-    { label: 'Zlecenia', path: '/zlecenia' },
-    { label: 'CRM', path: '/crm' },
-    { label: 'Harmonogram', path: '/harmonogram', active: true },
-    { label: 'Ekipy', path: '/ekipy' },
-    { label: 'Flota', path: '/flota' },
-    { label: 'Raporty', path: '/raporty' },
-  ];
-
   return (
     <div className="app-shell harmonogram-shell" style={styles.container}>
-      <aside className="command-native-sidebar" aria-label="ARBOR Command navigation">
-        <button type="button" className="command-native-brand" onClick={() => navigate('/dashboard')}>
-          <span>AR</span>
-          <div>
-            <strong>ARBOR-OS</strong>
-            <small>System zarzadzania</small>
-          </div>
-        </button>
-        <nav className="command-native-nav">
-          {commandNav.map((item) => (
-            <button
-              key={item.path}
-              type="button"
-              className={item.active ? 'is-active' : undefined}
-              onClick={() => navigate(item.path)}
-            >
-              <span aria-hidden />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="command-native-actions">
-          <span>Szybkie akcje</span>
-          <button type="button" onClick={() => navigate('/nowe-zlecenie')}>Nowe zlecenie</button>
-          <button type="button" onClick={() => navigate('/klienci')}>Nowy klient</button>
-          <button type="button" onClick={goToday}>Plan dnia</button>
-          <button type="button" onClick={() => navigate('/raporty')}>Raport dzienny</button>
-        </div>
-        <button type="button" className="command-native-system" onClick={() => navigate('/powiadomienia')}>
-          <strong>System online</strong>
-          <small>Wszystkie uslugi dzialaja</small>
-        </button>
-        <button type="button" className="command-native-user" onClick={() => navigate('/profil')}>
-          <span>{currentUser?.imie?.[0] || 'J'}{currentUser?.nazwisko?.[0] || 'A'}</span>
-          <div>
-            <strong>{currentUser?.imie || 'Jan'} {currentUser?.nazwisko || 'Administrator'}</strong>
-            <small>{currentUser?.rola || 'Operator'}</small>
-          </div>
-        </button>
-      </aside>
+      <CommandSidebar active="schedule" user={currentUser} onPlanDay={goToday} />
       <main className="app-main harmonogram-main" style={styles.main}>
         <div className="harmonogram-header" style={styles.headerRow}>
           <div style={styles.navRow}>

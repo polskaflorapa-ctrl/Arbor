@@ -2026,11 +2026,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.cardBg, paddingHorizontal: 20, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  navBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' },
+  navBtn: { width: 48, height: 48, borderRadius: 8, backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' },
   monthTitle: { fontSize: 17, fontWeight: 'bold', color: t.accent },
 
   calendarBox: {
-    backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 12,
+    backgroundColor: t.cardBg, margin: 12, borderRadius: 7, padding: 12,
     borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.18,
@@ -2053,7 +2053,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   dotText: { fontSize: 10, fontWeight: 'bold' },
 
   daySection: {
-    backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 16,
+    backgroundColor: t.cardBg, margin: 12, borderRadius: 7, padding: 16,
     borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.18,
@@ -2065,7 +2065,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   daySectionTitle: { fontSize: 16, fontWeight: 'bold', color: t.accent, marginBottom: 12 },
   opsPanel: {
     borderWidth: 1,
-    borderRadius: 15,
+    borderRadius: 7,
     padding: 12,
     gap: 10,
     marginBottom: 12,
@@ -2075,7 +2075,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  opsIcon: { width: 30, height: 30, borderRadius: 10 },
+  opsIcon: { width: 30, height: 30, borderRadius: 6 },
   opsTitle: { fontSize: 14, fontWeight: '900' },
   opsSub: { color: t.textSub, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
   opsGrid: {
@@ -2088,7 +2088,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '30%',
     minWidth: 82,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 8,
     alignItems: 'center',
@@ -2096,7 +2096,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   opsValue: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
   opsLabel: { color: t.textMuted, fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center' },
   opsWarning: {
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.warning + '55',
     backgroundColor: t.cardBg,
@@ -2116,7 +2116,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minHeight: 38,
     maxWidth: 190,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 7,
     flexDirection: 'row',
@@ -2127,7 +2127,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   teamFilterCount: {
     minWidth: 22,
     height: 22,
-    borderRadius: 999,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 5,
@@ -2137,7 +2137,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 14,
     alignItems: 'center',
     gap: 6,
@@ -2146,7 +2146,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   filterEmptyTitle: { color: t.text, fontSize: 14, fontWeight: '900' },
   filterEmptyText: { color: t.textMuted, fontSize: 12, lineHeight: 17, textAlign: 'center' },
   equipmentPanel: {
-    borderRadius: 15,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.info + '45',
     backgroundColor: t.surface2,
@@ -2159,11 +2159,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  equipmentIcon: { width: 32, height: 32, borderRadius: 11 },
+  equipmentIcon: { width: 32, height: 32, borderRadius: 6 },
   equipmentTitle: { color: t.text, fontSize: 14, fontWeight: '900' },
   equipmentSub: { color: t.textMuted, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
   equipmentAction: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.info + '55',
     backgroundColor: t.info + '12',
@@ -2178,7 +2178,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   equipmentStat: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 9,
     paddingVertical: 8,
     alignItems: 'center',
@@ -2189,7 +2189,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -2201,13 +2201,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   equipmentMeta: { color: t.textMuted, fontSize: 10.5, marginTop: 1 },
   equipmentBadge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
   equipmentBadgeText: { fontSize: 10, fontWeight: '900' },
   equipmentTaskBtn: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
@@ -2218,7 +2218,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   equipmentEmpty: {
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.cardBg,
     padding: 10,
   },
@@ -2230,7 +2230,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginTop: 8,
   },
   routeCommandCard: {
-    borderRadius: 15,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
@@ -2243,7 +2243,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  routeCommandIcon: { width: 36, height: 36, borderRadius: 12 },
+  routeCommandIcon: { width: 36, height: 36, borderRadius: 7 },
   routeCommandTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
   routeCommandSub: { color: t.textMuted, fontSize: 12, lineHeight: 16, marginTop: 2 },
   routeStatsGrid: {
@@ -2256,7 +2256,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 68,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 8,
     alignItems: 'center',
@@ -2267,7 +2267,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -2283,13 +2283,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   routeProgressValue: { color: t.text, fontSize: 12, fontWeight: '900', fontVariant: ['tabular-nums'] },
   routeProgressTrack: {
     height: 8,
-    borderRadius: 999,
+    borderRadius: 5,
     overflow: 'hidden',
     backgroundColor: t.surface2,
   },
   routeProgressFill: {
     height: '100%',
-    borderRadius: 999,
+    borderRadius: 5,
   },
   routeMapButtons: {
     gap: 7,
@@ -2297,7 +2297,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   routeMapButton: {
     minHeight: 42,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -2309,7 +2309,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   routeMapIcon: { width: 17, height: 17, borderRadius: 6 },
   routeMapText: { fontSize: 11, fontWeight: '900' },
   nextRouteCard: {
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -2322,7 +2322,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: 58,
     minHeight: 46,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
@@ -2335,7 +2335,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
@@ -2346,7 +2346,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   nextRouteOpenIcon: { width: 16, height: 16, borderRadius: 6 },
 
   taskCard: {
-    flexDirection: 'row', borderRadius: 12, backgroundColor: t.surface2,
+    flexDirection: 'row', borderRadius: 7, backgroundColor: t.surface2,
     marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.cardBorder,
   },
   taskCardFocused: {
@@ -2384,7 +2384,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   photoPill: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 5,
     flexDirection: 'row',
@@ -2394,7 +2394,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoPillIcon: { width: 15, height: 15, borderRadius: 5 },
   photoPillText: { fontSize: 10.5, fontWeight: '900' },
   routeSmallBtn: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -2408,7 +2408,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   routeSmallText: { fontSize: 10.5, fontWeight: '900' },
   executionPanel: {
     marginTop: 10,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 10,
     gap: 8,
@@ -2430,7 +2430,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     minWidth: 76,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 7,
     paddingVertical: 5,
     flexDirection: 'row',
@@ -2441,7 +2441,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   executionCheckText: { fontSize: 9.5, fontWeight: '900' },
   fieldExecutionPanel: {
     marginTop: 10,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 10,
     gap: 8,
@@ -2461,14 +2461,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldExecutionDoc: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 7,
     paddingVertical: 4,
   },
   fieldExecutionDocText: { fontSize: 10, fontWeight: '900', fontVariant: ['tabular-nums'] },
   fieldSlotPanel: {
     marginTop: 10,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.success + '45',
     backgroundColor: t.successBg,
@@ -2484,7 +2484,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSlotTitle: { color: t.text, fontSize: 12, fontWeight: '900' },
   fieldSlotSub: { color: t.textMuted, fontSize: 10.5, lineHeight: 14, marginTop: 1 },
   fieldSlotScore: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.success + '55',
     backgroundColor: t.cardBg,
@@ -2498,7 +2498,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 6,
   },
   fieldCheckChip: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -2508,7 +2508,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 6,
   },
   fieldSummaryItem: {
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -2519,7 +2519,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSummaryText: { color: t.textSub, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
 
   ekipySection: {
-    backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 16,
+    backgroundColor: t.cardBg, margin: 12, borderRadius: 7, padding: 16,
     borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.18,
@@ -2533,7 +2533,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 12,
     gap: 10,
     marginBottom: 10,
@@ -2552,7 +2552,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   ekipaInfo: { fontSize: 12, color: t.textMuted, marginTop: 2 },
   ekipaStatusBadge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 5,
   },
@@ -2563,7 +2563,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 64,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 7,
     alignItems: 'center',
@@ -2571,14 +2571,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   ekipaStatValue: { fontSize: 14, fontWeight: '900', fontVariant: ['tabular-nums'] },
   ekipaStatLabel: { color: t.textMuted, fontSize: 9.5, fontWeight: '800', textTransform: 'uppercase' },
   ekipaProgressBox: {
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
     padding: 10,
   },
   ekipaNextRow: {
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -2593,7 +2593,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 8,
   },
   teamWarningBox: {
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 8,
@@ -2606,7 +2606,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.info + '35',
     backgroundColor: t.cardBg,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     gap: 7,
   },
@@ -2636,7 +2636,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: t.text, flex: 1, marginRight: 8 },
   modalRow: { fontSize: 14, color: t.textSub, flex: 1 },
   modalCalendarCard: {
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.accent + '40',
     backgroundColor: t.accentLight,
@@ -2649,7 +2649,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  modalCalendarIcon: { width: 30, height: 30, borderRadius: 10 },
+  modalCalendarIcon: { width: 30, height: 30, borderRadius: 6 },
   modalCalendarEyebrow: {
     color: t.textMuted,
     fontSize: 10,
@@ -2667,7 +2667,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '30%',
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.cardBg,
     paddingHorizontal: 9,
     paddingVertical: 8,
@@ -2687,7 +2687,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalCalendarAction: {
     flexGrow: 1,
     minHeight: 42,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.cardBg,
@@ -2699,7 +2699,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   modalCalendarActionText: { fontSize: 12, fontWeight: '900' },
   modalHandoffBox: {
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.success + '45',
     backgroundColor: t.successBg,
@@ -2709,7 +2709,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   modalHandoffTitle: { color: t.text, fontSize: 14, fontWeight: '900' },
   modalHandoffRow: {
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -2717,7 +2717,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 8,
   },
   modalEquipmentBox: {
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.info + '45',
     backgroundColor: t.surface2,
@@ -2733,7 +2733,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalEquipmentTitle: { color: t.text, fontSize: 13.5, fontWeight: '900' },
   modalEquipmentSub: { color: t.textMuted, fontSize: 11, lineHeight: 15, marginTop: 1 },
   modalEquipmentBtn: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.info + '55',
     backgroundColor: t.info + '12',
@@ -2745,7 +2745,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',

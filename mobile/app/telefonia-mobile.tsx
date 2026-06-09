@@ -65,6 +65,18 @@ async function parseResponse(res: Response) {
   }
 }
 
+function parseDueAtInput(raw: string): Date | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const isoish = s.includes('T') ? s : s.replace(' ', 'T');
+  const direct = new Date(isoish);
+  if (!Number.isNaN(direct.getTime())) return direct;
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/.exec(s);
+  if (!m) return null;
+  const [, y, mo, da, h = '0', mi = '0'] = m;
+  return new Date(Number(y), Number(mo) - 1, Number(da), Number(h), Number(mi));
+}
+
 export default function TelefoniaMobileScreen() {
   const { theme } = useTheme();
   const guard = useOddzialFeatureGuard('/telefonia-mobile');
@@ -95,16 +107,20 @@ export default function TelefoniaMobileScreen() {
   const smsChars = useMemo(() => smsText.trim().length, [smsText]);
 
   const loadData = useCallback(
-    async (authToken?: string | null) => {
+    async (authToken?: string | null, branchId?: number | null) => {
       const tokenToUse = authToken ?? token;
+      const oddzialToUse = branchId !== undefined ? branchId : oddzialId;
       if (!tokenToUse) return;
       try {
-        const callbacksQs = oddzialId ? `?oddzial_id=${oddzialId}` : '';
+        const callbacksQs = oddzialToUse ? `?oddzial_id=${oddzialToUse}` : '';
         const [callsRes, smsRes, callbacksRes] = await Promise.all([
           apiFetch('/telefon/rozmowy?limit=25&offset=0', { token: tokenToUse }),
           apiFetch('/sms/historia?limit=25&offset=0', { token: tokenToUse }),
           apiFetch(`/telephony/callbacks${callbacksQs}`, { token: tokenToUse }),
         ]);
+        if (!callsRes.ok && !smsRes.ok && !callbacksRes.ok) {
+          throw new Error('Nie udalo sie pobrac danych telefonii.');
+        }
         const callsData = await parseResponse(callsRes);
         const smsData = await parseResponse(smsRes);
         const callbacksData = await parseResponse(callbacksRes);
@@ -126,10 +142,12 @@ export default function TelefoniaMobileScreen() {
         setCalls(callsRows);
         setSmsRows(smsHistoryRows);
         setCallbacks(callbackRows);
-      } catch {
+      } catch (err) {
         setCalls([]);
         setSmsRows([]);
         setCallbacks([]);
+        const msg = err instanceof Error ? err.message : 'Blad telefonii.';
+        Alert.alert('Telefonia', msg);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -144,8 +162,9 @@ export default function TelefoniaMobileScreen() {
       if (!session.token) return;
       setToken(session.token);
       const sessionOddzial = Number(session.user?.oddzial_id);
-      setOddzialId(Number.isFinite(sessionOddzial) && sessionOddzial > 0 ? sessionOddzial : null);
-      await loadData(session.token);
+      const resolvedOddzial = Number.isFinite(sessionOddzial) && sessionOddzial > 0 ? sessionOddzial : null;
+      setOddzialId(resolvedOddzial);
+      await loadData(session.token, resolvedOddzial);
     })();
   }, [loadData]);
 
@@ -233,11 +252,14 @@ export default function TelefoniaMobileScreen() {
       Alert.alert('Telefonia', 'Brak oddzialu w sesji. Zaloguj sie ponownie.');
       return;
     }
+    const dueAt = parseDueAtInput(callbackDueAt);
+    if (callbackDueAt.trim() && !dueAt) {
+      Alert.alert('Telefonia', 'Nieprawidlowy termin. Uzyj formatu YYYY-MM-DD HH:mm.');
+      return;
+    }
     setBusyCallback(true);
     try {
       const taskId = Number(callbackTaskId);
-      const dueRaw = callbackDueAt.trim();
-      const dueAt = dueRaw ? new Date(dueRaw) : null;
       const payload = {
         oddzial_id: oddzialId,
         phone: callbackPhone.trim(),

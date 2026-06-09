@@ -273,7 +273,7 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 12,
       paddingTop: 18,
       paddingBottom: 16,
-      borderRadius: 20,
+      borderRadius: 7,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       flexDirection: 'row',
@@ -289,7 +289,7 @@ function makeStyles(theme: Theme) {
     backBtn: {
       width: 42,
       height: 42,
-      borderRadius: 14,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface2,
@@ -299,7 +299,7 @@ function makeStyles(theme: Theme) {
     headerIcon: {
       width: 44,
       height: 44,
-      borderRadius: 15,
+      borderRadius: 7,
       borderWidth: 1,
       borderColor: theme.accent,
       backgroundColor: theme.accentLight,
@@ -326,7 +326,7 @@ function makeStyles(theme: Theme) {
       flex: 1,
       minHeight: 74,
       backgroundColor: theme.cardBg,
-      borderRadius: 15,
+      borderRadius: 7,
       borderWidth: 1,
       borderColor: theme.cardBorder,
       alignItems: 'center',
@@ -342,7 +342,7 @@ function makeStyles(theme: Theme) {
     inp: {
       borderWidth: 1,
       borderColor: theme.inputBorder,
-      borderRadius: 14,
+      borderRadius: 6,
       padding: 12,
       marginBottom: 12,
       color: theme.text,
@@ -354,7 +354,7 @@ function makeStyles(theme: Theme) {
       borderWidth: 1,
       borderColor: theme.cardBorder,
       backgroundColor: theme.cardBg,
-      borderRadius: 18,
+      borderRadius: 7,
       padding: 14,
       marginBottom: 10,
       ...shadowStyle(theme, {
@@ -369,7 +369,7 @@ function makeStyles(theme: Theme) {
     teamIcon: {
       width: 36,
       height: 36,
-      borderRadius: 12,
+      borderRadius: 7,
       borderWidth: 1,
       alignItems: 'center',
       justifyContent: 'center',

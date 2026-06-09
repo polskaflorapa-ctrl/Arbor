@@ -6,7 +6,7 @@ import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
 import { RefreshCw } from 'lucide-react';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
@@ -175,7 +175,7 @@ export default function RankingBrygad() {
 
   return (
     <div className="ranking-brygad-shell" style={S.shell}>
-      <Sidebar />
+      <CommandSidebar active="teams" />
       <main className="ranking-brygad-main" style={{ ...S.main, ...(compact ? S.mainCompact : null) }}>
         <PageHeader
           variant="hero"

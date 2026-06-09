@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -63,7 +63,7 @@ function absoluteFileUrl(pathMaybe) {
 
 const S = {
   wrap: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-  main: { flex: 1, padding: '20px 24px 40px', maxWidth: 720 },
+  main: { flex: 1, padding: '20px 24px 40px', maxWidth: 1180 },
   back: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -218,8 +218,8 @@ export default function WycenaTerenowaDetail() {
 
   return (
     <div className="field-quote-detail-shell" style={S.wrap}>
-      <Sidebar />
-      <main className="field-quote-detail-main" style={S.main}>
+      <CommandSidebar active="orders" />
+      <main className="command-content-main field-quote-detail-main" style={S.main}>
         <Button type="button" variant="ghost" leftIcon={ArrowLeft} style={S.back} onClick={() => navigate(-1)}>
           ← Wróć
         </Button>
@@ -233,6 +233,29 @@ export default function WycenaTerenowaDetail() {
           <p style={S.muted}>Brak danych.</p>
         ) : (
           <>
+            <section className="field-quote-detail-command-strip" aria-label="Centrum decyzji wyceny terenowej">
+              <div className="field-quote-detail-command-lead">
+                <span>Wycena terenowa</span>
+                <strong>#{q.id}</strong>
+                <small>{q.klient_nazwa || 'klient bez nazwy'}</small>
+              </div>
+              <div className={`field-quote-detail-command-card ${q.status === 'Wyslana_Klientowi' ? 'is-good' : 'is-blue'}`}>
+                <span>Status</span>
+                <strong>{q.status || 'Brak'}</strong>
+                <small>{q.priorytet ? `priorytet ${q.priorytet}` : 'standard'}</small>
+              </div>
+              <div className={`field-quote-detail-command-card ${items.length ? 'is-good' : 'is-warning'}`}>
+                <span>Pozycje</span>
+                <strong>{items.length}</strong>
+                <small>{itemsErr || 'do szkicu i wyceny'}</small>
+              </div>
+              <div className={`field-quote-detail-command-card ${showOfferBlock ? 'is-good' : 'is-warning'}`}>
+                <span>Oferta</span>
+                <strong>{showOfferBlock ? 'Wyslana' : 'Robocza'}</strong>
+                <small>{acceptUrl ? 'link akceptacji aktywny' : 'brak linku klienta'}</small>
+              </div>
+            </section>
+
             <div className="field-quote-detail-card field-quote-detail-summary" style={S.card}>
               <div style={S.badge}>#{q.id}</div>
               <div style={S.title}>{q.klient_nazwa || '—'}</div>
@@ -253,6 +276,7 @@ export default function WycenaTerenowaDetail() {
               </div>
             </div>
 
+            <div className="field-quote-detail-grid">
             <div ref={sketchSectionRef} className="field-quote-detail-card field-quote-detail-sketch" style={S.card}>
               <div style={S.h2}>{t('fieldQuotesSketch.sectionTitle')}</div>
               <div style={{ ...S.muted, marginBottom: 10 }}>{t('fieldQuotesSketch.hint')}</div>
@@ -262,6 +286,7 @@ export default function WycenaTerenowaDetail() {
               ) : (
                 items.map((it, idx) => (
                   <div
+                    className="field-quote-detail-item-row"
                     key={it.id}
                     style={
                       idx > 0
@@ -379,6 +404,7 @@ export default function WycenaTerenowaDetail() {
                 PDF, SMS/e-mail i link akceptacji.
               </div>
             )}
+            </div>
           </>
         )}
       </main>

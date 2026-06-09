@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 
 import { EmptyState, ErrorBanner } from '../components/ui/app-state';
+import { FieldOpsBackdrop, FieldOpsCockpit, FieldOpsHeroImage } from '../components/ui/field-ops-art';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { ScreenHeader } from '../components/ui/screen-header';
@@ -91,7 +92,7 @@ type OfficePlanForm = {
 };
 
 const PHOTO_REQUIREMENTS = [
-  { key: 'photo_wycena', label: 'Wycena', icon: 'image-outline' },
+  { key: 'photo_wycena', label: 'Oględziny', icon: 'image-outline' },
   { key: 'photo_szkic', label: 'Szkic', icon: 'create-outline' },
   { key: 'photo_dojazd', label: 'Dojazd', icon: 'navigate-outline' },
 ] as const;
@@ -296,7 +297,7 @@ function stageMeta(row: FieldDraft, theme: Theme) {
   }
   return {
     label: 'Teren / braki',
-    hint: 'specjalista ds. wyceny domyka zdjecia i zakres',
+    hint: 'specjalista oględzin domyka zdjecia i zakres',
     icon: 'alert-circle-outline' as const,
     color: theme.warning,
   };
@@ -510,7 +511,7 @@ export default function WycenyDoBiuraScreen() {
       key: 'photo',
       label: 'Foto komplet',
       value: `${evidenceSummary.evidenceReady}/${stats.total}`,
-      hint: 'wycena + szkic + dojazd',
+      hint: 'oględziny + szkic + dojazd',
       icon: 'images-outline',
       color: theme.success,
     },
@@ -551,7 +552,7 @@ export default function WycenyDoBiuraScreen() {
       key: 'photos',
       label: 'Foto pakiet',
       value: evidenceSummary.missingPhotos,
-      hint: 'wycena, szkic, dojazd',
+      hint: 'oględziny, szkic, dojazd',
       icon: 'images-outline',
       color: evidenceSummary.missingPhotos ? theme.warning : theme.success,
     },
@@ -667,7 +668,8 @@ export default function WycenyDoBiuraScreen() {
   if (loading) {
     return (
       <KeyboardSafeScreen style={S.center}>
-        <AppStatusBar />
+        <FieldOpsBackdrop />
+        <AppStatusBar backgroundColor={theme.bg} />
         <ActivityIndicator color={theme.accent} size="large" />
       </KeyboardSafeScreen>
     );
@@ -675,7 +677,8 @@ export default function WycenyDoBiuraScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <AppStatusBar />
+      <FieldOpsBackdrop />
+      <AppStatusBar backgroundColor={theme.bg} />
       <ScreenHeader title="Do opracowania" edgeSlotWidth={48} />
 
       <ScrollView
@@ -692,17 +695,19 @@ export default function WycenyDoBiuraScreen() {
               <Ionicons name="file-tray-full-outline" size={18} color={theme.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={S.commandTitle}>Kolejka wycen terenowych</Text>
-              <Text style={S.commandText}>Rozdzielamy drafty z terenu od paczek gotowych do planowania.</Text>
+              <Text style={S.commandTitle}>Kolejka oględzin</Text>
+              <Text style={S.commandText}>Rozdzielamy paczki z terenu od zestawów gotowych do planowania.</Text>
               <Text style={S.commandMeta}>
                 SLA: pilne po 2h lub poniżej 50% danych
                 {stats.oldestOpen ? ` · najstarszy czeka ${draftAgeLabel(stats.oldestOpen)}` : ''}
               </Text>
             </View>
+            <FieldOpsHeroImage variant="inspection" size={72} />
             <TouchableOpacity style={S.refreshBtn} onPress={onRefresh}>
               <Ionicons name="refresh-outline" size={17} color={theme.accent} />
             </TouchableOpacity>
           </View>
+          <FieldOpsCockpit variant="inspection" style={S.commandCockpit} />
         </View>
 
         <View style={S.kpiRow}>
@@ -931,7 +936,7 @@ export default function WycenyDoBiuraScreen() {
           <EmptyState
             icon="checkmark-done-circle-outline"
             title="Brak draftów do opracowania"
-            subtitle="Gdy specjalista ds. wyceny zapisze draft terenowy, pojawi się tutaj."
+            subtitle="Gdy specjalista oględzin zapisze draft terenowy, pojawi się tutaj."
           />
         ) : visibleItems.length === 0 ? (
           <EmptyState
@@ -1295,7 +1300,7 @@ const stylesShared = StyleSheet.create({
     flexBasis: '30%',
     minWidth: 92,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 12,
     alignItems: 'center',
   },
@@ -1304,7 +1309,7 @@ const stylesShared = StyleSheet.create({
   metaPill: {
     width: '48%',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 9,
     paddingVertical: 7,
     flexDirection: 'row',
@@ -1321,16 +1326,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   content: { padding: 12, paddingBottom: 44, gap: 12 },
   commandPanel: {
     borderWidth: 1,
-    borderColor: t.cardBorder,
-    backgroundColor: t.cardBg,
-    borderRadius: 12,
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
+    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.94)' : t.cardBg,
+    borderRadius: 7,
     padding: 14,
   },
   commandTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   commandIcon: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1338,22 +1343,26 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   commandTitle: { color: t.text, fontSize: 16, fontWeight: '900' },
   commandText: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
   commandMeta: { color: t.textMuted, fontSize: 11, lineHeight: 15, marginTop: 5, fontWeight: '700' },
+  commandCockpit: {
+    marginTop: 2,
+    marginBottom: -2,
+  },
   refreshBtn: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
-    borderColor: t.cardBorder,
-    backgroundColor: t.surface2,
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
+    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.92)' : t.surface2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   officeBoard: {
     borderWidth: 1,
-    borderColor: t.cardBorder,
-    backgroundColor: t.cardBg,
-    borderRadius: 16,
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.18)' : t.cardBorder,
+    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
+    borderRadius: 7,
     padding: 13,
     gap: 12,
   },
@@ -1362,7 +1371,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeBoardIcon: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1373,7 +1382,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 5,
   },
@@ -1383,16 +1392,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: '48%',
     minHeight: 76,
     borderWidth: 1,
-    borderColor: t.border,
-    backgroundColor: t.surface2,
-    borderRadius: 14,
+    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.border,
+    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.88)' : t.surface2,
+    borderRadius: 6,
     padding: 10,
     gap: 7,
   },
   evidenceIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1408,9 +1417,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   bottleneckBoard: {
     borderWidth: 1,
-    borderColor: t.border,
-    backgroundColor: t.surface2,
-    borderRadius: 14,
+    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.border,
+    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.84)' : t.surface2,
+    borderRadius: 6,
     padding: 10,
     gap: 9,
   },
@@ -1426,7 +1435,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minHeight: 56,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 9,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -1436,7 +1445,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   bottleneckIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1445,9 +1454,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   bottleneckValue: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
   officeFlow: {
     borderWidth: 1,
-    borderColor: t.border,
-    backgroundColor: t.surface2,
-    borderRadius: 14,
+    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.border,
+    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.84)' : t.surface2,
+    borderRadius: 6,
     padding: 8,
     flexDirection: 'row',
     gap: 6,
@@ -1456,7 +1465,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeFlowDot: {
     width: 24,
     height: 24,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -1467,9 +1476,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeFlowText: { color: t.textSub, fontSize: 9, fontWeight: '900', textAlign: 'center' },
   focusCard: {
     borderWidth: 1,
-    borderColor: t.cardBorder,
-    backgroundColor: t.cardBg,
-    borderRadius: 12,
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.18)' : t.cardBorder,
+    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
+    borderRadius: 7,
     padding: 14,
     paddingLeft: 17,
     gap: 11,
@@ -1479,7 +1488,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   focusIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1488,7 +1497,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   focusSub: { color: t.textMuted, fontSize: 12, marginTop: 2 },
   focusBadge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 6,
   },
@@ -1500,7 +1509,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 5,
   },
   filterBtn: {
@@ -1508,16 +1517,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '30%',
     borderWidth: 1,
     borderColor: 'transparent',
-    borderRadius: 10,
+    borderRadius: 6,
     paddingVertical: 9,
     alignItems: 'center',
   },
   filterText: { color: t.textMuted, fontSize: 11, fontWeight: '900' },
   card: {
     borderWidth: 1,
-    borderColor: t.cardBorder,
-    backgroundColor: t.cardBg,
-    borderRadius: 12,
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.16)' : t.cardBorder,
+    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
+    borderRadius: 7,
     padding: 14,
     paddingLeft: 17,
     gap: 11,
@@ -1527,19 +1536,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   cardTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
   cardSub: { color: t.textMuted, fontSize: 12, marginTop: 2 },
-  readyBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
+  readyBadge: { borderRadius: 5, paddingHorizontal: 9, paddingVertical: 5 },
   readyBadgeText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   progressBlock: { gap: 6 },
   progressTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   progressLabel: { color: t.textSub, fontSize: 11, fontWeight: '800' },
   progressValue: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  progressTrack: { height: 7, borderRadius: 999, backgroundColor: t.surface2, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 999 },
+  progressTrack: { height: 7, borderRadius: 5, backgroundColor: t.surface2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 5 },
   metaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   photoPill: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 6,
     flexDirection: 'row',
@@ -1551,7 +1560,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   checkChip: {
     width: '48%',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 9,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -1562,7 +1571,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   checkHint: { flex: 1, textAlign: 'right', fontSize: 11, fontWeight: '800' },
   nextStepBox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -1574,7 +1583,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.warning + '55',
     backgroundColor: t.warningBg,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     gap: 7,
   },
@@ -1584,14 +1593,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.cardBg,
     borderColor: t.warning + '55',
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
   missingChipText: { color: t.warning, fontSize: 11, fontWeight: '800' },
   readyBox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1603,7 +1612,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -1635,7 +1644,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalIcon: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1646,7 +1655,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalClose: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -1662,7 +1671,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 11,
     paddingVertical: 9,
     color: t.text,
@@ -1679,7 +1688,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -1697,7 +1706,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.warning + '66',
     backgroundColor: t.warningBg,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1721,7 +1730,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 13,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1732,7 +1741,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accent,
-    borderRadius: 13,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Button, Card, CardContent, Chip, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 import Remove from '@mui/icons-material/Remove';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
@@ -59,6 +59,10 @@ export default function MagazynWeb() {
 
   const lowStock = items.filter((item) => item.niski_stan).length;
   const totalValue = items.reduce((sum, item) => sum + num(item.stan) * num(item.koszt_jednostkowy), 0);
+  const lowStockValue = items
+    .filter((item) => item.niski_stan)
+    .reduce((sum, item) => sum + num(item.stan) * num(item.koszt_jednostkowy), 0);
+  const categories = new Set(items.map((item) => item.kategoria).filter(Boolean)).size;
   const selectedIssue = items.find((item) => String(item.id) === String(issue.material_id));
 
   const createMaterial = async (event) => {
@@ -111,10 +115,39 @@ export default function MagazynWeb() {
 
   return (
     <Box className="app-shell warehouse-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'transparent' }}>
-      <Sidebar />
-      <Box component="main" className="app-main warehouse-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
+      <CommandSidebar active="fleet" />
+      <Box component="main" className="app-main command-content-main warehouse-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <PageHeader title="Magazyn materialow" subtitle="Stany, przyjecia i rozchod na zlecenie." />
         <StatusMessage message={msg} />
+
+        <section className="warehouse-command-strip">
+          <div className="warehouse-command-lead">
+            <span>Kontrola magazynu</span>
+            <strong>{items.length}</strong>
+            <small>pozycje materialowe</small>
+          </div>
+          <div className={`warehouse-command-card ${lowStock > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>Niski stan</span>
+            <strong>{lowStock}</strong>
+            <small>{lowStockValue.toFixed(0)} zl w pozycjach ryzyka</small>
+          </div>
+          <div className="warehouse-command-card is-blue">
+            <span>Wartosc stanu</span>
+            <strong>{totalValue.toFixed(0)} zl</strong>
+            <small>wedlug kosztu jednostkowego</small>
+          </div>
+          <div className="warehouse-command-card is-good">
+            <span>Kategorie</span>
+            <strong>{categories}</strong>
+            <small>grupy materialow</small>
+          </div>
+          <div className={`warehouse-command-card ${selectedIssue && num(selectedIssue.stan) < num(issue.ilosc) ? 'is-danger' : 'is-good'}`}>
+            <span>Rozchod</span>
+            <strong>{selectedIssue ? qty(selectedIssue.stan, selectedIssue.jednostka) : '-'}</strong>
+            <small>dostepne dla wybranego materialu</small>
+          </div>
+        </section>
+
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
           <Card className="warehouse-state-panel" variant="outlined"><CardContent><Typography variant="overline">Pozycje</Typography><Typography variant="h5" fontWeight={800}>{items.length}</Typography></CardContent></Card>
           <Card className="warehouse-state-panel" variant="outlined"><CardContent><Typography variant="overline">Niski stan</Typography><Typography variant="h5" fontWeight={800} color={lowStock ? 'warning.main' : 'success.main'}>{lowStock}</Typography></CardContent></Card>

@@ -981,7 +981,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     ...shadowStyle(t, {
@@ -995,7 +995,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -1005,7 +1005,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.accentLight,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1018,7 +1018,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   addBtn: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -1033,7 +1033,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -1061,7 +1061,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.warning + '66',
     backgroundColor: t.warning + '1A',
-    borderRadius: 10,
+    borderRadius: 6,
     paddingVertical: 8,
     paddingHorizontal: 10,
     flexDirection: 'row',
@@ -1075,7 +1075,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 12,
     gap: 10,
     ...shadowStyle(t, {
@@ -1089,7 +1089,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   commandIcon: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1101,7 +1101,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 7,
     alignItems: 'center',
@@ -1113,7 +1113,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flex: 1,
     minHeight: 62,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.surface2,
     paddingHorizontal: 6,
     paddingVertical: 8,
@@ -1126,7 +1126,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent + '44',
     backgroundColor: t.accentLight,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1135,7 +1135,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   nextStripIcon: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1151,7 +1151,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: t.cardBorder,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.cardBg,
     ...shadowStyle(t, {
       opacity: 0,
@@ -1164,7 +1164,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.surface2,
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingVertical: 7,
     paddingHorizontal: 10,
     minWidth: 180,
@@ -1177,7 +1177,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
 
   card: {
-    backgroundColor: t.cardBg, padding: 12, borderRadius: 12,
+    backgroundColor: t.cardBg, padding: 12, borderRadius: 7,
     marginBottom: 8, borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
       opacity: 0,
@@ -1194,7 +1194,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardActionBtn: {
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 10,
+    borderRadius: 6,
     backgroundColor: t.surface2,
     minHeight: 38,
     paddingHorizontal: 10,
@@ -1234,36 +1234,36 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   footerBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, padding: 14, borderRadius: 14, flex: 1,
+    gap: 8, padding: 14, borderRadius: 6, flex: 1,
   },
   footerBtnText: { fontSize: 15, fontWeight: '700' },
 
   statusRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    padding: 12, borderRadius: 12, marginBottom: 8,
+    padding: 12, borderRadius: 7, marginBottom: 8,
   },
   statusRowText: { fontSize: 14, fontWeight: '700' },
 
   notatkiBox: {
-    borderRadius: 12, padding: 12, marginBottom: 4, borderWidth: 1, borderColor: t.border,
+    borderRadius: 7, padding: 12, marginBottom: 4, borderWidth: 1, borderColor: t.border,
   },
   notatkiText: { fontSize: 13, lineHeight: 20 },
 
   wycenaRow: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 12, borderRadius: 12, borderWidth: 1, borderColor: t.border,
+    padding: 12, borderRadius: 7, borderWidth: 1, borderColor: t.border,
   },
   wycenaTitle: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   wycenaVal: { fontSize: 15, fontWeight: '700' },
 
   statusChip: {
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 2,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 7, borderWidth: 2,
   },
   statusChipText: { fontSize: 13, fontWeight: '800', letterSpacing: 0 },
 
   fieldLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0, marginBottom: 6 },
   textarea: {
-    borderWidth: 1, borderRadius: 12, padding: 12,
+    borderWidth: 1, borderRadius: 7, padding: 12,
     fontSize: 14, minHeight: 100,
   },
 });

@@ -15,7 +15,7 @@ import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined';
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import TaskStatusIcon from '../components/TaskStatusIcon';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -639,8 +639,8 @@ export default function Kierownik() {
 
   return (
     <div className="app-shell kierownik-shell" style={styles.container}>
-      <Sidebar />
-      <main className="app-main kierownik-main" style={styles.main}>
+      <CommandSidebar active="dashboard" />
+      <main className="app-main command-content-main kierownik-main" style={styles.main}>
         <PageHeader
           variant="hero"
           title={t('pages.kierownik.title')}
@@ -1381,6 +1381,7 @@ export default function Kierownik() {
           <div className="kierownik-branches" style={styles.oddzialyRow}>
             {statsByOddzial.map(o => (
               <div
+                className="kierownik-branch-card"
                 key={o.id}
                 style={{
                   ...styles.oddzialCard,
@@ -1455,7 +1456,7 @@ export default function Kierownik() {
         ) : (
           <div className="kierownik-cards-wrap" style={styles.cardsWrap}>
             {filtrowane.length === 0 ? (
-              <div style={{ ...styles.tableWrap, textAlign: 'center', color: 'var(--text-muted)', padding: 60 }}>
+              <div className="kierownik-empty-state" style={{ ...styles.tableWrap, textAlign: 'center', color: 'var(--text-muted)', padding: 60 }}>
                 <div style={{ ...styles.emptyIcon, display: 'flex', justifyContent: 'center' }}>
                   <MapOutlined sx={{ fontSize: 48, opacity: 0.35, color: 'var(--text-muted)' }} />
                 </div>
@@ -1464,7 +1465,7 @@ export default function Kierownik() {
             ) : (
               <div className="kierownik-cards-grid" style={styles.cardsGrid}>
                 {filtrowane.map((z) => (
-                  <div key={z.id} style={styles.taskCard}>
+                  <div key={z.id} className="kierownik-task-card" style={styles.taskCard}>
                     <div style={styles.taskCardTop}>
                       <span style={styles.idBadge}>#{z.id}</span>
                       <span style={{ ...styles.badge, backgroundColor: getTaskStatusColor(z.status), display: 'inline-flex', alignItems: 'center', gap: 6 }}>

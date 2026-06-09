@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Save, Trash2, X } from 'lucide-react';
+import { Button } from './ui/Button';
 
 const COLORS = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#8E24AA', '#FFFFFF', '#000000'];
 
@@ -113,19 +115,22 @@ export default function PhotoAnnotator({ file, onClose, onSave }) {
       <div style={box} onMouseDown={(e) => e.stopPropagation()}>
         <div style={head}>
           <span style={{ fontWeight: 700, color: 'var(--text)' }}>Adnotacje na zdjęciu</span>
-          <button type="button" style={btnX} onClick={onClose}>Zamknij</button>
+          <Button variant="ghost" size="sm" style={btnX} leftIcon={X} onClick={onClose}>Zamknij</Button>
         </div>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 10px' }}>
           Wybierz kolor i zaznacz drzewa / krzewy na zdjęciu. Zapis generuje plik do wysłania z wyceną (wymaga obsługi po stronie API).
         </p>
         <div style={toolbar}>
           {COLORS.map((c) => (
-            <button
+            <Button
               key={c}
-              type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => setColor(c)}
               style={{
                 width: 28, height: 28, borderRadius: 6, background: c,
+                minHeight: 28,
+                padding: 0,
                 border: color === c ? '2px solid var(--accent)' : '1px solid var(--border)',
                 cursor: 'pointer',
               }}
@@ -134,7 +139,7 @@ export default function PhotoAnnotator({ file, onClose, onSave }) {
           ))}
           <label style={{ fontSize: 12, color: 'var(--text-sub)', marginLeft: 8 }}>Grubość</label>
           <input type="range" min={2} max={24} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} />
-          <button type="button" style={btnGhost} onClick={clearDrawing}>Wyczyść rysunek</button>
+          <Button variant="secondary" size="sm" style={btnGhost} leftIcon={Trash2} onClick={clearDrawing}>Wyczyść rysunek</Button>
         </div>
         <div style={{ overflow: 'auto', maxHeight: '55vh', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)' }}>
           <canvas
@@ -150,8 +155,8 @@ export default function PhotoAnnotator({ file, onClose, onSave }) {
           />
         </div>
         <div style={foot}>
-          <button type="button" style={btnGhost} onClick={onClose}>Anuluj</button>
-          <button type="button" style={btnPrimary} onClick={handleSave} disabled={!ready}>Zapisz obraz</button>
+          <Button variant="secondary" size="sm" style={btnGhost} onClick={onClose}>Anuluj</Button>
+          <Button size="sm" style={btnPrimary} leftIcon={Save} onClick={handleSave} disabled={!ready}>Zapisz obraz</Button>
         </div>
       </div>
     </div>

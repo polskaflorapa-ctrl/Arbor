@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   pressedLayer: {
-    borderRadius: 12,
+    borderRadius: 7,
     pointerEvents: 'none',
   },
 });

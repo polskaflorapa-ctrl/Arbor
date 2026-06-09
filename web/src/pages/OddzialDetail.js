@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -338,7 +338,7 @@ export default function OddzialDetail() {
 
   return (
     <div className="branch-detail-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="profile" />
       <div className="branch-detail-main" style={{ flex: 1, padding: 28, overflowX: 'hidden', position: 'relative' }}>
 
         {/* Breadcrumb */}

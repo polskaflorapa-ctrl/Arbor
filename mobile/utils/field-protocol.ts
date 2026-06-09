@@ -201,7 +201,7 @@ export function buildFieldProtocolSummary(field: FieldProtocolForm, title = FIEL
     `22. Mulczer: ${yesNo(flags.mulczer)}`,
     `Ryzyka: ${joinOrDash(field.risks)}`,
     `Dostep / parking / uwagi posesji: ${field.access || '-'}`,
-    `Dodatkowe notatki specjalisty ds. wyceny: ${field.notes || '-'}`,
+    `Dodatkowe notatki specjalisty oględzin: ${field.notes || '-'}`,
   ];
   return lines.join('\n');
 }

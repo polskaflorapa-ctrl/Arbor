@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 
 const TEAM_ROW_H = 154;
 const TEAM_COL_W = 184;
@@ -2394,7 +2394,7 @@ export default function KalendarzZasobow() {
   if (loading) {
     return (
       <div className="app-shell zasoby-shell" style={{ display: 'flex', minHeight: '100vh' }}>
-        <Sidebar />
+        <CommandSidebar active="fleet" user={currentUser} />
         <div className="app-main zasoby-main" style={{ padding: 40, color: 'var(--text-muted)' }}>Ładowanie kalendarza zasobów…</div>
       </div>
     );
@@ -2406,11 +2406,13 @@ export default function KalendarzZasobow() {
   const totalW = activeTab === 'teams'
     ? (teamViewMode === 'day' ? dayTotalW : teamTotalW)
     : equipmentTotalW;
+  const commandMissing = dayOpsSummary.noEquipment + dayOpsSummary.noPhotos + dayOpsSummary.noBrief;
+  const commandConflicts = dayOpsSummary.teamConflicts + dayOpsSummary.equipmentConflicts;
 
   return (
     <div className="app-shell zasoby-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar />
-      <div className="app-main zasoby-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <CommandSidebar active="fleet" user={currentUser} />
+      <div className="app-main command-content-main zasoby-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* ── nagłówek strony ───────────────────────────────────────────── */}
         <div className="zasoby-header" style={st.pageHeader}>
@@ -2463,6 +2465,34 @@ export default function KalendarzZasobow() {
         </div>
 
         {/* ── flash message ─────────────────────────────────────────────── */}
+        <section className="zasoby-command-strip">
+          <div className="zasoby-command-lead">
+            <span>Kalendarz operacyjny</span>
+            <strong>{dayOpsSummary.tasks}</strong>
+            <small>zlecenia na {dayLabel}</small>
+          </div>
+          <div className={`zasoby-command-card ${dayOpsSummary.queueMissing > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>Kolejka biura</span>
+            <strong>{dayOpsSummary.readyQueue}/{planningQueueStats.all}</strong>
+            <small>{dayOpsSummary.queueMissing} z brakami</small>
+          </div>
+          <div className={`zasoby-command-card ${commandMissing > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>Pakiet terenowy</span>
+            <strong>{commandMissing}</strong>
+            <small>sprzet, zdjecia, opis</small>
+          </div>
+          <div className={`zasoby-command-card ${dayOpsSummary.equipmentConflicts > 0 ? 'is-danger' : 'is-blue'}`}>
+            <span>Sprzet dnia</span>
+            <strong>{dayOpsSummary.equipment}</strong>
+            <small>{dayOpsSummary.equipmentConflicts} kolizje rezerwacji</small>
+          </div>
+          <div className={`zasoby-command-card ${commandConflicts || dayOpsSummary.absentTeamsWithTasks ? 'is-danger' : dayOpsSummary.absentTeams ? 'is-warning' : 'is-good'}`}>
+            <span>Ryzyka ekip</span>
+            <strong>{commandConflicts}</strong>
+            <small>{dayOpsSummary.absentTeams} nieobecne / {dayOpsSummary.absentTeamsWithTasks} z pracami</small>
+          </div>
+        </section>
+
         {msg && (
           <div style={{ ...st.flash, background: msgType === 'ok' ? 'var(--success-bg, #d1fae5)' : 'var(--error-bg, #fee2e2)', color: msgType === 'ok' ? '#065f46' : '#991b1b' }}>
             {msg}

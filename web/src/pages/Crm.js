@@ -30,11 +30,13 @@ export default function Crm() {
     ],
     []
   );
+  const crmPrimaryPaths = cards.filter((card) => ['/klienci', '/wycena-kalendarz', '/crm/pipeline', '/crm/inbox'].includes(card.path));
+  const crmOpsPaths = cards.filter((card) => ['/telefonia', '/integracje', '/ogledziny'].includes(card.path));
 
   return (
     <div className="app-shell crm-command-shell">
       <CommandSidebar active="crm" />
-      <main className="app-main crm-command-main">
+      <main className="app-main command-content-main crm-command-main">
         <PageHeader
           title={t('crm.title')}
           subtitle={t('crm.subtitle')}
@@ -45,6 +47,33 @@ export default function Crm() {
             </Button>
           )}
         />
+        <section className="crm-command-strip" aria-label="Centrum CRM">
+          <div className="crm-command-lead">
+            <span>Centrum sprzedazy</span>
+            <strong>{cards.length}</strong>
+            <small>modulow CRM i wycen</small>
+          </div>
+          <div className="crm-command-card is-blue">
+            <span>Podstawowe sciezki</span>
+            <strong>{crmPrimaryPaths.length}</strong>
+            <small>klienci, wyceny, inbox, pipeline</small>
+          </div>
+          <div className="crm-command-card">
+            <span>Operacje CRM</span>
+            <strong>{crmOpsPaths.length}</strong>
+            <small>telefonia, integracje, ogledziny</small>
+          </div>
+          <div className={`crm-command-card ${KOMMO_URL ? 'is-good' : 'is-warning'}`}>
+            <span>Kommo</span>
+            <strong>{KOMMO_URL ? 'OK' : 'Brak'}</strong>
+            <small>{KOMMO_URL ? 'link zewnetrzny aktywny' : 'ustaw REACT_APP_KOMMO_APP_URL'}</small>
+          </div>
+          <div className="crm-command-card is-green">
+            <span>Nastepny krok</span>
+            <strong>Pipeline</strong>
+            <small>priorytety i leady</small>
+          </div>
+        </section>
         <div
           className="app-content"
           style={{

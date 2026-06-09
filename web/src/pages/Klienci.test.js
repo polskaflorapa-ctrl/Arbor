@@ -20,6 +20,11 @@ vi.mock('../components/Sidebar', () => ({
   default: () => <aside data-testid="sidebar" />,
 }));
 
+vi.mock('../components/CommandSidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 const CLIENT_ROW = {
   id: 11,
   imie: 'Anna',

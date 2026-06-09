@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import { Button } from '../components/ui/Button';
 import { readStoredUser } from '../utils/readStoredUser';
 import { hasAnyRole } from '../utils/roleDisplay';
@@ -132,7 +132,7 @@ export default function Eksploruj() {
 
   return (
     <div className="explore-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="dashboard" />
       <main className="explore-main" style={{ flex: 1, padding: '28px 28px 48px', minWidth: 0 }}>
         {/* Nagłówek */}
         <div className="explore-header" style={{ marginBottom: 24 }}>

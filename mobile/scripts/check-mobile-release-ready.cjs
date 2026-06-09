@@ -179,42 +179,63 @@ function assertBuildProfile(easConfig, releaseEnvironments, name) {
   }
 }
 
-function runNpmScript(name) {
-  const npmCli = process.env.npm_execpath;
-  const command = npmCli ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const args = npmCli ? [npmCli, 'run', name] : ['run', name];
+function getNpmInvocation() {
+  if (process.env.npm_execpath) {
+    return {
+      command: process.execPath,
+      prefixArgs: [process.env.npm_execpath],
+      shell: false,
+    };
+  }
 
-  return spawnSync(command, args, {
+  if (process.platform === 'win32') {
+    const bundledNpmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    if (fs.existsSync(bundledNpmCli)) {
+      return {
+        command: process.execPath,
+        prefixArgs: [bundledNpmCli],
+        shell: false,
+      };
+    }
+
+    return {
+      command: 'npm.cmd',
+      prefixArgs: [],
+      shell: true,
+    };
+  }
+
+  return {
+    command: 'npm',
+    prefixArgs: [],
+    shell: false,
+  };
+}
+
+function runNpm(args, options = {}) {
+  const npm = getNpmInvocation();
+  return spawnSync(npm.command, [...npm.prefixArgs, ...args], {
     cwd: rootDir,
     env: process.env,
+    shell: npm.shell,
+    ...options,
+  });
+}
+
+function runNpmScript(name) {
+  return runNpm(['run', name], {
     stdio: 'inherit',
   });
 }
 
 function runNpmAuditHigh() {
-  const npmCli = process.env.npm_execpath;
-  const command = npmCli ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const args = npmCli
-    ? [npmCli, 'audit', '--omit=dev', '--audit-level=high']
-    : ['audit', '--omit=dev', '--audit-level=high'];
-
-  return spawnSync(command, args, {
-    cwd: rootDir,
-    env: process.env,
+  return runNpm(['audit', '--omit=dev', '--audit-level=high'], {
     stdio: 'inherit',
   });
 }
 
 function runExpoConfigCheck() {
-  const npmCli = process.env.npm_execpath;
-  const command = npmCli ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const args = npmCli
-    ? [npmCli, 'exec', '--', 'expo', 'config', '--type', 'public', '--json']
-    : ['exec', '--', 'expo', 'config', '--type', 'public', '--json'];
-
-  const result = spawnSync(command, args, {
-    cwd: rootDir,
-    env: process.env,
+  const result = runNpm(['exec', '--', 'expo', 'config', '--type', 'public', '--json'], {
     encoding: 'utf8',
   });
 

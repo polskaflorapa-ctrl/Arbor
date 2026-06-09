@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   },
   banner: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     minHeight: 48,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   iconBox: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

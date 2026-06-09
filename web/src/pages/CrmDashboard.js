@@ -137,11 +137,14 @@ export default function CrmDashboard() {
     acc[item.status] = (acc[item.status] || 0) + 1;
     return acc;
   }, {});
+  const openCallbacks = Number(overview.kpis?.callbacks_open || 0);
+  const totalQueueProblems = Number(queueCounts.failed || 0) + Number(queueCounts.queued || 0);
+  const valueAtRisk = Number(commandSummary.value_at_risk || 0);
 
   return (
     <div className="app-shell crm-dashboard-shell">
       <CommandSidebar active="crm" />
-      <main className="app-main crm-dashboard-main">
+      <main className="app-main command-content-main crm-dashboard-main">
         <PageHeader
           title={t('crm.dashboard.title', { defaultValue: 'CRM Dashboard' })}
           subtitle={t('crm.dashboard.subtitle', { defaultValue: 'Pipeline, źródła leadów i follow-up w jednym miejscu.' })}
@@ -149,6 +152,33 @@ export default function CrmDashboard() {
         />
         <div className="app-content crm-dashboard-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
+          <section className="crm-dashboard-command-strip" aria-label="Centrum decyzji CRM dashboard">
+            <div className="crm-dashboard-command-lead">
+              <span>Radar sprzedaży</span>
+              <strong>{commandPriorities.length}</strong>
+              <small>leadów z priorytetem</small>
+            </div>
+            <div className={`crm-dashboard-command-card ${Number(commandSummary.critical || 0) ? 'is-danger' : 'is-good'}`}>
+              <span>Krytyczne</span>
+              <strong>{commandSummary.critical || 0}</strong>
+              <small>ryzyko utraty lub blokada</small>
+            </div>
+            <div className={`crm-dashboard-command-card ${openCallbacks ? 'is-warning' : 'is-good'}`}>
+              <span>Follow-up</span>
+              <strong>{openCallbacks}</strong>
+              <small>otwarte oddzwonienia</small>
+            </div>
+            <div className={`crm-dashboard-command-card ${totalQueueProblems ? 'is-blue' : 'is-good'}`}>
+              <span>Kolejka wiadomości</span>
+              <strong>{totalQueueProblems}</strong>
+              <small>{queueCounts.queued || 0} wysyłka · {queueCounts.failed || 0} błędy</small>
+            </div>
+            <div className="crm-dashboard-command-card is-blue">
+              <span>Wartość ryzyka</span>
+              <strong>{formatCurrency(valueAtRisk)}</strong>
+              <small>lead value at risk</small>
+            </div>
+          </section>
           <section className="ios-inset crm-dashboard-action" style={{ marginBottom: 12, padding: 12 }}>
             <Button rightIcon={ArrowRight} onClick={() => navigate('/crm/pipeline')}>
               {t('crm.dashboard.openPipeline', { defaultValue: 'Otwórz pipeline leadów' })}

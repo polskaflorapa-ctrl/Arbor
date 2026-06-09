@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
 import { Button } from '../components/ui/Button';
@@ -195,7 +195,7 @@ export default function Powiadomienia() {
 
   return (
     <div className="notifications-shell" style={styles.container}>
-      <Sidebar />
+      <CommandSidebar active="dashboard" />
       <div className="notifications-main" style={styles.main}>
         {/* Nagłówek */}
         <PageHeader

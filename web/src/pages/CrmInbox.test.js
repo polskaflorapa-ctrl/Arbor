@@ -10,6 +10,11 @@ vi.mock('../components/Sidebar', () => ({
   default: () => null,
 }));
 
+vi.mock('../components/CommandSidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 vi.mock('../components/PageHeader', () => ({
   __esModule: true,
   default: ({ title, subtitle }) => (
@@ -143,7 +148,7 @@ test('renders unified CRM inbox and applies filters', async () => {
     </MemoryRouter>
   );
 
-  expect(await screen.findByText('Unified Inbox')).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Unified Inbox' })).toBeInTheDocument();
   expect(screen.getAllByText('Oferta ogrodu').length).toBeGreaterThan(0);
   expect(screen.getAllByText('Prosze o szybka wycene.').length).toBeGreaterThan(0);
   expect(await screen.findByText('Historia rozmowy')).toBeInTheDocument();

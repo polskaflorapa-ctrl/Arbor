@@ -31,7 +31,7 @@ import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
 import api from '../api';
 import CityInput from '../components/CityInput';
 import ModernDataRow from '../components/ModernDataRow';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import TaskCommandCenter from '../components/TaskCommandCenter';
 import TaskStatusIcon from '../components/TaskStatusIcon';
@@ -1150,15 +1150,33 @@ export default function ZlecenieDetail() {
     }
   };
 
-  if (loading) return <div style={styles.center}><div style={styles.spinner} />Ładowanie...</div>;
-  if (!zlecenie) return <div style={styles.center}>Nie znaleziono zlecenia</div>;
+  if (loading) {
+    return (
+      <div className="app-shell task-detail-shell" style={styles.container}>
+        <CommandSidebar active="orders" />
+        <div className="app-main command-content-main task-detail-main" style={styles.main}>
+          <div style={styles.center}><div style={styles.spinner} />Ladowanie...</div>
+        </div>
+      </div>
+    );
+  }
+  if (!zlecenie) {
+    return (
+      <div className="app-shell task-detail-shell" style={styles.container}>
+        <CommandSidebar active="orders" />
+        <div className="app-main command-content-main task-detail-main" style={styles.main}>
+          <div style={styles.center}>Nie znaleziono zlecenia</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={styles.container}>
-      <Sidebar />
-      <div style={styles.main}>
+    <div className="app-shell task-detail-shell" style={styles.container}>
+      <CommandSidebar active="orders" />
+      <div className="app-main command-content-main task-detail-main" style={styles.main}>
         {/* Breadcrumb */}
-        <div style={styles.topBar}>
+        <div className="task-detail-topbar" style={styles.topBar}>
           <div style={styles.breadcrumb}>
             <span style={styles.link} onClick={() => navigate('/zlecenia')}>← Zlecenia</span>
             <span style={styles.sep}>/</span>
@@ -1196,7 +1214,7 @@ export default function ZlecenieDetail() {
         </div>
 
         {/* Hero */}
-        <div style={styles.heroCard}>
+        <div className="task-detail-hero" style={styles.heroCard}>
           <div style={styles.heroLeft}>
             <div style={styles.heroTitle}>
               {editMode && canEdit
@@ -1277,7 +1295,7 @@ export default function ZlecenieDetail() {
         </div>
 
         {/* KPI */}
-        <div style={styles.kpiRow}>
+        <div className="task-detail-kpis" style={styles.kpiRow}>
           <div style={{ ...styles.kpi, borderTopColor: 'var(--accent)', display: canSeeFinance ? undefined : 'none' }}>
             <div style={styles.kpiIcon}><AttachMoney sx={{ fontSize: 26, color: 'var(--accent)' }} /></div>
             <div style={styles.kpiNum}>{formatCurrency(wartosc)}</div>

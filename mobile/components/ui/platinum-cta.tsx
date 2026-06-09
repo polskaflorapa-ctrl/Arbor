@@ -48,7 +48,7 @@ export function PlatinumCTA({ label, loading = false, disabled, style, ...props 
 const styles = StyleSheet.create({
   btn: {
     minHeight: 54,
-    borderRadius: 12,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,

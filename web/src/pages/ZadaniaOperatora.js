@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Archive, Check, Play, RefreshCw, RotateCcw, Send, User } from 'lucide-react';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import ModernDataRow from '../components/ModernDataRow';
-import { Button } from '../components/ui/Button';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
-import { Archive, Check, Play, RefreshCw, RotateCcw, Send, User } from 'lucide-react';
 
 const MANAGEMENT_ROLES = new Set(['Administrator', 'Dyrektor', 'Kierownik']);
 const OPEN_STATUSES = new Set(['todo', 'in_progress']);
@@ -21,11 +20,19 @@ const STATUS_LABELS = {
   archived: 'Archiwum',
 };
 
+const VIEW_LABELS = {
+  inbox: 'Inbox',
+  today: 'Dzisiaj',
+  upcoming: 'Nadchodzace',
+  delegated: 'Delegowane',
+  done: 'Gotowe',
+};
+
 const PRIORITY_META = {
-  low: { label: 'Niski', tone: 'muted' },
-  normal: { label: 'Normalny', tone: 'info' },
-  high: { label: 'Ważny', tone: 'warn' },
-  urgent: { label: 'Pilne', tone: 'danger' },
+  low: { label: 'Niski' },
+  normal: { label: 'Normalny' },
+  high: { label: 'Wazny' },
+  urgent: { label: 'Pilne' },
 };
 
 const EMPTY_FORM = {
@@ -35,6 +42,29 @@ const EMPTY_FORM = {
   priority: 'normal',
   due_at: '',
 };
+
+function TaskButton({ children, leftIcon: LeftIcon, loading = false, fullWidth = false, style, disabled, ...props }) {
+  const isDisabled = disabled || loading;
+  return (
+    <button
+      {...props}
+      disabled={isDisabled}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        width: fullWidth ? '100%' : undefined,
+        opacity: isDisabled ? 0.62 : 1,
+        pointerEvents: isDisabled ? 'none' : undefined,
+        ...style,
+      }}
+    >
+      {!loading && LeftIcon ? <LeftIcon size={16} aria-hidden /> : null}
+      <span>{loading ? 'Pracuje...' : children}</span>
+    </button>
+  );
+}
 
 function taskPriorityTone(priority) {
   if (priority === 'urgent') return 'danger';
@@ -64,7 +94,6 @@ function normalizeTasks(payload) {
       priority: task.priority || 'normal',
       due_at: task.due_at || null,
       created_at: task.created_at || null,
-      updated_at: task.updated_at || null,
       completed_at: task.completed_at || null,
       assignee_name: task.assignee_name || '',
       assignee_role: task.assignee_role || '',
@@ -74,6 +103,17 @@ function normalizeTasks(payload) {
 
 function fullName(user) {
   return [user?.imie, user?.nazwisko].filter(Boolean).join(' ') || user?.login || 'Pracownik';
+}
+
+function isOpenTask(task) {
+  return OPEN_STATUSES.has(task?.status);
+}
+
+function getDayKey(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
 }
 
 function formatDateTime(value) {
@@ -86,10 +126,6 @@ function formatDateTime(value) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function isOpenTask(task) {
-  return OPEN_STATUSES.has(task?.status);
 }
 
 function getDueMeta(task) {
@@ -113,6 +149,14 @@ function toIsoFromLocal(value) {
   return date.toISOString();
 }
 
+function localDateTimeValue(dayOffset, hour) {
+  const due = new Date();
+  due.setDate(due.getDate() + dayOffset);
+  due.setHours(hour, 0, 0, 0);
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T${pad(due.getHours())}:${pad(due.getMinutes())}`;
+}
+
 function sortTasks(a, b) {
   const aOpen = isOpenTask(a);
   const bOpen = isOpenTask(b);
@@ -132,11 +176,19 @@ export default function ZadaniaOperatora() {
   const [message, setMessage] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [query, setQuery] = useState('');
+  const [viewFilter, setViewFilter] = useState('inbox');
   const [statusFilter, setStatusFilter] = useState('open');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
 
   const canManage = MANAGEMENT_ROLES.has(user?.rola);
+
+  const setTaskDue = (dayOffset) => {
+    setForm((prev) => ({
+      ...prev,
+      due_at: dayOffset === null ? '' : localDateTimeValue(dayOffset, dayOffset === 0 ? 17 : 9),
+    }));
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -149,7 +201,7 @@ export default function ZadaniaOperatora() {
       setTasks(normalizeTasks(tasksRes.data));
       setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
     } catch (err) {
-      setMessage(err?.response?.data?.error || 'Nie udało się załadować zadań.');
+      setMessage(err?.response?.data?.error || 'Nie udalo sie zaladowac zadan.');
     } finally {
       setLoading(false);
     }
@@ -162,6 +214,7 @@ export default function ZadaniaOperatora() {
       return;
     }
     setUser(stored);
+    setForm((prev) => ({ ...prev, assigned_to: prev.assigned_to || String(stored.id || '') }));
     loadData();
   }, [loadData, navigate]);
 
@@ -175,8 +228,24 @@ export default function ZadaniaOperatora() {
 
   const visibleTasks = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    const todayKey = new Date().toISOString().slice(0, 10);
+
     return [...tasks]
       .filter((task) => {
+        const due = getDueMeta(task);
+        const dueKey = getDayKey(task.due_at);
+        const matchesView =
+          viewFilter === 'inbox'
+            ? Number(task.assigned_to) === Number(user?.id) && isOpenTask(task)
+            : viewFilter === 'today'
+            ? Number(task.assigned_to) === Number(user?.id) && isOpenTask(task) && (due.today || due.overdue)
+            : viewFilter === 'upcoming'
+            ? Number(task.assigned_to) === Number(user?.id) && isOpenTask(task) && dueKey && dueKey > todayKey
+            : viewFilter === 'delegated'
+            ? Number(task.created_by) === Number(user?.id) && Number(task.assigned_to) !== Number(user?.id) && isOpenTask(task)
+            : viewFilter === 'done'
+            ? task.status === 'done'
+            : true;
         const matchesStatus =
           statusFilter === 'all' ||
           (statusFilter === 'open' ? isOpenTask(task) : task.status === statusFilter);
@@ -191,17 +260,23 @@ export default function ZadaniaOperatora() {
           STATUS_LABELS[task.status],
           PRIORITY_META[task.priority]?.label,
         ].join(' ').toLowerCase();
-        return matchesStatus && matchesPriority && matchesAssignee && (!needle || haystack.includes(needle));
+        return matchesView && matchesStatus && matchesPriority && matchesAssignee && (!needle || haystack.includes(needle));
       })
       .sort(sortTasks);
-  }, [assigneeFilter, priorityFilter, query, statusFilter, tasks]);
+  }, [assigneeFilter, priorityFilter, query, statusFilter, tasks, user?.id, viewFilter]);
 
   const stats = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
     const ownOpen = tasks.filter((task) => Number(task.assigned_to) === Number(user?.id) && isOpenTask(task));
-    const delegatedOpen = tasks.filter((task) => Number(task.created_by) === Number(user?.id) && isOpenTask(task));
-    const overdue = tasks.filter((task) => getDueMeta(task).overdue);
-    const done = tasks.filter((task) => task.status === 'done');
-    return { ownOpen, delegatedOpen, overdue, done };
+    const delegatedOpen = tasks.filter((task) => Number(task.created_by) === Number(user?.id) && Number(task.assigned_to) !== Number(user?.id) && isOpenTask(task));
+    const overdue = tasks.filter((task) => Number(task.assigned_to) === Number(user?.id) && getDueMeta(task).overdue);
+    const today = tasks.filter((task) => Number(task.assigned_to) === Number(user?.id) && getDueMeta(task).today);
+    const upcoming = tasks.filter((task) => {
+      const dueKey = getDayKey(task.due_at);
+      return Number(task.assigned_to) === Number(user?.id) && isOpenTask(task) && dueKey && dueKey > todayKey;
+    });
+    const done = tasks.filter((task) => Number(task.assigned_to) === Number(user?.id) && task.status === 'done');
+    return { ownOpen, delegatedOpen, overdue, today, upcoming, done };
   }, [tasks, user?.id]);
 
   const upsertTask = (updated) => {
@@ -216,26 +291,32 @@ export default function ZadaniaOperatora() {
 
   const createTask = async (event) => {
     event.preventDefault();
-    if (!canManage) return;
-    if (!form.assigned_to || !form.title.trim()) {
-      setMessage('Wybierz pracownika i wpisz zadanie.');
+    const assignedTo = form.assigned_to || String(user?.id || '');
+    if (!assignedTo || !form.title.trim()) {
+      setMessage('Wpisz tytul zadania.');
+      return;
+    }
+    if (!canManage && Number(assignedTo) !== Number(user?.id)) {
+      setMessage('Mozesz dodawac tylko zadania dla siebie.');
       return;
     }
     setBusyId('create');
     setMessage('');
     try {
       const response = await api.post('/operator-tasks', {
-        assigned_to: Number(form.assigned_to),
+        assigned_to: Number(assignedTo),
         title: form.title.trim(),
         opis: form.opis.trim(),
         priority: form.priority,
         due_at: toIsoFromLocal(form.due_at),
       });
       upsertTask(response.data);
-      setForm(EMPTY_FORM);
-      setMessage('Zadanie wysłane do profilu pracownika.');
+      setForm({ ...EMPTY_FORM, assigned_to: String(user?.id || '') });
+      setViewFilter(Number(assignedTo) === Number(user?.id) ? 'inbox' : 'delegated');
+      setStatusFilter('open');
+      setMessage('Zadanie dodane.');
     } catch (err) {
-      setMessage(err?.response?.data?.error || 'Nie udało się wysłać zadania.');
+      setMessage(err?.response?.data?.error || 'Nie udalo sie dodac zadania.');
     } finally {
       setBusyId(null);
     }
@@ -249,7 +330,7 @@ export default function ZadaniaOperatora() {
       const response = await api.patch(`/operator-tasks/${task.id}`, patch);
       upsertTask(response.data);
     } catch (err) {
-      setMessage(err?.response?.data?.error || 'Nie udało się zmienić zadania.');
+      setMessage(err?.response?.data?.error || 'Nie udalo sie zmienic zadania.');
     } finally {
       setBusyId(null);
     }
@@ -257,39 +338,55 @@ export default function ZadaniaOperatora() {
 
   return (
     <div className="operator-tasks-shell" style={S.wrap}>
-      <Sidebar />
+      <CommandSidebar active="orders" />
       <main className="operator-tasks-main" style={S.main}>
         <header className="operator-tasks-header" style={S.header}>
           <div>
-            <div style={S.eyebrow}>Zadania zespołu</div>
-            <h1 style={S.title}>Panel Todo ARBOR-OS</h1>
+            <div style={S.eyebrow}>Osobisty organizer</div>
+            <h1 style={S.title}>Moje zadania</h1>
             <p style={S.subtitle}>
-              Przydzielaj zadania pracownikom, śledź terminy i domykaj sprawy widoczne bezpośrednio w profilu.
+              Zapisuj sprawy dla siebie, pilnuj terminow i domykaj prace jak w Todoist, ale wewnatrz Arbor.
             </p>
           </div>
           <div style={S.headerActions}>
-            <Button type="button" variant="outline" leftIcon={RefreshCw} style={S.secondaryBtn} onClick={loadData}>Odśwież</Button>
-            <Button type="button" leftIcon={User} style={S.primaryBtn} onClick={() => navigate('/profil')}>Mój profil</Button>
+            <TaskButton type="button" leftIcon={RefreshCw} style={S.secondaryBtn} onClick={loadData}>Odswiez</TaskButton>
+            <TaskButton type="button" leftIcon={User} style={S.primaryBtn} onClick={() => navigate('/profil')}>Moj profil</TaskButton>
           </div>
         </header>
 
         <section className="operator-tasks-stats" style={S.stats}>
-          <div style={S.stat}><span style={S.statLabel}>Moje aktywne</span><strong style={S.statValue}>{stats.ownOpen.length}</strong><small style={S.statHint}>zadania przypisane do mnie</small></div>
-          <div style={S.stat}><span style={S.statLabel}>Wysłane przeze mnie</span><strong style={S.statValue}>{stats.delegatedOpen.length}</strong><small style={S.statHint}>otwarte polecenia</small></div>
-          <div style={S.stat}><span style={S.statLabel}>Po terminie</span><strong style={S.statValue}>{stats.overdue.length}</strong><small style={S.statHint}>wymagają reakcji</small></div>
-          <div style={S.stat}><span style={S.statLabel}>Gotowe</span><strong style={S.statValue}>{stats.done.length}</strong><small style={S.statHint}>zamknięte w rejestrze</small></div>
+          <div style={S.stat}><span style={S.statLabel}>Inbox</span><strong style={S.statValue}>{stats.ownOpen.length}</strong><small style={S.statHint}>moje aktywne zadania</small></div>
+          <div style={S.stat}><span style={S.statLabel}>Dzisiaj</span><strong style={S.statValue}>{stats.today.length}</strong><small style={S.statHint}>termin dzisiaj</small></div>
+          <div style={S.stat}><span style={S.statLabel}>Po terminie</span><strong style={S.statValue}>{stats.overdue.length}</strong><small style={S.statHint}>wymaga reakcji</small></div>
+          <div style={S.stat}><span style={S.statLabel}>Delegowane</span><strong style={S.statValue}>{stats.delegatedOpen.length}</strong><small style={S.statHint}>wyslane przeze mnie</small></div>
+        </section>
+
+        <section className="operator-tasks-views" style={S.viewTabs} aria-label="Widoki zadan">
+          {Object.entries(VIEW_LABELS).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              style={{ ...S.viewTab, ...(viewFilter === key ? S.viewTabActive : null) }}
+              onClick={() => {
+                setViewFilter(key);
+                setStatusFilter(key === 'done' ? 'done' : 'open');
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </section>
 
         <div className="operator-tasks-grid" style={S.grid}>
-          {canManage ? (
-            <section className="operator-tasks-panel operator-tasks-create" style={S.panel}>
-              <div style={S.panelHeader}>
-                <div>
-                  <div style={S.eyebrow}>Nowe polecenie</div>
-                  <div style={S.panelTitle}>Wyślij do profilu pracownika</div>
-                </div>
+          <section className="operator-tasks-panel operator-tasks-create" style={S.panel}>
+            <div style={S.panelHeader}>
+              <div>
+                <div style={S.eyebrow}>{canManage ? 'Nowe zadanie' : 'Szybki wpis'}</div>
+                <div style={S.panelTitle}>{canManage ? 'Dodaj lub deleguj' : 'Dodaj dla siebie'}</div>
               </div>
-              <form className="operator-tasks-form" style={S.form} onSubmit={createTask}>
+            </div>
+            <form className="operator-tasks-form" style={S.form} onSubmit={createTask}>
+              {canManage ? (
                 <label style={S.field}>
                   <span style={S.label}>Pracownik</span>
                   <select
@@ -304,57 +401,84 @@ export default function ZadaniaOperatora() {
                     ))}
                   </select>
                 </label>
-                <label style={S.field}>
-                  <span style={S.label}>Zadanie</span>
-                  <input
-                    style={S.input}
-                    value={form.title}
-                    onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                    placeholder="np. Sprawdź dokumenty do zlecenia"
-                  />
-                </label>
-                <label style={S.field}>
-                  <span style={S.label}>Termin</span>
-                  <input
-                    style={S.input}
-                    type="datetime-local"
-                    value={form.due_at}
-                    onChange={(event) => setForm((prev) => ({ ...prev, due_at: event.target.value }))}
-                  />
-                </label>
-                <label style={S.field}>
-                  <span style={S.label}>Priorytet</span>
-                  <select
-                    style={S.input}
-                    value={form.priority}
-                    onChange={(event) => setForm((prev) => ({ ...prev, priority: event.target.value }))}
-                    aria-label="Priorytet zadania"
-                  >
-                    {Object.entries(PRIORITY_META).map(([key, meta]) => (
-                      <option key={key} value={key}>{meta.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label style={S.field}>
-                  <span style={S.label}>Opis</span>
-                  <textarea
-                    style={S.textarea}
-                    value={form.opis}
-                    onChange={(event) => setForm((prev) => ({ ...prev, opis: event.target.value }))}
-                    placeholder="Szczegóły, link do zlecenia, oczekiwany wynik..."
-                  />
-                </label>
-                <Button type="submit" leftIcon={Send} style={S.primaryWideBtn} loading={busyId === 'create'} fullWidth>
-                  {busyId === 'create' ? 'Wysyłam...' : 'Wyślij zadanie'}
-                </Button>
-              </form>
-            </section>
-          ) : null}
+              ) : null}
+              <label style={S.field}>
+                <span style={S.label}>Zadanie</span>
+                <input
+                  style={S.input}
+                  value={form.title}
+                  onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+                  placeholder="np. Oddzwonic do klienta, sprawdzic dokumenty..."
+                />
+              </label>
+              <label style={S.field}>
+                <span style={S.label}>Termin</span>
+                <input
+                  style={S.input}
+                  type="datetime-local"
+                  value={form.due_at}
+                  onChange={(event) => setForm((prev) => ({ ...prev, due_at: event.target.value }))}
+                />
+              </label>
+              <div style={S.field}>
+                <span style={S.label}>Szybki termin</span>
+                <div style={S.quickChips}>
+                  <button type="button" style={S.quickChip} onClick={() => setTaskDue(0)}>Dzisiaj 17:00</button>
+                  <button type="button" style={S.quickChip} onClick={() => setTaskDue(1)}>Jutro 09:00</button>
+                  <button type="button" style={S.quickChip} onClick={() => setTaskDue(null)}>Bez terminu</button>
+                </div>
+              </div>
+              <label style={S.field}>
+                <span style={S.label}>Priorytet</span>
+                <select
+                  style={S.input}
+                  value={form.priority}
+                  onChange={(event) => setForm((prev) => ({ ...prev, priority: event.target.value }))}
+                  aria-label="Priorytet zadania"
+                >
+                  {Object.entries(PRIORITY_META).map(([key, meta]) => (
+                    <option key={key} value={key}>{meta.label}</option>
+                  ))}
+                </select>
+              </label>
+              <div style={S.field}>
+                <span style={S.label}>Szybki priorytet</span>
+                <div style={S.quickChips}>
+                  {[
+                    ['normal', 'Normalny'],
+                    ['high', 'Wazny'],
+                    ['urgent', 'Pilne'],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      style={{ ...S.quickChip, ...(form.priority === key ? S.quickChipActive : null) }}
+                      onClick={() => setForm((prev) => ({ ...prev, priority: key }))}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label style={S.field}>
+                <span style={S.label}>Opis</span>
+                <textarea
+                  style={S.textarea}
+                  value={form.opis}
+                  onChange={(event) => setForm((prev) => ({ ...prev, opis: event.target.value }))}
+                  placeholder="Szczegoly, link do zlecenia, oczekiwany wynik..."
+                />
+              </label>
+              <TaskButton type="submit" leftIcon={Send} style={S.primaryWideBtn} loading={busyId === 'create'} fullWidth>
+                {busyId === 'create' ? 'Dodaje...' : 'Dodaj zadanie'}
+              </TaskButton>
+            </form>
+          </section>
 
           <section className="operator-tasks-panel operator-tasks-list" style={{ ...S.panel, ...S.listPanel }}>
             <div style={S.panelHeader}>
               <div>
-                <div style={S.eyebrow}>Rejestr zadań</div>
+                <div style={S.eyebrow}>{VIEW_LABELS[viewFilter] || 'Zadania'}</div>
                 <div style={S.panelTitle}>{visibleTasks.length} pozycji</div>
               </div>
             </div>
@@ -364,7 +488,7 @@ export default function ZadaniaOperatora() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Szukaj po tytule, osobie, opisie..."
-                aria-label="Szukaj zadań"
+                aria-label="Szukaj zadan"
               />
               <select style={S.input} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Status zadania">
                 <option value="open">Aktywne</option>
@@ -394,7 +518,7 @@ export default function ZadaniaOperatora() {
             {loading ? (
               <div className="modern-data-empty">Ladowanie zadan...</div>
             ) : visibleTasks.length === 0 ? (
-              <div className="modern-data-empty">Brak zadan pasujacych do filtrow.</div>
+              <div className="modern-data-empty">Brak zadan w tym widoku.</div>
             ) : (
               <div className="modern-data-stack">
                 {visibleTasks.map((task) => {
@@ -421,16 +545,16 @@ export default function ZadaniaOperatora() {
                       actions={
                         <>
                           {canChange && task.status !== 'in_progress' && task.status !== 'done' && task.status !== 'archived' ? (
-                            <Button type="button" size="sm" variant="outline" leftIcon={Play} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'in_progress' })}>W toku</Button>
+                            <TaskButton type="button" leftIcon={Play} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'in_progress' })}>W toku</TaskButton>
                           ) : null}
                           {canChange && task.status === 'in_progress' ? (
-                            <Button type="button" size="sm" variant="outline" leftIcon={RotateCcw} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'todo' })}>Do zrobienia</Button>
+                            <TaskButton type="button" leftIcon={RotateCcw} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'todo' })}>Do zrobienia</TaskButton>
                           ) : null}
                           {canChange && task.status !== 'done' && task.status !== 'archived' ? (
-                            <Button type="button" size="sm" leftIcon={Check} style={S.rowBtnPrimary} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'done' })}>Gotowe</Button>
+                            <TaskButton type="button" leftIcon={Check} style={S.rowBtnPrimary} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'done' })}>Gotowe</TaskButton>
                           ) : null}
                           {canManage && task.status === 'done' ? (
-                            <Button type="button" size="sm" variant="outline" leftIcon={Archive} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'archived' })}>Archiwum</Button>
+                            <TaskButton type="button" leftIcon={Archive} style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'archived' })}>Archiwum</TaskButton>
                           ) : null}
                         </>
                       }
@@ -489,7 +613,7 @@ const S = {
     fontSize: 13,
     fontWeight: 850,
   },
-  stats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 },
+  stats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 10 },
   stat: {
     minHeight: 92,
     display: 'grid',
@@ -504,6 +628,20 @@ const S = {
   statLabel: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
   statValue: { color: 'var(--accent)', fontSize: 24, fontWeight: 950, lineHeight: 1.1 },
   statHint: { color: 'var(--text-sub)', fontSize: 12, fontWeight: 700, lineHeight: 1.35 },
+  viewTabs: { display: 'flex', gap: 8, flexWrap: 'wrap', padding: 8, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', marginBottom: 14 },
+  viewTab: {
+    minHeight: 34,
+    border: '1px solid var(--border)',
+    borderRadius: 6,
+    background: 'var(--surface-field)',
+    color: 'var(--text-sub)',
+    padding: '7px 12px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontSize: 13,
+    fontWeight: 850,
+  },
+  viewTabActive: { background: 'var(--accent)', borderColor: 'var(--accent)', color: 'var(--on-accent)' },
   grid: { display: 'grid', gridTemplateColumns: 'minmax(310px, 360px) minmax(0, 1fr)', gap: 14, alignItems: 'start' },
   panel: {
     border: '1px solid var(--glass-border)',
@@ -519,6 +657,24 @@ const S = {
   form: { display: 'grid', gap: 10 },
   field: { display: 'grid', gap: 5 },
   label: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
+  quickChips: { display: 'flex', flexWrap: 'wrap', gap: 7 },
+  quickChip: {
+    minHeight: 34,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--surface-field)',
+    color: 'var(--text-sub)',
+    padding: '7px 10px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  quickChipActive: {
+    border: '1px solid rgba(20,131,79,0.28)',
+    background: 'var(--accent)',
+    color: 'var(--on-accent)',
+  },
   toolbar: { display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginBottom: 12 },
   input: {
     minHeight: 40,
@@ -558,43 +714,6 @@ const S = {
     fontSize: 13,
     fontWeight: 950,
   },
-  tableWrap: { overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 },
-  table: { width: '100%', borderCollapse: 'collapse', minWidth: 920 },
-  th: {
-    textAlign: 'left',
-    color: 'var(--text-muted)',
-    fontSize: 11,
-    fontWeight: 900,
-    textTransform: 'uppercase',
-    background: 'var(--surface-field)',
-    borderBottom: '1px solid var(--border)',
-    padding: '10px 12px',
-  },
-  tr: { borderBottom: '1px solid var(--border)' },
-  trOverdue: { background: 'rgba(248,113,113,0.06)' },
-  td: { padding: '12px', verticalAlign: 'top', color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.4 },
-  taskTitle: { display: 'block', color: 'var(--text)', fontSize: 14, fontWeight: 900, marginBottom: 5 },
-  cellTitle: { display: 'block', color: 'var(--text)', fontSize: 13, fontWeight: 850 },
-  muted: { display: 'block', color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, marginTop: 5 },
-  badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    minHeight: 24,
-    padding: '3px 8px',
-    borderRadius: 8,
-    border: '1px solid var(--border)',
-    fontSize: 12,
-    fontWeight: 900,
-  },
-  badgeOk: { color: '#34D399', borderColor: 'rgba(52,211,153,0.35)', background: 'rgba(52,211,153,0.09)' },
-  badgeInfo: { color: '#60A5FA', borderColor: 'rgba(96,165,250,0.35)', background: 'rgba(96,165,250,0.09)' },
-  badgeWarn: { color: '#F9A825', borderColor: 'rgba(249,168,37,0.35)', background: 'rgba(249,168,37,0.09)' },
-  badgeDanger: { color: '#F87171', borderColor: 'rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.09)' },
-  badgeMuted: { color: 'var(--text-muted)', borderColor: 'var(--border)', background: 'var(--surface-field)' },
-  due: { display: 'inline-flex', color: 'var(--text-sub)', fontWeight: 850 },
-  dueToday: { color: '#F9A825' },
-  dueOverdue: { color: '#F87171' },
-  rowActions: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   rowBtn: {
     minHeight: 32,
     border: '1px solid var(--border)',
@@ -628,14 +747,5 @@ const S = {
     marginBottom: 10,
     fontSize: 13,
     fontWeight: 800,
-  },
-  empty: {
-    border: '1px dashed var(--border)',
-    borderRadius: 8,
-    padding: '16px 12px',
-    color: 'var(--text-muted)',
-    fontSize: 13,
-    fontWeight: 800,
-    lineHeight: 1.45,
   },
 };

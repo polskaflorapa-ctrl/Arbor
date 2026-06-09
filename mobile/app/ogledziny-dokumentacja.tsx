@@ -1091,7 +1091,7 @@ export default function OgledzinyDokumentacjaScreen() {
             style={S.textArea}
           />
 
-          <Text style={S.fieldLabel}>Notatki specjalisty ds. wyceny</Text>
+          <Text style={S.fieldLabel}>Notatki specjalisty oględzin</Text>
           <TextInput
             value={protocol.notes}
             onChangeText={(notes) => patchProtocol({ notes })}
@@ -1271,7 +1271,7 @@ const stylesShared = StyleSheet.create({
     flex: 1,
     minHeight: 42,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 9,
     paddingVertical: 7,
     gap: 3,
@@ -1282,14 +1282,14 @@ const stylesShared = StyleSheet.create({
     width: '48%',
     minHeight: 126,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 12,
     gap: 7,
   },
   actionIcon: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1297,7 +1297,7 @@ const stylesShared = StyleSheet.create({
   actionSub: { fontSize: 11, fontWeight: '700', lineHeight: 15 },
   protocolChip: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 8,
     minHeight: 34,
@@ -1320,7 +1320,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 20,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     ...shadowStyle(t, {
@@ -1333,7 +1333,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -1343,7 +1343,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerIcon: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: t.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1351,7 +1351,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   refreshBtn: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: t.surface2,
     borderWidth: 1,
     borderColor: t.border,
@@ -1366,7 +1366,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   hero: {
     borderWidth: 1,
     borderColor: t.cardBorder,
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: t.surface,
     padding: 12,
     gap: 12,
@@ -1375,7 +1375,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   heroIcon: {
     width: 42,
     height: 42,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '55',
@@ -1386,7 +1386,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   heroSub: { color: t.textMuted, fontSize: 12, lineHeight: 16, marginTop: 2 },
   heroScore: {
     minWidth: 56,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: t.surface2,
     borderWidth: 1,
     borderColor: t.border,
@@ -1400,7 +1400,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeReadyCard: {
     borderWidth: 1,
     borderColor: t.accent + '55',
-    borderRadius: 18,
+    borderRadius: 7,
     backgroundColor: t.cardBg,
     padding: 14,
     gap: 12,
@@ -1415,7 +1415,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeReadyIcon: {
     width: 44,
     height: 44,
-    borderRadius: 15,
+    borderRadius: 7,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '55',
@@ -1426,7 +1426,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeReadySub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2, fontWeight: '700' },
   officeReadyBadge: {
     minWidth: 58,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '55',
@@ -1437,7 +1437,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeReadyBadgeText: { color: t.accent, fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
   officeReadyTrack: {
     height: 8,
-    borderRadius: 999,
+    borderRadius: 5,
     backgroundColor: t.surface2,
     overflow: 'hidden',
     borderWidth: 1,
@@ -1445,7 +1445,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   officeReadyFill: {
     height: '100%',
-    borderRadius: 999,
+    borderRadius: 5,
     backgroundColor: t.accent,
   },
   officeReadySteps: { flexDirection: 'row', gap: 8 },
@@ -1454,7 +1454,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minHeight: 92,
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: t.surface2,
     padding: 9,
     gap: 5,
@@ -1463,7 +1463,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeReadyStepIcon: {
     width: 32,
     height: 32,
-    borderRadius: 12,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1471,7 +1471,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeReadyStepHint: { color: t.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center', fontVariant: ['tabular-nums'] },
   officeReadyCta: {
     minHeight: 48,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accentDark,
     backgroundColor: t.accent,
@@ -1485,7 +1485,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   evidenceCard: {
     borderWidth: 1,
     borderColor: t.cardBorder,
-    borderRadius: 18,
+    borderRadius: 7,
     backgroundColor: t.cardBg,
     padding: 14,
     gap: 12,
@@ -1501,7 +1501,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   evidenceSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2, fontWeight: '700' },
   evidenceScore: {
     minWidth: 58,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '55',
@@ -1516,20 +1516,20 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  evidenceIcon: { width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  evidenceIcon: { width: 36, height: 36, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   evidenceItemTitle: { color: t.text, fontSize: 13, fontWeight: '900' },
   evidenceItemHint: { color: t.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2, fontWeight: '700' },
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
   protocolCard: {
     borderWidth: 1,
     borderColor: t.accent + '55',
-    borderRadius: 16,
+    borderRadius: 7,
     backgroundColor: t.surface,
     padding: 12,
     gap: 10,
@@ -1542,7 +1542,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.success + '44',
     backgroundColor: t.successBg,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 5,
     flexDirection: 'row',
@@ -1552,7 +1552,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   protocolDraftHint: { color: t.success, fontSize: 10, fontWeight: '900' },
   protocolScore: {
     minWidth: 58,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '55',
@@ -1571,7 +1571,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minHeight: 44,
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.surface2,
     color: t.text,
     paddingHorizontal: 10,
@@ -1582,7 +1582,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minHeight: 76,
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.surface2,
     color: t.text,
     paddingHorizontal: 10,
@@ -1594,7 +1594,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   summaryBox: {
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.cardBg,
     padding: 10,
     gap: 6,
@@ -1605,7 +1605,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   protocolBtn: {
     flex: 1,
     minHeight: 46,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1618,7 +1618,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   protocolSecondaryText: { color: t.accent, fontSize: 12, fontWeight: '900' },
   protocolPrimaryText: { color: t.accentText, fontSize: 12, fontWeight: '900' },
   draftCta: {
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.accent + '66',
     backgroundColor: t.accentLight,
@@ -1630,7 +1630,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   draftIcon: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1640,7 +1640,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   card: {
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: t.surface,
     padding: 12,
     gap: 8,
@@ -1652,7 +1652,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   warningCard: {
     borderWidth: 1,
     borderColor: t.warning,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: t.warningBg,
     padding: 12,
     gap: 8,
@@ -1664,7 +1664,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: 112,
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.cardBg,
     overflow: 'hidden',
   },
@@ -1674,7 +1674,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptyBox: {
     borderWidth: 1,
     borderColor: t.border,
-    borderRadius: 12,
+    borderRadius: 7,
     backgroundColor: t.surface2,
     padding: 10,
     flexDirection: 'row',

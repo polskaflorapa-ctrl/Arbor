@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
 import CityInput from '../components/CityInput';
@@ -222,14 +222,22 @@ export default function Ksiegowosc() {
     acc[rok] += parseFloat(f.brutto) || 0;
     return acc;
   }, {});
+  const totalRevenue = Number(stats.przychod_total || 0);
+  const paidRevenue = Number(stats.oplacone || 0);
+  const unpaidRevenue = Number(stats.nieoplacone || 0);
+  const overdueRevenue = Number(stats.przeterminowane || 0);
+  const paidRate = totalRevenue > 0 ? Math.round((paidRevenue / totalRevenue) * 100) : 0;
+  const exposure = unpaidRevenue + overdueRevenue;
+  const filteredOverdue = filtrowane.filter((f) => isOverdue(f.termin_platnosci, f.status)).length;
 
   return (
     <div className="accounting-shell" style={styles.container}>
-      <Sidebar />
-      <div className="accounting-main" style={styles.main}>
+      <CommandSidebar active="reports" />
+      <div className="app-main command-content-main accounting-main" style={styles.main}>
         {/* Nagłówek */}
         <PageHeader
           variant="plain"
+          showBack={false}
           title={t('pages.ksiegowosc.title')}
           subtitle={t('pages.ksiegowosc.subtitle')}
           icon={<ReceiptLongOutlined style={{ fontSize: 26 }} />}
@@ -242,6 +250,33 @@ export default function Ksiegowosc() {
             </>
           }
         />
+
+        <section className="accounting-command-strip">
+          <div className="accounting-command-lead">
+            <span>Kontrola finansow</span>
+            <strong>{fmt(totalRevenue)} PLN</strong>
+            <small>Przychod w systemie / {faktury.length} faktur</small>
+          </div>
+          <div className="accounting-command-card is-good">
+            <span>Oplacone</span>
+            <strong>{paidRate}%</strong>
+            <small>{fmt(paidRevenue)} PLN zamkniete</small>
+          </div>
+          <div className={`accounting-command-card ${exposure > 0 ? 'is-warning' : 'is-good'}`}>
+            <span>Do kontroli</span>
+            <strong>{fmt(exposure)} PLN</strong>
+            <small>nieoplacone + po terminie</small>
+          </div>
+          <div className={`accounting-command-card ${filteredOverdue > 0 ? 'is-danger' : 'is-good'}`}>
+            <span>Po terminie</span>
+            <strong>{filteredOverdue}</strong>
+            <small>faktur w aktualnym filtrze</small>
+          </div>
+          <div className="accounting-command-actions">
+            <button type="button" onClick={() => setTab('nowa')}>Nowa faktura</button>
+            <button type="button" onClick={() => setTab('ustawienia')}>Dane firmy</button>
+          </div>
+        </section>
 
         {/* KPI */}
         <div className="accounting-kpis" style={styles.kpiRow}>

@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { EmptyState, ErrorBanner } from '../components/ui/app-state';
+import { FieldOpsBackdrop, FieldOpsCockpit, FieldOpsHeroImage } from '../components/ui/field-ops-art';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { PlatinumFilterChip } from '../components/ui/platinum-filter-chip';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
@@ -38,7 +39,7 @@ import { TASK_STATUS, TASK_STATUS_FILTERS, isTaskClosed, makeTaskStatusColorMap,
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
 const FIELD_PHOTO_REQUIREMENTS = [
-  { key: 'photo_wycena', label: 'Wycena', icon: 'camera-outline' },
+  { key: 'photo_wycena', label: 'Oględziny', icon: 'camera-outline' },
   { key: 'photo_szkic', label: 'Szkic', icon: 'create-outline' },
   { key: 'photo_dojazd', label: 'Dojazd', icon: 'navigate-outline' },
 ] as const;
@@ -268,7 +269,7 @@ function taskCrewStartChecks(task: any) {
     },
     {
       key: 'photos',
-      label: 'Zdjecia wyceny',
+      label: 'Zdjecia oględzin',
       value: `${evidenceCount}/${FIELD_PHOTO_REQUIREMENTS.length}`,
       ready: evidenceCount >= FIELD_PHOTO_REQUIREMENTS.length,
       icon: 'camera-outline' as IoniconName,
@@ -541,7 +542,7 @@ function taskStageOwnerSummary(task: any) {
       };
     }
     return {
-      owner: task?.wyceniajacy_nazwa || 'Specjalista ds. wyceny',
+      owner: task?.wyceniajacy_nazwa || 'Specjalista oględzin',
       title: 'Teren',
       detail: missing[0] || 'Zrob zdjecia, szkic, dojazd i opis zakresu.',
       tone: 'warning' as StageOwnerTone,
@@ -693,7 +694,7 @@ function taskListAction(task: any) {
   if (status === TASK_STATUS.NOWE) {
     return {
       label: 'Ustal ogledziny',
-      detail: 'Telefon, adres i termin dla specjalisty ds. wyceny.',
+      detail: 'Telefon, adres i termin dla specjalisty oględzin.',
       icon: 'call-outline' as IoniconName,
       route: `/zlecenie/${task.id}`,
     };
@@ -1023,7 +1024,7 @@ export default function ZleceniaScreen() {
     const stages: OfficeFlowStep[] = [
       { key: 'myTurn', label: 'Moje teraz', hint: 'moja kolej', value: myTurnCount, color: myTurnCount ? theme.warning : theme.success, icon: 'radio-button-on-outline', mode: 'myTurn' },
       { key: 'phone', label: 'Telefon', hint: 'nowe', value: phone, color: theme.success, icon: 'call-outline', mode: 'active' },
-      { key: 'field', label: 'Teren', hint: 'wycena', value: field, color: theme.info, icon: 'camera-outline', mode: 'field' },
+      { key: 'field', label: 'Teren', hint: 'oględziny', value: field, color: theme.info, icon: 'camera-outline', mode: 'field' },
       { key: 'signal', label: 'Sygnal', hint: 'check-in', value: signal, color: signal ? theme.danger : theme.success, icon: 'radio-outline', mode: 'needsSignal' },
       { key: 'office', label: 'Biuro', hint: 'dowody OK', value: office, color: theme.accent, icon: 'file-tray-full-outline', mode: 'officeReady' },
       { key: 'plan', label: 'Plan', hint: 'ekipa/slot', value: plan, color: plan ? theme.warning : theme.success, icon: 'calendar-number-outline', mode: 'needsPlan' },
@@ -1104,6 +1105,7 @@ export default function ZleceniaScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
+      <FieldOpsBackdrop />
       <AppStatusBar />
 
       <ScreenHeader
@@ -1129,14 +1131,16 @@ export default function ZleceniaScreen() {
           <View style={S.ordersHeroIcon}>
             <PlatinumIconBadge icon="leaf-outline" color={theme.accent} size={20} style={S.ordersHeroIconBadge} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={S.ordersHeroEyebrow}>ARBOR-OS OPERACJE</Text>
             <Text style={S.ordersHeroTitle}>{isCrew ? 'Plan pracy ekipy' : 'Centrum zleceń'}</Text>
             <Text style={S.ordersHeroSub}>
-              {isCrew ? 'Trasa, dowody i statusy na dzisiaj.' : 'Zlecenia, wyceny terenowe i gotowość do biura.'}
+              {isCrew ? 'Trasa, dowody i statusy na dzisiaj.' : 'Zlecenia, oględziny i gotowość do biura.'}
             </Text>
           </View>
+          <FieldOpsHeroImage variant={isCrew ? 'crew' : 'dispatch'} size={82} />
         </View>
+        <FieldOpsCockpit variant={isCrew ? 'crew' : 'dispatch'} style={S.ordersCockpit} />
         <View style={S.ordersHeroStats}>
           {[
             { label: 'Aktywne', value: orderSummary.active, color: theme.accent },
@@ -1152,6 +1156,55 @@ export default function ZleceniaScreen() {
           ))}
         </View>
       </View>
+
+      {!isCrew ? (
+        <View style={S.missionDeck}>
+          <View style={S.missionTop}>
+            <View style={S.missionPulse}>
+              <Ionicons name={topOperation ? topOperation.action.icon : 'git-network-outline'} size={22} color={topOperation ? topOperation.color : theme.accent} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={S.missionEyebrow}>NASTĘPNY RUCH</Text>
+              <Text style={S.missionTitle} numberOfLines={1}>
+                {topOperation ? topOperation.action.label : officeFlow.nextTitle}
+              </Text>
+              <Text style={S.missionSub} numberOfLines={2}>
+                {topOperation
+                  ? `${topOperation.task.klient_nazwa || `Zlecenie #${topOperation.task.id}`} - ${topOperation.action.detail}`
+                  : officeFlow.nextSub}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={S.missionGo}
+              onPress={() => {
+                void triggerHaptic('light');
+                if (topOperation) router.push(topOperation.action.route as never);
+                else setQuickMode(officeFlow.nextMode);
+              }}
+            >
+              <Ionicons name="arrow-forward" size={20} color={theme.accentText} />
+            </TouchableOpacity>
+          </View>
+          <FieldOpsCockpit variant="dispatch" style={S.missionCockpit} />
+          <View style={S.missionLanes}>
+            {officeFlow.stages.slice(0, 4).map((step) => (
+              <TouchableOpacity
+                key={step.key}
+                style={[S.missionLane, { borderColor: step.color + '55', backgroundColor: step.color + '12' }]}
+                onPress={() => {
+                  setQuickMode(step.mode);
+                  void triggerHaptic('light');
+                }}
+              >
+                <Ionicons name={step.icon} size={15} color={step.color} />
+                <Text style={[S.missionLaneValue, { color: step.color }]}>{step.value}</Text>
+                <Text style={S.missionLaneLabel} numberOfLines={1}>{step.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={S.modeScroll} contentContainerStyle={S.modeContent}>
         {quickModeOptions.map((mode) => {
           const active = quickMode === mode.key;
@@ -1789,7 +1842,7 @@ export default function ZleceniaScreen() {
           const missingEvidenceItems = FIELD_PHOTO_REQUIREMENTS.filter((item) => taskNumber(z[item.key]) <= 0);
           const workflowNextAction = taskWorkflowNextAction(z);
           const evidenceHint = photoReady
-            ? (workflowNextAction || 'Komplet: wycena, szkic i dojazd')
+            ? (workflowNextAction || 'Komplet: oględziny, szkic i dojazd')
             : (workflowNextAction || `Brakuje: ${missingEvidenceItems.map((item) => item.label).join(', ')}`);
           const handoffReady = taskReadyForCrew(z);
           const isNextCrewTask = isCrew && crewPlan.next?.id === z.id;
@@ -2236,7 +2289,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerAddBtn: {
     width: 40,
     height: 40,
-    borderRadius: 999,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: t.accent,
@@ -2256,7 +2309,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2 + 'EE',
-    borderRadius: 14,
+    borderRadius: 7,
     paddingVertical: 9,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -2278,12 +2331,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     textTransform: 'uppercase',
   },
   ordersHero: {
-    marginHorizontal: 16,
+    display: 'none',
+    marginHorizontal: 12,
     marginTop: 10,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
-    backgroundColor: t.cardBg,
+    backgroundColor: t.name === 'dark' ? 'rgba(9,20,16,0.94)' : 'rgba(254,255,252,0.94)',
     padding: 14,
     gap: 12,
     ...shadowStyle(t, {
@@ -2296,51 +2350,120 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   ordersHeroTop: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 11,
   },
   ordersHeroIcon: {
     width: 44,
     height: 44,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '44',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ordersHeroIconBadge: { width: 32, height: 32, borderRadius: 10 },
+  ordersHeroIconBadge: { width: 32, height: 32, borderRadius: 6 },
   ordersHeroEyebrow: { color: t.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   ordersHeroTitle: { color: t.text, fontSize: 18, fontWeight: '900', marginTop: 2 },
   ordersHeroSub: { color: t.textSub, fontSize: 12, fontWeight: '700', marginTop: 3, lineHeight: 17 },
+  ordersCockpit: {
+    marginTop: -2,
+    marginBottom: -2,
+  },
   ordersHeroStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   ordersHeroStat: {
     flexGrow: 1,
     flexBasis: '30%',
     minHeight: 54,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 9,
     justifyContent: 'center',
   },
   ordersHeroStatValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
   ordersHeroStatLabel: { color: t.textMuted, fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase', marginTop: 2 },
-  modeScroll: { marginTop: 9 },
-  modeContent: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, flexDirection: 'row' },
-  modeChip: {
-    minHeight: 40,
+  missionDeck: {
+    marginHorizontal: 12,
+    marginTop: 12,
+    borderRadius: 7,
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
+    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.24)' : t.cardBorder,
+    backgroundColor: t.name === 'dark' ? 'rgba(4,11,8,0.96)' : t.cardBg,
+    padding: 12,
+    gap: 12,
+    ...shadowStyle(t, {
+      opacity: t.name === 'dark' ? t.shadowOpacity * 0.9 : 0.08,
+      radius: t.name === 'dark' ? Math.max(10, t.shadowRadius * 0.65) : 8,
+      offsetY: 3,
+      elevation: 2,
+    }),
+  },
+  missionTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  missionPulse: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missionEyebrow: { color: t.accent, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  missionTitle: { color: t.text, fontSize: 18, fontWeight: '900', marginTop: 2 },
+  missionSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 3, fontWeight: '700' },
+  missionCockpit: {
+    marginTop: -4,
+    marginBottom: -2,
+  },
+  missionGo: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: t.accentDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missionLanes: {
+    flexDirection: 'row',
+    gap: 7,
+  },
+  missionLane: {
+    flex: 1,
+    minHeight: 68,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    justifyContent: 'space-between',
+  },
+  missionLaneValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  missionLaneLabel: { color: t.textSub, fontSize: 9.5, fontWeight: '900' },
+  modeScroll: { marginTop: 9 },
+  modeContent: { paddingHorizontal: 12, paddingVertical: 4, gap: 8, flexDirection: 'row' },
+  modeChip: {
+    height: 44,
+    flexShrink: 0,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
   },
   modeIcon: { width: 20, height: 20, borderRadius: 7 },
   modeLabel: { fontSize: 11.5, fontWeight: '900' },
   modeCount: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
   officeFlowCard: {
+    display: 'none',
     marginHorizontal: 14,
     marginTop: 8,
     borderRadius: 8,
@@ -2364,7 +2487,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeFlowIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 6,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '44',
@@ -2373,27 +2496,27 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   officeFlowTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
   officeFlowSub: { color: t.textMuted, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
-  officeFlowStrip: { gap: 8, paddingRight: 4 },
+  officeFlowStrip: { gap: 8, paddingRight: 14 },
   officeFlowStep: {
-    minWidth: 92,
+    width: 78,
     borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 8,
     gap: 2,
   },
   officeFlowStepIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
   },
   officeFlowStepValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  officeFlowStepLabel: { color: t.text, fontSize: 12, fontWeight: '900' },
-  officeFlowStepHint: { color: t.textMuted, fontSize: 10, fontWeight: '800' },
+  officeFlowStepLabel: { color: t.text, fontSize: 11, fontWeight: '900' },
+  officeFlowStepHint: { color: t.textMuted, fontSize: 9.5, fontWeight: '800' },
   officeNextBox: {
     borderRadius: 8,
     borderWidth: 1,
@@ -2408,7 +2531,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeNextSub: { color: t.textSub, fontSize: 11, lineHeight: 15, marginTop: 2 },
   officeNextBtn: {
     minHeight: 34,
-    borderRadius: 999,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.cardBg,
@@ -2423,7 +2546,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 8,
     marginBottom: 4,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
@@ -2444,7 +2567,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationsQueueIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '44',
     backgroundColor: t.accentLight,
@@ -2456,7 +2579,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationsQueueMore: {
     minWidth: 34,
     height: 30,
-    borderRadius: 999,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
@@ -2473,7 +2596,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationsQueueRows: { gap: 8 },
   operationsQueueRow: {
     minHeight: 72,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 9,
@@ -2484,7 +2607,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationsQueueIndex: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 5,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2501,7 +2624,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   operationsQueueClient: { flex: 1, color: t.text, fontSize: 13, fontWeight: '900' },
   operationsQueueMineBadge: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     paddingHorizontal: 7,
     paddingVertical: 3,
@@ -2512,7 +2635,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationsQueueAction: {
     maxWidth: 104,
     minHeight: 36,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 7,
@@ -2531,7 +2654,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 8,
     marginBottom: 4,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
@@ -2549,14 +2672,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  estimatorTodayIcon: { width: 38, height: 38, borderRadius: 12 },
+  estimatorTodayIcon: { width: 38, height: 38, borderRadius: 6 },
   estimatorTodayTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
   estimatorTodaySub: { color: t.textMuted, fontSize: 12, lineHeight: 16, marginTop: 2 },
   estimatorTodayFilter: {
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
-    borderRadius: 999,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
@@ -2567,7 +2690,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 70,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 8,
     alignItems: 'center',
@@ -2575,7 +2698,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   estimatorStatValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
   estimatorStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
   estimatorNextCard: {
-    borderRadius: 14,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -2586,7 +2709,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   estimatorNextTime: {
     width: 62,
     minHeight: 54,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2600,7 +2723,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   estimatorEvidenceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   estimatorEvidencePill: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 5,
     flexDirection: 'row',
@@ -2613,7 +2736,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   estimatorActionBtn: {
     flexGrow: 1,
     minHeight: 40,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '44',
     backgroundColor: t.cardBg,
@@ -2630,7 +2753,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   estimatorPrimaryActionText: { color: t.accentText, fontSize: 12, fontWeight: '900' },
   estimatorEmptyBox: {
-    borderRadius: 13,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.success,
     backgroundColor: t.successBg,
@@ -2644,7 +2767,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   estimatorRouteRow: {
     minHeight: 48,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -2667,7 +2790,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 8,
     marginBottom: 4,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
@@ -2685,7 +2808,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  crewTodayIcon: { width: 38, height: 38, borderRadius: 12 },
+  crewTodayIcon: { width: 38, height: 38, borderRadius: 6 },
   crewTodayTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
   crewTodaySub: { color: t.textMuted, fontSize: 12, lineHeight: 16, marginTop: 2 },
   crewStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -2694,7 +2817,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 70,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 8,
     alignItems: 'center',
@@ -2702,7 +2825,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewStatValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
   crewStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
   crewNextCard: {
-    borderRadius: 14,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -2713,7 +2836,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewNextTime: {
     width: 62,
     minHeight: 54,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2723,14 +2846,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewNextDayText: { color: t.textMuted, fontSize: 10, fontWeight: '800', marginTop: 2 },
   crewNextTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
   crewNextLabel: { color: t.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', flex: 1 },
-  crewNextStatus: { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  crewNextStatus: { borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3 },
   crewNextStatusText: { fontSize: 10, fontWeight: '900' },
   crewNextClient: { color: t.text, fontSize: 14, fontWeight: '900' },
   crewNextAddress: { color: t.textSub, fontSize: 12, marginTop: 2 },
   crewNextBottom: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   crewDocPill: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     backgroundColor: t.cardBg,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -2746,7 +2869,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderRadius: 999,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
@@ -2756,7 +2879,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewOpenText: { color: t.accent, fontSize: 11, fontWeight: '900' },
   crewOpenIcon: { width: 16, height: 16, borderRadius: 6 },
   crewNoWork: {
-    borderRadius: 13,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.success,
     backgroundColor: t.successBg,
@@ -2765,10 +2888,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  crewNoWorkIcon: { width: 30, height: 30, borderRadius: 10 },
+  crewNoWorkIcon: { width: 30, height: 30, borderRadius: 6 },
   crewNoWorkText: { color: t.success, fontSize: 12, fontWeight: '900' },
   crewBriefBox: {
-    borderRadius: 14,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -2790,7 +2913,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 118,
     minHeight: 44,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 7,
     flexDirection: 'row',
@@ -2804,7 +2927,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewBriefWarningChip: {
     flexGrow: 1,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     backgroundColor: t.cardBg,
     paddingHorizontal: 9,
     paddingVertical: 6,
@@ -2819,7 +2942,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewBriefAction: {
     flexGrow: 1,
     minHeight: 40,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '44',
     backgroundColor: t.cardBg,
@@ -2831,7 +2954,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   crewBriefActionText: { color: t.accent, fontSize: 12, fontWeight: '900' },
   crewRoutePreview: {
-    borderRadius: 14,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -2850,7 +2973,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewRoutePreviewRow: {
     minHeight: 48,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -2883,7 +3006,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.surface2,
     marginHorizontal: 14,
     marginTop: 8,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     minHeight: 52,
@@ -2951,14 +3074,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 7,
     paddingHorizontal: 11,
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
   },
-  offlineQueueIcon: { width: 30, height: 30, borderRadius: 10 },
+  offlineQueueIcon: { width: 30, height: 30, borderRadius: 6 },
   offlineQueueTitle: { fontSize: 12.5, fontWeight: '900' },
   offlineQueueSub: { color: t.textSub, fontSize: 10.5, fontWeight: '700', lineHeight: 15, marginTop: 1 },
   list: { flex: 1, paddingHorizontal: 12, paddingTop: 8 },
@@ -2967,21 +3090,21 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptySub: { fontSize: 13, color: t.textMuted },
   card: {
     flexDirection: 'row',
-    backgroundColor: t.cardBg,
-    borderRadius: 12,
-    marginBottom: 10,
+    backgroundColor: t.name === 'dark' ? 'rgba(6,13,10,0.98)' : t.cardBg,
+    borderRadius: 8,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: t.cardBorder,
     overflow: 'hidden',
-    minHeight: 128,
+    minHeight: 118,
     ...shadowStyle(t, {
-      opacity: t.shadowOpacity * 0.16,
-      radius: t.shadowRadius * 0.42,
-      offsetY: 2,
-      elevation: Math.max(1, t.cardElevation),
+      opacity: t.name === 'dark' ? t.shadowOpacity * 0.18 : 0.04,
+      radius: t.name === 'dark' ? Math.max(6, t.shadowRadius * 0.28) : 6,
+      offsetY: 1,
+      elevation: 1,
     }),
   },
-  cardStripe: { width: 6 },
+  cardStripe: { width: 3 },
   crewCardRail: {
     width: 58,
     borderRightWidth: 1,
@@ -2998,17 +3121,17 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 7 },
   cardId: { fontSize: 11.5, color: t.textMuted, fontWeight: '900' },
   cardBadges: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', flexShrink: 1 },
-  badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
+  badge: { borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4, borderWidth: 1, borderColor: t.border },
   badgeText: { fontSize: 10.5, fontWeight: '900' },
   routeBadge: {
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
   routeBadgeText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   fieldBadge: {
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderWidth: 1,
@@ -3027,10 +3150,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardQuickAction: {
     flexGrow: 1,
     minHeight: 42,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '44',
-    backgroundColor: t.accentLight,
+    backgroundColor: t.name === 'dark' ? 'rgba(10,22,17,0.92)' : t.accentLight,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3044,14 +3167,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   cardQuickActionText: { color: t.accent, fontSize: 11, fontWeight: '900' },
   cardBottom: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 },
-  typChip: { backgroundColor: t.surface2, borderRadius: 10, borderWidth: 1, borderColor: t.border, paddingHorizontal: 9, paddingVertical: 5 },
+  typChip: { backgroundColor: t.surface2, borderRadius: 5, borderWidth: 1, borderColor: t.border, paddingHorizontal: 8, paddingVertical: 5 },
   typText: { fontSize: 11, color: t.textSub, fontWeight: '800' },
   dateText: { fontSize: 11, color: t.textMuted },
   wartosc: { fontSize: 12, color: t.accent, fontWeight: '700' },
   stageOwnerMini: {
     marginTop: 8,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -3061,7 +3184,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   stageOwnerIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3072,7 +3195,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewScopePreview: {
     marginTop: 8,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 6,
     paddingHorizontal: 9,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -3084,7 +3207,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldExecutionMini: {
     marginTop: 9,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 7,
     padding: 10,
     gap: 8,
   },
@@ -3098,7 +3221,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldExecutionDetail: { color: t.textSub, fontSize: 10.5, fontWeight: '800', marginTop: 1 },
   fieldExecutionAlertPill: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
@@ -3110,7 +3233,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldExecutionDocChip: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 7,
     paddingVertical: 4,
   },
@@ -3122,7 +3245,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldExecutionAction: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 6,
     flexDirection: 'row',
@@ -3133,7 +3256,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewStartMini: {
     marginTop: 10,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 7,
     padding: 10,
     gap: 8,
   },
@@ -3145,7 +3268,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewStartMiniIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3162,7 +3285,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '30%',
     minWidth: 96,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 6,
     paddingHorizontal: 7,
     paddingVertical: 6,
     flexDirection: 'row',
@@ -3175,7 +3298,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldMiniPanel: {
     marginTop: 9,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     padding: 9,
     gap: 7,
   },
@@ -3186,7 +3309,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldMiniChecks: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   fieldMiniCheck: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 7,
     paddingVertical: 4,
     backgroundColor: t.cardBg,
@@ -3205,7 +3328,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldMiniHint: { flex: 1, fontSize: 10.5, fontWeight: '900' },
   fieldMiniOpenBtn: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -3213,7 +3336,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officePlanMini: {
     marginTop: 9,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 9,
     gap: 8,
   },
@@ -3225,7 +3348,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officePlanMiniIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3242,7 +3365,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minWidth: 112,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 7,
     flexDirection: 'row',
@@ -3261,7 +3384,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     minHeight: 34,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 6,
     paddingHorizontal: 9,
     paddingVertical: 6,
     flexDirection: 'row',
@@ -3278,7 +3401,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   crewCardActionBtn: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 6,
     paddingHorizontal: 9,
     paddingVertical: 6,
     flexDirection: 'row',

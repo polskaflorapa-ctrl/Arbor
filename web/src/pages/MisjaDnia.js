@@ -13,7 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import Refresh from '@mui/icons-material/Refresh';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
@@ -224,7 +224,7 @@ export default function MisjaDnia() {
 
   return (
     <Box className="mission-day-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Sidebar />
+      <CommandSidebar active="schedule" />
       <Box className="mission-day-main" sx={{ flex: 1, p: 2, maxWidth: 960, mx: 'auto', width: '100%' }}>
         <Stack className="mission-day-header-row" direction="row" alignItems="flex-start" justifyContent="space-between" sx={{ mb: 2 }}>
           <PageHeader title={t('pages.missionToday.title')} subtitle={t('pages.missionToday.subtitle')} />

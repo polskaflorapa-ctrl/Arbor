@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AssignmentTurnedIn from '@mui/icons-material/AssignmentTurnedIn';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import { Button } from '../components/ui/Button';
@@ -149,7 +149,7 @@ export default function DemoRequests() {
 
   return (
     <div className="demo-requests-shell" style={styles.shell}>
-      <Sidebar />
+      <CommandSidebar active="dashboard" />
       <main className="demo-requests-main" style={styles.main}>
         <PageHeader
           title="Zgłoszenia demo"

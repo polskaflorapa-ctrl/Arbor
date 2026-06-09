@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import { Button } from '../components/ui/Button';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -105,12 +105,12 @@ export default function NowyPracownik() {
   const todayDate = new Date().toISOString().split('T')[0];
 
   if (!canEdit) {
-    return <div className="new-employee-shell" style={styles.container}><Sidebar /><div className="new-employee-main" style={styles.main}>{t('pages.nowyPracownik.noPermission')}</div></div>;
+    return <div className="new-employee-shell" style={styles.container}><CommandSidebar active="profile" /><div className="new-employee-main" style={styles.main}>{t('pages.nowyPracownik.noPermission')}</div></div>;
   }
 
   return (
     <div className="new-employee-shell" style={styles.container}>
-      <Sidebar />
+      <CommandSidebar active="profile" />
       <div className="new-employee-main" style={styles.main}>
         <div className="new-employee-topbar" style={styles.topBar}>
           <Button size="sm" variant="outline" leftIcon={ArrowLeft} onClick={() => navigate('/uzytkownicy')}>← {t('common.back')}</Button>

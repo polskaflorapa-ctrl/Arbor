@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingVertical: 20,
-    borderRadius: 12,
+    borderRadius: 7,
     marginBottom: 20,
   },
   title: {
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 7,
     marginBottom: 16,
   },
   sectionHeader: {
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   roleButton: {
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     marginBottom: 10,
   },
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   backButton: {
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 6,
     alignItems: 'center',
     marginBottom: 32,
   },

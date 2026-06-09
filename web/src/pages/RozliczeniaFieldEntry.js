@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import ModernDataRow from '../components/ModernDataRow';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -298,7 +298,7 @@ export default function RozliczeniaFieldEntry() {
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="field-settlements-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="reports" />
       <main className="field-settlements-main" style={{ flex: 1, padding: '28px 28px 48px', minWidth: 0, maxWidth: 860 }}>
 
         {/* Nagłówek */}

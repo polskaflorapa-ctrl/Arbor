@@ -30,6 +30,7 @@ import { OfflineQueueBanner } from '../../components/ui/app-state';
 import { InfoRow } from '../../components/task-info-row';
 import { TaskPhotoFilterStrip } from '../../components/task-photo-filter-strip';
 import { TaskPhotoHeroPreview } from '../../components/task-photo-hero-preview';
+import { FieldOpsBackdrop, FieldOpsHeroImage } from '../../components/ui/field-ops-art';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../../components/ui/platinum-cta';
 import { PlatinumIconBadge } from '../../components/ui/platinum-icon-badge';
@@ -161,6 +162,21 @@ export default function ZlecenieDetailScreen() {
   const statusPalette = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
   const prioPalette = useMemo(() => orderPrioColors(theme), [theme]);
   const photoTypeMeta = useMemo(() => orderPhotoTypeMeta(theme), [theme]);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const doc = (globalThis as any).document;
+    if (!doc) return;
+    const nodes = [doc.documentElement, doc.body, doc.getElementById('root')].filter(Boolean);
+    const previous = nodes.map((node: HTMLElement) => node.style.backgroundColor);
+    nodes.forEach((node: HTMLElement) => {
+      node.style.backgroundColor = theme.bg;
+    });
+    return () => {
+      nodes.forEach((node: HTMLElement, index: number) => {
+        node.style.backgroundColor = previous[index] || '';
+      });
+    };
+  }, [theme.bg]);
   const [user, setUser] = useState<StoredUser | null>(null);
   const [zlecenie, setZlecenie] = useState<any>(null);
   const [logi, setLogi] = useState<any[]>([]);
@@ -491,7 +507,7 @@ export default function ZlecenieDetailScreen() {
         natywny_oddzial: Boolean(row.natywny_oddzial),
       })));
     } catch {
-      setInspectionDispatchError('Nie udalo sie pobrac listy specjalistow ds. wyceny.');
+      setInspectionDispatchError('Nie udalo sie pobrac listy specjalistow ogledzin.');
     } finally {
       setInspectionEstimatorsLoading(false);
     }
@@ -505,7 +521,7 @@ export default function ZlecenieDetailScreen() {
     const estimatorId = inspectionDispatchForm.estimatorId.trim();
     if (!estimatorId) {
       void triggerHaptic('warning');
-      setInspectionDispatchError('Wybierz specjaliste ds. wyceny.');
+      setInspectionDispatchError('Wybierz specjaliste ogledzin.');
       return;
     }
     if (!isYmd(inspectionDispatchForm.data)) {
@@ -532,7 +548,7 @@ export default function ZlecenieDetailScreen() {
     const selectedEstimator = inspectionEstimators.find((row) => String(row.id) === estimatorId);
     const noteBlock = [
       'PRZEKAZANIE NA OGLEDZINY',
-      `Specjalista ds. wyceny: ${selectedEstimator?.nazwa || `#${estimatorId}`}`,
+      `Specjalista ogledzin: ${selectedEstimator?.nazwa || `#${estimatorId}`}`,
       `Termin ogledzin: ${inspectionDispatchForm.data} ${inspectionDispatchForm.godzina}`,
       inspectionDispatchForm.note.trim() ? `Notatka biura: ${inspectionDispatchForm.note.trim()}` : '',
     ].filter(Boolean).join('\n');
@@ -587,7 +603,7 @@ export default function ZlecenieDetailScreen() {
         ankieta_uproszczona: true,
       }));
       void triggerHaptic('success');
-      Alert.alert('Przekazano do terenu', 'Zgloszenie jest teraz w kolejce ogledzin specjalisty ds. wyceny.');
+      Alert.alert('Przekazano do terenu', 'Zgloszenie jest teraz w kolejce ogledzin.');
       await loadAll();
     } catch (err) {
       void triggerHaptic('error');
@@ -1380,7 +1396,7 @@ export default function ZlecenieDetailScreen() {
       if (res.ok) {
         setExtraOpis('');
         await loadAll();
-        Alert.alert('OK', 'Praca dodatkowa zgłoszona do wyceny.');
+        Alert.alert('OK', 'Praca dodatkowa zgłoszona do oględzin.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/extra-work`,
@@ -1425,7 +1441,7 @@ export default function ZlecenieDetailScreen() {
       });
       if (res.ok) {
         await loadAll();
-        Alert.alert('OK', 'Wycena przesłana do ekipy.');
+        Alert.alert('OK', 'Oględziny przesłane do ekipy.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/extra-work/${ewId}/quote`,
@@ -1501,7 +1517,7 @@ export default function ZlecenieDetailScreen() {
       });
       if (res.ok) {
         await loadAll();
-        Alert.alert('OK', 'Oznaczono jako wycenione bez akceptacji.');
+        Alert.alert('OK', 'Oznaczono oględziny bez akceptacji.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/extra-work/${ewId}/reject`,
@@ -2059,7 +2075,7 @@ export default function ZlecenieDetailScreen() {
 
   if (!zlecenie) return (
     <View style={S.center}>
-      <PlatinumIconBadge icon="alert-circle-outline" color={theme.textMuted} size={20} style={{ width: 48, height: 48, borderRadius: 14 }} />
+      <PlatinumIconBadge icon="alert-circle-outline" color={theme.textMuted} size={20} style={{ width: 48, height: 48, borderRadius: 6 }} />
       <Text style={S.notFoundTxt}>{t('order.notFound')}</Text>
       <TouchableOpacity onPress={() => safeBack()} style={S.backLink}>
         <Text style={[S.backLinkTxt, { color: theme.accent }]}>{t('order.back')}</Text>
@@ -2287,7 +2303,7 @@ export default function ZlecenieDetailScreen() {
     },
     {
       key: 'photos',
-      label: 'Zdjęcia z wyceny',
+      label: 'Zdjęcia z oględzin',
       done: fieldWycenaPhotosCount > 0,
       hint: `${fieldWycenaPhotosCount} szt.`,
       icon: 'camera-outline' as IoniconName,
@@ -2328,7 +2344,7 @@ export default function ZlecenieDetailScreen() {
       key: 'scope',
       label: 'Zakres',
       value: scopeLine ? 'OK' : 'opis',
-      hint: scopeLine ? 'z wyceny' : 'sprawdz opis',
+      hint: scopeLine ? 'z oględzin' : 'sprawdz opis',
       done: Boolean(scopeLine || zlecenie.opis || zlecenie.opis_pracy || zlecenie.typ_uslugi),
       icon: 'list-outline' as IoniconName,
       onPress: () => setActiveTab('info' as const),
@@ -2337,7 +2353,7 @@ export default function ZlecenieDetailScreen() {
       key: 'wycena',
       label: 'Foto',
       value: String(fieldWycenaPhotosCount),
-      hint: 'wycena',
+      hint: 'oględziny',
       done: fieldWycenaPhotosCount > 0,
       icon: 'camera-outline' as IoniconName,
       onPress: () => {
@@ -2464,7 +2480,7 @@ export default function ZlecenieDetailScreen() {
       label: 'Zdjecia',
       done: briefingPhotos.length > 0,
       required: true,
-      hint: briefingPhotos.length ? `${briefingPhotos.length} dowodow dla ekipy.` : 'Brak zdjec z wyceny / szkicu.',
+      hint: briefingPhotos.length ? `${briefingPhotos.length} dowodow dla ekipy.` : 'Brak zdjec z oględzin / szkicu.',
       icon: 'images-outline' as IoniconName,
       onPress: () => setActiveTab('zdjecia' as const),
     },
@@ -2520,7 +2536,7 @@ export default function ZlecenieDetailScreen() {
   const fieldDraftPhotoChecklist = [
     {
       key: 'wycena',
-      label: 'Zdjęcie ogólne / wycena',
+      label: 'Zdjęcie ogólne / oględziny',
       done: fieldWycenaPhotosCount > 0,
       hint: `${fieldWycenaPhotosCount} szt.`,
       type: 'wycena',
@@ -2799,7 +2815,7 @@ export default function ZlecenieDetailScreen() {
   }[] = [
     {
       type: 'wycena',
-      label: 'Wycena',
+      label: 'Oględziny',
       hint: 'Ogólny widok drzewa i zakresu.',
       count: fieldWycenaPhotosCount,
       required: isFieldDraft,
@@ -2866,7 +2882,7 @@ export default function ZlecenieDetailScreen() {
     {
       key: 'field-photo',
       label: 'Ustalenia u klienta',
-      hint: fieldWycenaPhotosCount > 0 ? `${fieldWycenaPhotosCount} zdj.` : 'Brak zdjęcia wyceny.',
+      hint: fieldWycenaPhotosCount > 0 ? `${fieldWycenaPhotosCount} zdj.` : 'Brak zdjęcia oględzin.',
       done: fieldWycenaPhotosCount > 0,
       required: isFieldDraft,
       icon: 'camera-outline',
@@ -3431,7 +3447,7 @@ export default function ZlecenieDetailScreen() {
       settlementLine ? `Rozliczenie: ${settlementLine}` : null,
       budgetLine ? `Budzet: ${budgetLine}` : null,
       taskEquipmentList.length ? `Sprzet: ${taskEquipmentList.join(', ')}` : null,
-      `Zdjecia: wycena ${fieldWycenaPhotosCount}, szkic ${fieldSketchPhotosCount}, dojazd ${fieldAccessPhotosCount}`,
+      `Zdjecia: ogledziny ${fieldWycenaPhotosCount}, szkic ${fieldSketchPhotosCount}, dojazd ${fieldAccessPhotosCount}`,
       photoLines.length ? `Zdjecia dla ekipy:\n${photoLines.join('\n')}` : 'Zdjecia dla ekipy: brak',
       `BHP: ${safetyDoneCount}/${safetyChecklistRows.length}`,
       safetyMissingLines.length ? `Braki BHP:\n- ${safetyMissingLines.join('\n- ')}` : 'BHP: bez brakow',
@@ -3558,7 +3574,7 @@ export default function ZlecenieDetailScreen() {
       if (zlecenie.status === 'Nowe') {
         return {
           icon: 'calendar-outline' as IoniconName,
-          title: 'Sugerowany krok: Wyślij do specjalisty ds. wyceny',
+          title: 'Sugerowany krok: Wyślij do oględzin',
           detail: 'Klient ma termin oględzin, teren może zebrać zdjęcia, zakres i cenę.',
           cta: 'Ustaw: Oględziny',
           onPress: () => zmienStatus('Wycena_Terenowa'),
@@ -3993,7 +4009,7 @@ export default function ZlecenieDetailScreen() {
     {
       key: 'brief',
       icon: 'leaf-outline' as IoniconName,
-      label: isFieldDraft ? 'Wycena' : 'Odprawa',
+      label: isFieldDraft ? 'Oględziny' : 'Odprawa',
       value: isFieldDraft ? `${evidenceReadyCount}/${evidenceTotalRequired}` : `${crewBriefReadyCount}/${crewBriefChecks.length}`,
       done: isFieldDraft ? evidenceReadyCount >= evidenceTotalRequired : crewBriefReadyCount >= crewBriefChecks.length,
     },
@@ -4057,6 +4073,7 @@ export default function ZlecenieDetailScreen() {
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
     <View style={S.container}>
+      <FieldOpsBackdrop />
       <AppStatusBar />
 
       {/* ── HEADER ── */}
@@ -4100,6 +4117,15 @@ export default function ZlecenieDetailScreen() {
           </View>
           <View style={[S.taskHeroStatus, { backgroundColor: statusKolor + '18', borderColor: statusKolor }]}>
             <Text style={[S.taskHeroStatusText, { color: statusKolor }]}>{statusUi(zlecenie.status)}</Text>
+          </View>
+        </View>
+        <View style={S.taskHeroVisualBand}>
+          <FieldOpsHeroImage variant={isEkipa ? 'work' : 'inspection'} size={108} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={S.taskHeroVisualLabel}>Tryb terenowy</Text>
+            <Text style={S.taskHeroVisualText} numberOfLines={2}>
+              Start, dowody, materiały i zamknięcie pracy w jednej karcie.
+            </Text>
           </View>
         </View>
 
@@ -4379,7 +4405,7 @@ export default function ZlecenieDetailScreen() {
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={[S.inspectionDispatchTitle, { color: theme.text }]}>Przekaż na oględziny</Text>
               <Text style={[S.inspectionDispatchSub, { color: theme.textMuted }]} numberOfLines={2}>
-                Zgłoszenie przejdzie z etapu Telefon do kolejki terenowej specjalisty ds. wyceny.
+                Zgłoszenie przejdzie z etapu Telefon do kolejki oględzin.
               </Text>
             </View>
             <View style={[S.inspectionDispatchScore, { backgroundColor: theme.cardBg, borderColor: inspectionDispatchColor }]}>
@@ -4442,7 +4468,7 @@ export default function ZlecenieDetailScreen() {
           </View>
 
           <View style={S.inspectionDispatchEstimatorHead}>
-            <Text style={[S.inspectionDispatchSectionTitle, { color: theme.text }]}>Specjalista ds. wyceny</Text>
+            <Text style={[S.inspectionDispatchSectionTitle, { color: theme.text }]}>Specjalista oględzin</Text>
             <TouchableOpacity
               style={[S.inspectionDispatchReload, { backgroundColor: theme.surface2, borderColor: theme.border }]}
               onPress={() => { void loadInspectionEstimators(undefined, inspectionDispatchForm.data); }}
@@ -4678,7 +4704,7 @@ export default function ZlecenieDetailScreen() {
                 {officeHandoffReady ? 'Gotowe dla biura' : 'Przekazanie do biura'}
               </Text>
               <Text style={[S.officeHandoffSub, { color: theme.textSub }]}>
-                Cena, ekipa, termin i pakiet zdjęć z wyceny terenowej.
+                Cena, ekipa, termin i pakiet zdjęć z oględzin.
               </Text>
             </View>
             <TouchableOpacity style={[S.officeHandoffPhotosBtn, { backgroundColor: theme.cardBg, borderColor: theme.border }]} onPress={() => setActiveTab('zdjecia')}>
@@ -4892,7 +4918,7 @@ export default function ZlecenieDetailScreen() {
               <Ionicons name="leaf-outline" size={20} color={theme.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[S.fieldPackageTitle, { color: theme.text }]}>Pakiet wyceny terenowej</Text>
+              <Text style={[S.fieldPackageTitle, { color: theme.text }]}>Pakiet oględzin</Text>
               <Text style={[S.fieldPackageSub, { color: theme.textMuted }]}>
                 Zdjęcia, szkic, zakres, czas, budżet i ryzyka. Po akceptacji wraca do biura.
               </Text>
@@ -5484,7 +5510,7 @@ export default function ZlecenieDetailScreen() {
 
           <View style={[S.crewScopeBox, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
             <Text style={[S.crewScopeTitle, { color: theme.text }]}>
-              {officePlanLines.length ? 'Pakiet biura dla ekipy' : 'Zakres z wyceny'}
+              {officePlanLines.length ? 'Pakiet biura dla ekipy' : 'Zakres z oględzin'}
             </Text>
             {[scopeLine, accessLine, riskLine, settlementLine, budgetLine].filter(Boolean).slice(0, 5).map((line) => (
               <Text key={line} style={[S.crewScopeLine, { color: theme.textSub }]} selectable>
@@ -5801,22 +5827,22 @@ export default function ZlecenieDetailScreen() {
           <Text style={{ color: theme.text, fontWeight: '700', marginBottom: 6 }}>Praca dodatkowa</Text>
           <TextInput
             style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText, marginBottom: 8 }]}
-            placeholder="Opis pracy do wyceny przez specjalistę ds. wyceny..."
+            placeholder="Opis pracy do oględzin..."
             placeholderTextColor={theme.inputPlaceholder}
             value={extraOpis}
             onChangeText={setExtraOpis}
             multiline
           />
           <TouchableOpacity
-            style={{ alignSelf: 'flex-start', backgroundColor: `${theme.accent}22`, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
+            style={{ alignSelf: 'flex-start', backgroundColor: `${theme.accent}22`, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 6 }}
             onPress={() => void submitExtraWork()}
           >
-            <Text style={{ color: theme.accent, fontWeight: '600' }}>Zgłoś do wyceny</Text>
+            <Text style={{ color: theme.accent, fontWeight: '600' }}>Zgłoś do oględzin</Text>
           </TouchableOpacity>
           {Array.isArray(zlecenie.extra_work) && zlecenie.extra_work.length > 0 ? (
             <View style={{ marginTop: 10 }}>
               {zlecenie.extra_work.map((ew: any) => (
-                <View key={ew.id} style={{ padding: 10, marginTop: 8, borderRadius: 10, backgroundColor: theme.surface2, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border }}>
+                <View key={ew.id} style={{ padding: 10, marginTop: 8, borderRadius: 6, backgroundColor: theme.surface2, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border }}>
                   <Text style={{ color: theme.textMuted, fontSize: 12 }}>#{ew.id} · {ew.status}</Text>
                   <Text style={{ color: theme.text, marginTop: 4 }}>{ew.opis}</Text>
                   {ew.amount_pln != null ? <Text style={{ color: theme.accent, marginTop: 4 }}>{Number(ew.amount_pln).toFixed(2)} PLN</Text> : null}
@@ -5854,7 +5880,7 @@ export default function ZlecenieDetailScreen() {
 
       {user?.rola === 'Wyceniający' && Number(zlecenie?.wyceniajacy_id) === Number(user?.id) && zlecenie.status === 'W_Realizacji' && Array.isArray(zlecenie.extra_work) && zlecenie.extra_work.some((x: any) => x.status === 'OczekujeWyceny') ? (
         <View style={{ paddingHorizontal: 14, paddingBottom: 6 }}>
-          <Text style={{ color: theme.warning, fontSize: 13 }}>Masz prace dodatkowe do wyceny na tym zleceniu.</Text>
+          <Text style={{ color: theme.warning, fontSize: 13 }}>Masz prace dodatkowe do oględzin na tym zleceniu.</Text>
         </View>
       ) : null}
 
@@ -5952,6 +5978,7 @@ export default function ZlecenieDetailScreen() {
       {/* ── TREŚĆ ── */}
       <ScrollView
         style={[S.content, { backgroundColor: theme.bg }]}
+        contentContainerStyle={S.contentInner}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
@@ -5959,7 +5986,7 @@ export default function ZlecenieDetailScreen() {
       >
         {/* TAB: INFO */}
         {activeTab === 'info' && (
-          <View>
+          <View style={S.tabPane}>
             <View style={[S.card, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <View style={S.cardTitleRow}>
                 <PlatinumIconBadge icon="person-circle-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
@@ -6187,7 +6214,7 @@ export default function ZlecenieDetailScreen() {
 
         {/* TAB: LOGI CZASU */}
         {activeTab === 'logi' && (
-          <View>
+          <View style={S.tabPane}>
             {/* Podsumowanie */}
             {logi.length > 0 && (
               <View style={[S.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -6207,7 +6234,7 @@ export default function ZlecenieDetailScreen() {
             {logi.length === 0
               ? (
                 <View style={S.empty}>
-                  <PlatinumIconBadge icon="time-outline" color={theme.textMuted} size={18} style={{ width: 44, height: 44, borderRadius: 12 }} />
+                  <PlatinumIconBadge icon="time-outline" color={theme.textMuted} size={18} style={{ width: 44, height: 44, borderRadius: 7 }} />
                   <Text style={[S.emptyTxt, { color: theme.textMuted }]}>Brak logów pracy</Text>
                 </View>
               )
@@ -6304,7 +6331,7 @@ export default function ZlecenieDetailScreen() {
 
         {/* TAB: PROBLEMY */}
         {activeTab === 'problemy' && (
-          <View>
+          <View style={S.tabPane}>
             <TouchableOpacity
               style={[S.addBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
               onPress={() => {
@@ -6318,7 +6345,7 @@ export default function ZlecenieDetailScreen() {
             {problemy.length === 0
               ? (
                 <View style={S.empty}>
-                  <PlatinumIconBadge icon="checkmark-circle-outline" color={theme.success} size={18} style={{ width: 44, height: 44, borderRadius: 12 }} />
+                  <PlatinumIconBadge icon="checkmark-circle-outline" color={theme.success} size={18} style={{ width: 44, height: 44, borderRadius: 7 }} />
                   <Text style={[S.emptyTxt, { color: theme.textMuted }]}>Brak problemów</Text>
                 </View>
               )
@@ -6350,7 +6377,7 @@ export default function ZlecenieDetailScreen() {
 
         {/* TAB: ZDJĘCIA */}
         {activeTab === 'zdjecia' && (
-          <View>
+          <View style={S.tabPane}>
             <View style={[S.evidenceCommandCard, { backgroundColor: theme.cardBg, borderColor: evidenceReadyCount >= evidenceTotalRequired ? theme.success : theme.warning }]}>
               <View style={S.evidenceCommandHead}>
                 <View style={[S.evidenceCommandIcon, { backgroundColor: evidenceReadyCount >= evidenceTotalRequired ? theme.successBg : theme.warningBg, borderColor: evidenceReadyCount >= evidenceTotalRequired ? theme.success : theme.warning }]}>
@@ -6359,7 +6386,7 @@ export default function ZlecenieDetailScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={[S.evidenceCommandTitle, { color: theme.text }]}>Pakiet dowodów z terenu</Text>
                   <Text style={[S.evidenceCommandSub, { color: theme.textMuted }]}>
-                    Zdjęcia z wyceny, szkic, dojazd, stan przed i po pracy w jednym miejscu.
+                    Zdjęcia z oględzin, szkic, dojazd, stan przed i po pracy w jednym miejscu.
                   </Text>
                 </View>
                 <View style={[S.evidenceScore, { backgroundColor: theme.surface2, borderColor: evidenceReadyCount >= evidenceTotalRequired ? theme.success : theme.warning }]}>
@@ -6606,7 +6633,7 @@ export default function ZlecenieDetailScreen() {
                       {fieldDraftPhotosReady ? 'Komplet zdjęć terenowych' : 'Brakuje zdjęć do biura'}
                     </Text>
                     <Text style={[S.fieldPhotoSub, { color: fieldDraftPhotosReady ? theme.success : theme.warning }]}>
-                      Minimum: zdjęcie wyceny, szkic zakresu i dojazd/posesja.
+                      Minimum: zdjęcie oględzin, szkic zakresu i dojazd/posesja.
                     </Text>
                   </View>
                 </View>
@@ -6698,7 +6725,7 @@ export default function ZlecenieDetailScreen() {
 
             {zdjecia.length === 0 && (
               <View style={S.empty}>
-                <PlatinumIconBadge icon="camera-outline" color={theme.textMuted} size={18} style={{ width: 44, height: 44, borderRadius: 12 }} />
+                <PlatinumIconBadge icon="camera-outline" color={theme.textMuted} size={18} style={{ width: 44, height: 44, borderRadius: 7 }} />
                 <Text style={[S.emptyTxt, { color: theme.textMuted }]}>{t('order.noPhotos')}</Text>
               </View>
             )}
@@ -7551,7 +7578,7 @@ function TaskClientSignatureModal({
 
             <Text style={{ color: theme.textSub, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Imię i nazwisko klienta</Text>
             <TextInput
-              style={{ borderWidth: 1, borderRadius: 10, borderColor: theme.inputBorder, backgroundColor: theme.inputBg, color: theme.inputText, padding: 12, marginBottom: 10 }}
+              style={{ borderWidth: 1, borderRadius: 6, borderColor: theme.inputBorder, backgroundColor: theme.inputBg, color: theme.inputText, padding: 12, marginBottom: 10 }}
               placeholder="np. Jan Kowalski"
               placeholderTextColor={theme.inputPlaceholder}
               value={signerName}
@@ -7562,7 +7589,7 @@ function TaskClientSignatureModal({
             <View
               style={{
                 height: 130,
-                borderRadius: 12,
+                borderRadius: 7,
                 borderWidth: 2,
                 borderColor: signed ? theme.success : theme.border,
                 backgroundColor: theme.surface2,
@@ -7615,7 +7642,7 @@ function TaskClientSignatureModal({
             <TextInput
               style={{
                 borderWidth: 1,
-                borderRadius: 10,
+                borderRadius: 6,
                 borderColor: theme.inputBorder,
                 backgroundColor: theme.inputBg,
                 color: theme.inputText,
@@ -7633,7 +7660,7 @@ function TaskClientSignatureModal({
 
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <TouchableOpacity
-                style={{ flex: 1, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, padding: 12, alignItems: 'center' }}
+                style={{ flex: 1, borderRadius: 6, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, padding: 12, alignItems: 'center' }}
                 onPress={() => {
                   currentPathRef.current = '';
                   setCurrentPath('');
@@ -7644,14 +7671,14 @@ function TaskClientSignatureModal({
                 <Text style={{ color: theme.textSub, fontWeight: '600' }}>Wyczyść</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ flex: 1, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, padding: 12, alignItems: 'center' }}
+                style={{ flex: 1, borderRadius: 6, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, padding: 12, alignItems: 'center' }}
                 onPress={onClose}
                 disabled={capturing}
               >
                 <Text style={{ color: theme.textSub, fontWeight: '600' }}>Anuluj</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ flex: 1, borderRadius: 10, borderWidth: 1, borderColor: theme.accentDark, backgroundColor: theme.accent, padding: 12, alignItems: 'center' }}
+                style={{ flex: 1, borderRadius: 6, borderWidth: 1, borderColor: theme.accentDark, backgroundColor: theme.accent, padding: 12, alignItems: 'center' }}
                 onPress={() => { void handleSave(); }}
                 disabled={capturing}
               >
@@ -7678,7 +7705,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   // Header
   header: {
-    backgroundColor: t.headerBg, paddingHorizontal: 14,
+    backgroundColor: t.name === 'dark' ? 'rgba(7,16,13,0.96)' : 'rgba(254,255,252,0.96)', paddingHorizontal: 14,
     paddingTop: 56, paddingBottom: 16,
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -7695,7 +7722,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
@@ -7706,15 +7733,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 10,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   cacheNoticeText: { flex: 1, fontSize: 12, fontWeight: '900', lineHeight: 16 },
-  statusBadgeH: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
+  statusBadgeH: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 5, borderWidth: 1 },
   statusTextH: { fontSize: 11, fontWeight: '700' },
   linkRow: {
     flexDirection: 'row',
@@ -7726,7 +7754,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     backgroundColor: t.surface2,
-    borderRadius: 14,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     borderBottomWidth: 1,
@@ -7737,10 +7765,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 10,
     marginBottom: 8,
-    borderRadius: 14,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
-    backgroundColor: t.cardBg,
+    backgroundColor: t.name === 'dark' ? 'rgba(9,20,16,0.94)' : 'rgba(254,255,252,0.94)',
     padding: 13,
     gap: 12,
     ...shadowStyle(t, {
@@ -7755,10 +7783,35 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'flex-start',
     gap: 10,
   },
+  taskHeroVisualBand: {
+    minHeight: 82,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    backgroundColor: t.name === 'dark' ? 'rgba(14,28,23,0.9)' : 'rgba(234,240,231,0.82)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  taskHeroVisualLabel: {
+    color: t.accent,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  taskHeroVisualText: {
+    color: t.textSub,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '800',
+    marginTop: 3,
+  },
   taskHeroIcon: {
     width: 46,
     height: 46,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -7788,7 +7841,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   taskHeroStatus: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 6,
     maxWidth: 118,
@@ -7809,7 +7862,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 72,
     minHeight: 56,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -7836,7 +7889,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   taskHeroProof: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 11,
     gap: 10,
   },
@@ -7848,7 +7901,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   taskHeroProofIcon: {
     width: 38,
     height: 38,
-    borderRadius: 11,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -7890,7 +7943,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minHeight: 40,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 9,
     paddingVertical: 7,
     flexDirection: 'row',
@@ -7905,7 +7958,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   taskHeroProofNext: {
     minHeight: 42,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -7922,7 +7975,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
@@ -7931,7 +7984,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   taskHeroNextIcon: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.cardBg,
@@ -7959,7 +8012,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   taskHeroCta: {
     minHeight: 44,
-    borderRadius: 10,
+    borderRadius: 6,
     backgroundColor: t.accent,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -7988,7 +8041,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   taskHeroAction: {
     flexGrow: 1,
     minHeight: 44,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -8005,7 +8058,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   taskHeroValuePill: {
     minHeight: 38,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -8029,7 +8082,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inspectionDispatchCard: {
     marginHorizontal: 14,
     marginBottom: 10,
-    borderRadius: 18,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     gap: 10,
@@ -8048,7 +8101,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inspectionDispatchIcon: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8057,7 +8110,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inspectionDispatchSub: { fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 2 },
   inspectionDispatchScore: {
     minWidth: 60,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -8066,7 +8119,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inspectionDispatchScoreValue: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
   inspectionDispatchScoreLabel: { fontSize: 8.5, fontWeight: '900', textTransform: 'uppercase' },
   inspectionDispatchError: {
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -8084,7 +8137,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     minHeight: 56,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 8,
@@ -8103,7 +8156,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inspectionDispatchInputLabel: { fontSize: 10.5, fontWeight: '900', textTransform: 'uppercase' },
   inspectionDispatchInput: {
     minHeight: 42,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -8119,7 +8172,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inspectionDispatchSectionTitle: { fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
   inspectionDispatchReload: {
     minHeight: 30,
-    borderRadius: 999,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 9,
     flexDirection: 'row',
@@ -8132,7 +8185,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 150,
     maxWidth: 210,
     minHeight: 50,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -8144,7 +8197,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inspectionDispatchEstimatorMeta: { fontSize: 10.5, fontWeight: '800', marginTop: 1 },
   inspectionDispatchEmpty: {
     minWidth: 230,
-    borderRadius: 13,
+    borderRadius: 7,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 10,
@@ -8152,7 +8205,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inspectionDispatchEmptyText: { fontSize: 11.5, lineHeight: 16, fontWeight: '800' },
   inspectionDispatchNote: {
     minHeight: 72,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 9,
@@ -8162,7 +8215,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   inspectionDispatchPrimary: {
     minHeight: 44,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -8174,7 +8227,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldCockpitCard: {
     marginHorizontal: 14,
     marginBottom: 10,
-    borderRadius: 18,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     gap: 10,
@@ -8193,7 +8246,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldCockpitIcon: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8202,7 +8255,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldCockpitSub: { fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 2 },
   fieldCockpitScore: {
     minWidth: 60,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -8220,7 +8273,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '31%',
     minWidth: 92,
     minHeight: 76,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 9,
     gap: 5,
@@ -8228,7 +8281,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldCockpitStepIcon: {
     width: 26,
     height: 26,
-    borderRadius: 9,
+    borderRadius: 5,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8242,7 +8295,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldCockpitSecondary: {
     minHeight: 42,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -8256,7 +8309,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flex: 1,
     minWidth: 160,
     minHeight: 42,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -8269,7 +8322,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 10,
     marginBottom: 10,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2 + 'EE',
@@ -8286,7 +8339,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   workflowIconWrap: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8297,7 +8350,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   workflowCountBadge: {
     minWidth: 48,
     minHeight: 38,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8314,7 +8367,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 7,
@@ -8333,7 +8386,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.accentDark,
     backgroundColor: t.accent,
@@ -8344,7 +8397,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeCommandCard: {
     marginHorizontal: 14,
     marginBottom: 10,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     gap: 10,
@@ -8357,7 +8410,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeCommandIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8367,7 +8420,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeCommandScore: {
     minWidth: 58,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 8,
     alignItems: 'center',
@@ -8380,12 +8433,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeCommandScoreLabel: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
   officeCommandProgressTrack: {
     height: 8,
-    borderRadius: 999,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   officeCommandProgressFill: {
     height: '100%',
-    borderRadius: 999,
+    borderRadius: 4,
   },
   officeCommandGrid: {
     flexDirection: 'row',
@@ -8396,7 +8449,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     minHeight: 74,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 10,
     gap: 4,
@@ -8412,7 +8465,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeCommandCheckHint: { fontSize: 10.5, fontWeight: '700' },
   officeCommandNext: {
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -8421,7 +8474,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeCommandNextText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '900' },
   officeCommandNextBtn: {
     minHeight: 34,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     alignItems: 'center',
@@ -8438,7 +8491,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
@@ -8446,7 +8499,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationalPlanCard: {
     marginHorizontal: 14,
     marginBottom: 10,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     gap: 10,
@@ -8459,7 +8512,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationalPlanIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8468,7 +8521,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationalPlanSub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
   operationalPlanScore: {
     minWidth: 58,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -8489,7 +8542,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '30%',
     minWidth: 88,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 9,
@@ -8498,7 +8551,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationalPlanTileLabel: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
   operationalPlanTileValue: { fontSize: 12, fontWeight: '900' },
   operationalEquipmentBox: {
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 10,
     gap: 5,
@@ -8513,7 +8566,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   operationalEquipmentName: { fontSize: 11.5, fontWeight: '800' },
   operationalEquipmentMore: { fontSize: 11, fontWeight: '800' },
   operationalPlanWarning: {
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 10,
     flexDirection: 'row',
@@ -8528,7 +8581,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   operationalPlanAction: {
     minHeight: 36,
-    borderRadius: 11,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -8540,7 +8593,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeHandoffCard: {
     marginHorizontal: 14,
     marginBottom: 10,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     gap: 10,
@@ -8553,7 +8606,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeHandoffIcon: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8563,7 +8616,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeHandoffPhotosBtn: {
     minWidth: 48,
     minHeight: 38,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8573,7 +8626,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   officeHandoffPhotosText: { fontSize: 12, fontWeight: '900', fontVariant: ['tabular-nums'] },
   officeHandoffLines: {
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.cardBg,
@@ -8584,7 +8637,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageCard: {
     marginHorizontal: 14,
     marginBottom: 10,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     gap: 10,
@@ -8597,7 +8650,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8606,7 +8659,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageSub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
   fieldPackageFlow: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 7,
     padding: 11,
     gap: 10,
   },
@@ -8616,7 +8669,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageFlowScore: {
     minWidth: 58,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 6,
     alignItems: 'center',
@@ -8628,7 +8681,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: '48.5%',
     minHeight: 62,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     padding: 9,
     flexDirection: 'row',
     alignItems: 'center',
@@ -8637,7 +8690,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageFlowIcon: {
     width: 28,
     height: 28,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8648,7 +8701,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageFlowNext: {
     minHeight: 38,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 11,
     flexDirection: 'row',
     alignItems: 'center',
@@ -8665,7 +8718,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '31%',
     minHeight: 62,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 9,
     flexDirection: 'row',
@@ -8676,7 +8729,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageCheckHint: { fontSize: 10.5, marginTop: 2, fontWeight: '700' },
   fieldPackageReadiness: {
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     padding: 10,
     gap: 8,
   },
@@ -8689,12 +8742,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageReadinessSub: { fontSize: 11.5, lineHeight: 16, marginTop: 2, fontWeight: '700' },
   fieldPackageProgressTrack: {
     height: 8,
-    borderRadius: 999,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   fieldPackageProgressFill: {
     height: '100%',
-    borderRadius: 999,
+    borderRadius: 5,
   },
   fieldPackageMissingRow: {
     flexDirection: 'row',
@@ -8703,14 +8756,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldPackageMissingPill: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
   fieldPackageMissingText: { fontSize: 10.5, fontWeight: '900' },
   fieldPackageNextBtn: {
     minHeight: 36,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
     paddingHorizontal: 10,
     flexDirection: 'row',
@@ -8726,7 +8779,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldPackageChip: {
     minHeight: 34,
-    borderRadius: 11,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -8738,7 +8791,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldPackageInput: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 11,
     paddingVertical: 9,
     fontSize: 13,
@@ -8750,7 +8803,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageSettlementText: { fontSize: 11, lineHeight: 15, fontWeight: '700' },
   fieldPackageAcceptRow: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -8760,7 +8813,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageAcceptSub: { fontSize: 11, lineHeight: 15, marginTop: 2 },
   fieldPackagePreview: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     gap: 5,
   },
@@ -8777,7 +8830,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     minHeight: 44,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
@@ -8786,7 +8839,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldPackageBtnPrimary: {
     flexGrow: 2,
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -8797,7 +8850,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewBriefCard: {
     marginHorizontal: 14,
     marginBottom: 10,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     gap: 10,
@@ -8810,7 +8863,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewBriefIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8820,7 +8873,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewBriefScore: {
     minWidth: 58,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingVertical: 6,
     paddingHorizontal: 8,
     alignItems: 'center',
@@ -8833,7 +8886,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewBriefScoreLabel: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
   crewMissionCard: {
     borderWidth: 1,
-    borderRadius: 15,
+    borderRadius: 7,
     padding: 11,
     gap: 10,
   },
@@ -8845,7 +8898,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewMissionIcon: {
     width: 42,
     height: 42,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8861,7 +8914,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 92,
     minHeight: 40,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 11,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -8880,7 +8933,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 70,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 8,
     gap: 3,
@@ -8899,7 +8952,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewMissionStatLabel: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
   crewCalendarCard: {
     borderWidth: 1,
-    borderRadius: 15,
+    borderRadius: 7,
     padding: 11,
     gap: 10,
   },
@@ -8911,7 +8964,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewCalendarDateBox: {
     width: 52,
     minHeight: 58,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8931,7 +8984,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
@@ -8946,7 +8999,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     minHeight: 40,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -8961,14 +9014,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   crewBriefActionText: { fontSize: 12, fontWeight: '900' },
   crewExecutionCard: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 11,
     gap: 10,
   },
@@ -8980,7 +9033,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewExecutionIcon: {
     width: 36,
     height: 36,
-    borderRadius: 11,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8989,7 +9042,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewExecutionSub: { fontSize: 11, lineHeight: 15, marginTop: 1 },
   crewExecutionBadge: {
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
@@ -9009,7 +9062,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 128,
     minHeight: 52,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 9,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -9020,7 +9073,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewExecutionFactValue: { fontSize: 11.5, fontWeight: '900', marginTop: 1 },
   crewExecutionNotice: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -9039,7 +9092,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 132,
     minHeight: 86,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 9,
     gap: 4,
@@ -9060,7 +9113,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewPackageFixBtn: {
     minHeight: 42,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 11,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -9078,7 +9131,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minHeight: 76,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 9,
     justifyContent: 'space-between',
@@ -9098,7 +9151,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewProofHint: { fontSize: 10, fontWeight: '800', marginTop: 2 },
   crewScopeBox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 11,
     gap: 5,
   },
@@ -9106,20 +9159,26 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewScopeLine: { fontSize: 12, lineHeight: 17, fontWeight: '700' },
   crewPhotoStrip: { gap: 9, paddingVertical: 2 },
   crewPhotoCard: {
-    width: 104,
+    width: 118,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     overflow: 'hidden',
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.14,
+      radius: t.shadowRadius * 0.36,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
-  crewPhotoImage: { width: '100%', height: 74 },
-  crewPhotoLabel: { fontSize: 10, fontWeight: '800', paddingHorizontal: 7, paddingVertical: 6 },
+  crewPhotoImage: { width: '100%', height: 82 },
+  crewPhotoLabel: { fontSize: 10.5, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 7 },
   crewBriefChecks: { gap: 8 },
   crewBriefCheck: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
@@ -9127,7 +9186,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewBriefCheckHint: { fontSize: 11, lineHeight: 15, marginTop: 2 },
   safetyChecklistCard: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 7,
     padding: 11,
     gap: 10,
   },
@@ -9139,7 +9198,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   safetyChecklistIcon: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -9152,7 +9211,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
@@ -9161,7 +9220,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   scopeConfirmBtn: {
     minHeight: 46,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -9173,7 +9232,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSignalCard: {
     marginHorizontal: 12,
     marginBottom: 10,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 11,
     gap: 11,
@@ -9192,7 +9251,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSignalIcon: {
     width: 42,
     height: 42,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -9202,7 +9261,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSignalBadge: {
     maxWidth: 118,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 5,
   },
@@ -9217,7 +9276,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minHeight: 68,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     gap: 5,
   },
@@ -9239,7 +9298,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '30%',
     minHeight: 46,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -9251,7 +9310,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewCommandCard: {
     marginHorizontal: 14,
     marginBottom: 10,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     gap: 12,
@@ -9270,7 +9329,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewCommandIcon: {
     width: 42,
     height: 42,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -9279,7 +9338,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewCommandSub: { fontSize: 12, lineHeight: 16, marginTop: 2 },
   crewGuidePanel: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 10,
     gap: 9,
   },
@@ -9293,12 +9352,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewGuideScore: { fontSize: 14, fontWeight: '900', fontVariant: ['tabular-nums'] },
   crewGuideTrack: {
     height: 7,
-    borderRadius: 999,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   crewGuideFill: {
     height: '100%',
-    borderRadius: 999,
+    borderRadius: 5,
   },
   crewGuideSteps: {
     gap: 7,
@@ -9308,7 +9367,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 84,
     minHeight: 38,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 7,
     flexDirection: 'row',
@@ -9327,7 +9386,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewGuideStepText: { flexShrink: 1, fontSize: 10.5, fontWeight: '900' },
   crewPrimaryBtn: {
     minHeight: 42,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -9347,7 +9406,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '22%',
     minWidth: 72,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 9,
     alignItems: 'center',
@@ -9361,7 +9420,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewProgressLabel: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
   crewRoadmap: {
     borderWidth: 1,
-    borderRadius: 15,
+    borderRadius: 7,
     padding: 10,
     gap: 8,
   },
@@ -9378,7 +9437,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'flex-start',
     gap: 9,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
@@ -9399,7 +9458,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewRoadmapStepTitle: { flex: 1, fontSize: 12.5, fontWeight: '900' },
   crewRoadmapBadge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
@@ -9423,7 +9482,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 132,
     minHeight: 54,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -9433,7 +9492,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewFastIcon: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -9449,7 +9508,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 2,
     marginBottom: 8,
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: t.cardBorder,
     paddingHorizontal: 12,
@@ -9468,13 +9527,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 138,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
   },
   statusBtnIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -9488,7 +9547,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingHorizontal: 10,
     minHeight: 48,
     paddingVertical: 7,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
   },
   statusHintText: { fontSize: 11, fontWeight: '800' },
@@ -9523,11 +9582,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   tabBadgeText: { fontSize: 10, fontWeight: '900', fontVariant: ['tabular-nums'] },
 
   // Treść
-  content: { flex: 1, paddingHorizontal: 12, paddingTop: 12 },
+  content: { flex: 1, paddingHorizontal: 12, paddingTop: 12, backgroundColor: t.bg },
+  contentInner: { backgroundColor: t.bg, paddingBottom: 40 },
+  tabPane: { backgroundColor: t.bg },
 
   // Karty info
   card: {
-    borderRadius: 12, padding: 14, marginBottom: 10,
+    borderRadius: 7, padding: 14, marginBottom: 10,
     borderWidth: 1,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.1,
@@ -9544,12 +9605,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   lbl: { fontSize: 13, width: 100 },
   val: { fontSize: 13, flex: 1 },
-  prioBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  prioBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5 },
   prioBadgeTxt: { fontSize: 11, fontWeight: '700' },
   opisTxt: { fontSize: 13, lineHeight: 20, marginTop: 10, paddingTop: 10, borderTopWidth: 1 },
   dossierSub: { color: t.textMuted, fontSize: 12, marginBottom: 8 },
-  dossierProgressTrack: { height: 8, borderRadius: 999, overflow: 'hidden', marginBottom: 10 },
-  dossierProgressFill: { height: '100%', borderRadius: 999 },
+  dossierProgressTrack: { height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 10 },
+  dossierProgressFill: { height: '100%', borderRadius: 4 },
   dossierRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 7 },
   dossierRowLabel: { color: t.textSub, fontSize: 13, fontWeight: '700' },
   dossierRowHint: { color: t.textMuted, fontSize: 11, marginTop: 2 },
@@ -9558,14 +9619,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   dossierActionText: { fontSize: 12, fontWeight: '700' },
   clientSignatureBox: {
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 12,
     flexDirection: 'row',
@@ -9576,14 +9637,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   clientSignatureMeta: { fontSize: 12, marginTop: 2 },
   clientSignatureChangeBtn: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
   clientSignatureChangeText: { fontSize: 12, fontWeight: '700' },
   clientSignatureAddBtn: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     padding: 14,
     alignItems: 'center',
     flexDirection: 'row',
@@ -9594,7 +9655,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   // Summary card (logi)
   summaryCard: {
-    flexDirection: 'row', borderRadius: 14, padding: 16,
+    flexDirection: 'row', borderRadius: 7, padding: 16,
     marginBottom: 12, borderWidth: 1, alignItems: 'center',
   },
   summaryItem: { flex: 1, alignItems: 'center', gap: 6 },
@@ -9604,7 +9665,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   // Log cards
   logCard: {
-    borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1,
+    borderRadius: 7, padding: 14, marginBottom: 8, borderWidth: 1,
   },
   logTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   logPrac: { fontSize: 14, fontWeight: '600' },
@@ -9613,7 +9674,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   durTxt: { fontSize: 12, fontWeight: '700' },
   logSafetyBox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 10,
     marginTop: 10,
     gap: 8,
@@ -9637,10 +9698,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   logSafetyHint: { fontSize: 11, lineHeight: 15 },
 
   // Problem cards
-  problemCard: { borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderLeftWidth: 4 },
+  problemCard: { borderRadius: 7, padding: 14, marginBottom: 8, borderWidth: 1, borderLeftWidth: 4 },
   problemTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   problemTyp: { fontSize: 13, fontWeight: '600', textTransform: 'capitalize' },
-  problemBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  problemBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5 },
   problemBadgeTxt: { fontSize: 11, fontWeight: '600' },
   problemOpis: { fontSize: 13, lineHeight: 18, marginBottom: 6 },
   pendingProblemRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
@@ -9649,7 +9710,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   problemPhotoBtn: {
     minHeight: 50,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 11,
     paddingVertical: 9,
     marginBottom: 14,
@@ -9664,14 +9725,26 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   grupaTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, marginTop: 4 },
   grupaTitle: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
-  zdjecieCard: { width: '48%', borderRadius: 12, overflow: 'hidden', borderWidth: 1 },
-  zdjecieImg: { width: '100%', height: 158 },
+  zdjecieCard: {
+    width: '48%',
+    minHeight: 236,
+    borderRadius: 7,
+    overflow: 'hidden',
+    borderWidth: 1,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.12,
+      radius: t.shadowRadius * 0.34,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
+  },
+  zdjecieImg: { width: '100%', height: 162 },
   pendingPhotoBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 4,
     flexDirection: 'row',
@@ -9684,7 +9757,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   zdjecieGps: { fontSize: 10, paddingHorizontal: 8, paddingBottom: 8 },
   photoGalleryCard: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 7,
     padding: 12,
     marginBottom: 12,
     gap: 11,
@@ -9697,7 +9770,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoGalleryIcon: {
     width: 42,
     height: 42,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -9708,7 +9781,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 44,
     minHeight: 36,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -9725,7 +9798,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   photoPreviewBox: {
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: 8,
     overflow: 'hidden',
   },
   photoPreviewHeader: {
@@ -9740,7 +9813,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoPreviewCounter: {
     minWidth: 48,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 6,
     paddingHorizontal: 9,
     paddingVertical: 5,
     alignItems: 'center',
@@ -9756,7 +9829,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     top: '45%',
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 7,
     backgroundColor: 'rgba(0,0,0,0.48)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -9777,7 +9850,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '45%',
     minHeight: 40,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -9790,12 +9863,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   // Przyciski dodaj
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1,
+    gap: 8, borderRadius: 6, padding: 12, marginBottom: 12, borderWidth: 1,
   },
   addBtnTxt: { fontWeight: '700', fontSize: 14 },
   evidenceCommandCard: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 7,
     padding: 11,
     marginBottom: 12,
     gap: 12,
@@ -9809,7 +9882,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: 42,
     height: 42,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -9818,7 +9891,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   evidenceScore: {
     minWidth: 58,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 6,
     alignItems: 'center',
@@ -9836,7 +9909,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 138,
     minHeight: 72,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -9846,7 +9919,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: 34,
     height: 34,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -9864,7 +9937,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minHeight: 48,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -9875,7 +9948,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   evidenceActionText: { fontSize: 12, fontWeight: '900' },
   evidenceHandoffCard: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 7,
     padding: 11,
     marginBottom: 12,
     gap: 11,
@@ -9889,7 +9962,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: 42,
     height: 42,
     borderWidth: 1,
-    borderRadius: 13,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -9899,7 +9972,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 52,
     minHeight: 36,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -9907,10 +9980,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   evidencePercentText: { fontSize: 14, fontWeight: '900', fontVariant: ['tabular-nums'] },
   evidenceProgressTrack: {
     height: 8,
-    borderRadius: 999,
+    borderRadius: 4,
     overflow: 'hidden',
   },
-  evidenceProgressFill: { height: '100%', borderRadius: 999 },
+  evidenceProgressFill: { height: '100%', borderRadius: 4 },
   evidenceTimeline: {
     flexDirection: 'row',
     gap: 6,
@@ -9924,7 +9997,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   evidenceTimelineDot: {
     width: 28,
     height: 28,
-    borderRadius: 999,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -9936,14 +10009,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     left: '55%',
     right: '-55%',
     height: 2,
-    borderRadius: 999,
+    borderRadius: 2,
   },
   evidenceTimelineLabel: { fontSize: 10.5, fontWeight: '900', textAlign: 'center' },
   evidenceTimelineHint: { fontSize: 9.5, fontWeight: '700', textAlign: 'center' },
   evidenceNextBtn: {
     minHeight: 42,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -9954,7 +10027,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   evidenceNextText: { fontSize: 12, fontWeight: '900' },
   disputeShieldCard: {
     marginBottom: 12,
-    borderRadius: 14,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 11,
     gap: 11,
@@ -9967,7 +10040,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   disputeShieldIcon: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -9976,7 +10049,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   disputeShieldSub: { fontSize: 11, lineHeight: 16, marginTop: 2 },
   disputeShieldScore: {
     minWidth: 58,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -9993,7 +10066,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     minHeight: 62,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 8,
@@ -10004,7 +10077,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   disputeShieldItemIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -10013,7 +10086,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   disputeShieldItemHint: { fontSize: 10, lineHeight: 14, marginTop: 1 },
   disputeShieldNext: {
     minHeight: 38,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 10,
     flexDirection: 'row',
@@ -10024,7 +10097,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   disputeShieldNextText: { fontSize: 12, fontWeight: '900' },
   fieldPhotoChecklist: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 7,
     padding: 11,
     marginBottom: 12,
     gap: 10,
@@ -10038,7 +10111,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
@@ -10048,8 +10121,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   finishModalContent: { gap: 10, paddingBottom: 4 },
   finishHero: {
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 11,
+    borderRadius: 7,
+    padding: 12,
   },
   finishHeroTop: {
     flexDirection: 'row',
@@ -10059,7 +10132,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   finishHeroIcon: {
     width: 42,
     height: 42,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -10069,7 +10142,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   finishHeroScore: {
     minWidth: 58,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 8,
     alignItems: 'center',
@@ -10086,7 +10159,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
@@ -10097,7 +10170,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flex: 1,
     minHeight: 48,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -10111,13 +10184,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   finishSwitchTitle: { fontSize: 12, fontWeight: '900' },
   finishSwitchHint: { fontSize: 11, lineHeight: 15, marginTop: 2 },
-  gpsInfo: { flexDirection: 'row', alignItems: 'center', borderRadius: 8, padding: 10, marginBottom: 10 },
+  gpsInfo: { flexDirection: 'row', alignItems: 'center', borderRadius: 6, padding: 10, marginBottom: 10 },
   gpsTxt: { fontSize: 12 },
   planModalOverlay: {
     flex: 1,
@@ -10125,8 +10198,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   planModalBox: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
     borderWidth: 1,
     padding: 18,
     paddingBottom: 28,
@@ -10143,7 +10216,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   planModalScroll: { maxHeight: 560 },
   planModalContent: { gap: 12, paddingBottom: 8 },
   planErrorBox: {
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 10,
     flexDirection: 'row',
@@ -10165,7 +10238,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   planInputLabel: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
   planInput: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 11,
     paddingVertical: 10,
     minHeight: 42,
@@ -10191,7 +10264,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minWidth: 132,
     minHeight: 52,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 9,
     flexDirection: 'row',
@@ -10202,7 +10275,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   planTeamMeta: { fontSize: 10.5, fontWeight: '800', marginTop: 1 },
   planEmptyBox: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: 7,
     borderWidth: 1,
     padding: 10,
   },
@@ -10218,7 +10291,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minWidth: 132,
     minHeight: 52,
-    borderRadius: 13,
+    borderRadius: 6,
     borderWidth: 1,
     padding: 9,
     flexDirection: 'row',
@@ -10239,7 +10312,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   planCancelBtn: {
     flex: 1,
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -10249,7 +10322,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   planSubmitBtn: {
     flex: 1.4,
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -10266,7 +10339,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   // Modal
   overlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.9)', justifyContent: 'flex-end' },
   modalBox: {
-    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    borderTopLeftRadius: 8, borderTopRightRadius: 8,
     padding: 20, paddingBottom: 44,
     maxHeight: '94%',
   },
@@ -10277,23 +10350,32 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '700' },
   modalLbl: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   modalInput: {
-    borderWidth: 1, borderRadius: 10, padding: 12,
+    borderWidth: 1, borderRadius: 6, padding: 12,
     fontSize: 14, minHeight: 90, textAlignVertical: 'top', marginBottom: 16,
   },
-  typBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  typBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 6, borderWidth: 1 },
   typBtnTxt: { fontSize: 12 },
   modalBtns: { flexDirection: 'row', gap: 10 },
-  cancelBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
+  cancelBtn: { flex: 1, padding: 14, borderRadius: 6, alignItems: 'center', borderWidth: 1 },
   cancelTxt: { fontWeight: '600' },
-  submitBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
+  submitBtn: { flex: 1, padding: 14, borderRadius: 6, alignItems: 'center' },
   // Modal zdjęcia
   zdjecieTypBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    padding: 14, borderRadius: 14, marginBottom: 10, borderWidth: 1,
+    minHeight: 68,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   zdjecieTypIcon: {
-    width: 44, height: 44, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   zdjecieTypLabel: { fontSize: 15, fontWeight: '700' },
   zdjecieTypHint: { fontSize: 11, marginTop: 2 },

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import { getApiErrorMessage } from '../utils/apiError';
 import { readStoredUser } from '../utils/readStoredUser';
@@ -15,6 +15,11 @@ const TABS = ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty', 'zatwierdzono'
 function fmtPln(v) {
   if (v == null || v === '') return '—';
   return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(Number(v));
+}
+
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function teamMatchesBranch(team, branchId) {
@@ -88,6 +93,13 @@ export default function ZatwierdzWyceny() {
   }, [allowed, loadAll, navigate, t]);
 
   const filtered = wyceny.filter((w) => w.status_akceptacji === tab);
+  const pendingDecision = wyceny.filter((w) => ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty'].includes(w.status_akceptacji)).length;
+  const approvedCount = wyceny.filter((w) => w.status_akceptacji === 'zatwierdzono').length;
+  const rejectedCount = wyceny.filter((w) => w.status_akceptacji === 'odrzucono').length;
+  const queueValue = wyceny
+    .filter((w) => ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty'].includes(w.status_akceptacji))
+    .reduce((sum, w) => sum + num(w.wartosc_planowana ?? w.wartosc_szacowana), 0);
+  const missingTeam = wyceny.filter((w) => ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty'].includes(w.status_akceptacji) && !(w.proponowana_ekipa_id || w.ekipa_id)).length;
   const approveTeamOptions = Array.isArray(approveEkipy)
     ? approveEkipy
     : ekipy.filter((e) => teamMatchesBranch(e, approving?.oddzial_id));
@@ -313,8 +325,8 @@ export default function ZatwierdzWyceny() {
   if (!allowed && !loading) {
     return (
       <div className="app-shell quote-approval-shell">
-        <Sidebar />
-        <main className="app-main quote-approval-main" style={{ padding: 24 }}>
+        <CommandSidebar active="profile" />
+        <main className="app-main command-content-main quote-approval-main" style={{ padding: 24 }}>
           <StatusMessage message={msg} tone="warning" />
           <button type="button" style={S.btnGhost} onClick={() => navigate('/dashboard')}>
             {t('common.back')}
@@ -326,8 +338,8 @@ export default function ZatwierdzWyceny() {
 
   return (
     <div className="app-shell quote-approval-shell">
-      <Sidebar />
-      <main className="app-main quote-approval-main" style={S.root}>
+      <CommandSidebar active="profile" />
+      <main className="app-main command-content-main quote-approval-main" style={S.root}>
         <div className="quote-approval-header" style={S.header}>
           <button type="button" style={S.backBtn} onClick={() => navigate(-1)}>
             ←
@@ -335,6 +347,34 @@ export default function ZatwierdzWyceny() {
           <div style={S.title}>{t('approve.pageTitle')}</div>
         </div>
         <StatusMessage message={msg} style={{ margin: '12px 16px 0' }} />
+
+        <section className="quote-approval-command-strip" aria-label="Centrum decyzji zatwierdzania wycen">
+          <div className="quote-approval-command-lead">
+            <span>Akceptacja wycen</span>
+            <strong>{pendingDecision}</strong>
+            <small>spraw wymaga decyzji operacyjnej</small>
+          </div>
+          <div className={`quote-approval-command-card ${pendingDecision ? 'is-warning' : 'is-good'}`}>
+            <span>Do decyzji</span>
+            <strong>{pendingDecision}</strong>
+            <small>oczekuje / rezerwacja / specjalista</small>
+          </div>
+          <div className="quote-approval-command-card is-blue">
+            <span>Wartosc kolejki</span>
+            <strong>{fmtPln(queueValue)}</strong>
+            <small>plan lub szacunek</small>
+          </div>
+          <div className={`quote-approval-command-card ${missingTeam ? 'is-danger' : 'is-good'}`}>
+            <span>Bez ekipy</span>
+            <strong>{missingTeam}</strong>
+            <small>blokuje zatwierdzenie</small>
+          </div>
+          <div className="quote-approval-command-card">
+            <span>Rozstrzygniete</span>
+            <strong>{approvedCount}/{rejectedCount}</strong>
+            <small>zatwierdzone / odrzucone</small>
+          </div>
+        </section>
 
         <div className="quote-approval-tabs" style={S.tabs}>
           {TABS.map((k) => (

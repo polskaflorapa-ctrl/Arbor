@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 380,
-    borderRadius: 16,
+    borderRadius: 7,
     borderWidth: 1.25,
     paddingHorizontal: 20,
     paddingTop: 22,
@@ -117,12 +117,12 @@ const styles = StyleSheet.create({
   btn: {
     paddingHorizontal: 28,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 7,
   },
   btnText: { fontWeight: '800', fontSize: 15, letterSpacing: 0.2 },
   ribbon: {
     marginTop: 14,
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderWidth: 1,

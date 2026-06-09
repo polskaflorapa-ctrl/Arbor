@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { GitBranch } from 'lucide-react';
 
 const buttonStyle = {
@@ -30,7 +29,7 @@ export const ButtonWithIconVariant = React.forwardRef(({
   style,
   ...props
 }, ref) => (
-  <motion.button
+  <button
     ref={ref}
     className={className}
     style={{
@@ -40,14 +39,11 @@ export const ButtonWithIconVariant = React.forwardRef(({
       ...style,
     }}
     disabled={disabled}
-    whileHover={!disabled ? { scale: 1.02 } : undefined}
-    whileTap={!disabled ? { scale: 0.98 } : undefined}
-    transition={{ duration: 0.15, ease: 'easeInOut' }}
     {...props}
   >
     <GitBranch size={16} aria-hidden />
     <span>{children}</span>
-  </motion.button>
+  </button>
 ));
 
 ButtonWithIconVariant.displayName = 'ButtonWithIconVariant';

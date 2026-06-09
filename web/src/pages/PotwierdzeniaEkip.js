@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
@@ -224,11 +224,13 @@ export default function PotwierdzeniaEkip() {
     (e) => confirmedSet.has(String(e.id)) || (!confirmedSet.has(String(e.id)) && !absentSet.has(String(e.id)))
   ).length;
   const absentCount = ekipy.filter((e) => absentSet.has(String(e.id))).length;
+  const missingCount = Math.max(0, totalTeams - confirmedSet.size - absentSet.size);
+  const readinessPct = totalTeams ? Math.round((confirmedCount / totalTeams) * 100) : 0;
 
   return (
     <Box className="app-shell crew-att-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'transparent' }}>
-      <Sidebar />
-      <Box component="main" className="app-main crew-att-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
+      <CommandSidebar active="teams" />
+      <Box component="main" className="app-main command-content-main crew-att-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <PageHeader
           title={t('pages.crewAtt.title')}
           subtitle={t('pages.crewAtt.subtitle')}
@@ -236,6 +238,29 @@ export default function PotwierdzeniaEkip() {
         />
 
         <StatusMessage message={msg} style={{ marginBottom: 16 }} />
+
+        <Box component="section" className="crew-att-command-strip" aria-label="Centrum gotowosci ekip">
+          <Box className="crew-att-command-lead">
+            <span>Gotowosc dzienna</span>
+            <strong>{readinessPct}%</strong>
+            <small>{selectedDate}</small>
+          </Box>
+          <Box className={`crew-att-command-card ${absentCount ? 'is-danger' : 'is-good'}`}>
+            <span>Nieobecne</span>
+            <strong>{absentCount}</strong>
+            <small>ekip oznaczonych jako brak</small>
+          </Box>
+          <Box className={`crew-att-command-card ${missingCount ? 'is-warning' : 'is-good'}`}>
+            <span>Bez wpisu</span>
+            <strong>{missingCount}</strong>
+            <small>domyslnie traktowane jako obecne</small>
+          </Box>
+          <Box className={`crew-att-command-card ${attendanceSource === 'api' ? 'is-good' : 'is-warning'}`}>
+            <span>Zrodlo</span>
+            <strong>{attendanceSource === 'api' ? 'API' : 'Lokalne'}</strong>
+            <small>{totalTeams} ekip w widoku</small>
+          </Box>
+        </Box>
 
         {/* Date picker + hint */}
         <Stack className="crew-att-controls" direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>

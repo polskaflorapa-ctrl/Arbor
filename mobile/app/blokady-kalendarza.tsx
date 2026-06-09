@@ -177,7 +177,7 @@ function makeStyles(theme: Theme) {
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface,
-      borderRadius: 10,
+      borderRadius: 6,
       padding: 12,
       marginBottom: 10,
     },
@@ -192,7 +192,7 @@ function makeStyles(theme: Theme) {
     },
     modalBox: {
       backgroundColor: theme.surface,
-      borderRadius: 12,
+      borderRadius: 7,
       padding: 16,
       borderWidth: 1,
       borderColor: theme.border,

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Box, Button, Card, CardContent, Grid, Stack, Typography } from '@mui/material';
 import Refresh from '@mui/icons-material/Refresh';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
@@ -98,7 +98,7 @@ export default function RaportyMobilne() {
 
   return (
     <Box className="mobile-reports-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="reports" />
       <Box className="mobile-reports-main" sx={{ flex: 1, p: { xs: 2, sm: 3 }, maxWidth: 960 }}>
         <PageHeader title={t('pages.mobileReports.title')} subtitle={t('pages.mobileReports.subtitle')} />
         <StatusMessage message={err} tone="error" />

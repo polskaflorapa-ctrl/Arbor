@@ -59,7 +59,7 @@ export function TaskPhotoHeroPreview({ photo, theme, onPress }: Props) {
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderRadius: 15,
+    borderRadius: 7,
     overflow: 'hidden',
   },
   image: { width: '100%', height: 230 },
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     backgroundColor: 'rgba(0,0,0,0.48)',
-    borderRadius: 999,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 6,
     overflow: 'hidden',
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   empty: {
     minHeight: 132,
     borderWidth: 1,
-    borderRadius: 15,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,

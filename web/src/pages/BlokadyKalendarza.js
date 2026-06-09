@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import { Button } from '../components/ui/Button';
 import { loadCalendarBlocks, saveCalendarBlocks } from '../utils/calendarBlocks';
@@ -75,6 +75,16 @@ export default function BlokadyKalendarza() {
     saveCalendarBlocks(blocks.filter((b) => b.id !== id));
     refresh();
   };
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const activeBlocks = blocks.filter((b) => b.from <= todayKey && b.to >= todayKey);
+  const futureBlocks = blocks.filter((b) => b.to >= todayKey).sort((a, b) => String(a.from).localeCompare(String(b.from)));
+  const blockedDays = blocks.reduce((sum, b) => {
+    if (!isYmd(b.from) || !isYmd(b.to) || b.from > b.to) return sum;
+    const fromMs = new Date(`${b.from}T00:00:00`).getTime();
+    const toMs = new Date(`${b.to}T00:00:00`).getTime();
+    return sum + Math.max(1, Math.round((toMs - fromMs) / 86400000) + 1);
+  }, 0);
 
   const S = {
     root: { display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg)' },
@@ -184,8 +194,8 @@ export default function BlokadyKalendarza() {
 
   return (
     <div className="app-shell calendar-blocks-shell">
-      <Sidebar />
-      <main className="app-main calendar-blocks-main" style={S.root}>
+      <CommandSidebar active="schedule" />
+      <main className="app-main command-content-main calendar-blocks-main" style={S.root}>
         <div className="calendar-blocks-header" style={S.header}>
           <Button type="button" size="sm" variant="outline" style={S.backBtn} onClick={() => navigate(-1)} aria-label="back">
             ←
@@ -196,6 +206,28 @@ export default function BlokadyKalendarza() {
           </Button>
         </div>
         <StatusMessage message={msg} tone={msg ? 'warning' : undefined} style={{ margin: '12px 20px 0' }} />
+        <section className="calendar-blocks-command-strip" aria-label="Centrum blokad kalendarza">
+          <div className="calendar-blocks-command-lead">
+            <span>Kalendarz wycen</span>
+            <strong>{blocks.length}</strong>
+            <small>aktywnych wpisow lokalnych</small>
+          </div>
+          <div className={`calendar-blocks-command-card ${activeBlocks.length ? 'is-warning' : 'is-good'}`}>
+            <span>Dzisiaj</span>
+            <strong>{activeBlocks.length}</strong>
+            <small>{activeBlocks.length ? 'blokada obowiazuje' : 'terminy dostepne'}</small>
+          </div>
+          <div className={`calendar-blocks-command-card ${futureBlocks.length ? 'is-blue' : 'is-good'}`}>
+            <span>Najblizsza</span>
+            <strong>{futureBlocks[0]?.from || '-'}</strong>
+            <small>{futureBlocks[0]?.label || 'brak przyszlych blokad'}</small>
+          </div>
+          <div className="calendar-blocks-command-card">
+            <span>Dni lacznie</span>
+            <strong>{blockedDays}</strong>
+            <small>zablokowanych dat</small>
+          </div>
+        </section>
         <div className="calendar-blocks-content" style={S.main}>
           <p style={S.hint}>{t('calendarBlocks.hint')}</p>
           {blocks.length === 0 ? (

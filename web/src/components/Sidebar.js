@@ -115,6 +115,7 @@ const NAV_GROUP_BY_PATH = {
 
 const CORE_NAV_PATHS = new Set([
   '/dashboard',
+  '/zadania',
   '/crm',
   '/zlecenia',
   '/harmonogram',
@@ -149,6 +150,7 @@ function isPrimaryNavPath(path, role) {
 
 const COLLAPSED_NAV_PATHS = new Set([
   '/dashboard',
+  '/zadania',
   '/crm',
   '/zlecenia',
   '/harmonogram',

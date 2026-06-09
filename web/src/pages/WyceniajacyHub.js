@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -65,6 +65,8 @@ export default function WyceniajacyHub() {
   const todayDone = useMemo(() => today.filter((item) => item.status === 'Zakonczone'), [today]);
   const todayPlanned = today.length;
   const todayLeft = Math.max(0, todayPlanned - todayDone.length);
+  const allOpen = useMemo(() => items.filter((item) => item.status !== 'Zakonczone' && item.status !== 'Anulowane'), [items]);
+  const plannedRatio = todayPlanned ? Math.round((todayDone.length / todayPlanned) * 100) : 0;
 
   const todayTargetHint = useMemo(() => {
     if (todayPlanned < 6) return t('hub.targetBelow');
@@ -74,7 +76,7 @@ export default function WyceniajacyHub() {
 
   const S = {
     wrap: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-    main: { flex: 1, padding: '24px 28px 40px', maxWidth: 720 },
+    main: { flex: 1, padding: '24px 28px 40px', maxWidth: 1180 },
     hero: {
       padding: '20px 0 8px',
       borderBottom: '1px solid var(--border)',
@@ -215,20 +217,43 @@ export default function WyceniajacyHub() {
   if (loading) {
     return (
       <div className="estimator-hub-shell" style={S.wrap}>
-        <Sidebar />
-        <main className="estimator-hub-main" style={{ ...S.main, color: 'var(--text-muted)' }}>{t('hub.loading')}</main>
+        <CommandSidebar active="orders" />
+        <main className="command-content-main estimator-hub-main" style={{ ...S.main, color: 'var(--text-muted)' }}>{t('hub.loading')}</main>
       </div>
     );
   }
 
   return (
     <div className="estimator-hub-shell" style={S.wrap}>
-      <Sidebar />
-      <main className="estimator-hub-main" style={S.main}>
+      <CommandSidebar active="orders" />
+      <main className="command-content-main estimator-hub-main" style={S.main}>
         <div className="estimator-hub-hero" style={S.hero}>
           <h1 style={S.title}>{t('hub.title')}</h1>
           <p style={S.sub}>{t('hub.subtitle')}</p>
         </div>
+
+        <section className="estimator-hub-command-strip" aria-label="Centrum specjalisty wycen">
+          <div className="estimator-hub-command-lead">
+            <span>Specjalista wycen</span>
+            <strong>{sessionUser?.imie || sessionUser?.login || 'Operator'}</strong>
+            <small>{sessionUser?.oddzial_nazwa || 'oddzial operacyjny'}</small>
+          </div>
+          <div className={`estimator-hub-command-card ${todayLeft ? 'is-warning' : 'is-good'}`}>
+            <span>Dzisiaj zostalo</span>
+            <strong>{todayLeft}</strong>
+            <small>{todayDone.length}/{todayPlanned || 0} zamkniete</small>
+          </div>
+          <div className={`estimator-hub-command-card ${allOpen.length ? 'is-blue' : 'is-good'}`}>
+            <span>Otwarte</span>
+            <strong>{allOpen.length}</strong>
+            <small>aktywnych ogladzin</small>
+          </div>
+          <div className={`estimator-hub-command-card ${plannedRatio >= 80 ? 'is-good' : 'is-warning'}`}>
+            <span>Realizacja</span>
+            <strong>{plannedRatio}%</strong>
+            <small>dzisiejszy plan</small>
+          </div>
+        </section>
 
         <div className="estimator-hub-platinum" style={S.platinum}>{t('hub.platinumBar')}</div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Filter, RefreshCw, Send, Settings, XCircle } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import { Button } from '../components/ui/Button';
@@ -318,8 +318,8 @@ export default function CrmInbox() {
 
   return (
     <div className="app-shell crm-inbox-shell">
-      <Sidebar />
-      <main className="app-main crm-inbox-main">
+      <CommandSidebar active="crm" />
+      <main className="app-main command-content-main crm-inbox-main">
         <PageHeader
           title="Unified Inbox"
           subtitle="Wspolna skrzynka rozmow z leadow CRM."
@@ -327,6 +327,34 @@ export default function CrmInbox() {
         />
         <div className="app-content crm-inbox-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
+
+          <section className="crm-inbox-command-strip" aria-label="Centrum decyzji Unified Inbox">
+            <div className="crm-inbox-command-lead">
+              <span>Unified Inbox</span>
+              <strong>{messages.length}</strong>
+              <small>rozmów w aktualnym widoku</small>
+            </div>
+            <div className={`crm-inbox-command-card ${inboxStats.inbound ? 'is-warning' : 'is-good'}`}>
+              <span>Przychodzące</span>
+              <strong>{inboxStats.inbound}</strong>
+              <small>wymagają reakcji</small>
+            </div>
+            <div className={`crm-inbox-command-card ${inboxStats.queued ? 'is-blue' : 'is-good'}`}>
+              <span>Kolejka wysyłki</span>
+              <strong>{inboxStats.queued}</strong>
+              <small>odpowiedzi do wysłania</small>
+            </div>
+            <div className={`crm-inbox-command-card ${inboxStats.failed ? 'is-danger' : 'is-good'}`}>
+              <span>Błędy</span>
+              <strong>{inboxStats.failed}</strong>
+              <small>status failed</small>
+            </div>
+            <div className="crm-inbox-command-card">
+              <span>Kanały gotowe</span>
+              <strong>{channelReadinessSummary.ready}/{channelReadinessSummary.total}</strong>
+              <small>{activeFiltersCount} aktywnych filtrów</small>
+            </div>
+          </section>
 
           <section className="ios-inset crm-inbox-filters" style={{ marginBottom: 12, padding: 12 }}>
             <form onSubmit={applySearch} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, alignItems: 'end' }}>

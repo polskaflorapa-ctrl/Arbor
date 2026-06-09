@@ -16,7 +16,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import api from '../api';
 import { getStoredToken } from '../utils/storedToken';
@@ -189,7 +189,7 @@ export default function KpiTydzien() {
 
   return (
     <Box className="kpi-week-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Sidebar />
+      <CommandSidebar active="reports" />
       <Box className="kpi-week-main" sx={{ flex: 1, p: 2, maxWidth: 1280, mx: 'auto', width: '100%' }}>
         <PageHeader
           title="Liga brygad"

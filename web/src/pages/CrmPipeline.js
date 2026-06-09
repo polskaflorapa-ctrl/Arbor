@@ -770,7 +770,7 @@ export default function CrmPipeline() {
   return (
     <div className="app-shell crm-pipeline-shell">
       <CommandSidebar active="crm" user={currentUser} />
-      <main className="app-main crm-pipeline-main">
+      <main className="app-main command-content-main crm-pipeline-main">
         <div className="app-content crm-pipeline-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
 
@@ -797,6 +797,34 @@ export default function CrmPipeline() {
               <Button leftIcon={Plus} disabled={saving} onClick={handleCreate}>
                 {t('crm.pipeline.addLead', { defaultValue: 'Dodaj leada' })}
               </Button>
+            </div>
+          </section>
+
+          <section className="crm-pipeline-command-strip" aria-label="Centrum decyzji pipeline CRM">
+            <div className="crm-pipeline-command-lead">
+              <span>Pipeline operacyjny</span>
+              <strong>{boardStats.openCount}</strong>
+              <small>otwartych leadów</small>
+            </div>
+            <div className="crm-pipeline-command-card is-blue">
+              <span>Wartość lejka</span>
+              <strong>{formatAmount(boardStats.openValue)}</strong>
+              <small>aktywny potencjał sprzedaży</small>
+            </div>
+            <div className={`crm-pipeline-command-card ${boardStats.ownerCoverage < 80 && leads.length ? 'is-warning' : 'is-good'}`}>
+              <span>Owner coverage</span>
+              <strong>{boardStats.ownerCoverage}%</strong>
+              <small>{leads.length} leadów razem</small>
+            </div>
+            <div className={`crm-pipeline-command-card ${workflows.length ? 'is-good' : 'is-warning'}`}>
+              <span>Workflow</span>
+              <strong>{workflows.length}</strong>
+              <small>{messageTemplates.length} szablonów wiadomości</small>
+            </div>
+            <div className="crm-pipeline-command-card">
+              <span>Aktywny lead</span>
+              <strong>{selectedLead ? `#${selectedLead.id}` : '-'}</strong>
+              <small>{selectedLead?.title || activeStage}</small>
             </div>
           </section>
 

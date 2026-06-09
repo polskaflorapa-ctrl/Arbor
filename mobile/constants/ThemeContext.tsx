@@ -17,7 +17,7 @@ import { Theme, ThemeName, themes } from './theme';
 
 const STORAGE_KEY = 'arbor_theme';
 const DESIGN_VERSION_KEY = 'arbor_theme_design_version';
-const CURRENT_DESIGN_VERSION = 'field_ops_refresh_2026_06a';
+const CURRENT_DESIGN_VERSION = 'field_ops_command_deck_2026_06c';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -25,7 +25,7 @@ interface ThemeContextValue {
   setTheme: (name: ThemeName) => void;
 }
 
-const DEFAULT_THEME: ThemeName = 'light';
+const DEFAULT_THEME: ThemeName = 'dark';
 
 function normalizeStoredTheme(saved: string | null): ThemeName | null {
   if (saved === 'light' || saved === 'dark') return saved;

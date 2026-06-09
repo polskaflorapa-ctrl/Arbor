@@ -320,7 +320,7 @@ export default function WycenaScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchWyceny(); }} tintColor={theme.accent} colors={[theme.accent]} />}>
         {wyceny.length === 0 ? (
           <View style={S.empty}>
-            <PlatinumIconBadge icon="calculator-outline" color={theme.textMuted} size={24} style={{ width: 56, height: 56, borderRadius: 16 }} />
+            <PlatinumIconBadge icon="calculator-outline" color={theme.textMuted} size={24} style={{ width: 56, height: 56, borderRadius: 7 }} />
             <Text style={S.emptyTitle}>{t('wyceny.list.emptyTitle')}</Text>
             <Text style={S.emptySub}>{t('wyceny.list.emptySub')}</Text>
             <PlatinumCTA
@@ -587,13 +587,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerSub: { fontSize: 11, color: t.headerSub },
   newBtn: {
     minWidth: 120,
-    borderRadius: 12,
+    borderRadius: 7,
   },
 
   // Oddziały
   oddzialyScroll: { backgroundColor: t.surface, borderBottomWidth: 1, borderBottomColor: t.border },
   oddzialyContent: { paddingHorizontal: 14, paddingVertical: 10, gap: 8, flexDirection: 'row' },
-  oddzialChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: t.border, backgroundColor: t.surface2 },
+  oddzialChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 7, borderWidth: 1.5, borderColor: t.border, backgroundColor: t.surface2 },
   oddzialChipText: { fontSize: 12, color: t.textSub, fontWeight: '600' },
 
   // Lista
@@ -604,7 +604,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   wycenaCard: {
     flexDirection: 'row', backgroundColor: t.cardBg,
-    borderRadius: 14, marginBottom: 10,
+    borderRadius: 6, marginBottom: 10,
     borderWidth: 1, borderColor: t.cardBorder, overflow: 'hidden',
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.1,
@@ -643,20 +643,20 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   detailPozycjaOpis: { fontSize: 13, color: t.text, flex: 1 },
   detailPozycjaKwota: { fontSize: 13, fontWeight: '600' },
   paramGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  paramCard: { borderRadius: 10, padding: 10, minWidth: 80, alignItems: 'center' },
+  paramCard: { borderRadius: 6, padding: 10, minWidth: 80, alignItems: 'center' },
   paramLabel: { fontSize: 10, color: t.textMuted, marginBottom: 3 },
   paramValue: { fontSize: 14, fontWeight: '700' },
   sprzetDetailRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   sprzetDetailChip: { flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   sprzetDetailText: { fontSize: 12, fontWeight: '600' },
-  mapsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: 12, marginTop: 12 },
+  mapsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 7, padding: 12, marginTop: 12 },
   mapsBtnText: { fontSize: 14, fontWeight: '600' },
   detailPhoto: { marginRight: 8 },
-  detailPhotoImg: { width: 120, height: 90, borderRadius: 10 },
+  detailPhotoImg: { width: 120, height: 90, borderRadius: 6 },
   drawPhotoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 5, marginTop: 4 },
   drawPhotoBtnText: { fontSize: 11, fontWeight: '600' },
-  statusChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
+  statusChip: { borderRadius: 7, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
   statusChipText: { color: t.accentText, fontWeight: '700', fontSize: 12 },
-  convertBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 14, padding: 14, marginTop: 12 },
+  convertBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 6, padding: 14, marginTop: 12 },
   convertBtnText: { color: t.accentText, fontWeight: '700', fontSize: 15 },
 });

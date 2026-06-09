@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
@@ -664,15 +664,15 @@ export default function Ogledziny() {
   };
 
   return (
-    <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
-      <Sidebar />
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh' }}>
+    <div className="app-shell ogledziny-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
+      <CommandSidebar active="orders" />
+      <div className="ogledziny-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh' }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
-        <div style={{ width: 390, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
+        <div className="ogledziny-list-panel" style={{ width: 390, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
 
           {/* Nagłówek */}
-          <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(15,107,63,0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
+          <div className="ogledziny-command-panel" style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(15,107,63,0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 950, textTransform: 'uppercase' }}>Field evidence</div>
@@ -1026,7 +1026,7 @@ export default function Ogledziny() {
           </div>
 
           {/* Lista */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="ogledziny-list-scroll" style={{ flex: 1, overflowY: 'auto' }}>
             {loading ? (
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Ładowanie...</div>
             ) : trasaList.length === 0 ? (
@@ -1036,6 +1036,7 @@ export default function Ogledziny() {
               </div>
             ) : trasaList.map((o, idx) => (
               <div
+                className="ogledziny-list-row"
                 key={o.id}
                 onClick={() => loadDetail(o.id)}
                 style={{
@@ -1225,9 +1226,9 @@ export default function Ogledziny() {
         </div>
 
         {/* ── PRAWA KOLUMNA: szczegóły ── */}
-        <div style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
+        <div className="ogledziny-detail-panel" style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
           {!selected ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
+            <div className="ogledziny-empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ opacity: 0.3, marginBottom: 16 }}>
                 <circle cx="11" cy="11" r="8"/>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -1237,7 +1238,7 @@ export default function Ogledziny() {
           ) : detailLoading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>Ładowanie...</div>
           ) : detail && (
-            <div style={{ maxWidth: 1080, margin: '0 auto', padding: 28 }}>
+            <div className="ogledziny-detail-content" style={{ maxWidth: 1080, margin: '0 auto', padding: 28 }}>
 
               {/* Nagłówek */}
               <div className="ogledziny-detail-hero" style={sec.detailHero}>

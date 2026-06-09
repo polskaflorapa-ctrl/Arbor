@@ -9,7 +9,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 export const TYP_ZDJECIA_KEYS = ['wycena', 'szkic', 'dojazd', 'checkin', 'przed', 'po', 'inne'] as const;
 
 export const PHOTO_TYPE_LABELS: Record<(typeof TYP_ZDJECIA_KEYS)[number], string> = {
-  wycena: 'Wycena u klienta',
+  wycena: 'Oględziny u klienta',
   szkic: 'Szkic zakresu',
   dojazd: 'Dojazd / posesja',
   checkin: 'Check-in',

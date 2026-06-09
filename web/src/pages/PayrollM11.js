@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
@@ -335,7 +335,7 @@ export default function PayrollM11() {
   if (roleReady && !canSee) {
     return (
       <div className="payroll-m11-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-        <Sidebar />
+        <CommandSidebar active="reports" />
         <div className="payroll-m11-main" style={{ flex: 1, padding: '20px 24px 40px' }}>
           <PageHeader title={t('payrollM11.title')} subtitle={t('payrollM11.noAccess')} />
         </div>
@@ -346,7 +346,7 @@ export default function PayrollM11() {
   if (!canSee) {
     return (
       <div className="payroll-m11-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-        <Sidebar />
+        <CommandSidebar active="reports" />
         <div className="payroll-m11-main" style={{ flex: 1, padding: '20px 24px 40px' }}>
           <PageHeader title={t('payrollM11.title')} subtitle={t('payrollM11.loading')} />
         </div>
@@ -356,7 +356,7 @@ export default function PayrollM11() {
 
   return (
     <div className="payroll-m11-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar />
+      <CommandSidebar active="reports" />
       <div className="payroll-m11-main" style={{ flex: 1, padding: '20px 24px 40px', overflow: 'auto' }}>
         <PageHeader title={t('payrollM11.title')} subtitle={t('payrollM11.subtitle')} />
         <StatusMessage message={msg} />

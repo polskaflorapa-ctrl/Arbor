@@ -305,7 +305,7 @@ export default function ZatwierdzWycenyScreen() {
       >
         {filtered.length === 0 ? (
           <View style={S.empty}>
-            <PlatinumIconBadge icon="checkmark-circle-outline" color={theme.textMuted} size={24} style={{ width: 42, height: 42, borderRadius: 13 }} />
+            <PlatinumIconBadge icon="checkmark-circle-outline" color={theme.textMuted} size={24} style={{ width: 42, height: 42, borderRadius: 6 }} />
             <Text style={S.emptyText}>
               {t(tabEmptyKey(tab))}
             </Text>
@@ -564,7 +564,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
-    borderRadius: 12,
+    borderRadius: 7,
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -592,7 +592,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.warning + '66',
     backgroundColor: t.warning + '1A',
-    borderRadius: 10,
+    borderRadius: 6,
     paddingVertical: 8,
     paddingHorizontal: 10,
     flexDirection: 'row',
@@ -634,7 +634,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptyText: { color: t.textMuted, fontSize: 15 },
 
   card: {
-    backgroundColor: t.cardBg, borderRadius: 12, marginBottom: 10,
+    backgroundColor: t.cardBg, borderRadius: 7, marginBottom: 10,
     overflow: 'hidden', borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.12,
@@ -666,7 +666,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   infoValue: { fontSize: 13, color: t.text, fontWeight: '500', flex: 1, textAlign: 'right' },
 
   infoBox: {
-    backgroundColor: t.bg, borderRadius: 10, padding: 12,
+    backgroundColor: t.bg, borderRadius: 6, padding: 12,
     borderWidth: 1, borderColor: t.border, marginBottom: 8,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.18,
@@ -709,7 +709,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   label: { fontSize: 12, fontWeight: '800', color: t.textMuted, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0 },
   input: {
-    backgroundColor: t.inputBg, borderRadius: 10, borderWidth: 1,
+    backgroundColor: t.inputBg, borderRadius: 6, borderWidth: 1,
     borderColor: t.inputBorder, color: t.inputText, paddingHorizontal: 14,
     paddingVertical: 10, fontSize: 14,
   },
@@ -718,14 +718,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   pillsScroll: { marginBottom: 4 },
   ekipaPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 12,
+    backgroundColor: t.inputBg, borderRadius: 7, paddingHorizontal: 12,
     paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.inputBorder,
   },
   ekipaDot: { width: 8, height: 8, borderRadius: 4 },
   ekipaText: { fontSize: 13, color: t.text, fontWeight: '500' },
 
   approveBtn: {
-    flex: 1, backgroundColor: t.accent, borderRadius: 10,
+    flex: 1, backgroundColor: t.accent, borderRadius: 6,
     paddingVertical: 13, alignItems: 'center',
     flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: t.accentDark,
     ...shadowStyle(t, {
@@ -737,13 +737,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
 
   cancelBtn: {
-    flex: 1, backgroundColor: t.bg, borderRadius: 10,
+    flex: 1, backgroundColor: t.bg, borderRadius: 6,
     paddingVertical: 13, alignItems: 'center',
     borderWidth: 1, borderColor: t.border,
   },
   cancelBtnText: { color: t.textMuted, fontWeight: '600', fontSize: 14 },
   rejectConfirmBtn: {
-    flex: 1, backgroundColor: t.dangerBg, borderRadius: 10,
+    flex: 1, backgroundColor: t.dangerBg, borderRadius: 6,
     paddingVertical: 13, alignItems: 'center',
     borderWidth: 1,
     borderColor: t.danger + '55',

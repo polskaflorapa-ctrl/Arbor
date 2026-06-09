@@ -83,15 +83,15 @@ function makeStyles(
 ) {
   return StyleSheet.create({
     header: {
-      backgroundColor: t.headerBg,
+      backgroundColor: t.name === 'dark' ? 'rgba(5,11,9,0.98)' : t.headerBg,
       paddingHorizontal: 16,
       paddingTop: opts.paddingTop,
-      paddingBottom: 8,
+      paddingBottom: 10,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.navBorder,
+      borderBottomColor: t.name === 'dark' ? 'rgba(24,224,123,0.16)' : t.navBorder,
       ...shadowStyle(t, {
         opacity: t.name === 'light' ? 0.025 : t.shadowOpacity * 0.06,
         radius: Math.max(3, t.shadowRadius * 0.18),
@@ -101,10 +101,10 @@ function makeStyles(
     },
     edgeSlot: {
       minHeight: opts.edgeSlotWidth,
-      borderRadius: 999,
-      backgroundColor: t.name === 'light' ? t.surface2 : t.surface,
+      borderRadius: 7,
+      backgroundColor: t.name === 'light' ? t.surface2 : 'rgba(16,28,24,0.92)',
       borderWidth: 1,
-      borderColor: t.cardBorder,
+      borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -153,7 +153,7 @@ function makeStyles(
     backIconBadge: {
       width: 26,
       height: 26,
-      borderRadius: 999,
+      borderRadius: 6,
     },
   });
 }
