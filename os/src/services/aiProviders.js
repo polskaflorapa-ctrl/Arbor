@@ -3,7 +3,7 @@ const { env } = require('../config/env');
 
 const HF_CHAT_COMPLETIONS_URL = 'https://router.huggingface.co/v1/chat/completions';
 const DEFAULT_HF_CHAT_MODEL = 'openai/gpt-oss-20b:fastest';
-const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-6';
+const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-8';
 
 let anthropicClient = null;
 

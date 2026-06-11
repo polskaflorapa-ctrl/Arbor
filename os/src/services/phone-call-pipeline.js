@@ -207,7 +207,7 @@ Jeśli transkrypt jest pusty lub nieczytelny:
 {"raport":"Transkrypt pusty lub nieczytelny — brak treści do analizy.","wskazowki_specjalisty":"Brak danych z rozmowy; przy kolejnej rozmowie upewnij się, że nagranie i mikrofon działają oraz że pytasz o konkretny zakres prac i termin."}`;
 
   const response = await client.messages.create({
-    model: 'claude-opus-4-6',
+    model: 'claude-opus-4-8',
     max_tokens: 1600,
     messages: [{ role: 'user', content: prompt }],
   });
