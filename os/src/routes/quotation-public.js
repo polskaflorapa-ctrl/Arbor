@@ -43,6 +43,38 @@ function logoMark() {
   return `<span class="leaf">🌿</span>`;
 }
 
+/** Stały podgląd stylów: /api/public/quotations/podglad-stylow → pełna strona z przykładem. */
+const DEMO_TOKEN = 'podglad-stylow';
+function demoOfferData() {
+  return {
+    q: {
+      id: 'DEMO',
+      klient_nazwa: 'Jan Kowalski',
+      adres: 'ul. Lipowa 12',
+      miasto: 'Kraków',
+      wartosc_zaproponowana: 4200,
+      waznosc_do: '2026-06-30',
+      wyc_imie: 'Bartłomiej',
+      wyc_nazwisko: 'Jawor',
+      wyc_telefon: '732 071 555',
+      oddzial_nazwa: 'Kraków',
+      pdf_url: null,
+      status: 'Wyslana_Klientowi',
+    },
+    items: [
+      { gatunek: 'Brzoza brodawkowata', typ_pracy: 'Wycinka', wysokosc_pas: '18–22 m', piersnica_pas: '40–50 cm', warunki_dojazdu: 'Utrudniony dojazd', czas_planowany_min: 180, cena_pozycji: 2400 },
+      { gatunek: 'Świerk pospolity', typ_pracy: 'Pielęgnacja korony', wysokosc_pas: '12–15 m', czas_planowany_min: 120, cena_pozycji: 1200 },
+      { gatunek: 'Żywopłot grabowy', typ_pracy: 'Formowanie', czas_planowany_min: 90, cena_pozycji: 600 },
+    ],
+    photos: [
+      { original_url: 'https://wycinka-drzewpl.pl/wp-content/uploads/2024/09/disi0543-768x512.jpg' },
+      { original_url: 'https://wycinka-drzewpl.pl/wp-content/uploads/2024/09/disi0420-768x512.jpg' },
+      { original_url: 'https://wycinka-drzewpl.pl/wp-content/uploads/2024/09/disi0642-768x512.jpg' },
+      { original_url: 'https://wycinka-drzewpl.pl/wp-content/uploads/2024/09/disi0469-768x512.jpg' },
+    ],
+  };
+}
+
 function escapeHtml(s) {
   return String(s || '')
     .replace(/&/g, '&amp;')
@@ -175,48 +207,57 @@ function statusPage(title, heading, body) {
 
 router.get('/quotations/:token', validateParams(quotationTokenParamsSchema), async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT q.*, b.nazwa AS oddzial_nazwa,
-              u.imie AS wyc_imie, u.nazwisko AS wyc_nazwisko, u.telefon AS wyc_telefon
-       FROM quotations q
-       LEFT JOIN branches b ON b.id = q.oddzial_id
-       LEFT JOIN users u ON u.id = q.wyceniajacy_id
-       WHERE q.client_acceptance_token = $1`,
-      [req.params.token]
-    );
-    const q = rows[0];
-    if (!q) {
-      return res.status(404).type('html').send(
-        statusPage('Oferta nie znaleziona', 'Nie znaleziono oferty', 'Link może być nieaktualny. Skontaktuj się z nami, a wyślemy nową wycenę.')
-      );
-    }
-    if (['Zaakceptowana', 'Odrzucona', 'Wygasla'].includes(q.status)) {
-      const label = q.status === 'Zaakceptowana' ? 'Oferta została już zaakceptowana'
-        : q.status === 'Odrzucona' ? 'Oferta została odrzucona'
-        : 'Oferta wygasła';
-      return res.type('html').send(
-        statusPage('Status oferty', label, 'Dziękujemy. W razie pytań prosimy o kontakt — chętnie przygotujemy aktualną wycenę.')
-      );
-    }
-
     const base = (env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
     const token = req.params.token;
 
-    const items = (
-      await pool.query(`SELECT * FROM quotation_items WHERE quotation_id = $1 ORDER BY kolejnosc, id`, [q.id])
-    ).rows;
+    let q;
+    let items;
+    let photos;
 
-    const photos = (
-      await pool.query(
-        `SELECT * FROM annotated_photos
-         WHERE (parent_object_type = 'quotation' AND parent_object_id = $1)
-            OR (parent_object_type = 'quotation_item' AND parent_object_id IN (
-              SELECT id FROM quotation_items WHERE quotation_id = $1
-            ))
-         ORDER BY id`,
-        [q.id]
-      )
-    ).rows;
+    if (token === DEMO_TOKEN) {
+      // Podgląd stylów — pełna strona z przykładowymi danymi (bez bazy).
+      ({ q, items, photos } = demoOfferData());
+    } else {
+      const { rows } = await pool.query(
+        `SELECT q.*, b.nazwa AS oddzial_nazwa,
+                u.imie AS wyc_imie, u.nazwisko AS wyc_nazwisko, u.telefon AS wyc_telefon
+         FROM quotations q
+         LEFT JOIN branches b ON b.id = q.oddzial_id
+         LEFT JOIN users u ON u.id = q.wyceniajacy_id
+         WHERE q.client_acceptance_token = $1`,
+        [token]
+      );
+      q = rows[0];
+      if (!q) {
+        return res.status(404).type('html').send(
+          statusPage('Oferta nie znaleziona', 'Nie znaleziono oferty', 'Link może być nieaktualny. Skontaktuj się z nami, a wyślemy nową wycenę.')
+        );
+      }
+      if (['Zaakceptowana', 'Odrzucona', 'Wygasla'].includes(q.status)) {
+        const label = q.status === 'Zaakceptowana' ? 'Oferta została już zaakceptowana'
+          : q.status === 'Odrzucona' ? 'Oferta została odrzucona'
+          : 'Oferta wygasła';
+        return res.type('html').send(
+          statusPage('Status oferty', label, 'Dziękujemy. W razie pytań prosimy o kontakt — chętnie przygotujemy aktualną wycenę.')
+        );
+      }
+
+      items = (
+        await pool.query(`SELECT * FROM quotation_items WHERE quotation_id = $1 ORDER BY kolejnosc, id`, [q.id])
+      ).rows;
+
+      photos = (
+        await pool.query(
+          `SELECT * FROM annotated_photos
+           WHERE (parent_object_type = 'quotation' AND parent_object_id = $1)
+              OR (parent_object_type = 'quotation_item' AND parent_object_id IN (
+                SELECT id FROM quotation_items WHERE quotation_id = $1
+              ))
+           ORDER BY id`,
+          [q.id]
+        )
+      ).rows;
+    }
 
     // ── Wyliczenia ──────────────────────────────────────────────────────────
     const totalRaw =
