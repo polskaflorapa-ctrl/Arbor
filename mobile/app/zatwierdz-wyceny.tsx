@@ -81,6 +81,17 @@ export default function ZatwierdzWycenyScreen() {
   const [saving, setSaving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [runtimeError, setRuntimeError] = useState('');
+  const [approveNotice, setApproveNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
+
+  const showApproveNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setApproveNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!approveNotice) return;
+    const timer = setTimeout(() => setApproveNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [approveNotice]);
 
   const loadAll = useCallback(async (tokenOverride?: string) => {
     try {
@@ -149,7 +160,7 @@ export default function ZatwierdzWycenyScreen() {
   const handleApprove = async () => {
     if (!approveForm.ekipa_id) {
       void triggerHaptic('warning');
-      Alert.alert(t('notif.alert.errorTitle'), t('approve.pickTeam'));
+      showApproveNotice(t('approve.pickTeam'), 'warning');
       return;
     }
     setSaving(true);
@@ -170,16 +181,16 @@ export default function ZatwierdzWycenyScreen() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         void triggerHaptic('error');
-        Alert.alert(t('notif.alert.errorTitle'), err.message || t('approve.approveFail'));
+        showApproveNotice(err.message || t('approve.approveFail'), 'warning');
         return;
       }
       void triggerHaptic('success');
       setApproving(null);
-      Alert.alert(t('approve.approvedTitle'), t('approve.approvedBody'));
+      showApproveNotice(t('approve.approvedBody'));
       loadAll();
     } catch {
       void triggerHaptic('error');
-      Alert.alert(t('notif.alert.errorTitle'), t('approve.serverError'));
+      showApproveNotice(t('approve.serverError'), 'warning');
       setRuntimeError('Błąd serwera przy zatwierdzaniu wyceny.');
     } finally {
       setSaving(false);
@@ -198,17 +209,17 @@ export default function ZatwierdzWycenyScreen() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         void triggerHaptic('error');
-        Alert.alert(t('notif.alert.errorTitle'), err.message || t('approve.rejectFail'));
+        showApproveNotice(err.message || t('approve.rejectFail'), 'warning');
         return;
       }
       void triggerHaptic('success');
       setRejecting(null);
       setRejectReason('');
-      Alert.alert(t('approve.rejectedTitle'), t('approve.rejectedBody'));
+      showApproveNotice(t('approve.rejectedBody'));
       loadAll();
     } catch {
       void triggerHaptic('error');
-      Alert.alert(t('notif.alert.errorTitle'), t('approve.serverError'));
+      showApproveNotice(t('approve.serverError'), 'warning');
       setRuntimeError('Błąd serwera przy odrzucaniu wyceny.');
     } finally {
       setSaving(false);
@@ -241,6 +252,32 @@ export default function ZatwierdzWycenyScreen() {
       <AppStatusBar />
 
       <ScreenHeader title={t('approve.screenTitle')} paddingTop={52} edgeSlotWidth={48} />
+      {approveNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: approveNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: approveNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <PlatinumIconBadge
+            icon={approveNotice.tone === 'warning' ? 'warning-outline' : 'checkmark-circle-outline'}
+            color={approveNotice.tone === 'warning' ? theme.warning : theme.success}
+            size={10}
+            style={S.platinumBarIcon}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: approveNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {approveNotice.message}
+          </Text>
+        </View>
+      ) : null}
       {runtimeError ? (
         <View style={S.errorBar}>
           <PlatinumIconBadge icon="warning-outline" color={theme.warning} size={10} style={S.platinumBarIcon} />
@@ -600,6 +637,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 8,
   },
   errorBarText: { color: t.warning, fontSize: 12, fontWeight: '700', flex: 1 },
+  notice: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  noticeText: { fontSize: 12, fontWeight: '800', lineHeight: 16, flex: 1 },
 
   tabsRow: {
     flexDirection: 'row', backgroundColor: t.cardBg,
