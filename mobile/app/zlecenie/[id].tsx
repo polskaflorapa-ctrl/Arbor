@@ -201,6 +201,15 @@ export default function ZlecenieDetailScreen() {
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [cacheNotice, setCacheNotice] = useState('');
   const [actionNotice, setActionNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
+  const showActionNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setActionNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!actionNotice) return;
+    const timer = setTimeout(() => setActionNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [actionNotice]);
   const [cmrLista, setCmrLista] = useState<any[]>([]);
   /** Minimalna liczba zdjęć na typ przy wymogu finish — zgodnie z `FINISH_PHOTO_MIN` w os/taskSettlement.js */
   const MIN_FINISH_TYP_PHOTOS = 2;
@@ -300,9 +309,9 @@ export default function ZlecenieDetailScreen() {
     try {
       await openBrowserAsync(url, { presentationStyle: WebBrowserPresentationStyle.AUTOMATIC });
     } catch {
-      Alert.alert(t('notif.alert.errorTitle'), url);
+      showActionNotice(url, 'warning');
     }
-  }, [t]);
+  }, [showActionNotice]);
 
   const openTaskProtocolPdf = useCallback(async () => {
     if (!token) {
@@ -315,21 +324,21 @@ export default function ZlecenieDetailScreen() {
       });
       if (!res.ok) {
         const msg = await res.text().catch(() => '');
-        Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
+        showActionNotice(msg.slice(0, 200) || `HTTP ${res.status}`, 'warning');
         return;
       }
       const data = await res.json().catch(() => ({}));
       const relPath = String((data as { path?: string }).path || '').trim();
       if (!relPath) {
-        Alert.alert(t('notif.alert.errorTitle'), 'Brak linku do protokołu.');
+        showActionNotice('Brak linku do protokołu.', 'warning');
         return;
       }
       const url = relPath.startsWith('http') ? relPath : `${API_BASE_URL}${relPath}`;
       await openBrowserAsync(url, { presentationStyle: WebBrowserPresentationStyle.AUTOMATIC });
     } catch (err) {
-      Alert.alert(t('notif.alert.errorTitle'), err instanceof Error ? err.message : 'Nie udało się otworzyć protokołu PDF.');
+      showActionNotice(err instanceof Error ? err.message : 'Nie udało się otworzyć protokołu PDF.', 'warning');
     }
-  }, [id, t, token]);
+  }, [id, showActionNotice, token]);
 
   const loadAll = useCallback(async (tokenOverride?: string | null) => {
     try {
@@ -417,14 +426,14 @@ export default function ZlecenieDetailScreen() {
       } else {
         setCmrLista([]);
         setClientSignature(null);
-        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+        showActionNotice(t('order.loadFail'), 'warning');
       }
       setOfflineQueueCount(await getOfflineQueueSize());
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [id, token, t, user]);
+  }, [id, token, showActionNotice, t, user]);
 
   const loadOfficePlanRefs = async (authToken?: string | null) => {
     const auth = authToken ?? token;
@@ -826,16 +835,6 @@ export default function ZlecenieDetailScreen() {
     return TASK_STATUSES.includes(s as any) ? t(`zlecenia.status.${s}`) : (s || '').replace(/_/g, ' ');
   };
 
-  const showActionNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
-    setActionNotice({ message, tone });
-  }, []);
-
-  useEffect(() => {
-    if (!actionNotice) return;
-    const timer = setTimeout(() => setActionNotice(null), 6500);
-    return () => clearTimeout(timer);
-  }, [actionNotice]);
-
   const zmienStatus = async (nowyStatus: string) => {
     Alert.alert(t('order.changeStatusTitle'), t('order.changeStatusBody', { status: statusUi(nowyStatus) }), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -1036,7 +1035,7 @@ export default function ZlecenieDetailScreen() {
     }
     if (isTeam && !safetyReady) {
       void triggerHaptic('warning');
-      Alert.alert('BHP przed startem', 'Uzupelnij checkliste BHP przed rozpoczeciem pracy.');
+      showActionNotice('Uzupelnij checkliste BHP przed rozpoczeciem pracy.', 'warning');
       return;
     }
     if (isTeam && beforePhotosCount <= 0) {
@@ -1236,29 +1235,29 @@ export default function ZlecenieDetailScreen() {
     const { forma_platnosc, faktura_vat } = payForm;
     const paymentValidation = validateFinishPayment(payForm);
     if (!paymentValidation.ok) {
-      Alert.alert(
-        'Uwaga',
+      showActionNotice(
         paymentValidation.reason === 'cash_amount'
           ? 'Podaj kwotę odebraną (gotówka).'
           : 'Podaj NIP przy fakturze VAT.',
+        'warning',
       );
       return;
     }
     if (finishRequirements.require_material_usage && !finishUsageNazwa.trim()) {
       void triggerHaptic('warning');
-      Alert.alert(t('notif.alert.errorTitle'), t('order.finishMaterialRequired'));
+      showActionNotice(t('order.finishMaterialRequired'), 'warning');
       return;
     }
     const usageCost = parseOptionalFinishMoney(finishUsageKoszt);
     if (!usageCost.ok) {
       void triggerHaptic('warning');
-      Alert.alert('Uwaga', 'Podaj poprawny koszt: materialy.');
+      showActionNotice('Podaj poprawny koszt: materialy.', 'warning');
       return;
     }
     const operationalCosts = buildFinishOperationalCostRows(finishOperationalCosts);
     if (!operationalCosts.ok) {
       void triggerHaptic('warning');
-      Alert.alert('Uwaga', `Podaj poprawny koszt: ${operationalCosts.label}.`);
+      showActionNotice(`Podaj poprawny koszt: ${operationalCosts.label}.`, 'warning');
       return;
     }
     const operationalCostRows = operationalCosts.rows;
@@ -1372,7 +1371,7 @@ export default function ZlecenieDetailScreen() {
       } else {
         const j = await res.json().catch(() => ({}));
         void triggerHaptic('warning');
-        Alert.alert(t('notif.alert.errorTitle'), (j as { error?: string }).error || `HTTP ${res.status}`);
+        showActionNotice((j as { error?: string }).error || `HTTP ${res.status}`, 'warning');
       }
     } catch {
       void triggerHaptic('warning');
@@ -1380,10 +1379,10 @@ export default function ZlecenieDetailScreen() {
         try {
           await queueFinishOffline(idempotencyKey, finishBody);
         } catch {
-          Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+          showActionNotice(t('order.loadFail'), 'warning');
         }
       } else {
-        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+        showActionNotice(t('order.loadFail'), 'warning');
       }
     } finally {
       setChangingStatus(false);
@@ -1732,7 +1731,7 @@ export default function ZlecenieDetailScreen() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       void triggerHaptic('warning');
-      Alert.alert(t('order.cameraDeniedTitle'), t('order.cameraDeniedBody'));
+      showActionNotice(t('order.cameraDeniedBody'), 'warning');
       return;
     }
 
@@ -1792,7 +1791,7 @@ export default function ZlecenieDetailScreen() {
         } else {
           void triggerHaptic('warning');
           const msg = await res.text().catch(() => '');
-          Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
+          showActionNotice(msg.slice(0, 200) || `HTTP ${res.status}`, 'warning');
         }
       } catch {
         void triggerHaptic('warning');
@@ -1814,7 +1813,7 @@ export default function ZlecenieDetailScreen() {
           setZdjecieModal(false);
           showActionNotice(t('order.offlinePhotoQueued'));
         } catch {
-          Alert.alert(t('notif.alert.errorTitle'), t('order.photoUploadFail'));
+          showActionNotice(t('order.photoUploadFail'), 'warning');
         }
       }
       finally { setUploadingPhoto(false); }
@@ -1825,7 +1824,7 @@ export default function ZlecenieDetailScreen() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       void triggerHaptic('warning');
-      Alert.alert(t('order.cameraDeniedTitle'), t('order.cameraDeniedBody'));
+      showActionNotice(t('order.cameraDeniedBody'), 'warning');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
@@ -1903,7 +1902,7 @@ export default function ZlecenieDetailScreen() {
   };
 
   const zglosProblem = async () => {
-    if (!problemForm.opis.trim()) { void triggerHaptic('warning'); Alert.alert(t('notif.alert.errorTitle'), t('order.problemDescRequired')); return; }
+    if (!problemForm.opis.trim()) { void triggerHaptic('warning'); showActionNotice(t('order.problemDescRequired'), 'warning'); return; }
     const idempotencyKey = createOfflineRequestId(`task-${id}-problem`);
     const problemPayload = {
       typ: problemForm.typ,
@@ -1942,7 +1941,7 @@ export default function ZlecenieDetailScreen() {
       } else {
         void triggerHaptic('warning');
         const msg = await res.text().catch(() => '');
-        Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
+        showActionNotice(msg.slice(0, 200) || `HTTP ${res.status}`, 'warning');
       }
     } catch {
       void triggerHaptic('warning');
@@ -1972,7 +1971,7 @@ export default function ZlecenieDetailScreen() {
     }
     const signerName = payload.signer_name.trim();
     if (signerName.length < 2) {
-      Alert.alert('Uwaga', 'Podaj imię i nazwisko klienta.');
+      showActionNotice('Podaj imię i nazwisko klienta.', 'warning');
       return;
     }
     const body = {
@@ -2018,7 +2017,7 @@ export default function ZlecenieDetailScreen() {
       }
       const msg = await res.text().catch(() => '');
       void triggerHaptic('warning');
-      Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
+      showActionNotice(msg.slice(0, 200) || `HTTP ${res.status}`, 'warning');
     } catch {
       const queued = await queueRequestWithOfflineFallback({
         id: idempotencyKey,
@@ -6126,9 +6125,9 @@ export default function ZlecenieDetailScreen() {
                   onPress={() => {
                     void triggerHaptic('light');
                     if (dossierReady) {
-                      Alert.alert('Teczka kompletna', 'Możesz bezpiecznie domknąć zlecenie i przekazać dalej.');
+                      showActionNotice('Możesz bezpiecznie domknąć zlecenie i przekazać dalej.');
                     } else {
-                      Alert.alert('Braki w teczce', 'Otwieram elementy wymagające uzupełnienia.');
+                      showActionNotice('Otwieram elementy wymagające uzupełnienia.', 'warning');
                       const firstMissing = dossierChecklist.find((row) => !row.done);
                       firstMissing?.onPress();
                     }

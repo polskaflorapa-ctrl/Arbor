@@ -60,6 +60,15 @@ function paramString(value: unknown) {
   return String(value || '');
 }
 
+const PF_BRAND = {
+  bark: '#3B2A18',
+  leaf: '#A0AF14',
+  leafLight: '#B4C232',
+  earth: '#766440',
+  amber: '#BD701E',
+  white: '#FFFFFF',
+};
+
 const FIELD_DRAFT_SOURCE_COPY: Record<string, { note: string; header: string }> = {
   'wyceny-terenowe': {
     note: 'Źródło: lista oględzin terenowych',
@@ -2436,6 +2445,47 @@ export default function NoweZlecenieScreen() {
                 ))}
               </View>
 
+              <View style={S.objectDocBoard}>
+                <TouchableOpacity
+                  style={[S.objectDocCard, S.objectDocCardPrimary]}
+                  onPress={() => void addFieldPhoto('camera', nextRequiredPhotoType.key)}
+                  disabled={photoBusy}
+                >
+                  <View style={S.objectDocBrandStem} />
+                  <View style={S.objectDocPattern} />
+                  <View style={S.objectDocContent}>
+                    <Ionicons name={photoPackageReady ? 'shield-checkmark-outline' : 'camera-outline'} size={22} color={PF_BRAND.white} />
+                    <Text style={S.objectDocTitle} numberOfLines={2}>Dokumentacja</Text>
+                    <Text style={S.objectDocSub} numberOfLines={2}>
+                      {photoPackageReady ? 'Pakiet gotowy dla biura' : `Dodaj: ${nextRequiredPhotoType.label}`}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View style={S.objectDocSide}>
+                  <TouchableOpacity
+                    style={[S.objectDocCard, S.objectDocMini, S.objectDocMiniEarth]}
+                    onPress={() => void addFieldPhoto('camera', 'wycena')}
+                    disabled={photoBusy}
+                  >
+                    <View style={S.objectDocMiniPattern} />
+                    <Ionicons name="navigate-outline" size={18} color={PF_BRAND.white} />
+                    <Text style={S.objectDocMiniTitle} numberOfLines={1}>Pomiar</Text>
+                    <Text style={S.objectDocMiniSub} numberOfLines={1}>{fieldPhotoGpsCount ? `${fieldPhotoGpsCount} GPS` : 'Aparat'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[S.objectDocCard, S.objectDocMini, S.objectDocMiniAmber]}
+                    onPress={openSketchShortcut}
+                    disabled={photoBusy}
+                  >
+                    <View style={S.objectDocMiniPattern} />
+                    <Ionicons name="create-outline" size={18} color={PF_BRAND.white} />
+                    <Text style={S.objectDocMiniTitle} numberOfLines={1}>Zakres</Text>
+                    <Text style={S.objectDocMiniSub} numberOfLines={1}>{latestPhotoForSketch ? 'Rysuj szkic' : 'Dodaj szkic'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               <View style={[S.photoEvidencePanel, photoPackageReady ? S.photoEvidencePanelOk : S.photoEvidencePanelWarn]}>
                 <View style={S.photoEvidenceHead}>
                   <View style={{ flex: 1 }}>
@@ -4216,6 +4266,99 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginTop: 2,
   },
   photoStatLabel: { color: t.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase', marginTop: 1 },
+  objectDocBoard: {
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 184,
+  },
+  objectDocCard: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(59,42,24,0.22)',
+    position: 'relative',
+  },
+  objectDocCardPrimary: {
+    flex: 1.25,
+    minHeight: 184,
+    backgroundColor: PF_BRAND.bark,
+  },
+  objectDocSide: {
+    flex: 0.86,
+    gap: 10,
+  },
+  objectDocMini: {
+    flex: 1,
+    minHeight: 87,
+    padding: 12,
+    justifyContent: 'flex-end',
+  },
+  objectDocMiniEarth: { backgroundColor: PF_BRAND.earth },
+  objectDocMiniAmber: { backgroundColor: PF_BRAND.amber },
+  objectDocBrandStem: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '43%',
+    backgroundColor: PF_BRAND.leaf,
+  },
+  objectDocPattern: {
+    position: 'absolute',
+    right: -24,
+    top: 36,
+    width: 154,
+    height: 154,
+    borderWidth: 18,
+    borderColor: 'rgba(255,255,255,0.23)',
+    transform: [{ rotate: '45deg' }],
+  },
+  objectDocMiniPattern: {
+    position: 'absolute',
+    right: -24,
+    top: 14,
+    width: 86,
+    height: 86,
+    borderWidth: 13,
+    borderColor: 'rgba(255,255,255,0.22)',
+    transform: [{ rotate: '45deg' }],
+  },
+  objectDocContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: 14,
+    paddingRight: 24,
+    gap: 5,
+  },
+  objectDocTitle: {
+    color: PF_BRAND.white,
+    fontSize: 20,
+    lineHeight: 23,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  objectDocSub: {
+    color: PF_BRAND.leafLight,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  objectDocMiniTitle: {
+    color: PF_BRAND.white,
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  objectDocMiniSub: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
   photoEvidencePanel: {
     borderWidth: 1,
     borderRadius: 12,
