@@ -126,6 +126,74 @@ describe('Demo request route', () => {
     );
   });
 
+  it('deduplicates repeat demo requests from the same company and email within 24 hours', async () => {
+    mockEnsureDemoRequestsTable();
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 88 }], rowCount: 1 });
+    process.env.DEMO_REQUEST_WEBHOOK_URL = 'https://example.test/webhook';
+    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+
+    const res = await request(app)
+      .post('/api/demo-requests')
+      .send({
+        name: 'Jan Kowalski',
+        email: 'jan@firma.pl',
+        company: 'Firma Test',
+        phone: '+48 600 000 000',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual(expect.objectContaining({
+      ok: true,
+      stored: true,
+      duplicate: true,
+      duplicateId: 88,
+    }));
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('LOWER(email) = LOWER($1)'),
+      ['jan@firma.pl', 'Firma Test']
+    );
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO demo_requests'))).toBe(false);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('does not report success when the lead is neither stored nor delivered to a notifier', async () => {
+    pool.query.mockRejectedValue(new Error('database down'));
+
+    const res = await request(app)
+      .post('/api/demo-requests')
+      .send({
+        name: 'Jan Kowalski',
+        email: 'jan@firma.pl',
+        company: 'Firma Test',
+      });
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual(expect.objectContaining({
+      error: 'Formularz demo jest chwilowo niedostepny.',
+    }));
+  });
+
+  it('still accepts a request when database storage fails but webhook delivery succeeds', async () => {
+    pool.query.mockRejectedValue(new Error('database down'));
+    process.env.DEMO_REQUEST_WEBHOOK_URL = 'https://example.test/webhook';
+    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+
+    const res = await request(app)
+      .post('/api/demo-requests')
+      .send({
+        name: 'Jan Kowalski',
+        email: 'jan@firma.pl',
+        company: 'Firma Test',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual(expect.objectContaining({
+      ok: true,
+      stored: false,
+      webhookSent: true,
+    }));
+  });
+
   it('lists demo requests for administrators', async () => {
     mockEnsureDemoRequestsTable();
     pool.query

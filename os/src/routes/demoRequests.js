@@ -308,26 +308,45 @@ router.post('/', validateBody(demoRequestSchema), async (req, res) => {
   };
 
   let stored = false;
+  let duplicate = false;
+  let duplicateId = null;
   let webhookSent = false;
   let telegramSent = false;
 
   try {
     await ensureDemoRequestsTable();
-    await pool.query(
-      `INSERT INTO demo_requests (name, email, company, phone, message, source, user_agent, ip_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        payload.name,
-        payload.email,
-        payload.company,
-        payload.phone || '',
-        payload.message || '',
-        payload.source || 'landing-page',
-        payload.userAgent,
-        payload.ipHash,
-      ]
+    const duplicateResult = await pool.query(
+      `SELECT id
+       FROM demo_requests
+       WHERE LOWER(email) = LOWER($1)
+         AND LOWER(company) = LOWER($2)
+         AND created_at >= NOW() - INTERVAL '24 hours'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [payload.email, payload.company]
     );
-    stored = true;
+
+    if (duplicateResult.rows?.[0]?.id) {
+      stored = true;
+      duplicate = true;
+      duplicateId = duplicateResult.rows[0].id;
+    } else {
+      await pool.query(
+        `INSERT INTO demo_requests (name, email, company, phone, message, source, user_agent, ip_hash)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          payload.name,
+          payload.email,
+          payload.company,
+          payload.phone || '',
+          payload.message || '',
+          payload.source || 'landing-page',
+          payload.userAgent,
+          payload.ipHash,
+        ]
+      );
+      stored = true;
+    }
   } catch (error) {
     logger.warn('Nie zapisano zgloszenia demo w bazie', {
       requestId: req.requestId,
@@ -342,29 +361,40 @@ router.post('/', validateBody(demoRequestSchema), async (req, res) => {
     }
   }
 
-  try {
-    const webhookResult = await notifyWebhook(payload);
-    webhookSent = webhookResult.sent;
-  } catch (error) {
-    logger.warn('Nie wyslano webhooka zgloszenia demo', {
-      requestId: req.requestId,
-      message: error.message,
-    });
+  if (!duplicate) {
+    try {
+      const webhookResult = await notifyWebhook(payload);
+      webhookSent = webhookResult.sent;
+    } catch (error) {
+      logger.warn('Nie wyslano webhooka zgloszenia demo', {
+        requestId: req.requestId,
+        message: error.message,
+      });
+    }
+
+    try {
+      const telegramResult = await notifyTelegram(payload);
+      telegramSent = telegramResult.sent;
+    } catch (error) {
+      logger.warn('Nie wyslano Telegrama zgloszenia demo', {
+        requestId: req.requestId,
+        message: error.message,
+      });
+    }
   }
 
-  try {
-    const telegramResult = await notifyTelegram(payload);
-    telegramSent = telegramResult.sent;
-  } catch (error) {
-    logger.warn('Nie wyslano Telegrama zgloszenia demo', {
+  if (!stored && !webhookSent && !telegramSent) {
+    return res.status(503).json({
+      error: 'Formularz demo jest chwilowo niedostepny.',
       requestId: req.requestId,
-      message: error.message,
     });
   }
 
   return res.status(201).json({
     ok: true,
     stored,
+    duplicate,
+    duplicateId,
     webhookSent,
     telegramSent,
     requestId: req.requestId,

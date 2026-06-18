@@ -2,6 +2,8 @@
  * SMS schedule helpers and configurable status templates.
  */
 
+const { env } = require('../config/env');
+
 const DEFAULT_SMS_TEMPLATES = {
   potwierdzenie:
     'Dzien dobry! Potwierdzamy przyjecie zlecenia: {{service}} pod adresem {{address}}. Planowany termin: {{date}} ok. {{window}}. Status: {{status_url}}',
@@ -46,7 +48,7 @@ function formatSmsPlanParts(z, fallbackDateStr = '-') {
 function statusUrl(task) {
   const token = task?.link_statusowy_token;
   if (!token) return '';
-  const base = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+  const base = String(process.env.PUBLIC_BASE_URL || env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
   return base ? `${base}/track/${token}` : `/track/${token}`;
 }
 

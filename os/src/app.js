@@ -329,7 +329,7 @@ const createApp = () => {
     }
   });
 
-  app.get('/api/live', (req, res) => {
+  app.get('/api/live', authMiddleware, (req, res) => {
     res.json({
       status: 'alive',
       timestamp: new Date().toISOString(),

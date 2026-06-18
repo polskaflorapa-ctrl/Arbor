@@ -11,6 +11,14 @@ import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { RefreshCw, Save, UserPlus } from 'lucide-react';
 
+const FILTERS = [
+  { key: 'all', label: 'Wszystkie' },
+  { key: 'needsContact', label: 'Do kontaktu' },
+  { key: 'today', label: 'Dzisiaj' },
+  { key: 'withPhone', label: 'Z telefonem' },
+  { key: 'converted', label: 'W CRM' },
+];
+
 function formatDate(value) {
   if (!value) return '-';
   try {
@@ -34,6 +42,26 @@ const STATUS_OPTIONS = [
   { value: 'closed', label: 'Zamknięte' },
 ];
 
+function isToday(value) {
+  if (!value) return false;
+  return String(value).slice(0, 10) === new Date().toISOString().slice(0, 10);
+}
+
+function needsContact(item) {
+  return !item.client_id && ['new', 'contacted'].includes(item.status || 'new');
+}
+
+function leadScore(item) {
+  let score = 0;
+  if (needsContact(item)) score += 20;
+  if (String(item.phone || '').trim()) score += 8;
+  if (String(item.message || '').trim()) score += 5;
+  if (isToday(item.created_at)) score += 4;
+  if (item.client_id) score -= 30;
+  if ((item.status || 'new') === 'closed') score -= 20;
+  return score;
+}
+
 export default function DemoRequests() {
   const navigate = useNavigate();
   const { message, showMessage } = useTimedMessage();
@@ -43,6 +71,7 @@ export default function DemoRequests() {
   const [convertingId, setConvertingId] = useState(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('needsContact');
 
   const loadData = useCallback(async () => {
     try {
@@ -133,19 +162,31 @@ export default function DemoRequests() {
   }, [loadData]);
 
   const stats = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const todayCount = items.filter((item) => String(item.created_at || '').slice(0, 10) === today).length;
+    const todayCount = items.filter((item) => isToday(item.created_at)).length;
     const withPhone = items.filter((item) => String(item.phone || '').trim()).length;
     const openCount = items.filter((item) => !['closed'].includes(item.status || 'new')).length;
     const convertedCount = items.filter((item) => item.client_id).length;
+    const needsContactCount = items.filter(needsContact).length;
     return [
       { label: 'Wszystkie', value: total },
       { label: 'Dzisiaj', value: todayCount },
+      { label: 'Do kontaktu', value: needsContactCount },
       { label: 'Otwarte', value: openCount },
       { label: 'W CRM', value: convertedCount },
       { label: 'Z telefonem', value: withPhone },
     ];
   }, [items, total]);
+
+  const filteredItems = useMemo(() => {
+    const matches = items.filter((item) => {
+      if (activeFilter === 'needsContact') return needsContact(item);
+      if (activeFilter === 'today') return isToday(item.created_at);
+      if (activeFilter === 'withPhone') return Boolean(String(item.phone || '').trim());
+      if (activeFilter === 'converted') return Boolean(item.client_id);
+      return true;
+    });
+    return [...matches].sort((a, b) => leadScore(b) - leadScore(a));
+  }, [activeFilter, items]);
 
   return (
     <div className="demo-requests-shell" style={styles.shell}>
@@ -174,14 +215,32 @@ export default function DemoRequests() {
 
         <section className="demo-requests-panel" style={styles.panel}>
           <div className="demo-requests-panel-header" style={styles.panelHeader}>
-            <strong>Lista zgłoszeń</strong>
-            <span>{loading ? 'Ładowanie...' : `${items.length} widocznych`}</span>
+            <div>
+              <strong>Lista zgłoszeń</strong>
+              <span style={styles.panelHint}>Najwyzej sa leady, ktore trzeba najszybciej oddzwonic.</span>
+            </div>
+            <span>{loading ? 'Ładowanie...' : `${filteredItems.length} widocznych`}</span>
+          </div>
+          <div style={styles.filterBar} aria-label="Filtry zgloszen demo">
+            {FILTERS.map((filter) => (
+              <button
+                type="button"
+                key={filter.key}
+                style={{
+                  ...styles.filterButton,
+                  ...(activeFilter === filter.key ? styles.filterButtonActive : {}),
+                }}
+                onClick={() => setActiveFilter(filter.key)}
+              >
+                {filter.label}
+              </button>
+            ))}
           </div>
 
           {loading ? (
             <div style={styles.emptyState}>Ładowanie zgłoszeń demo...</div>
-          ) : items.length === 0 ? (
-            <div style={styles.emptyState}>Nie ma jeszcze zgłoszeń z landing page.</div>
+          ) : filteredItems.length === 0 ? (
+            <div style={styles.emptyState}>Brak zgloszen dla wybranego filtra.</div>
           ) : (
             <div className="demo-requests-table-wrap" style={styles.tableWrap}>
               <table className="demo-requests-table" style={styles.table}>
@@ -196,19 +255,20 @@ export default function DemoRequests() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => (
+                  {filteredItems.map((item) => (
                     <tr key={item.id}>
                       <td style={styles.td}>{formatDate(item.created_at)}</td>
                       <td style={styles.td}>
                         <strong style={styles.primaryText}>{item.company}</strong>
                         <span style={styles.mutedLine}>{item.source || 'landing-page'}</span>
+                        {needsContact(item) ? <span style={styles.hotBadge}>Najpierw dzwon</span> : null}
                       </td>
                       <td style={styles.td}>
                         <strong style={styles.primaryText}>{item.name}</strong>
                         <a style={styles.link} href={`mailto:${item.email}`}>{item.email}</a>
                       </td>
                       <td style={styles.td}>
-                        {item.phone ? <a style={styles.link} href={`tel:${item.phone}`}>{item.phone}</a> : '-'}
+                        {item.phone ? <a style={styles.link} href={`tel:${item.phone}`}>{item.phone}</a> : <span style={styles.mutedLine}>Brak telefonu</span>}
                       </td>
                       <td style={{ ...styles.td, ...styles.messageCell }}>{item.message || '-'}</td>
                       <td style={{ ...styles.td, ...styles.salesCell }}>
@@ -242,7 +302,13 @@ export default function DemoRequests() {
                         {item.client_id ? (
                           <div style={styles.clientBadge}>
                             Klient #{item.client_id}
-                            <a style={styles.clientLink} href="#/klienci">Otwórz CRM</a>
+                            <button
+                              type="button"
+                              style={styles.clientLink}
+                              onClick={() => navigate(`/klienci?klient=${item.client_id}`)}
+                            >
+                              Otworz CRM
+                            </button>
                           </div>
                         ) : (
                           <Button
@@ -337,6 +403,39 @@ const styles = {
     color: 'var(--text)',
     fontWeight: 850,
   },
+  panelHint: {
+    display: 'block',
+    marginTop: 4,
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 750,
+  },
+  filterBar: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    padding: '12px 18px',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--surface-field)',
+  },
+  filterButton: {
+    minHeight: 32,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--border)',
+    borderRadius: 999,
+    padding: '0 12px',
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text-sub)',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 850,
+  },
+  filterButtonActive: {
+    borderColor: 'color-mix(in srgb, var(--accent) 46%, var(--border))',
+    backgroundColor: 'color-mix(in srgb, var(--accent) 12%, var(--bg-card))',
+    color: 'var(--accent)',
+  },
   emptyState: {
     padding: 28,
     color: 'var(--text-muted)',
@@ -376,6 +475,19 @@ const styles = {
     marginTop: 3,
     color: 'var(--text-muted)',
     fontSize: 12,
+  },
+  hotBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 22,
+    marginTop: 8,
+    border: '1px solid color-mix(in srgb, var(--warning) 36%, var(--border))',
+    borderRadius: 999,
+    padding: '0 8px',
+    background: 'color-mix(in srgb, var(--warning) 12%, var(--bg-card))',
+    color: 'var(--warning)',
+    fontSize: 11,
+    fontWeight: 900,
   },
   link: {
     display: 'block',
@@ -461,9 +573,14 @@ const styles = {
     fontWeight: 850,
   },
   clientLink: {
+    appearance: 'none',
+    border: 0,
+    background: 'transparent',
+    padding: 0,
     color: 'var(--accent)',
     fontSize: 12,
     fontWeight: 900,
     textDecoration: 'none',
+    cursor: 'pointer',
   },
 };

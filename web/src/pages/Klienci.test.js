@@ -1,5 +1,5 @@
 import '../i18n';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
 import Klienci from './Klienci';
@@ -70,10 +70,10 @@ const CLIENT_DETAIL = {
   ],
 };
 
-function renderPage() {
+function renderPage(initialEntry = '/klienci') {
   return render(
     <MemoryRouter
-      initialEntries={['/klienci']}
+      initialEntries={[initialEntry]}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
@@ -131,6 +131,14 @@ test('shows the redesigned client passport after selecting a client from the lis
   expect(screen.getByText(/Zlecenia \(1\)/)).toBeInTheDocument();
 });
 
+test('opens a specific client when the CRM link contains a client query parameter', async () => {
+  renderPage('/klienci?klient=11');
+
+  expect(await screen.findByText('Paszport klienta')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Anna Nowak' })).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledWith('/klienci/11');
+});
+
 test('sends CRM fields when creating a client', async () => {
   api.post.mockResolvedValueOnce({ data: { id: 12 } });
   renderPage();
@@ -142,10 +150,12 @@ test('sends CRM fields when creating a client', async () => {
   fireEvent.change(screen.getByPlaceholderText(/Budzet:/i), { target: { value: 'Budzet: 12000\nKanal: WhatsApp' } });
   fireEvent.click(screen.getByRole('button', { name: /Dodaj klienta/i }));
 
-  expect(api.post).toHaveBeenCalledWith('/klienci', expect.objectContaining({
-    telefon: '+48500100200',
-    segment: 'VIP',
-    tags: ['premium', 'ogrod'],
-    custom_fields: { Budzet: '12000', Kanal: 'WhatsApp' },
-  }));
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith('/klienci', expect.objectContaining({
+      telefon: '+48500100200',
+      segment: 'VIP',
+      tags: ['premium', 'ogrod'],
+      custom_fields: { Budzet: '12000', Kanal: 'WhatsApp' },
+    }));
+  });
 });

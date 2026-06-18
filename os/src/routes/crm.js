@@ -11,6 +11,7 @@ const { createTemplate, listTemplates, renderTemplateById } = require('../servic
 const { createNpsSurvey, getNpsSummary, listNpsSurveys } = require('../services/crmNps');
 const { getMessageProviderStatus, processMessageQueue } = require('../services/crmMessageQueue');
 const { ensureCrmLeadMessagesTable } = require('../services/crmInbox');
+const { ensurePhoneCallsTable } = require('../services/phone-call-pipeline');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -87,6 +88,108 @@ function isTechnicalCloseReason(reason) {
 
 function closeStageForReason(reason) {
   return isTechnicalCloseReason(reason) ? 'Techniczny' : 'Przegrane';
+}
+
+function crmLeadCommandReasons(row) {
+  const reasons = [];
+  const value = Number(row.value || 0);
+  const isPhoneLead = normCompare(row.source) === 'telefon' || String(row.phone || '').trim();
+  if (isPhoneLead && !row.owner_user_id) {
+    reasons.push({ key: 'phone_lead_unassigned', label: 'Lead z telefonu bez opiekuna', weight: 45 });
+  }
+  if (Number(row.overdue_tasks || 0) > 0) {
+    reasons.push({ key: 'overdue_tasks', label: 'Zalegle zadania CRM', weight: 30 });
+  }
+  if (Number(row.overdue_phone_followup_tasks || 0) > 0) {
+    reasons.push({ key: 'phone_followup_overdue', label: 'Zalegly follow-up telefoniczny', weight: 25 });
+  }
+  if (value >= 5000) {
+    reasons.push({ key: 'high_value', label: 'Wysoka wartosc szansy', weight: 20 });
+  }
+  if (!row.last_message_at) {
+    reasons.push({ key: 'no_contact_history', label: 'Brak historii kontaktu', weight: 10 });
+  }
+  return reasons;
+}
+
+function crmLeadPriority(row, reasons) {
+  const score = reasons.reduce((sum, item) => sum + Number(item.weight || 0), 0);
+  if (score >= 70 || Number(row.overdue_phone_followup_tasks || 0) > 0) return 'critical';
+  if (score >= 35 || Number(row.overdue_tasks || 0) > 0) return 'high';
+  if (score > 0) return 'medium';
+  return 'normal';
+}
+
+function crmNextBestAction(row, reasons) {
+  if (reasons.some((item) => item.key === 'phone_lead_unassigned')) {
+    return 'Przypisz opiekuna do leada z telefonu i oddzwon do klienta.';
+  }
+  if (reasons.some((item) => item.key === 'phone_followup_overdue')) {
+    return 'Wykonaj zalegly follow-up telefoniczny.';
+  }
+  if (reasons.some((item) => item.key === 'overdue_tasks')) {
+    return 'Domknij zalegle zadania CRM.';
+  }
+  return 'Utrzymaj kontakt zgodnie z nastepnym krokiem CRM.';
+}
+
+function mapCrmCommandLead(row) {
+  const reasons = crmLeadCommandReasons(row);
+  const priority = crmLeadPriority(row, reasons);
+  return {
+    id: row.id,
+    title: row.title,
+    oddzial_id: row.oddzial_id,
+    stage: row.stage,
+    source: row.source,
+    value: Number(row.value || 0),
+    phone: row.phone,
+    email: row.email,
+    owner_user_id: row.owner_user_id,
+    owner_name: [row.owner_imie, row.owner_nazwisko].filter(Boolean).join(' ') || row.owner_login || null,
+    next_action_at: row.next_action_at,
+    last_message_at: row.last_message_at,
+    last_channel: row.last_channel,
+    last_direction: row.last_direction,
+    open_tasks: Number(row.open_tasks || 0),
+    overdue_tasks: Number(row.overdue_tasks || 0),
+    phone_followup_tasks: Number(row.phone_followup_tasks || 0),
+    overdue_phone_followup_tasks: Number(row.overdue_phone_followup_tasks || 0),
+    calls_30d: Number(row.calls_30d || 0),
+    priority,
+    score: reasons.reduce((sum, item) => sum + Number(item.weight || 0), 0),
+    reasons,
+    next_best_action: crmNextBestAction(row, reasons),
+  };
+}
+
+function mapPhoneCallRow(row) {
+  const agentName = [row.imie, row.nazwisko].filter(Boolean).join(' ') || row.login || null;
+  const recordingAvailable = Boolean(row.recording_archive_url || row.recording_archive_ref || row.twilio_recording_sid);
+  return {
+    id: row.id,
+    twilio_call_sid: row.twilio_call_sid,
+    twilio_recording_sid: row.twilio_recording_sid,
+    user_id: row.user_id,
+    task_id: row.task_id,
+    lead_id: row.lead_id,
+    staff_number: row.staff_number,
+    client_number: row.client_number,
+    recording_duration_sec: row.recording_duration_sec,
+    recording_archive_backend: row.recording_archive_backend,
+    recording_archive_ref: row.recording_archive_ref,
+    recording_archive_url: row.recording_archive_url,
+    transcript: row.transcript,
+    raport: row.raport,
+    wskazowki_specjalisty: row.wskazowki_specjalisty,
+    status: row.status,
+    error_message: row.error_message,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    agent_name: agentName,
+    recording_available: recordingAvailable,
+    recording_download_url: recordingAvailable ? `/api/telefon/rozmowy/${row.id}/nagranie` : null,
+  };
 }
 
 function taskStageFromStatus(status) {
@@ -707,6 +810,85 @@ router.get('/today', async (req, res) => {
   } catch (err) {
     logger.error('crm.today', { message: err.message });
     res.status(500).json({ error: 'Blad odczytu dzisiejszej pracy CRM' });
+  }
+});
+
+router.get('/command-center', async (req, res) => {
+  try {
+    const requestedLimit = Math.min(Math.max(toInt(req.query.limit) || 20, 1), 50);
+    const userOddzial = scopedOddzialId(req.user);
+    const requestedOddzial = toInt(req.query.oddzial_id);
+    const oddzialId = isDyrektorOrAdmin(req.user) || isSalesDirector(req.user)
+      ? requestedOddzial || userOddzial
+      : userOddzial;
+    if (!oddzialId) return res.status(400).json({ error: 'Brak oddzialu dla centrum dowodzenia CRM' });
+
+    const queryLimit = Math.min(requestedLimit * 4, 200);
+    const { rows } = await pool.query(
+      `WITH last_message AS (
+         SELECT DISTINCT ON (lead_id)
+                lead_id,
+                direction AS last_direction,
+                channel AS last_channel,
+                created_at AS last_message_at
+           FROM crm_lead_messages
+          ORDER BY lead_id, created_at DESC
+       ),
+       task_rollup AS (
+         SELECT lead_id,
+                COUNT(*) FILTER (WHERE status NOT IN ('done','closed','cancelled'))::int AS open_tasks,
+                COUNT(*) FILTER (WHERE due_at < NOW() AND status NOT IN ('done','closed','cancelled'))::int AS overdue_tasks,
+                COUNT(*) FILTER (WHERE type = 'phone_followup' AND status NOT IN ('done','closed','cancelled'))::int AS phone_followup_tasks,
+                COUNT(*) FILTER (WHERE type = 'phone_followup' AND due_at < NOW() AND status NOT IN ('done','closed','cancelled'))::int AS overdue_phone_followup_tasks,
+                MIN(due_at) FILTER (WHERE type = 'phone_followup' AND status NOT IN ('done','closed','cancelled')) AS next_phone_followup_at
+           FROM crm_tasks
+          GROUP BY lead_id
+       ),
+       call_rollup AS (
+         SELECT lead_id, COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS calls_30d
+           FROM phone_call_conversations
+          GROUP BY lead_id
+       )
+       SELECT l.id, l.title, l.oddzial_id, l.stage, l.source, l.value, l.phone, l.email,
+              l.owner_user_id, l.next_action_at,
+              u.imie AS owner_imie, u.nazwisko AS owner_nazwisko, u.login AS owner_login,
+              lm.last_direction, lm.last_channel, lm.last_message_at,
+              COALESCE(tr.open_tasks, 0)::int AS open_tasks,
+              COALESCE(tr.overdue_tasks, 0)::int AS overdue_tasks,
+              COALESCE(tr.phone_followup_tasks, 0)::int AS phone_followup_tasks,
+              COALESCE(tr.overdue_phone_followup_tasks, 0)::int AS overdue_phone_followup_tasks,
+              tr.next_phone_followup_at,
+              COALESCE(cr.calls_30d, 0)::int AS calls_30d
+         FROM crm_leads l
+         LEFT JOIN users u ON u.id = l.owner_user_id
+         LEFT JOIN last_message lm ON lm.lead_id = l.id
+         LEFT JOIN task_rollup tr ON tr.lead_id = l.id
+         LEFT JOIN call_rollup cr ON cr.lead_id = l.id
+        WHERE l.oddzial_id = $1
+        ORDER BY COALESCE(l.next_action_at, NOW() + INTERVAL '30 days') ASC, l.id DESC
+        LIMIT $2`,
+      [oddzialId, queryLimit]
+    );
+    const ranked = rows
+      .map(mapCrmCommandLead)
+      .sort((a, b) => b.score - a.score || Number(b.value || 0) - Number(a.value || 0))
+      .slice(0, requestedLimit);
+    const summary = {
+      total: rows.length,
+      critical: ranked.filter((item) => item.priority === 'critical').length,
+      overdue: rows.filter((row) => Number(row.overdue_tasks || 0) > 0).length,
+      unassigned: rows.filter((row) => !row.owner_user_id).length,
+      phone_unassigned: rows.filter((row) => (normCompare(row.source) === 'telefon' || row.phone) && !row.owner_user_id).length,
+      phone_followups: rows.filter((row) => Number(row.phone_followup_tasks || 0) > 0).length,
+      phone_followups_overdue: rows.filter((row) => Number(row.overdue_phone_followup_tasks || 0) > 0).length,
+      value_at_risk: ranked
+        .filter((item) => item.priority === 'critical' || item.priority === 'high')
+        .reduce((sum, item) => sum + Number(item.value || 0), 0),
+    };
+    res.json({ summary, priorities: ranked, oddzial_id: oddzialId });
+  } catch (err) {
+    logger.error('crm.commandCenter.get', { message: err.message });
+    res.status(500).json({ error: 'Blad centrum dowodzenia CRM' });
   }
 });
 
@@ -1622,7 +1804,7 @@ router.get('/messages/inbox', async (req, res) => {
 });
 
 router.get('/messages/providers', async (_req, res) => {
-  res.json(getMessageProviderStatus());
+  res.json(await getMessageProviderStatus());
 });
 
 router.patch('/messages/:messageId/status', validateBody(patchMessageStatusSchema), async (req, res) => {
@@ -1715,6 +1897,34 @@ router.get('/leads/:id/messages', async (req, res) => {
   } catch (err) {
     logger.error('crm.messages.get', { message: err.message });
     res.status(500).json({ error: 'Blad odczytu wiadomosci CRM' });
+  }
+});
+
+router.get('/leads/:id/calls', async (req, res) => {
+  const leadId = toInt(req.params.id);
+  if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
+  try {
+    const lead = (await pool.query('SELECT id, oddzial_id, phone FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
+    await ensurePhoneCallsTable();
+    const normalizedPhone = String(lead.phone || '').replace(/\D/g, '');
+    const { rows } = await pool.query(
+      `SELECT p.*, u.imie, u.nazwisko, u.login
+         FROM phone_call_conversations p
+         LEFT JOIN users u ON u.id = p.user_id
+        WHERE p.lead_id = $1
+          AND ($2 = '' OR regexp_replace(COALESCE(p.client_number, ''), '\\D', '', 'g') = $2)
+        ORDER BY p.created_at DESC
+        LIMIT 100`,
+      [leadId, normalizedPhone]
+    );
+    res.json(rows.map(mapPhoneCallRow));
+  } catch (err) {
+    logger.error('crm.calls.get', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu rozmow CRM' });
   }
 });
 

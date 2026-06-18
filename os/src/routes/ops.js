@@ -2362,6 +2362,62 @@ router.post('/owner-alerts/remediation', authMiddleware, requireRole(...MANAGER_
   }
 });
 
+router.post('/owner-alerts/resolve', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const riskId = cleanText(req.body?.risk_id, 120);
+  const riskType = cleanText(req.body?.risk_type || req.body?.type, 60);
+  const taskId = Number(req.body?.task_id || 0);
+  const source = cleanText(req.body?.source, 60) || 'manual';
+  const noteText = cleanText(req.body?.note, 800);
+  if (!riskId || !['kommo_sync', 'sms_delivery'].includes(riskType)) {
+    return res.status(400).json({ error: 'Resolve wymaga risk_id i risk_type Kommo/SMS.' });
+  }
+
+  try {
+    await ensureOpsActionEventsTable();
+    let task = null;
+    if (Number.isInteger(taskId) && taskId > 0) {
+      const resolved = await getRiskTask(taskId, req.user);
+      if (resolved.error) return res.status(resolved.error.status).json({ error: resolved.error.message });
+      task = resolved.task;
+    } else if (!isDyrektorOrAdmin(req.user)) {
+      return res.status(400).json({ error: 'Resolve alertu bez task_id wymaga roli centralnej.' });
+    }
+    const owner = riskOwner(riskType);
+    const event = await recordOpsActionEvent({
+      task,
+      user: req.user,
+      actionType: 'risk_owner_resolve',
+      issueKey: riskType,
+      note: noteText || `Oznaczono alert ownera jako rozwiazany ${riskId}`,
+      metadata: {
+        risk_id: riskId,
+        risk_type: riskType,
+        owner_label: owner.owner_label,
+        owner_role: owner.owner_role,
+        source,
+        follow_up: true,
+        resolution_status: 'resolved',
+        resolved: true,
+        resolved_at: new Date().toISOString(),
+      },
+    });
+    return res.json({
+      message: 'Alert ownera oznaczony jako rozwiazany',
+      resolved: {
+        risk_id: riskId,
+        risk_type: riskType,
+        task_id: Number.isInteger(taskId) && taskId > 0 ? taskId : null,
+        source,
+      },
+      event,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops owner-alerts resolve', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
 router.get('/owner-alerts/remediation-report', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
   const date = parseDateParam(req.query.date);
   if (!date) {

@@ -82,6 +82,40 @@ const costlyApiLimiter = rateLimit({
   },
 });
 
+const publicTokenLimiterStore = createRedisStore('public');
+const publicTokenLimiter = rateLimit({
+  windowMs,
+  max: env.PUBLIC_TOKEN_RATE_LIMIT_MAX || Math.max(max, 120),
+  store: publicTokenLimiterStore,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => String(process.env.RATE_LIMIT_DISABLED || '').toLowerCase() === 'true',
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Za duzo zadan. Sprobuj ponownie za chwile.',
+      code: RATE_LIMIT_EXCEEDED,
+      requestId: req.requestId,
+    });
+  },
+});
+
+const webhookLimiterStore = createRedisStore('webhook');
+const webhookLimiter = rateLimit({
+  windowMs,
+  max: env.WEBHOOK_RATE_LIMIT_MAX || Math.max(max, 240),
+  store: webhookLimiterStore,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => String(process.env.RATE_LIMIT_DISABLED || '').toLowerCase() === 'true',
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Za duzo zadan. Sprobuj ponownie za chwile.',
+      code: RATE_LIMIT_EXCEEDED,
+      requestId: req.requestId,
+    });
+  },
+});
+
 function createLoginLimiterStore() {
   if (env.LOGIN_RATE_LIMIT_STORE !== 'redis') {
     return new rateLimit.MemoryStore();
@@ -158,6 +192,8 @@ const resetLoginLimiterForTests = () => {
 module.exports = {
   costlyApiLimiter,
   loginLimiter,
+  publicTokenLimiter,
   resetLoginLimiterForTests,
+  webhookLimiter,
   __createLoginLimiterStore: createLoginLimiterStore,
 };

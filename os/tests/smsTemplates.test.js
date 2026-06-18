@@ -116,6 +116,6 @@ describe('SMS status templates', () => {
     });
 
     expect(rendered.source).toBe('configured');
-    expect(rendered.body).toBe('Oddzial Krakow: Pielegnacja /track/tok_cfg_12345678901234567890');
+    expect(rendered.body).toBe('Oddzial Krakow: Pielegnacja http://localhost:3005/track/tok_cfg_12345678901234567890');
   });
 });

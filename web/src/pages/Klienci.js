@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import CommandSidebar from '../components/CommandSidebar';
 import CityInput from '../components/CityInput';
@@ -47,6 +47,7 @@ function parseCustomFields(value) {
 export default function Klienci() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [klienci, setKlienci] = useState([]);
   const [loading, setLoading] = useState(true);
   const [szukaj, setSzukaj] = useState('');
@@ -104,6 +105,13 @@ export default function Klienci() {
       setDetailLoading(false);
     }
   };
+
+  useEffect(() => {
+    const clientId = searchParams.get('klient');
+    if (clientId && String(selected || '') !== String(clientId)) {
+      loadDetail(clientId);
+    }
+  }, [searchParams, selected]);
 
   const loadKlientKommoPayload = async () => {
     if (!selected) return;
