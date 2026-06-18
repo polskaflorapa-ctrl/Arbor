@@ -168,8 +168,19 @@ export default function RezerwacjeSprzetuScreen() {
   const jumpCooldownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
   const [exportingMonth, setExportingMonth] = useState(false);
+  const [reservationNotice, setReservationNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
 
   const { from, to } = useMemo(() => monthRange(viewYear, viewMonth0), [viewYear, viewMonth0]);
+
+  const showReservationNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setReservationNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!reservationNotice) return;
+    const timer = setTimeout(() => setReservationNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [reservationNotice]);
 
   const loadRefs = useCallback(async (auth: string) => {
     const h = { Authorization: `Bearer ${auth}` };
@@ -453,7 +464,7 @@ export default function RezerwacjeSprzetuScreen() {
         dateYmd: formDate,
         sprzetLabel: sprzet?.nazwa ?? `#${formSprzetId}`,
       });
-      Alert.alert(t('wyceny.alert.savedTitle'), t('fleetReserve.alert.savedServer'));
+      showReservationNotice(t('fleetReserve.alert.savedServer'));
       return;
     }
     const canFallbackOffline = res.notImplemented || res.error === 'network';
@@ -492,7 +503,7 @@ export default function RezerwacjeSprzetuScreen() {
       dateYmd: formDate,
       sprzetLabel: sprzet?.nazwa ?? `#${formSprzetId}`,
     });
-    Alert.alert(t('wyceny.alert.savedTitle'), t('fleetReserve.alert.savedLocal'));
+    showReservationNotice(t('fleetReserve.alert.savedLocal'));
   };
 
   const exportMonthCsv = async () => {
@@ -520,7 +531,7 @@ export default function RezerwacjeSprzetuScreen() {
       await Clipboard.setStringAsync(csv);
       await Share.share({ title: t('fleetReserve.exportMonthTitle'), message: csv });
     } catch {
-      Alert.alert(t('fleetReserve.exportMonthTitle'), t('fleetReserve.exportMonthFail'));
+      showReservationNotice(t('fleetReserve.exportMonthFail'), 'warning');
     } finally {
       setExportingMonth(false);
     }
@@ -529,7 +540,7 @@ export default function RezerwacjeSprzetuScreen() {
   const changeRowStatus = async (row: SprzetRezerwacjaRow, status: RezerwacjaStatus) => {
     if (status === row.status) return;
     if (!STATUS_TRANSITIONS[row.status]?.includes(status)) {
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.invalidTransition'));
+      showReservationNotice(t('fleetReserve.alert.invalidTransition'), 'warning');
       return;
     }
     if (!token) return;
@@ -545,7 +556,7 @@ export default function RezerwacjeSprzetuScreen() {
     }
     const canQueueOffline = put.notImplemented || put.error === 'network';
     if (!canQueueOffline) {
-      Alert.alert(t('wyceny.alert.saveFail'), put.error || t('fleetReserve.alert.statusUpdateError'));
+      showReservationNotice(put.error || t('fleetReserve.alert.statusUpdateError'), 'warning');
       return;
     }
     await enqueueOfflineRequest({
@@ -553,7 +564,7 @@ export default function RezerwacjeSprzetuScreen() {
       method: 'PUT',
       body: { status },
     });
-    Alert.alert(t('wyceny.alert.savedTitle'), t('fleetReserve.alert.statusQueued'));
+    showReservationNotice(t('fleetReserve.alert.statusQueued'));
   };
 
   const S = makeStyles(theme);
@@ -586,6 +597,32 @@ export default function RezerwacjeSprzetuScreen() {
           <Ionicons name="add" size={22} color={theme.accentText} />
         </TouchableOpacity>
       </View>
+
+      {reservationNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: reservationNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: reservationNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={reservationNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={reservationNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: reservationNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {reservationNotice.message}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={S.dashboardStats}>
         {dashboardStats.map((stat) => (
@@ -1006,6 +1043,18 @@ function makeStyles(theme: Theme) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    notice: {
+      marginHorizontal: 14,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderRadius: 7,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    noticeText: { flex: 1, fontSize: 12, fontWeight: '800', lineHeight: 16 },
     dashboardStats: {
       flexDirection: 'row',
       flexWrap: 'wrap',
