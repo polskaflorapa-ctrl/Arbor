@@ -55,6 +55,7 @@ import {
 import { emitTaskSync, subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession, type StoredUser } from '../../utils/session';
+import { fetchWithTimeout } from '../../utils/api-client';
 import { getTaskFieldExecutionSummary } from '../../utils/task-field-execution';
 import { formatTaskListCacheTime, loadTaskDetailCache, saveTaskDetailCache } from '../../utils/task-list-cache';
 import {
@@ -308,7 +309,7 @@ export default function ZlecenieDetailScreen() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/protokol-link`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/protokol-link`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -336,10 +337,10 @@ export default function ZlecenieDetailScreen() {
       const currentUser = user;
       const h = { Authorization: `Bearer ${authToken}` };
       const [zRes, lRes, pRes, zdRes] = await Promise.all([
-        fetch(`${API_URL}/tasks/${id}`, { headers: h }),
-        fetch(`${API_URL}/tasks/${id}/logi`, { headers: h }),
-        fetch(`${API_URL}/tasks/${id}/problemy`, { headers: h }),
-        fetch(`${API_URL}/tasks/${id}/zdjecia`, { headers: h }),
+        fetchWithTimeout(`${API_URL}/tasks/${id}`, { headers: h }),
+        fetchWithTimeout(`${API_URL}/tasks/${id}/logi`, { headers: h }),
+        fetchWithTimeout(`${API_URL}/tasks/${id}/problemy`, { headers: h }),
+        fetchWithTimeout(`${API_URL}/tasks/${id}/zdjecia`, { headers: h }),
       ]);
       let taskData: any = null;
       let logRows: any[] = [];
@@ -368,7 +369,7 @@ export default function ZlecenieDetailScreen() {
       }
       let cmrRows: any[] = [];
       try {
-        const cmrRes = await fetch(`${API_URL}/cmr?task_id=${id}`, { headers: h });
+        const cmrRes = await fetchWithTimeout(`${API_URL}/cmr?task_id=${id}`, { headers: h });
         if (cmrRes.ok) {
           const data = await cmrRes.json();
           cmrRows = Array.isArray(data) ? data : [];
@@ -438,8 +439,8 @@ export default function ZlecenieDetailScreen() {
         ? `${API_URL}/flota/sprzet?oddzial_id=${encodeURIComponent(branchId)}`
         : `${API_URL}/flota/sprzet`;
       const [teamsRes, equipmentRes] = await Promise.all([
-        fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers: h }),
-        fetch(equipmentUrl, { headers: h }),
+        fetchWithTimeout(`${API_URL}/ekipy?include_delegacje=1`, { headers: h }),
+        fetchWithTimeout(equipmentUrl, { headers: h }),
       ]);
 
       if (teamsRes.ok) {
@@ -488,7 +489,7 @@ export default function ZlecenieDetailScreen() {
         date: dateValue || inspectionDispatchForm.data || ymdFromValue(zlecenie.data_planowana) || todayKey(),
       });
       if (branchId) query.set('oddzial_id', branchId);
-      const res = await fetch(`${API_URL}/uzytkownicy?${query.toString()}`, {
+      const res = await fetchWithTimeout(`${API_URL}/uzytkownicy?${query.toString()}`, {
         headers: { Authorization: `Bearer ${auth}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -559,7 +560,7 @@ export default function ZlecenieDetailScreen() {
     setInspectionDispatchSaving(true);
     setInspectionDispatchError(null);
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -662,7 +663,7 @@ export default function ZlecenieDetailScreen() {
     setOfficePlanSaving(true);
     setOfficePlanError(null);
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/office-plan`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/office-plan`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -833,7 +834,7 @@ export default function ZlecenieDetailScreen() {
           setChangingStatus(true);
           try {
             if (!token) { router.replace('/login'); return; }
-            const res = await fetch(`${API_URL}/tasks/${id}/status`, {
+            const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/status`, {
               method: 'PUT',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -951,7 +952,7 @@ export default function ZlecenieDetailScreen() {
     setFieldPackageSaving(true);
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/tasks/${id}/field-package`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/field-package`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1075,7 +1076,7 @@ export default function ZlecenieDetailScreen() {
           bhp_checklista,
         };
       }
-      const res = await fetch(`${API_URL}/tasks/${id}/start`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/start`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1151,7 +1152,7 @@ export default function ZlecenieDetailScreen() {
     if (!token) return null;
     setFinishCostSuggestionsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/finish-cost-suggestions`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/finish-cost-suggestions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('finish_cost_suggestions_failed');
@@ -1345,7 +1346,7 @@ export default function ZlecenieDetailScreen() {
         paymentValidation,
         paymentNote,
       });
-      const res = await fetch(`${API_URL}/tasks/${id}/finish`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/finish`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1388,7 +1389,7 @@ export default function ZlecenieDetailScreen() {
     if (!extraOpis.trim() || !token) return;
     const body = { opis: extraOpis.trim() };
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/extra-work`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/extra-work`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1434,7 +1435,7 @@ export default function ZlecenieDetailScreen() {
     }
     const body = { amount_pln: amt };
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/extra-work/${ewId}/quote`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/extra-work/${ewId}/quote`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1472,7 +1473,7 @@ export default function ZlecenieDetailScreen() {
     if (!token) return;
     const body = { channel: 'na_miejscu' };
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/extra-work/${ewId}/accept`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/extra-work/${ewId}/accept`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1510,7 +1511,7 @@ export default function ZlecenieDetailScreen() {
     if (!token) return;
     const body = { reason: 'Brak akceptacji klienta' };
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/extra-work/${ewId}/reject`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/extra-work/${ewId}/reject`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1745,11 +1746,11 @@ export default function ZlecenieDetailScreen() {
         }
         if (opisTrimmed) form.append('opis', opisTrimmed);
         if (tagiTrimmed) form.append('tagi', tagiTrimmed);
-        const res = await fetch(`${API_URL}/tasks/${id}/zdjecia`, {
+        const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/zdjecia`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': idempotencyKey },
           body: form,
-        });
+        }, 45_000);
         if (res.ok) {
           await loadAll();
           emitTaskSync({ taskId: id, reason: 'photo' });
@@ -1843,7 +1844,7 @@ export default function ZlecenieDetailScreen() {
         lng: coords.lng,
         note: 'Brygada potwierdzila przyjazd do klienta.',
       };
-      const res = await fetch(`${API_URL}/tasks/${id}/checkin`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/checkin`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1902,7 +1903,7 @@ export default function ZlecenieDetailScreen() {
     };
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/tasks/${id}/problemy`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/problemy`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1974,7 +1975,7 @@ export default function ZlecenieDetailScreen() {
     };
     const idempotencyKey = createOfflineRequestId(`task-${id}-client-signature`);
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/client-signature`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${id}/client-signature`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1982,7 +1983,7 @@ export default function ZlecenieDetailScreen() {
           'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify(body),
-      });
+      }, 30_000);
       if (res.ok) {
         const data = await res.json().catch(() => null);
         setClientSignature(data || { ...body, updated_at: new Date().toISOString() });
