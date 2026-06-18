@@ -141,7 +141,12 @@ export default function DemoRequests() {
       const res = await api.post(`/demo-requests/${item.id}/convert-client`, {}, {
         headers: authHeaders(token),
       });
-      const updated = res.data?.item || { ...item, client_id: res.data?.client_id };
+      const updated = {
+        ...item,
+        ...(res.data?.item || {}),
+        client_id: res.data?.client_id || res.data?.item?.client_id || item.client_id,
+        crm_lead_id: res.data?.crm_lead_id || res.data?.item?.crm_lead_id || item.crm_lead_id,
+      };
       setItems((current) => current.map((row) => (row.id === item.id ? updated : row)));
       setDrafts((current) => ({
         ...current,
@@ -309,6 +314,15 @@ export default function DemoRequests() {
                             >
                               Otworz CRM
                             </button>
+                            {item.crm_lead_id ? (
+                              <button
+                                type="button"
+                                style={styles.clientLink}
+                                onClick={() => navigate(`/crm/pipeline?lead_id=${item.crm_lead_id}`)}
+                              >
+                                Szansa #{item.crm_lead_id}
+                              </button>
+                            ) : null}
                           </div>
                         ) : (
                           <Button

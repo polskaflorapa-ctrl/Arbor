@@ -679,6 +679,697 @@
   color: var(--landing-charcoal);
 }
 
+.landing-sr-login {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.landing-ops-screen {
+  position: relative;
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr) 270px;
+  gap: 18px;
+  width: min(1440px, calc(100% - 40px));
+  min-height: 780px;
+  margin: 34px auto 96px;
+  border: 1px solid rgba(226, 232, 240, 0.16);
+  border-radius: 16px;
+  padding: 16px;
+  background:
+    linear-gradient(90deg, rgba(45, 212, 191, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(45, 212, 191, 0.045) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(6, 17, 29, 0.98), rgba(5, 30, 24, 0.96));
+  background-size: 42px 42px, 42px 42px, auto;
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.34);
+  color: #e5edf7;
+}
+
+.landing-ops-screen * {
+  box-sizing: border-box;
+}
+
+.landing-ops-rail,
+.landing-ops-workspace,
+.landing-ops-phone,
+.landing-ops-plan,
+.landing-ops-map,
+.landing-ops-side section,
+.landing-ops-tables section {
+  border: 1px solid rgba(226, 232, 240, 0.13);
+  border-radius: 12px;
+  background: rgba(7, 17, 31, 0.74);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.landing-ops-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+}
+
+.landing-ops-logo {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+}
+
+.landing-ops-logo i {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #2dd4bf, #22c55e);
+  color: #03140f;
+  font-style: normal;
+}
+
+.landing-ops-logo span,
+.landing-ops-logo small,
+.landing-ops-logo b,
+.landing-ops-branch strong,
+.landing-ops-nav-group strong,
+.landing-ops-header h1,
+.landing-ops-phone h2,
+.landing-ops-plan > header strong,
+.landing-ops-map > strong,
+.landing-ops-side strong,
+.landing-ops-tables strong,
+.landing-ops-phone strong {
+  color: #f8fafc !important;
+}
+
+.landing-ops-logo span {
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.landing-ops-logo small {
+  font-size: 0.72rem;
+  font-weight: 900;
+  opacity: 0.72;
+}
+
+.landing-ops-logo b {
+  opacity: 0.55;
+}
+
+.landing-ops-branch {
+  display: grid;
+  gap: 3px;
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.landing-ops-branch span,
+.landing-ops-branch small,
+.landing-ops-nav-group span,
+.landing-ops-header p,
+.landing-ops-header-actions,
+.landing-ops-kpis small,
+.landing-ops-side small,
+.landing-ops-tables small,
+.landing-ops-phone small {
+  color: #9fb1c8;
+}
+
+.landing-ops-branch span,
+.landing-ops-branch small {
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.landing-ops-nav-group {
+  display: grid;
+  gap: 5px;
+}
+
+.landing-ops-nav-group strong {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  opacity: 0.58;
+}
+
+.landing-ops-nav-group span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 31px;
+  border-radius: 8px;
+  padding: 0 9px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.landing-ops-nav-group span i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.38);
+}
+
+.landing-ops-nav-group span.active {
+  background: rgba(45, 212, 191, 0.13);
+  color: #ccfbf1;
+}
+
+.landing-ops-nav-group span.active i {
+  background: #2dd4bf;
+}
+
+.landing-ops-workspace {
+  min-width: 0;
+  padding: 18px;
+  background: rgba(4, 13, 24, 0.72);
+}
+
+.landing-ops-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.landing-ops-header h1 {
+  margin: 0;
+  font-size: clamp(1.7rem, 2.4vw, 2.75rem);
+  line-height: 1.05;
+}
+
+.landing-ops-header p {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.landing-ops-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 560px;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.landing-ops-header-actions > span,
+.landing-ops-header-actions > button,
+.landing-ops-header-actions > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border-radius: 8px;
+  padding: 0 11px;
+}
+
+.landing-ops-header-actions > span,
+.landing-ops-header-actions > button {
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  background: rgba(15, 23, 42, 0.7);
+  color: #e5edf7;
+}
+
+.landing-ops-header-actions > button {
+  cursor: pointer;
+  font: inherit;
+}
+
+.landing-ops-header-actions .landing-button {
+  min-height: 34px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.landing-ops-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.landing-ops-kpis div {
+  display: grid;
+  grid-template-columns: 9px 1fr;
+  gap: 4px 8px;
+  min-height: 94px;
+  border: 1px solid rgba(226, 232, 240, 0.12);
+  border-radius: 12px;
+  padding: 13px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.landing-ops-kpis i {
+  grid-row: 1 / 4;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.landing-ops-kpis i.warn {
+  background: #f59e0b;
+}
+
+.landing-ops-kpis i.danger {
+  background: #ef4444;
+}
+
+.landing-ops-kpis span {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.landing-ops-kpis strong {
+  color: #f8fafc;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.landing-ops-kpis small {
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.landing-ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.82fr);
+  gap: 14px;
+}
+
+.landing-ops-plan {
+  overflow: hidden;
+}
+
+.landing-ops-plan > header,
+.landing-ops-tables section header,
+.landing-ops-map > strong,
+.landing-ops-side section > strong {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.1);
+}
+
+.landing-ops-plan > header div {
+  display: flex;
+  gap: 8px;
+}
+
+.landing-ops-plan input,
+.landing-ops-plan button {
+  min-height: 32px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.75);
+  color: #e5edf7;
+  font: 800 0.78rem/1 Inter, sans-serif;
+}
+
+.landing-ops-plan input {
+  width: 220px;
+  padding: 0 10px;
+}
+
+.landing-ops-plan button {
+  padding: 0 10px;
+}
+
+.landing-ops-time-head,
+.landing-ops-plan-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.3fr) repeat(6, minmax(72px, 1fr));
+  align-items: stretch;
+}
+
+.landing-ops-time-head {
+  min-height: 34px;
+  background: rgba(15, 23, 42, 0.86);
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.landing-ops-time-head span,
+.landing-ops-time-head b,
+.landing-ops-plan-row > * {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid rgba(226, 232, 240, 0.07);
+}
+
+.landing-ops-plan-row {
+  min-height: 58px;
+  border-top: 1px solid rgba(226, 232, 240, 0.08);
+}
+
+.landing-ops-plan-row .team-dot {
+  display: none;
+}
+
+.landing-ops-plan-row .team-name {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  color: #e5edf7;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.landing-ops-plan-row .team-name small {
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.landing-ops-plan-row b,
+.landing-ops-plan-row em {
+  margin: 8px 6px;
+  border-radius: 8px;
+}
+
+.landing-ops-plan-row b {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  border: 1px solid rgba(45, 212, 191, 0.24);
+  background: rgba(20, 184, 166, 0.13);
+  color: #ccfbf1;
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.landing-ops-plan-row b.warn {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+}
+
+.landing-ops-plan-row b.missing {
+  border-color: rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+}
+
+.landing-ops-plan-row b small {
+  margin-top: 2px;
+  color: inherit;
+  opacity: 0.72;
+  font-size: 0.7rem;
+}
+
+.landing-ops-plan-row em {
+  border: 1px dashed rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.32);
+}
+
+.landing-ops-plan footer {
+  padding: 11px 14px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.landing-ops-plan footer a {
+  color: #5eead4;
+}
+
+.landing-ops-map {
+  min-height: 330px;
+  overflow: hidden;
+}
+
+.landing-ops-map-canvas {
+  position: relative;
+  min-height: 270px;
+  margin: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(45, 212, 191, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 212, 191, 0.1) 1px, transparent 1px),
+    radial-gradient(circle at 42% 38%, rgba(34, 197, 94, 0.22), transparent 34%),
+    #07111f;
+  background-size: 34px 34px, 34px 34px, auto, auto;
+}
+
+.landing-ops-map-canvas .pin {
+  position: absolute;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 3px solid #ecfeff;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #03140f;
+  font-size: 0.74rem;
+  font-weight: 950;
+}
+
+.landing-ops-map-canvas .pin-1 { left: 28%; top: 30%; }
+.landing-ops-map-canvas .pin-2 { right: 24%; top: 48%; background: #f59e0b; }
+.landing-ops-map-canvas .pin-3 { left: 52%; bottom: 24%; }
+
+.landing-ops-map-canvas .map-label {
+  position: absolute;
+  color: rgba(226, 232, 240, 0.84);
+  font-size: 0.74rem;
+}
+
+.landing-ops-map-canvas .l1 { left: 16%; top: 62%; }
+.landing-ops-map-canvas .l2 { left: 44%; top: 42%; }
+.landing-ops-map-canvas .l3 { right: 22%; bottom: 28%; }
+.landing-ops-map-canvas .l4 { left: 58%; bottom: 15%; }
+
+.landing-ops-map-canvas em {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  width: 34px;
+  height: 56px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.92);
+  color: #0f172a;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.landing-ops-side {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.landing-ops-side section {
+  padding-bottom: 12px;
+}
+
+.landing-ops-side p {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+  margin: 10px 14px 0;
+  color: #e5edf7;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.landing-ops-side p i {
+  grid-column: 1 / -1;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2dd4bf, #22c55e);
+}
+
+.landing-ops-side p i.warn {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.landing-ops-tables {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.landing-ops-tables ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px 14px;
+  list-style: none;
+}
+
+.landing-ops-tables li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  color: #e5edf7;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.landing-ops-tables i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.landing-ops-tables i.warn {
+  background: #f59e0b;
+}
+
+.landing-ops-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.landing-ops-phone .phone-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #e5edf7;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.landing-ops-phone .phone-top small {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  margin-left: auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #03140f;
+  font-size: 0.72rem;
+}
+
+.landing-ops-phone > strong {
+  font-size: 0.98rem;
+}
+
+.landing-ops-phone > div:not(.phone-top):not(.landing-ops-phone-card):not(.landing-ops-phone-call) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.landing-ops-phone > div:not(.phone-top):not(.landing-ops-phone-card):not(.landing-ops-phone-call) span {
+  display: grid;
+  gap: 2px;
+  border: 1px solid rgba(226, 232, 240, 0.1);
+  border-radius: 10px;
+  padding: 9px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
+.landing-ops-phone > div:not(.phone-top):not(.landing-ops-phone-card):not(.landing-ops-phone-call) small {
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.landing-ops-phone h2 {
+  margin: 4px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.landing-ops-phone-card,
+.landing-ops-phone-call {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.12);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.landing-ops-phone-card span,
+.landing-ops-phone-call span {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.landing-ops-phone-card b,
+.landing-ops-phone-call b {
+  color: #f8fafc;
+  font-size: 0.95rem;
+}
+
+.landing-ops-phone-card p,
+.landing-ops-phone-call p,
+.landing-ops-phone > p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.landing-ops-phone > p {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid rgba(226, 232, 240, 0.1);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.landing-ops-phone > p small {
+  color: #86efac;
+  font-weight: 950;
+}
+
+.landing-ops-phone > p.warn small {
+  color: #fde68a;
+}
+
+.landing-ops-phone > p.danger small {
+  color: #fecaca;
+}
+
+.landing-ops-phone-card button,
+.landing-ops-phone-call button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2dd4bf, #22c55e);
+  color: #03140f;
+  font: 950 0.78rem/1 Inter, sans-serif;
+  cursor: pointer;
+}
+
 @media (max-width: 980px) {
   .landing-nav {
     grid-template-columns: 1fr auto;
@@ -765,6 +1456,41 @@
 
   .landing-queue-row {
     grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .landing-ops-screen {
+    grid-template-columns: 1fr;
+    width: min(100% - 28px, 1440px);
+    min-height: auto;
+    padding: 12px;
+  }
+
+  .landing-ops-rail,
+  .landing-ops-phone {
+    display: none;
+  }
+
+  .landing-ops-header,
+  .landing-ops-header-actions,
+  .landing-ops-plan > header,
+  .landing-ops-plan > header div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .landing-ops-kpis,
+  .landing-ops-grid,
+  .landing-ops-tables {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-ops-plan {
+    overflow-x: auto;
+  }
+
+  .landing-ops-time-head,
+  .landing-ops-plan-row {
+    min-width: 760px;
   }
 }
 
@@ -1268,4 +1994,311 @@
   .landing-product-shell {
     min-height: auto;
   }
+}
+
+/* Polska Flora brand book pass: olive green, dark brown, warm operational neutrals. */
+.landing-page {
+  --pf-green: #a0af14;
+  --pf-green-soft: #b7c52a;
+  --pf-brown: #3b2a18;
+  --pf-brown-soft: #786243;
+  --pf-brown-orange: #c87520;
+  --pf-paper: #f4f3ec;
+  --pf-panel: #ffffff;
+  --pf-line: rgba(59, 42, 24, 0.14);
+  --pf-muted: #776b5e;
+  --landing-bg: var(--pf-paper);
+  --landing-ink: var(--pf-brown);
+  --landing-muted: var(--pf-muted);
+  --landing-border: var(--pf-line);
+  --landing-green: var(--pf-green);
+  --landing-green-2: var(--pf-green-soft);
+  --landing-amber: var(--pf-brown-orange);
+  --landing-charcoal: var(--pf-brown);
+  background:
+    linear-gradient(90deg, rgba(160, 175, 20, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(59, 42, 24, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, #fbfaf4 0%, #f4f3ec 48%, #e8e2d5 100%) !important;
+  background-size: 52px 52px, 52px 52px, auto !important;
+  color: var(--pf-brown);
+}
+
+.landing-page::before {
+  background:
+    radial-gradient(circle at 14% 16%, rgba(160, 175, 20, 0.2), transparent 27%),
+    radial-gradient(circle at 86% 20%, rgba(200, 117, 32, 0.14), transparent 24%),
+    linear-gradient(135deg, #fbfaf4 0%, #f4f3ec 52%, #e9e0cf 100%);
+}
+
+.landing-page::after {
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(160, 175, 20, 0.055) 1px, transparent 1px);
+}
+
+.landing-nav {
+  border-color: rgba(59, 42, 24, 0.16);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 44px rgba(59, 42, 24, 0.12);
+}
+
+.landing-brand {
+  min-width: 190px;
+}
+
+.landing-brand-logo {
+  display: block;
+  width: 172px;
+  height: auto;
+}
+
+.landing-brand,
+.landing-footer span:first-child,
+.landing-nav nav a,
+.landing-login {
+  color: var(--pf-brown);
+}
+
+.landing-nav nav {
+  color: rgba(59, 42, 24, 0.68);
+}
+
+.landing-nav nav a:hover,
+.landing-login:hover {
+  color: #76830c;
+}
+
+.landing-page .landing-button-primary {
+  background: var(--pf-green);
+  color: var(--pf-brown);
+  box-shadow: 0 14px 30px rgba(160, 175, 20, 0.28);
+}
+
+.landing-page .landing-button-secondary {
+  border-color: rgba(59, 42, 24, 0.18);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--pf-brown);
+}
+
+.landing-hero-copy::before,
+.landing-hero::before {
+  border-color: rgba(160, 175, 20, 0.34);
+  background: rgba(160, 175, 20, 0.14);
+  color: #4b5607;
+}
+
+.landing-hero-copy h1::after,
+.landing-hero-copy h1,
+.landing-section-copy h2 {
+  color: var(--pf-brown) !important;
+  text-shadow: none;
+}
+
+.landing-hero-copy p,
+.landing-section-copy p,
+.landing-security li {
+  color: #685d50 !important;
+}
+
+.landing-ops-screen {
+  border-color: rgba(59, 42, 24, 0.18);
+  background:
+    linear-gradient(90deg, rgba(160, 175, 20, 0.08) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(59, 42, 24, 0.05) 1px, transparent 1px),
+    linear-gradient(135deg, #f8f7ef 0%, #eee7d8 100%);
+  background-size: 42px 42px, 42px 42px, auto;
+  color: var(--pf-brown);
+  box-shadow: 0 34px 90px rgba(59, 42, 24, 0.16);
+}
+
+.landing-ops-rail,
+.landing-ops-phone {
+  border-color: rgba(59, 42, 24, 0.16);
+  background: var(--pf-brown);
+}
+
+.landing-ops-workspace,
+.landing-ops-plan,
+.landing-ops-map,
+.landing-ops-side section,
+.landing-ops-tables section {
+  border-color: rgba(59, 42, 24, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 38px rgba(59, 42, 24, 0.08);
+}
+
+.landing-ops-logo {
+  grid-template-columns: 1fr auto;
+}
+
+.landing-ops-logo-img {
+  display: block;
+  width: 154px;
+  height: auto;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.landing-ops-logo span,
+.landing-ops-logo small,
+.landing-ops-logo b,
+.landing-ops-branch strong,
+.landing-ops-nav-group strong,
+.landing-ops-phone strong,
+.landing-ops-phone h2 {
+  color: #fffaf0 !important;
+}
+
+.landing-ops-header h1,
+.landing-ops-plan > header strong,
+.landing-ops-map > strong,
+.landing-ops-side strong,
+.landing-ops-tables strong {
+  color: var(--pf-brown) !important;
+}
+
+.landing-ops-header p,
+.landing-ops-header-actions,
+.landing-ops-kpis small,
+.landing-ops-side small,
+.landing-ops-tables small {
+  color: #6f6356;
+}
+
+.landing-ops-branch,
+.landing-ops-nav-group span.active,
+.landing-ops-phone-card,
+.landing-ops-phone-call,
+.landing-ops-phone > p,
+.landing-ops-phone > div:not(.phone-top):not(.landing-ops-phone-card):not(.landing-ops-phone-call) span {
+  border-color: rgba(255, 250, 240, 0.12);
+  background: rgba(255, 250, 240, 0.08);
+}
+
+.landing-ops-nav-group span {
+  color: rgba(255, 250, 240, 0.74);
+}
+
+.landing-ops-nav-group span.active {
+  color: #f4f7c5;
+}
+
+.landing-ops-nav-group span.active i,
+.landing-ops-kpis i,
+.landing-ops-tables i {
+  background: var(--pf-green);
+}
+
+.landing-ops-kpis div {
+  border-color: rgba(59, 42, 24, 0.12);
+  background: #fbfaf4;
+}
+
+.landing-ops-kpis span,
+.landing-ops-time-head,
+.landing-ops-plan-row .team-name small {
+  color: #766a5f;
+}
+
+.landing-ops-kpis strong,
+.landing-ops-plan-row .team-name,
+.landing-ops-side p,
+.landing-ops-tables li {
+  color: var(--pf-brown);
+}
+
+.landing-ops-header-actions > span,
+.landing-ops-header-actions > button,
+.landing-ops-plan input,
+.landing-ops-plan button {
+  border-color: rgba(59, 42, 24, 0.16);
+  background: #fffdf7;
+  color: var(--pf-brown);
+}
+
+.landing-ops-time-head {
+  background: #eee7d8;
+}
+
+.landing-ops-plan-row {
+  border-top-color: rgba(59, 42, 24, 0.1);
+}
+
+.landing-ops-plan-row b {
+  border-color: rgba(160, 175, 20, 0.32);
+  background: rgba(160, 175, 20, 0.16);
+  color: #4b5607;
+}
+
+.landing-ops-plan-row b.warn {
+  border-color: rgba(200, 117, 32, 0.34);
+  background: rgba(200, 117, 32, 0.14);
+  color: #6b3c10;
+}
+
+.landing-ops-plan-row b.missing,
+.landing-ops-kpis i.danger {
+  border-color: rgba(120, 98, 67, 0.34);
+  background: rgba(120, 98, 67, 0.14);
+  color: var(--pf-brown);
+}
+
+.landing-ops-map-canvas {
+  background:
+    linear-gradient(rgba(160, 175, 20, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 42, 24, 0.08) 1px, transparent 1px),
+    radial-gradient(circle at 42% 38%, rgba(160, 175, 20, 0.24), transparent 34%),
+    #f4f3ec;
+}
+
+.landing-ops-map-canvas .pin {
+  border-color: #ffffff;
+  background: var(--pf-green);
+  color: var(--pf-brown);
+}
+
+.landing-ops-map-canvas .pin-2,
+.landing-ops-kpis i.warn,
+.landing-ops-tables i.warn {
+  background: var(--pf-brown-orange);
+}
+
+.landing-ops-map-canvas .map-label {
+  color: var(--pf-brown);
+}
+
+.landing-ops-phone .phone-top,
+.landing-ops-phone-card b,
+.landing-ops-phone-call b,
+.landing-ops-phone > div:not(.phone-top):not(.landing-ops-phone-card):not(.landing-ops-phone-call) span {
+  color: #fffaf0;
+}
+
+.landing-ops-phone small,
+.landing-ops-phone-card p,
+.landing-ops-phone-call p,
+.landing-ops-phone > p {
+  color: rgba(255, 250, 240, 0.72);
+}
+
+.landing-ops-phone .phone-top small,
+.landing-ops-phone-card button,
+.landing-ops-phone-call button {
+  background: var(--pf-green);
+  color: var(--pf-brown);
+}
+
+.landing-module,
+.landing-workflow-step,
+.landing-price-panel,
+.landing-security-visual,
+.landing-proof {
+  border-color: rgba(59, 42, 24, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 20px 52px rgba(59, 42, 24, 0.1);
+}
+
+.landing-proof {
+  background: var(--pf-brown);
+  color: #fffaf0;
 }

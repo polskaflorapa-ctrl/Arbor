@@ -24,7 +24,7 @@ vi.mock('../components/PageHeader', () => ({
 
 vi.mock('../components/StatusMessage', () => ({
   __esModule: true,
-  default: ({ message }) => (message ? <div>{message}</div> : null),
+  default: ({ message }) => (message ? <div>{message.text || message}</div> : null),
 }));
 
 vi.mock('../api', () => ({
@@ -76,6 +76,7 @@ const demoItems = [
     status: 'qualified',
     sales_note: '',
     client_id: 44,
+    crm_lead_id: 88,
     created_at: todayIso(),
   },
   {
@@ -139,10 +140,41 @@ test('filters demo requests to already converted CRM clients', async () => {
 
   expect(screen.getByText('Klient W CRM')).toBeInTheDocument();
   expect(screen.getByText('Klient #44')).toBeInTheDocument();
+  expect(screen.getByText('Szansa #88')).toBeInTheDocument();
   expect(screen.queryByText('Pilne Drzewa')).not.toBeInTheDocument();
   expect(screen.getByText('1 widocznych')).toBeInTheDocument();
 
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith('/demo-requests?limit=100', expect.any(Object));
   });
+});
+
+test('shows CRM opportunity link after converting a demo request', async () => {
+  api.post.mockResolvedValueOnce({
+    data: {
+      ok: true,
+      client_id: 77,
+      crm_lead_id: 777,
+      item: {
+        ...demoItems[0],
+        status: 'qualified',
+        client_id: 77,
+        crm_lead_id: 777,
+      },
+    },
+  });
+
+  renderPage();
+
+  expect(await screen.findByText('Pilne Drzewa')).toBeInTheDocument();
+  await userEvent.click(screen.getAllByRole('button', { name: /klienta/i })[0]);
+  await userEvent.click(screen.getByRole('button', { name: 'W CRM' }));
+
+  expect(await screen.findByText('Klient #77')).toBeInTheDocument();
+  expect(screen.getByText('Szansa #777')).toBeInTheDocument();
+  expect(api.post).toHaveBeenCalledWith(
+    '/demo-requests/1/convert-client',
+    {},
+    expect.any(Object)
+  );
 });

@@ -6,7 +6,7 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 
 const router = express.Router();
-const DEMO_REQUEST_SELECT = 'id, name, email, company, phone, message, source, status, sales_note, client_id, converted_at, created_at';
+const DEMO_REQUEST_SELECT = 'id, name, email, company, phone, message, source, status, sales_note, client_id, crm_lead_id, converted_at, created_at';
 
 const demoRequestSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -48,6 +48,7 @@ async function ensureDemoRequestsTable() {
       status      TEXT NOT NULL DEFAULT 'new',
       sales_note  TEXT NOT NULL DEFAULT '',
       client_id   INTEGER,
+      crm_lead_id INTEGER,
       converted_at TIMESTAMPTZ,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -55,6 +56,7 @@ async function ensureDemoRequestsTable() {
   await pool.query("ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'new'");
   await pool.query("ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS sales_note TEXT NOT NULL DEFAULT ''");
   await pool.query('ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS client_id INTEGER');
+  await pool.query('ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS crm_lead_id INTEGER');
   await pool.query('ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS converted_at TIMESTAMPTZ');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_demo_requests_created_at ON demo_requests(created_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_demo_requests_status ON demo_requests(status)');
@@ -151,6 +153,10 @@ function splitContactName(name) {
   };
 }
 
+function normalizePhoneDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
 function buildClientNote(item) {
   const lines = [
     'Klient utworzony ze zgloszenia demo na landing page.',
@@ -159,6 +165,98 @@ function buildClientNote(item) {
   ].filter(Boolean);
 
   return lines.join('\n\n');
+}
+
+function buildDemoLeadTitle(item) {
+  const company = String(item.company || '').trim();
+  const name = String(item.name || '').trim();
+  return `Demo: ${company || name || `zgloszenie #${item.id}`}`.slice(0, 180);
+}
+
+function buildDemoLeadNotes(item) {
+  const lines = [
+    `Zgloszenie demo #${item.id} z landing page.`,
+    item.message ? `Procesy: ${item.message}` : null,
+    item.sales_note ? `Notatka sprzedazowa: ${item.sales_note}` : null,
+    `Kontakt: ${[item.name, item.email, item.phone].filter(Boolean).join(' | ')}`,
+  ].filter(Boolean);
+
+  return lines.join('\n\n');
+}
+
+function nextDemoFollowUpAt() {
+  const date = new Date();
+  date.setHours(date.getHours() + 2);
+  return date.toISOString();
+}
+
+async function resolveDemoLeadOddzialId(user) {
+  const userOddzialId = Number(user?.oddzial_id);
+  if (Number.isFinite(userOddzialId) && userOddzialId > 0) return Math.trunc(userOddzialId);
+
+  const branchResult = await pool.query('SELECT id FROM branches ORDER BY id ASC LIMIT 1');
+  const branchId = Number(branchResult.rows?.[0]?.id);
+  return Number.isFinite(branchId) && branchId > 0 ? Math.trunc(branchId) : null;
+}
+
+async function ensureDemoCrmLead(item, clientId, user) {
+  if (!clientId) return null;
+
+  try {
+    const existing = await pool.query(
+      `SELECT id
+       FROM crm_leads
+       WHERE client_id = $1
+         AND source = 'landing-demo'
+         AND stage NOT IN ('Wygrane', 'Przegrane', 'Techniczny')
+       ORDER BY COALESCE(next_action_at, NOW() + INTERVAL '30 days') ASC, updated_at DESC NULLS LAST, id DESC
+       LIMIT 1`,
+      [clientId]
+    );
+
+    if (existing.rows?.[0]?.id) {
+      return { id: existing.rows[0].id, reused: true };
+    }
+
+    const oddzialId = await resolveDemoLeadOddzialId(user);
+    if (!oddzialId) return null;
+
+    const now = new Date().toISOString();
+    const leadResult = await pool.query(
+      `INSERT INTO crm_leads (
+        title, oddzial_id, client_id, owner_user_id, stage, source, value, phone, email, notes, tags, next_action_at,
+        close_reason, close_bucket, closed_at, closed_by, created_by, created_at, updated_by, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+      RETURNING id`,
+      [
+        buildDemoLeadTitle(item),
+        oddzialId,
+        clientId,
+        user?.id || null,
+        'Lead',
+        'landing-demo',
+        0,
+        item.phone || null,
+        item.email || null,
+        buildDemoLeadNotes(item),
+        JSON.stringify(['landing-demo', 'demo']),
+        nextDemoFollowUpAt(),
+        null,
+        null,
+        null,
+        null,
+        user?.id || null,
+        now,
+        user?.id || null,
+        now,
+      ]
+    );
+
+    return { id: leadResult.rows?.[0]?.id || null, reused: false };
+  } catch (error) {
+    logger.warn('demoRequests.crmLead.ensure', { message: error.message, demoRequestId: item.id, clientId });
+    return null;
+  }
 }
 
 router.get(
@@ -246,16 +344,82 @@ router.post(
       }
 
       if (item.client_id) {
+        const crmLead = item.crm_lead_id ? { id: item.crm_lead_id, reused: true } : await ensureDemoCrmLead(item, item.client_id, req.user);
+        const responseItem = crmLead?.id && crmLead.id !== item.crm_lead_id
+          ? (await pool.query(
+            `UPDATE demo_requests SET crm_lead_id = $2 WHERE id = $1 RETURNING ${DEMO_REQUEST_SELECT}`,
+            [params.id, crmLead.id]
+          )).rows[0]
+          : item;
         return res.json({
           ok: true,
           alreadyConverted: true,
           client_id: item.client_id,
-          item,
+          crm_lead_id: crmLead?.id || null,
+          reusedCrmLead: crmLead?.reused || false,
+          item: responseItem,
           requestId: req.requestId,
         });
       }
 
       const { imie, nazwisko } = splitContactName(item.name);
+      const email = String(item.email || '').trim();
+      const phoneDigits = normalizePhoneDigits(item.phone);
+      const existingClient = await pool.query(
+        `SELECT id
+         FROM klienci
+         WHERE ($1 <> '' AND LOWER(email) = LOWER($1))
+            OR ($2 <> '' AND regexp_replace(COALESCE(telefon, ''), '\\D', '', 'g') = $2)
+         ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST, id DESC
+         LIMIT 1`,
+        [email, phoneDigits]
+      );
+
+      if (existingClient.rows?.[0]?.id) {
+        const clientId = existingClient.rows[0].id;
+        await pool.query(
+          `UPDATE klienci
+           SET tags = (
+                 SELECT COALESCE(jsonb_agg(DISTINCT tag_value), '[]'::jsonb)
+                 FROM jsonb_array_elements_text(COALESCE(tags, '[]'::jsonb) || $2::jsonb) AS tag_value
+               ),
+               custom_fields = COALESCE(custom_fields, '{}'::jsonb) || $3::jsonb,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [
+            clientId,
+            JSON.stringify(['landing-demo', 'demo']),
+            JSON.stringify({
+              demo_request_id: item.id,
+              demo_source: item.source || 'landing-page',
+              last_demo_request_at: item.created_at || new Date().toISOString(),
+            }),
+          ]
+        );
+        const crmLead = await ensureDemoCrmLead(item, clientId, req.user);
+        const updated = await pool.query(
+          `UPDATE demo_requests
+           SET client_id = $2,
+               crm_lead_id = $3,
+               converted_at = NOW(),
+               status = CASE WHEN status = 'closed' THEN status ELSE 'qualified' END
+           WHERE id = $1
+           RETURNING ${DEMO_REQUEST_SELECT}`,
+          [params.id, clientId, crmLead?.id || null]
+        );
+        const crmLeadId = updated.rows[0]?.crm_lead_id || null;
+
+        return res.json({
+          ok: true,
+          reusedClient: true,
+          client_id: clientId,
+          crm_lead_id: crmLeadId,
+          reusedCrmLead: crmLead?.reused || false,
+          item: updated.rows[0],
+          requestId: req.requestId,
+        });
+      }
+
       const clientResult = await pool.query(
         `INSERT INTO klienci (imie, nazwisko, firma, telefon, email, notatki, zrodlo, segment, tags, custom_fields, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
@@ -276,19 +440,23 @@ router.post(
       );
 
       const clientId = clientResult.rows[0].id;
+      const crmLead = await ensureDemoCrmLead(item, clientId, req.user);
       const updated = await pool.query(
         `UPDATE demo_requests
          SET client_id = $2,
+             crm_lead_id = $3,
              converted_at = NOW(),
              status = CASE WHEN status = 'closed' THEN status ELSE 'qualified' END
          WHERE id = $1
          RETURNING ${DEMO_REQUEST_SELECT}`,
-        [params.id, clientId]
+        [params.id, clientId, crmLead?.id || null]
       );
 
       return res.status(201).json({
         ok: true,
         client_id: clientId,
+        crm_lead_id: crmLead?.id || null,
+        reusedCrmLead: crmLead?.reused || false,
         item: updated.rows[0],
         requestId: req.requestId,
       });

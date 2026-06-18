@@ -216,8 +216,7 @@ export default function LandingPage() {
     <main className="landing-page">
       <header className="landing-nav" aria-label="Polska Flora">
         <a className="landing-brand" href="#top" aria-label="Polska Flora home">
-          <span className="landing-brand-mark">A</span>
-          <span>Polska Flora</span>
+          <img className="landing-brand-logo" src="/brand/polska-flora-logo.svg" alt="Polska Flora" />
         </a>
         <nav>
           <a href="#product">Produkt</a>
@@ -237,9 +236,7 @@ export default function LandingPage() {
         <a className="landing-sr-login" href="#/login">Zaloguj</a>
         <aside className="landing-ops-rail">
           <div className="landing-ops-logo">
-            <i>◆</i>
-            <span>Arbor</span>
-            <small>OS</small>
+            <img className="landing-ops-logo-img" src="/brand/polska-flora-logo.svg" alt="Polska Flora" />
             <b>«</b>
           </div>
           <div className="landing-ops-branch">
