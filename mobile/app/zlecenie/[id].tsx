@@ -875,10 +875,7 @@ export default function ZlecenieDetailScreen() {
             } else {
               void triggerHaptic('warning');
               const { data, text } = await readApiErrorBody(res);
-              Alert.alert(
-                t('notif.alert.errorTitle'),
-                formatApiWorkflowError(data, text.slice(0, 200) || `HTTP ${res.status}`),
-              );
+              showActionNotice(formatApiWorkflowError(data, text.slice(0, 200) || `HTTP ${res.status}`), 'warning');
             }
           } catch {
             void triggerHaptic('warning');
@@ -993,10 +990,7 @@ export default function ZlecenieDetailScreen() {
       } else {
         void triggerHaptic('warning');
         const { data, text } = await readApiErrorBody(res);
-        Alert.alert(
-          t('notif.alert.errorTitle'),
-          formatApiWorkflowError(data, text.slice(0, 300) || `HTTP ${res.status}`),
-        );
+        showActionNotice(formatApiWorkflowError(data, text.slice(0, 300) || `HTTP ${res.status}`), 'warning');
       }
     } catch {
       const queued = await queueRequestWithOfflineFallback({
@@ -1886,7 +1880,7 @@ export default function ZlecenieDetailScreen() {
       } else {
         void triggerHaptic('warning');
         const { data, text } = await readApiErrorBody(res);
-        Alert.alert(t('notif.alert.errorTitle'), formatApiWorkflowError(data, text.slice(0, 200) || `HTTP ${res.status}`));
+        showActionNotice(formatApiWorkflowError(data, text.slice(0, 200) || `HTTP ${res.status}`), 'warning');
       }
     } catch {
       void triggerHaptic('warning');
