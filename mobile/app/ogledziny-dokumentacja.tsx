@@ -5,7 +5,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   RefreshControl,
   ScrollView,
@@ -83,6 +82,7 @@ type EvidenceKind = 'before' | 'scope' | 'access' | 'risk';
 type OfficeReadyStepKey = 'evidence' | 'protocol' | 'draft';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 type ProtocolBooleanKey = 'haul' | 'stumpRemoval' | 'banner';
+type ScreenNoticeTone = 'success' | 'warning' | 'error';
 
 const EVIDENCE_LABEL: Record<EvidenceKind, string> = {
   before: 'Stan przed praca',
@@ -162,6 +162,7 @@ export default function OgledzinyDokumentacjaScreen() {
   const [protocolDraftTouched, setProtocolDraftTouched] = useState(false);
   const [protocolDraftSavedAt, setProtocolDraftSavedAt] = useState<string | null>(null);
   const [protocolDraftRestored, setProtocolDraftRestored] = useState(false);
+  const [screenNotice, setScreenNotice] = useState<{ message: string; tone: ScreenNoticeTone } | null>(null);
 
   const quoteId = routeQuoteId || String(detail?.wycena_id || '');
   const clientName = detail?.klient_nazwa || routeClient || t('inspectionDoc.subtitle', { id: inspectionId });
@@ -271,6 +272,27 @@ export default function OgledzinyDokumentacjaScreen() {
   const officeReadyCount = officeReadySteps.filter((item) => item.done).length;
   const officeReadyPercent = Math.round((officeReadyCount / officeReadySteps.length) * 100);
   const nextOfficeStep = officeReadySteps.find((item) => !item.done) || null;
+  const screenNoticeColor = screenNotice?.tone === 'error'
+    ? theme.danger
+    : screenNotice?.tone === 'warning'
+      ? theme.warning
+      : theme.success;
+  const screenNoticeBg = screenNotice?.tone === 'error'
+    ? theme.dangerBg
+    : screenNotice?.tone === 'warning'
+      ? theme.warningBg
+      : theme.successBg;
+  const screenNoticeIcon = screenNotice?.tone === 'success' ? 'checkmark-circle-outline' : 'warning-outline';
+
+  const showScreenNotice = useCallback((message: string, tone: ScreenNoticeTone = 'success') => {
+    setScreenNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!screenNotice) return;
+    const timer = setTimeout(() => setScreenNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [screenNotice]);
 
   const addHistory = (entry: UploadEntry) => {
     setHistory((prev) => [entry, ...prev].slice(0, 10));
@@ -430,7 +452,7 @@ export default function OgledzinyDokumentacjaScreen() {
         state: 'queued',
       });
       void triggerHaptic('warning');
-      Alert.alert('Zapisane offline', 'Protokół trafił do kolejki i wyśle się po powrocie internetu.');
+      showScreenNotice('Protokół trafił do kolejki i wyśle się po powrocie internetu.', 'warning');
     };
 
     try {
@@ -464,8 +486,7 @@ export default function OgledzinyDokumentacjaScreen() {
           setProtocolDraftSavedAt(null);
           setProtocolDraftRestored(false);
         }
-        Alert.alert(
-          readyForOffice ? 'Gotowe dla biura' : 'Protokół zapisany',
+        showScreenNotice(
           readyForOffice
             ? 'Biuro widzi zakres, sprzęt, ryzyka, czas i budżet z oględzin.'
             : 'Możesz dopisać szczegóły albo dodać kolejne zdjęcia.',
@@ -479,7 +500,7 @@ export default function OgledzinyDokumentacjaScreen() {
       }
 
       void triggerHaptic('error');
-      Alert.alert('Protokół', 'Nie udało się zapisać protokołu. Sprawdź dane i spróbuj ponownie.');
+      showScreenNotice('Nie udało się zapisać protokołu. Sprawdź dane i spróbuj ponownie.', 'error');
     } catch {
       await queueProtocol();
     } finally {
@@ -550,13 +571,13 @@ export default function OgledzinyDokumentacjaScreen() {
       if (source === 'camera') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (perm.status !== 'granted') {
-          Alert.alert('Aparat', 'Włącz dostęp do aparatu, żeby dodać zdjęcie z oględzin.');
+          showScreenNotice('Włącz dostęp do aparatu, żeby dodać zdjęcie z oględzin.', 'warning');
           return;
         }
       } else {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (perm.status !== 'granted') {
-          Alert.alert('Galeria', 'Włącz dostęp do galerii, żeby dodać zdjęcie z oględzin.');
+          showScreenNotice('Włącz dostęp do galerii, żeby dodać zdjęcie z oględzin.', 'warning');
           return;
         }
       }
@@ -568,6 +589,9 @@ export default function OgledzinyDokumentacjaScreen() {
       const asset = picked.assets[0];
       const uploadStatus = await uploadPhotoEvidence(asset, source, evidenceKind);
       if (uploadStatus === 'login') return;
+      if (uploadStatus === 'queued') {
+        showScreenNotice('Zdjęcie trafiło do kolejki offline. Możesz od razu zaznaczyć zakres na szkicu.', 'warning');
+      }
 
       void triggerHaptic('light');
       const params = [
@@ -589,13 +613,13 @@ export default function OgledzinyDokumentacjaScreen() {
       if (source === 'camera') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (perm.status !== 'granted') {
-          Alert.alert('Kamera', 'Włącz dostęp do aparatu, żeby nagrać wideo z terenu.');
+          showScreenNotice('Włącz dostęp do aparatu, żeby nagrać wideo z terenu.', 'warning');
           return;
         }
       } else {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (perm.status !== 'granted') {
-          Alert.alert('Galeria', 'Włącz dostęp do galerii, żeby dodać wideo.');
+          showScreenNotice('Włącz dostęp do galerii, żeby dodać wideo.', 'warning');
           return;
         }
       }
@@ -630,21 +654,24 @@ export default function OgledzinyDokumentacjaScreen() {
         void triggerHaptic('success');
         addHistory({ kind: 'video', label: source === 'camera' ? 'Wideo nagrane i wysłane' : 'Wideo wysłane do oględzin', state: 'done' });
         await loadDetail(true);
+        showScreenNotice(source === 'camera' ? 'Wideo nagrane i wysłane do oględzin.' : 'Wideo wysłane do oględzin.');
         return;
       }
 
       await queueInspectionMediaOffline(asset, 'video');
       addHistory({ kind: 'video', label: 'Wideo dodane do kolejki offline', state: 'queued' });
       void triggerHaptic('warning');
+      showScreenNotice('Wideo dodane do kolejki offline i wyśle się po powrocie internetu.', 'warning');
     } catch {
       if (selectedVideoAsset) {
         await queueInspectionMediaOffline(selectedVideoAsset, 'video');
         addHistory({ kind: 'video', label: 'Wideo dodane do kolejki offline', state: 'queued' });
         void triggerHaptic('warning');
+        showScreenNotice('Wideo dodane do kolejki offline i wyśle się po powrocie internetu.', 'warning');
         return;
       }
       void triggerHaptic('warning');
-      Alert.alert('Wideo', 'Nie udało się wysłać wideo teraz. Spróbuj ponownie albo dodaj je po złapaniu internetu.');
+      showScreenNotice('Nie udało się wysłać wideo teraz. Spróbuj ponownie albo dodaj je po złapaniu internetu.', 'warning');
     } finally {
       setBusyAction(null);
     }
@@ -718,6 +745,13 @@ export default function OgledzinyDokumentacjaScreen() {
           <View style={S.warningCard}>
             <Ionicons name="alert-circle-outline" size={16} color={theme.warning} />
             <Text style={[S.cardText, { color: theme.warning }]}>{loadError}</Text>
+          </View>
+        ) : null}
+
+        {screenNotice ? (
+          <View style={[S.screenNotice, { backgroundColor: screenNoticeBg, borderColor: screenNoticeColor + '66' }]}>
+            <Ionicons name={screenNoticeIcon} size={16} color={screenNoticeColor} />
+            <Text style={[S.screenNoticeText, { color: screenNoticeColor }]}>{screenNotice.message}</Text>
           </View>
         ) : null}
 
@@ -1660,6 +1694,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
+  screenNotice: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  screenNoticeText: { flex: 1, fontSize: 12, lineHeight: 17, fontWeight: '800' },
   mediaRow: { gap: 10, paddingVertical: 2 },
   mediaCard: {
     width: 112,
