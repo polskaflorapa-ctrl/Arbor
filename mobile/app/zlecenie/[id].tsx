@@ -200,6 +200,7 @@ export default function ZlecenieDetailScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [cacheNotice, setCacheNotice] = useState('');
+  const [actionNotice, setActionNotice] = useState('');
   const [cmrLista, setCmrLista] = useState<any[]>([]);
   /** Minimalna liczba zdjęć na typ przy wymogu finish — zgodnie z `FINISH_PHOTO_MIN` w os/taskSettlement.js */
   const MIN_FINISH_TYP_PHOTOS = 2;
@@ -694,7 +695,7 @@ export default function ZlecenieDetailScreen() {
       setOfficePlanOpen(false);
       void triggerHaptic('success');
       await loadAll();
-      Alert.alert('Plan zapisany', data?.message || 'Zlecenie jest zaplanowane dla ekipy.');
+      showActionNotice(data?.message || 'Zlecenie jest zaplanowane dla ekipy.');
     } catch (err) {
       void triggerHaptic('error');
       setOfficePlanError(err instanceof Error ? err.message : 'Nie zapisano planu.');
@@ -825,6 +826,16 @@ export default function ZlecenieDetailScreen() {
     return TASK_STATUSES.includes(s as any) ? t(`zlecenia.status.${s}`) : (s || '').replace(/_/g, ' ');
   };
 
+  const showActionNotice = useCallback((message: string) => {
+    setActionNotice(message);
+  }, []);
+
+  useEffect(() => {
+    if (!actionNotice) return;
+    const timer = setTimeout(() => setActionNotice(''), 6500);
+    return () => clearTimeout(timer);
+  }, [actionNotice]);
+
   const zmienStatus = async (nowyStatus: string) => {
     Alert.alert(t('order.changeStatusTitle'), t('order.changeStatusBody', { status: statusUi(nowyStatus) }), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -849,7 +860,7 @@ export default function ZlecenieDetailScreen() {
               void triggerHaptic('success');
               await loadAll();
               emitTaskSync({ taskId: id, reason: 'status' });
-              Alert.alert(t('common.ok'), t('order.statusChanged'));
+              showActionNotice(t('order.statusChanged'));
             }
             else if (res.status >= 500) {
               void triggerHaptic('warning');
@@ -967,7 +978,7 @@ export default function ZlecenieDetailScreen() {
         void triggerHaptic('success');
         await loadAll();
         emitTaskSync({ taskId: id, reason: 'field-package' });
-        Alert.alert('Gotowe', sendToOffice ? 'Pakiet wrócił do biura do planowania.' : 'Pakiet terenowy zapisany.');
+        showActionNotice(sendToOffice ? 'Pakiet wrócił do biura do planowania.' : 'Pakiet terenowy zapisany.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
           id: idempotencyKey,
@@ -978,7 +989,7 @@ export default function ZlecenieDetailScreen() {
         });
         setOfflineQueueCount(queued);
         void triggerHaptic('warning');
-        Alert.alert(t('notif.alert.offlineTitle'), 'Pakiet terenowy zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
+        showActionNotice('Pakiet terenowy zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
       } else {
         void triggerHaptic('warning');
         const { data, text } = await readApiErrorBody(res);
@@ -997,7 +1008,7 @@ export default function ZlecenieDetailScreen() {
       });
       setOfflineQueueCount(queued);
       void triggerHaptic('warning');
-      Alert.alert(t('notif.alert.offlineTitle'), 'Pakiet terenowy zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
+      showActionNotice('Pakiet terenowy zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
     } finally {
       setFieldPackageSaving(false);
     }
@@ -1089,7 +1100,7 @@ export default function ZlecenieDetailScreen() {
         void triggerHaptic('success');
         await loadAll();
         emitTaskSync({ taskId: id, reason: 'start' });
-        Alert.alert(t('common.ok'), t('order.startedTitle'));
+        showActionNotice(t('order.startedTitle'));
       }
       else if (res.status >= 500) {
         void triggerHaptic('warning');
@@ -1224,7 +1235,7 @@ export default function ZlecenieDetailScreen() {
     setOfflineQueueCount(queued);
     await addPendingOfflineFinish({ idempotencyKey, body });
     resetFinishDraft();
-    Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
+    showActionNotice(t('order.offlineFinishQueued'));
   };
 
   const submitFinish = async () => {
@@ -1360,7 +1371,7 @@ export default function ZlecenieDetailScreen() {
         resetFinishDraft();
         await loadAll();
         emitTaskSync({ taskId: id, reason: 'finish' });
-        Alert.alert(t('common.ok'), t('order.finishedTitle'));
+        showActionNotice(t('order.finishedTitle'));
       } else if (res.status >= 500) {
         void triggerHaptic('warning');
         await queueFinishOffline(idempotencyKey, finishBody);
@@ -1397,7 +1408,7 @@ export default function ZlecenieDetailScreen() {
       if (res.ok) {
         setExtraOpis('');
         await loadAll();
-        Alert.alert('OK', 'Praca dodatkowa zgłoszona do oględzin.');
+        showActionNotice('Praca dodatkowa zgłoszona do oględzin.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/extra-work`,
@@ -1442,7 +1453,7 @@ export default function ZlecenieDetailScreen() {
       });
       if (res.ok) {
         await loadAll();
-        Alert.alert('OK', 'Oględziny przesłane do ekipy.');
+        showActionNotice('Oględziny przesłane do ekipy.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/extra-work/${ewId}/quote`,
@@ -1480,7 +1491,7 @@ export default function ZlecenieDetailScreen() {
       });
       if (res.ok) {
         await loadAll();
-        Alert.alert('OK', 'Zaakceptowano — kwota dopisana do zlecenia.');
+        showActionNotice('Zaakceptowano — kwota dopisana do zlecenia.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/extra-work/${ewId}/accept`,
@@ -1518,7 +1529,7 @@ export default function ZlecenieDetailScreen() {
       });
       if (res.ok) {
         await loadAll();
-        Alert.alert('OK', 'Oznaczono oględziny bez akceptacji.');
+        showActionNotice('Oznaczono oględziny bez akceptacji.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/extra-work/${ewId}/reject`,
@@ -1762,7 +1773,7 @@ export default function ZlecenieDetailScreen() {
             ? t('order.photoSavedCoords', { lat: coords.lat.toFixed(5), lng: coords.lng.toFixed(5) })
             : '';
           void triggerHaptic('success');
-          Alert.alert(t('order.photoSavedTitle'), t('order.photoSavedBody', { label: typLabel, coords: coordsStr }));
+          showActionNotice(t('order.photoSavedBody', { label: typLabel, coords: coordsStr }) || t('order.photoSavedTitle'));
         } else if (res.status >= 500) {
           void triggerHaptic('warning');
           const n = await queueTaskPhotoOffline({
@@ -1780,7 +1791,7 @@ export default function ZlecenieDetailScreen() {
           setPhotoOpisDraft('');
           setPhotoTagiDraft('');
           setZdjecieModal(false);
-          Alert.alert(t('notif.alert.offlineTitle'), t('order.offlinePhotoQueued'));
+          showActionNotice(t('order.offlinePhotoQueued'));
         } else {
           void triggerHaptic('warning');
           const msg = await res.text().catch(() => '');
@@ -1804,7 +1815,7 @@ export default function ZlecenieDetailScreen() {
           setPhotoOpisDraft('');
           setPhotoTagiDraft('');
           setZdjecieModal(false);
-          Alert.alert(t('notif.alert.offlineTitle'), t('order.offlinePhotoQueued'));
+          showActionNotice(t('order.offlinePhotoQueued'));
         } catch {
           Alert.alert(t('notif.alert.errorTitle'), t('order.photoUploadFail'));
         }
@@ -1857,7 +1868,7 @@ export default function ZlecenieDetailScreen() {
         void triggerHaptic('success');
         await loadAll();
         emitTaskSync({ taskId: id, reason: 'checkin' });
-        Alert.alert('Dojechalismy', 'GPS przyjazdu zapisany. Biuro widzi, ze ekipa jest na miejscu.');
+        showActionNotice('GPS przyjazdu zapisany. Biuro widzi, ze ekipa jest na miejscu.');
       } else if (res.status >= 500) {
         void triggerHaptic('warning');
         const queued = await queueTaskWorkSignalOffline({
@@ -1868,7 +1879,7 @@ export default function ZlecenieDetailScreen() {
         });
         setOfflineQueueCount(queued);
         await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'checkin', body: checkinBody });
-        Alert.alert(t('notif.alert.offlineTitle'), 'Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
+        showActionNotice('Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
       } else {
         void triggerHaptic('warning');
         const { data, text } = await readApiErrorBody(res);
@@ -1885,7 +1896,7 @@ export default function ZlecenieDetailScreen() {
         });
         setOfflineQueueCount(queued);
         await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'checkin', body: checkinBody });
-        Alert.alert(t('notif.alert.offlineTitle'), 'Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
+        showActionNotice('Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
       } else {
         Alert.alert(t('notif.alert.errorTitle'), 'Nie udalo sie zapisac check-in GPS.');
       }
@@ -1917,7 +1928,7 @@ export default function ZlecenieDetailScreen() {
         setProblemForm({ typ: 'usterka', opis: '' });
         await loadAll();
         void triggerHaptic('success');
-        Alert.alert('OK', 'Problem zgłoszony');
+        showActionNotice('Problem zgłoszony');
       } else if (res.status >= 500) {
         void triggerHaptic('warning');
         const queued = await queueTaskProblemOffline({
@@ -1930,7 +1941,7 @@ export default function ZlecenieDetailScreen() {
         await addPendingOfflineProblem({ idempotencyKey, payload: problemPayload });
         setProblemModal(false);
         setProblemForm({ typ: 'usterka', opis: '' });
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
+        showActionNotice(t('order.offlineProblemQueued'));
       } else {
         void triggerHaptic('warning');
         const msg = await res.text().catch(() => '');
@@ -1948,7 +1959,7 @@ export default function ZlecenieDetailScreen() {
       await addPendingOfflineProblem({ idempotencyKey, payload: problemPayload });
       setProblemModal(false);
       setProblemForm({ typ: 'usterka', opis: '' });
-      Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
+      showActionNotice(t('order.offlineProblemQueued'));
     }
   };
   const zrobZdjecieProblemu = () => {
@@ -1989,7 +2000,7 @@ export default function ZlecenieDetailScreen() {
         setClientSignature(data || { ...body, updated_at: new Date().toISOString() });
         setShowClientSignatureModal(false);
         void triggerHaptic('success');
-        Alert.alert('Podpis zapisany', 'Otwieram protokół PDF...');
+        showActionNotice('Podpis zapisany. Otwieram protokół PDF...');
         await openTaskProtocolPdf();
         return;
       }
@@ -3411,7 +3422,7 @@ export default function ZlecenieDetailScreen() {
       safetyLines,
     ].join('\n');
     await Clipboard.setStringAsync(summary);
-    Alert.alert('Skopiowano', 'Podsumowanie teczki zlecenia skopiowane do schowka.');
+    showActionNotice('Podsumowanie teczki zlecenia skopiowane do schowka.');
   };
   const copyCrewBrief = async () => {
     const plannedDate = zlecenie.data_planowana ? String(zlecenie.data_planowana).slice(0, 10) : 'brak terminu';
@@ -3458,7 +3469,7 @@ export default function ZlecenieDetailScreen() {
     ].filter(Boolean).join('\n');
     await Clipboard.setStringAsync(brief);
     void triggerHaptic('success');
-    Alert.alert('Skopiowano', 'Odprawa ekipy jest w schowku.');
+    showActionNotice('Odprawa ekipy jest w schowku.');
   };
   const suggestedAction = (() => {
     if (isEkipa) {
@@ -4099,6 +4110,12 @@ export default function ZlecenieDetailScreen() {
         <View style={[S.cacheNotice, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
           <Ionicons name="file-tray-full-outline" size={15} color={theme.info} />
           <Text style={[S.cacheNoticeText, { color: theme.info }]}>{cacheNotice}</Text>
+        </View>
+      ) : null}
+      {actionNotice ? (
+        <View style={[S.cacheNotice, { backgroundColor: theme.successBg, borderColor: theme.success }]}>
+          <Ionicons name="checkmark-circle-outline" size={15} color={theme.success} />
+          <Text style={[S.cacheNoticeText, { color: theme.success }]}>{actionNotice}</Text>
         </View>
       ) : null}
 
