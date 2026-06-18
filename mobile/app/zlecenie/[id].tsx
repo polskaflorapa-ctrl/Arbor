@@ -1419,7 +1419,7 @@ export default function ZlecenieDetailScreen() {
         showActionNotice(t('order.offlineExtraWorkQueued'));
       } else {
         const txt = await res.text();
-        Alert.alert(t('notif.alert.errorTitle'), txt.slice(0, 200));
+        showActionNotice(txt.slice(0, 200) || `HTTP ${res.status}`, 'warning');
       }
     } catch {
       try {
@@ -1463,7 +1463,8 @@ export default function ZlecenieDetailScreen() {
         setOfflineQueueCount(queued);
         showActionNotice(t('order.offlineExtraQuoteQueued'));
       } else {
-        Alert.alert(t('notif.alert.errorTitle'), await res.text());
+        const txt = await res.text();
+        showActionNotice(txt.slice(0, 200) || `HTTP ${res.status}`, 'warning');
       }
     } catch {
       try {
@@ -1501,7 +1502,8 @@ export default function ZlecenieDetailScreen() {
         setOfflineQueueCount(queued);
         showActionNotice(t('order.offlineExtraAcceptQueued'));
       } else {
-        Alert.alert(t('notif.alert.errorTitle'), await res.text());
+        const txt = await res.text();
+        showActionNotice(txt.slice(0, 200) || `HTTP ${res.status}`, 'warning');
       }
     } catch {
       try {
@@ -1539,7 +1541,8 @@ export default function ZlecenieDetailScreen() {
         setOfflineQueueCount(queued);
         showActionNotice('Brak sieci — decyzja zostanie wysłana po synchronizacji.');
       } else {
-        Alert.alert(t('notif.alert.errorTitle'), await res.text());
+        const txt = await res.text();
+        showActionNotice(txt.slice(0, 200) || `HTTP ${res.status}`, 'warning');
       }
     } catch {
       try {
@@ -1898,7 +1901,7 @@ export default function ZlecenieDetailScreen() {
         await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'checkin', body: checkinBody });
         showActionNotice('Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
       } else {
-        Alert.alert(t('notif.alert.errorTitle'), 'Nie udalo sie zapisac check-in GPS.');
+        showActionNotice('Nie udało się zapisać check-in GPS.', 'warning');
       }
     } finally {
       setChangingStatus(false);
