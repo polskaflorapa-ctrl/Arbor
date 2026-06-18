@@ -29,6 +29,7 @@ import { getStoredSession, type StoredUser } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
 import { buildNewOrderRoute } from '../utils/new-order-route';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getRoleDisplayName } from '../utils/role-display';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 import { TASK_STATUS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
@@ -61,7 +62,7 @@ function readArrayPayload(value: unknown): any[] {
 }
 
 async function fetchJsonWithStatus(url: string, headers: Record<string, string>) {
-  const res = await fetch(url, { headers });
+  const res = await fetchWithTimeout(url, { headers });
   const text = await res.text();
   let data: unknown = null;
   if (text) {
@@ -248,6 +249,21 @@ export default function DashboardScreen() {
       const endpoint = (u.rola === 'Brygadzista' || u.rola === 'Pomocnik')
         ? `${API_URL}/tasks/moje` : `${API_URL}/tasks/wszystkie`;
       const shouldLoadStats = !isEstimatorRoleValue(u.rola);
+      const cached = await AsyncStorage.getItem(DASHBOARD_CACHE_KEY).catch(() => null);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as DashboardCache;
+          const cachedOrders = filterDashboardOrdersForUser(Array.isArray(parsed.zlecenia) ? parsed.zlecenia : [], u);
+          if (cachedOrders.length) {
+            setZlecenia(cachedOrders);
+            setStats(parsed.stats || {});
+            setLoading(false);
+            setLoadError(`${t('dashboard.error.partial')} Pokazuje ostatni zapis i odswiezam API w tle.`);
+          }
+        } catch {
+          // Uszkodzony cache ignorujemy i przechodzimy do normalnego odswiezania.
+        }
+      }
 
       const [zRes, sRes] = await Promise.all([
         fetchJsonWithStatus(endpoint, h),

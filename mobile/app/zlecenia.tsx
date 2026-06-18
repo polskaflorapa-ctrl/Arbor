@@ -28,11 +28,12 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { subscribeOfflineFlushDone, subscribeTaskSync } from '../utils/offline-queue-sync-events';
 import { getStoredSession, type StoredUser } from '../utils/session';
+import { fetchWithTimeout } from '../utils/api-client';
 import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
-import { formatTaskListCacheNotice, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
+import { formatTaskListCacheNotice, loadTaskListCache, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
 import { getOfflineQueueStatus, type OfflineQueueStatus } from '../utils/offline-queue';
 import { TASK_STATUS, TASK_STATUS_FILTERS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
@@ -802,13 +803,24 @@ export default function ZleceniaScreen() {
       const rola = parsedUser?.rola;
       const endpoint = isCrewRoleValue(rola)
         ? `${API_URL}/tasks/moje` : `${API_URL}/tasks/wszystkie`;
-      const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+      const warmCache = await loadTaskListCache({ endpoint, user: parsedUser }).catch(() => null);
+      if (warmCache) {
+        const cachedList = warmCache.tasks.filter((task) => isAssignedToEstimator(task, parsedUser));
+        if (cachedList.length) {
+          setZlecenia(cachedList);
+          setFiltered(cachedList);
+          setLoading(false);
+          setError(formatTaskListCacheNotice('Pokazuje ostatnie zlecenia z cache. Odświeżam API w tle', warmCache));
+        }
+      }
+      const res = await fetchWithTimeout(endpoint, { headers: { Authorization: `Bearer ${token}` } });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
         const list = (Array.isArray(d) ? d : []).filter((task) => isAssignedToEstimator(task, parsedUser));
         await saveTaskListCache({ endpoint, user: parsedUser, tasks: list }).catch(() => undefined);
         setZlecenia(list);
         setFiltered(list);
+        setError(null);
       } else {
         const cached = await loadTodayTaskListCache({ endpoint, user: parsedUser }).catch(() => null);
         if (cached) {

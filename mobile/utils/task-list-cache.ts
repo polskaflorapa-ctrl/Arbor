@@ -97,6 +97,17 @@ export async function saveTaskListCache(args: TaskListCacheArgs & { tasks: unkno
 }
 
 export async function loadTodayTaskListCache(args: TaskListCacheArgs): Promise<TaskListCacheHit | null> {
+  const cached = await loadTaskListCache(args);
+  if (!cached) return null;
+  const todayTasks = cached.tasks.filter(isTaskForToday);
+  if (!todayTasks.length) return null;
+  return {
+    ...cached,
+    tasks: todayTasks,
+  };
+}
+
+export async function loadTaskListCache(args: TaskListCacheArgs): Promise<TaskListCacheHit | null> {
   const raw = await AsyncStorage.getItem(cacheKey(args));
   if (!raw) return null;
   try {
@@ -106,10 +117,8 @@ export async function loadTodayTaskListCache(args: TaskListCacheArgs): Promise<T
     if (!Number.isFinite(savedAtMs)) return null;
     const ageMs = Date.now() - savedAtMs;
     if (ageMs > TASK_LIST_CACHE_TTL_MS) return null;
-    const todayTasks = parsed.tasks.filter(isTaskForToday);
-    if (!todayTasks.length) return null;
     return {
-      tasks: todayTasks,
+      tasks: parsed.tasks,
       savedAt: parsed.savedAt,
       stale: ageMs > TASK_LIST_CACHE_STALE_MS,
     };

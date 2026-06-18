@@ -293,6 +293,32 @@ async function testTaskListCacheReturnsOnlyToday() {
   assert.equal(api.formatTaskListCacheNotice('Cache', cached).startsWith('Cache z '), true);
 }
 
+async function testTaskListCacheCanReturnFullList() {
+  const { api } = createTaskCacheHarness();
+  const today = new Date();
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const endpoint = 'https://api.test/api/tasks/wszystkie';
+  const user = { id: 17, rola: 'Admin' };
+
+  await api.saveTaskListCache({
+    endpoint,
+    user,
+    tasks: [
+      { id: 1, data_planowana: today.toISOString() },
+      { id: 2, data_planowana: tomorrow.toISOString() },
+      { id: 3, data_planowana: null },
+    ],
+  });
+
+  const full = await api.loadTaskListCache({ endpoint, user });
+  const todayOnly = await api.loadTodayTaskListCache({ endpoint, user });
+
+  assert.ok(full);
+  assert.deepEqual(full.tasks.map((task) => task.id), [1, 2, 3]);
+  assert.ok(todayOnly);
+  assert.deepEqual(todayOnly.tasks.map((task) => task.id), [1]);
+}
+
 async function testTaskListCacheMarksStaleAndExpiresAfterTtl() {
   const { api, storage } = createTaskCacheHarness();
   const endpoint = 'https://api.test/api/tasks/moje';
@@ -560,6 +586,7 @@ async function run() {
     testFailuresBackoffAndRetryLater,
     testQueueStatusExposesRetryAndErrors,
     testTaskListCacheReturnsOnlyToday,
+    testTaskListCacheCanReturnFullList,
     testTaskListCacheMarksStaleAndExpiresAfterTtl,
     testTaskDetailCacheRoundTrip,
     testTaskDetailCachePreservesPendingOfflineFieldFlow,
