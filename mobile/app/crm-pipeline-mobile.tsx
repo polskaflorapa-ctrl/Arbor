@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   RefreshControl,
   ScrollView,
@@ -107,7 +106,18 @@ export default function CrmPipelineMobileScreen() {
   const [activityType, setActivityType] = useState<ActivityType>('note');
   const [activityBusy, setActivityBusy] = useState(false);
   const [pendingClose, setPendingClose] = useState<{ leadId: number; stage: CrmPipelineStage } | null>(null);
+  const [crmNotice, setCrmNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   const S = makeStyles(theme);
+
+  const showCrmNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setCrmNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!crmNotice) return;
+    const timer = setTimeout(() => setCrmNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [crmNotice]);
 
   const selectedLead = useMemo(
     () => leads.find((lead) => Number(lead.id) === Number(selectedLeadId)) || null,
@@ -138,11 +148,11 @@ export default function CrmPipelineMobileScreen() {
     } catch (err) {
       setActivities([]);
       const msg = err instanceof Error ? err.message : 'Blad aktywnosci';
-      Alert.alert('CRM', msg);
+      showCrmNotice(msg, 'warning');
     } finally {
       setLoadingActivities(false);
     }
-  }, [token]);
+  }, [showCrmNotice, token]);
 
   const loadData = useCallback(async (authToken?: string | null, branchId?: number | null) => {
     const tokenToUse = authToken ?? token;
@@ -171,12 +181,12 @@ export default function CrmPipelineMobileScreen() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad CRM';
-      Alert.alert('CRM', msg);
+      showCrmNotice(msg, 'warning');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, oddzialId, selectedLeadId, loadActivities]);
+  }, [showCrmNotice, token, oddzialId, selectedLeadId, loadActivities]);
 
   useEffect(() => {
     void (async () => {
@@ -196,11 +206,11 @@ export default function CrmPipelineMobileScreen() {
   const createLead = async () => {
     if (!token) return;
     if (!leadTitle.trim()) {
-      Alert.alert('CRM', 'Podaj tytul leada.');
+      showCrmNotice('Podaj tytul leada.', 'warning');
       return;
     }
     if (!oddzialId) {
-      Alert.alert('CRM', 'Brak oddzialu w sesji. Zaloguj sie ponownie.');
+      showCrmNotice('Brak oddzialu w sesji. Zaloguj sie ponownie.', 'warning');
       return;
     }
     setLeadBusy(true);
@@ -225,10 +235,10 @@ export default function CrmPipelineMobileScreen() {
       setLeadPhone('');
       setLeadValue('');
       await loadData();
-      Alert.alert('CRM', 'Lead zostal dodany.');
+      showCrmNotice('Lead zostal dodany.');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad tworzenia leada';
-      Alert.alert('CRM', msg);
+      showCrmNotice(msg, 'warning');
     } finally {
       setLeadBusy(false);
     }
@@ -266,7 +276,7 @@ export default function CrmPipelineMobileScreen() {
       await patchLeadStage(lead.id, nextStage);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad zmiany etapu';
-      Alert.alert('CRM', msg);
+      showCrmNotice(msg, 'warning');
     }
   };
 
@@ -277,14 +287,14 @@ export default function CrmPipelineMobileScreen() {
       setPendingClose(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad zamkniecia leada';
-      Alert.alert('CRM', msg);
+      showCrmNotice(msg, 'warning');
     }
   };
 
   const addActivity = async () => {
     if (!token || !selectedLead) return;
     if (!activityText.trim()) {
-      Alert.alert('CRM', 'Wpisz tresc aktywnosci.');
+      showCrmNotice('Wpisz tresc aktywnosci.', 'warning');
       return;
     }
     setActivityBusy(true);
@@ -304,7 +314,7 @@ export default function CrmPipelineMobileScreen() {
       await loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad aktywnosci';
-      Alert.alert('CRM', msg);
+      showCrmNotice(msg, 'warning');
     } finally {
       setActivityBusy(false);
     }
@@ -322,7 +332,7 @@ export default function CrmPipelineMobileScreen() {
       await loadActivities(selectedLead.id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad aktywnosci';
-      Alert.alert('CRM', msg);
+      showCrmNotice(msg, 'warning');
     }
   };
 
@@ -339,6 +349,31 @@ export default function CrmPipelineMobileScreen() {
     <View style={S.root}>
       <AppStatusBar />
       <ScreenHeader title="CRM Pipeline" />
+      {crmNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: crmNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: crmNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={crmNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={crmNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: crmNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {crmNotice.message}
+          </Text>
+        </View>
+      ) : null}
       <ScrollView
         style={S.scroll}
         refreshControl={(
@@ -565,6 +600,19 @@ const makeStyles = (t: Theme) =>
     root: { flex: 1, backgroundColor: t.bg },
     center: { flex: 1, backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' },
     scroll: { flex: 1, paddingHorizontal: 12 },
+    notice: {
+      marginHorizontal: 12,
+      marginTop: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    noticeText: { flex: 1, fontSize: 12, fontWeight: '800', lineHeight: 16 },
     kpiRow: { flexDirection: 'row', gap: 8, marginTop: 10, marginBottom: 10 },
     kpiCard: {
       flex: 1,
