@@ -79,6 +79,7 @@ type PlanKpi = { tasks: number; travelRisk: number; avgLoad: number; score: numb
 type AppliedChange = { taskId: string; prevTeamId: string; prevStatus: string };
 type DayKpi = { total: number; applies: number; rollbacks: number; ok: number; queued: number };
 type RiskLevel = 'high' | 'medium' | 'low';
+type OperationNoticeTone = 'success' | 'warning' | 'error';
 
 const REMINDER_PRESETS: ReminderTime[] = [
   { hour: 8, minute: 0 },
@@ -274,15 +275,15 @@ export default function AutoplanDniaScreen() {
   const [rulesDenyDraft, setRulesDenyDraft] = useState('');
   const [savingRules, setSavingRules] = useState(false);
   const [userRola, setUserRola] = useState('');
-  const [operationNotice, setOperationNotice] = useState('');
+  const [operationNotice, setOperationNotice] = useState<{ message: string; tone: OperationNoticeTone } | null>(null);
 
-  const showOperationNotice = useCallback((message: string) => {
-    setOperationNotice(message);
+  const showOperationNotice = useCallback((message: string, tone: OperationNoticeTone = 'success') => {
+    setOperationNotice({ message, tone });
   }, []);
 
   useEffect(() => {
     if (!operationNotice) return;
-    const timer = setTimeout(() => setOperationNotice(''), 6500);
+    const timer = setTimeout(() => setOperationNotice(null), 6500);
     return () => clearTimeout(timer);
   }, [operationNotice]);
 
@@ -397,7 +398,7 @@ export default function AutoplanDniaScreen() {
       ['Dyrektor', 'Administrator', 'Kierownik'].includes(rola) ||
       (getAppFlagSync('autoplanRelaxApplyRoles') && ['Brygadzista', 'Specjalista'].includes(rola));
     if (!okRola) {
-      Alert.alert(t('autoplan.applyTitle'), t('autoplan.roleGate'));
+      showOperationNotice(t('autoplan.roleGate'), 'warning');
       return;
     }
     const activeRows = scenarioMap[mode];
@@ -407,7 +408,7 @@ export default function AutoplanDniaScreen() {
         (r.suggestedTeamId !== r.currentTeamId || String(r.currentStatus || '').toLowerCase() !== 'zaplanowane'),
     );
     if (!actionable.length) {
-      Alert.alert(t('autoplan.applyTitle'), t('autoplan.applyNothing'));
+      showOperationNotice(t('autoplan.applyNothing'), 'warning');
       return;
     }
     Alert.alert(t('autoplan.applyTitle'), t('autoplan.applyConfirm', { count: actionable.length }), [
@@ -466,7 +467,7 @@ export default function AutoplanDniaScreen() {
 
   const rollbackLastApply = async () => {
     if (!lastApplied.length) {
-      Alert.alert(t('autoplan.rollbackTitle'), t('autoplan.rollbackNothing'));
+      showOperationNotice(t('autoplan.rollbackNothing'), 'warning');
       return;
     }
     const { token, user } = await getStoredSession();
@@ -476,7 +477,7 @@ export default function AutoplanDniaScreen() {
       ['Dyrektor', 'Administrator', 'Kierownik'].includes(rola) ||
       (getAppFlagSync('autoplanRelaxApplyRoles') && ['Brygadzista', 'Specjalista'].includes(rola));
     if (!okRola) {
-      Alert.alert(t('autoplan.rollbackTitle'), t('autoplan.roleGate'));
+      showOperationNotice(t('autoplan.roleGate'), 'warning');
       return;
     }
     Alert.alert(t('autoplan.rollbackTitle'), t('autoplan.rollbackConfirm', { count: lastApplied.length }), [
@@ -527,7 +528,7 @@ export default function AutoplanDniaScreen() {
 
   const exportHistoryCsv = async () => {
     if (!history.length) {
-      Alert.alert(t('autoplan.exportTitle'), t('autoplan.historyEmpty'));
+      showOperationNotice(t('autoplan.historyEmpty'), 'warning');
       return;
     }
     setExporting(true);
@@ -543,7 +544,7 @@ export default function AutoplanDniaScreen() {
       });
       showOperationNotice(t('autoplan.exportDone'));
     } catch {
-      Alert.alert(t('autoplan.exportTitle'), t('autoplan.exportFail'));
+      showOperationNotice(t('autoplan.exportFail'), 'error');
     } finally {
       setExporting(false);
     }
@@ -592,7 +593,7 @@ export default function AutoplanDniaScreen() {
 
   const exportDailyReport = async () => {
     if (!todayHistory.length) {
-      Alert.alert(t('autoplan.dailyTitle'), t('autoplan.dailyEmpty'));
+      showOperationNotice(t('autoplan.dailyEmpty'), 'warning');
       return;
     }
     setExportingDaily(true);
@@ -617,7 +618,7 @@ export default function AutoplanDniaScreen() {
       });
       showOperationNotice(t('autoplan.dailyDone'));
     } catch {
-      Alert.alert(t('autoplan.dailyTitle'), t('autoplan.dailyFail'));
+      showOperationNotice(t('autoplan.dailyFail'), 'error');
     } finally {
       setExportingDaily(false);
     }
@@ -625,7 +626,7 @@ export default function AutoplanDniaScreen() {
 
   const shareManagementBrief = async () => {
     if (!todayHistory.length) {
-      Alert.alert(t('autoplan.dailyTitle'), t('autoplan.dailyEmpty'));
+      showOperationNotice(t('autoplan.dailyEmpty'), 'warning');
       return;
     }
     setSharingMgmt(true);
@@ -649,7 +650,7 @@ export default function AutoplanDniaScreen() {
       });
       showOperationNotice(t('autoplan.mgmt.done'));
     } catch {
-      Alert.alert(t('autoplan.mgmt.title'), t('autoplan.mgmt.fail'));
+      showOperationNotice(t('autoplan.mgmt.fail'), 'error');
     } finally {
       setSharingMgmt(false);
     }
@@ -665,6 +666,17 @@ export default function AutoplanDniaScreen() {
     (best, current) => (modeKpi[current].score > modeKpi[best].score ? current : best),
     'balanced',
   );
+  const noticeColor = operationNotice?.tone === 'error'
+    ? theme.danger
+    : operationNotice?.tone === 'warning'
+      ? theme.warning
+      : theme.success;
+  const noticeBg = operationNotice?.tone === 'error'
+    ? theme.dangerBg
+    : operationNotice?.tone === 'warning'
+      ? theme.warningBg
+      : theme.successBg;
+  const noticeIcon = operationNotice?.tone === 'success' ? 'checkmark-circle-outline' : 'warning-outline';
   const changedCount = rows.filter(
     (r) =>
       r.suggestedTeamId &&
@@ -686,7 +698,7 @@ export default function AutoplanDniaScreen() {
       await scheduleAutoplanDailyReminder(next.hour, next.minute);
       showOperationNotice(t('autoplan.reminder.rescheduled', { time: formatClock(next.hour, next.minute) }));
     } catch {
-      Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.error'));
+      showOperationNotice(t('autoplan.reminder.error'), 'error');
     } finally {
       setReminderBusy(false);
     }
@@ -697,7 +709,7 @@ export default function AutoplanDniaScreen() {
     try {
       const perm = await Notifications.requestPermissionsAsync();
       if (perm.status !== 'granted') {
-        Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.permissionDenied'));
+        showOperationNotice(t('autoplan.reminder.permissionDenied'), 'warning');
         return;
       }
       await scheduleAutoplanDailyReminder();
@@ -706,7 +718,7 @@ export default function AutoplanDniaScreen() {
       setReminderEnabled(true);
       showOperationNotice(t('autoplan.reminder.enabled', { time: formatClock(rt.hour, rt.minute) }));
     } catch {
-      Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.error'));
+      showOperationNotice(t('autoplan.reminder.error'), 'error');
     } finally {
       setReminderBusy(false);
     }
@@ -719,7 +731,7 @@ export default function AutoplanDniaScreen() {
       setReminderEnabled(false);
       showOperationNotice(t('autoplan.reminder.disabled'));
     } catch {
-      Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.error'));
+      showOperationNotice(t('autoplan.reminder.error'), 'error');
     } finally {
       setReminderBusy(false);
     }
@@ -738,9 +750,9 @@ export default function AutoplanDniaScreen() {
       >
         <Text style={S.hint}>{t('autoplan.hint')}</Text>
         {operationNotice ? (
-          <View style={S.noticeBox}>
-            <Ionicons name="checkmark-circle-outline" size={16} color={theme.success} />
-            <Text style={S.noticeTxt}>{operationNotice}</Text>
+          <View style={[S.noticeBox, { backgroundColor: noticeBg, borderColor: noticeColor + '66' }]}>
+            <Ionicons name={noticeIcon} size={16} color={noticeColor} />
+            <Text style={[S.noticeTxt, { color: noticeColor }]}>{operationNotice.message}</Text>
           </View>
         ) : null}
         <View style={S.rulesBox}>
@@ -999,8 +1011,6 @@ function makeStyles(theme: Theme) {
       marginHorizontal: 16,
       marginBottom: 10,
       borderWidth: 1,
-      borderColor: theme.success,
-      backgroundColor: theme.successBg,
       borderRadius: 6,
       paddingHorizontal: 10,
       paddingVertical: 8,
@@ -1008,7 +1018,7 @@ function makeStyles(theme: Theme) {
       alignItems: 'center',
       gap: 8,
     },
-    noticeTxt: { flex: 1, color: theme.success, fontSize: 12, fontWeight: '800', lineHeight: 16 },
+    noticeTxt: { flex: 1, fontSize: 12, fontWeight: '800', lineHeight: 16 },
     rulesBox: {
       marginHorizontal: 16,
       marginBottom: 12,
