@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, PanResponder,
   ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions,
@@ -52,6 +52,8 @@ interface Stroke {
   width: number;
 }
 
+type DrawNoticeTone = 'success' | 'warning' | 'error';
+
 export default function WycenaRysujScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -73,14 +75,47 @@ export default function WycenaRysujScreen() {
   const [selectedKolor, setSelectedKolor] = useState('#EF4444');
   const [selectedGrubosc, setSelectedGrubosc] = useState(6);
   const [saving, setSaving] = useState(false);
+  const [drawNotice, setDrawNotice] = useState<{ message: string; tone: DrawNoticeTone } | null>(null);
 
   const viewShotRef = useRef<ViewShotRef | null>(null);
   const isDrawing = useRef(false);
   const currentPathRef = useRef('');
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canvasW = Math.max(280, Math.min(width, 720));
   const canvasH = Math.max(320, Math.min(Math.round(canvasW * 1.18), Math.round(height * 0.58)));
   const s = useMemo(() => makeDrawStyles(theme, canvasW, canvasH), [theme, canvasW, canvasH]);
+  const noticeColor = drawNotice?.tone === 'error'
+    ? theme.danger
+    : drawNotice?.tone === 'warning'
+      ? theme.warning
+      : theme.success;
+  const noticeBg = drawNotice?.tone === 'error'
+    ? theme.dangerBg
+    : drawNotice?.tone === 'warning'
+      ? theme.warningBg
+      : theme.successBg;
+  const noticeIcon = drawNotice?.tone === 'success' ? 'checkmark-circle-outline' : 'warning-outline';
+
+  const showDrawNotice = useCallback((message: string, tone: DrawNoticeTone = 'success') => {
+    setDrawNotice({ message, tone });
+  }, []);
+
+  const finishWithNotice = useCallback((message: string, tone: DrawNoticeTone, after: () => void) => {
+    showDrawNotice(message, tone);
+    if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+    finishTimerRef.current = setTimeout(after, 800);
+  }, [showDrawNotice]);
+
+  useEffect(() => {
+    if (!drawNotice) return;
+    const timer = setTimeout(() => setDrawNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [drawNotice]);
+
+  useEffect(() => () => {
+    if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+  }, []);
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -169,7 +204,7 @@ export default function WycenaRysujScreen() {
       // Zrób screenshot widoku z rysunkiem
       capturedUri = await viewShotRef.current.capture?.() || '';
       if (!capturedUri) {
-        Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.captureFail'));
+        showDrawNotice(t('draw.alert.captureFail'), 'error');
         return;
       }
 
@@ -189,9 +224,7 @@ export default function WycenaRysujScreen() {
 
         if (res.ok) {
           void triggerHaptic('success');
-          Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
-            { text: t('common.ok'), onPress: () => safeBack() },
-          ]);
+          finishWithNotice(t('draw.alert.addedBody'), 'success', () => safeBack());
         } else {
           void triggerHaptic('error');
           if (res.status === 404) {
@@ -204,7 +237,7 @@ export default function WycenaRysujScreen() {
               ]
             );
           } else {
-            Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+            showDrawNotice(t('draw.alert.serverFail'), 'error');
           }
         }
       } else if (taskId) {
@@ -225,9 +258,7 @@ export default function WycenaRysujScreen() {
 
         if (res.ok) {
           void triggerHaptic('success');
-          Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
-            { text: t('common.ok'), onPress: () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never) },
-          ]);
+          finishWithNotice(t('draw.alert.addedBody'), 'success', () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never));
         } else {
           if (res.status >= 500) {
             await queueTaskPhotoOffline({
@@ -239,13 +270,11 @@ export default function WycenaRysujScreen() {
               tagi: 'wycena,szkic,teren',
             });
             void triggerHaptic('warning');
-            Alert.alert('Zapisane offline', 'Szkic trafił do kolejki i wyśle się po powrocie internetu.', [
-              { text: t('common.ok'), onPress: () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never) },
-            ]);
+            finishWithNotice('Szkic trafił do kolejki i wyśle się po powrocie internetu.', 'warning', () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never));
             return;
           }
           void triggerHaptic('error');
-          Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+          showDrawNotice(t('draw.alert.serverFail'), 'error');
         }
       } else if (inspectionId) {
         const { token } = await getStoredSession();
@@ -265,19 +294,15 @@ export default function WycenaRysujScreen() {
 
         if (res.ok) {
           void triggerHaptic('success');
-          Alert.alert('Szkic zapisany', 'Rysunek zapisany do oględzin i będzie widoczny dla biura.', [
-            { text: t('common.ok'), onPress: () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never) },
-          ]);
+          finishWithNotice('Rysunek zapisany do oględzin i będzie widoczny dla biura.', 'success', () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never));
         } else if (res.status >= 500) {
           await queueInspectionSketchOffline(capturedUri);
           void triggerHaptic('warning');
-          Alert.alert('Zapisane offline', 'Szkic trafił do kolejki i wyśle się po powrocie internetu.', [
-            { text: t('common.ok'), onPress: () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never) },
-          ]);
+          finishWithNotice('Szkic trafił do kolejki i wyśle się po powrocie internetu.', 'warning', () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never));
           return;
         } else {
           void triggerHaptic('error');
-          Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+          showDrawNotice(t('draw.alert.serverFail'), 'error');
         }
       } else if (wycenaId) {
         // Wyślij na serwer jako nowe zdjęcie wyceny (stary moduł /wyceny)
@@ -294,19 +319,14 @@ export default function WycenaRysujScreen() {
 
         if (res.ok) {
           void triggerHaptic('success');
-          Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
-            { text: t('common.ok'), onPress: () => safeBack() },
-          ]);
+          finishWithNotice(t('draw.alert.addedBody'), 'success', () => safeBack());
         } else {
           void triggerHaptic('error');
-          Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+          showDrawNotice(t('draw.alert.serverFail'), 'error');
         }
       } else {
         void triggerHaptic('success');
-        // Zwróć URI do ekranu który otworzył rysowanie
-        Alert.alert(t('draw.alert.localTitle'), t('draw.alert.localBody'), [
-          { text: t('common.ok'), onPress: () => safeBack() },
-        ]);
+        finishWithNotice(t('draw.alert.localBody'), 'success', () => safeBack());
       }
     } catch {
       if (taskId && capturedUri) {
@@ -321,9 +341,7 @@ export default function WycenaRysujScreen() {
             tagi: 'wycena,szkic,teren',
           });
           void triggerHaptic('warning');
-          Alert.alert('Zapisane offline', 'Szkic trafił do kolejki i wyśle się po powrocie internetu.', [
-            { text: t('common.ok'), onPress: () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never) },
-          ]);
+          finishWithNotice('Szkic trafił do kolejki i wyśle się po powrocie internetu.', 'warning', () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never));
           return;
         } catch {
           // fallback to generic error below
@@ -333,16 +351,14 @@ export default function WycenaRysujScreen() {
         try {
           await queueInspectionSketchOffline(capturedUri);
           void triggerHaptic('warning');
-          Alert.alert('Zapisane offline', 'Szkic trafił do kolejki i wyśle się po powrocie internetu.', [
-            { text: t('common.ok'), onPress: () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never) },
-          ]);
+          finishWithNotice('Szkic trafił do kolejki i wyśle się po powrocie internetu.', 'warning', () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never));
           return;
         } catch {
           // fallback to generic error below
         }
       }
       void triggerHaptic('error');
-      Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.saveFail'));
+      showDrawNotice(t('draw.alert.saveFail'), 'error');
     } finally {
       setSaving(false);
     }
@@ -386,6 +402,12 @@ export default function WycenaRysujScreen() {
           style={s.saveBtn}
         />
       </View>
+      {drawNotice ? (
+        <View style={[s.notice, { backgroundColor: noticeBg, borderColor: noticeColor + '66' }]}>
+          <Ionicons name={noticeIcon} size={17} color={noticeColor} />
+          <Text style={[s.noticeText, { color: noticeColor }]}>{drawNotice.message}</Text>
+        </View>
+      ) : null}
 
       {/* Canvas - zdjęcie + rysowanie */}
       <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }} style={s.canvasWrap}>
@@ -544,6 +566,18 @@ function makeDrawStyles(t: Theme, canvasW: number, canvasH: number) {
     toolbarTitle: { color: t.headerText, fontSize: t.fontSection + 1, fontWeight: '700' },
     toolbarSub: { color: t.headerSub, fontSize: 11, marginTop: 2, fontVariant: ['tabular-nums'] },
     saveBtn: { minWidth: 96 },
+    notice: {
+      marginHorizontal: 12,
+      marginVertical: 8,
+      borderWidth: 1,
+      borderRadius: 7,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    noticeText: { flex: 1, fontSize: 12, fontWeight: '800', lineHeight: 16 },
 
     canvasWrap: {
       width: canvasW,
