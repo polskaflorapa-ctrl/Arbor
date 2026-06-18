@@ -77,6 +77,8 @@ type TeamDayPack = {
   day_preview: DayPreview | null;
 };
 
+type ReportNoticeTone = 'success' | 'warning' | 'error';
+
 const toDateKey = (date = new Date()) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -151,6 +153,7 @@ export default function RaportDzienny() {
   const [teamDayBusy, setTeamDayBusy] = useState(false);
   const [cashReviewed, setCashReviewed] = useState(false);
   const [issuesReviewed, setIssuesReviewed] = useState(false);
+  const [reportNotice, setReportNotice] = useState<{ message: string; tone: ReportNoticeTone } | null>(null);
 
   const dzisiaj = toDateKey();
 
@@ -160,6 +163,10 @@ export default function RaportDzienny() {
     zadania: [],
     materialy: [],
   });
+
+  const showReportNotice = useCallback((message: string, tone: ReportNoticeTone = 'success') => {
+    setReportNotice({ message, tone });
+  }, []);
 
   const fetchTeamDayReport = useCallback(async (storedToken: string, role: string) => {
     if (!canCloseTeamDayReport(role)) {
@@ -236,12 +243,12 @@ export default function RaportDzienny() {
         }));
       }
     } catch {
-      Alert.alert(t('wyceny.alert.saveFail'), t('dailyReport.alert.loadFail'));
+      showReportNotice(t('dailyReport.alert.loadFail'), 'error');
       setOfflineQueueCount(await getOfflineQueueSize());
     } finally {
       setLoading(false);
     }
-  }, [dzisiaj, fetchTeamDayReport, router, t]);
+  }, [dzisiaj, fetchTeamDayReport, router, showReportNotice, t]);
 
   useEffect(() => {
     void loadData();
@@ -253,6 +260,12 @@ export default function RaportDzienny() {
     });
     return unsubscribe;
   }, [loadData]);
+
+  useEffect(() => {
+    if (!reportNotice) return;
+    const timer = setTimeout(() => setReportNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [reportNotice]);
 
   const dodajMaterial = () => {
     setForm(f => ({
@@ -309,7 +322,7 @@ export default function RaportDzienny() {
       const data = await httpRes.json();
       setExistingReport({ id: data.id, status: 'Roboczy' });
       void triggerHaptic('success');
-      Alert.alert(t('dailyReport.alert.savedTitle'), t('dailyReport.alert.savedBody'));
+      showReportNotice(t('dailyReport.alert.savedBody'));
     } catch {
       const queued = await queueRequestWithOfflineFallback({
         url: apiUrl('/raporty-dzienne'),
@@ -318,7 +331,7 @@ export default function RaportDzienny() {
       });
       void triggerHaptic('warning');
       setOfflineQueueCount(queued);
-      Alert.alert(t('dailyReport.offlineTitle'), t('dailyReport.alert.offlineSave'));
+      showReportNotice(t('dailyReport.alert.offlineSave'), 'warning');
     } finally {
       setSaving(false);
     }
@@ -326,11 +339,11 @@ export default function RaportDzienny() {
 
   const wyslijRaport = async () => {
     if (!existingReport?.id) {
-      Alert.alert(t('dailyReport.alert.saveFirstTitle'), t('dailyReport.alert.saveFirstBody'));
+      showReportNotice(t('dailyReport.alert.saveFirstBody'), 'warning');
       return;
     }
     if (!podpisData) {
-      Alert.alert(t('dailyReport.alert.noSignatureTitle'), t('dailyReport.alert.noSignatureBody'));
+      showReportNotice(t('dailyReport.alert.noSignatureBody'), 'warning');
       return;
     }
 
@@ -352,7 +365,7 @@ export default function RaportDzienny() {
               });
               if (!wysRes.ok) throw new Error(`HTTP ${wysRes.status}`);
               void triggerHaptic('success');
-              Alert.alert(t('dailyReport.alert.sentTitle'), t('dailyReport.alert.sentBody'));
+              showReportNotice(t('dailyReport.alert.sentBody'));
               setExistingReport(r => (r ? { ...r, status: 'Wyslany' } : r));
             } catch {
               const queued = await queueRequestWithOfflineFallback({
@@ -362,7 +375,7 @@ export default function RaportDzienny() {
               });
               void triggerHaptic('warning');
               setOfflineQueueCount(queued);
-              Alert.alert(t('dailyReport.offlineTitle'), t('dailyReport.alert.offlineSend'));
+              showReportNotice(t('dailyReport.alert.offlineSend'), 'warning');
             } finally {
               setSending(false);
             }
@@ -388,16 +401,27 @@ export default function RaportDzienny() {
       }
       await fetchTeamDayReport(token, userRole);
       void triggerHaptic('success');
-      Alert.alert('Zamkniecie dnia', 'Raport ekipy zostal przeliczony.');
+      showReportNotice('Raport ekipy został przeliczony.');
     } catch (err: any) {
       void triggerHaptic('warning');
-      Alert.alert('Zamkniecie dnia', err?.apiError || 'Nie udalo sie przeliczyc raportu ekipy.');
+      showReportNotice(err?.apiError || 'Nie udało się przeliczyć raportu ekipy.', 'warning');
     } finally {
       setTeamDayBusy(false);
     }
   };
 
   const S = makeStyles(theme);
+  const reportNoticeColor = reportNotice?.tone === 'error'
+    ? theme.danger
+    : reportNotice?.tone === 'warning'
+      ? theme.warning
+      : theme.success;
+  const reportNoticeBg = reportNotice?.tone === 'error'
+    ? theme.dangerBg
+    : reportNotice?.tone === 'warning'
+      ? theme.warningBg
+      : theme.successBg;
+  const reportNoticeIcon = reportNotice?.tone === 'success' ? 'checkmark-circle-outline' : 'warning-outline';
   const totalMinutes = form.zadania.reduce((sum, row) => sum + (parseInt(row.czas_minuty) || 0), 0);
   const filledTasks = form.zadania.filter((row) => (parseInt(row.czas_minuty) || 0) > 0 || row.uwagi.trim()).length;
   const materialCount = form.materialy.filter((row) => row.nazwa.trim()).length;
@@ -491,6 +515,12 @@ export default function RaportDzienny() {
         warningBackgroundColor={theme.warningBg}
         borderColor={theme.border}
       />
+      {reportNotice ? (
+        <View style={[S.notice, { backgroundColor: reportNoticeBg, borderColor: reportNoticeColor + '66' }]}>
+          <Ionicons name={reportNoticeIcon} size={16} color={reportNoticeColor} />
+          <Text style={[S.noticeText, { color: reportNoticeColor }]}>{reportNotice.message}</Text>
+        </View>
+      ) : null}
       <View style={S.visualBand}>
         <FieldOpsHeroImage variant="work" size={96} />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -921,6 +951,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   statusText: { fontSize: 11, fontWeight: '900' },
+  notice: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 17, fontWeight: '800' },
   visualBand: {
     marginHorizontal: 12,
     marginBottom: 10,
