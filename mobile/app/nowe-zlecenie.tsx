@@ -970,7 +970,7 @@ export default function NoweZlecenieScreen() {
   const callClient = async () => {
     const phone = form.klient_telefon.replace(/[^\d+]/g, '');
     if (!phone) {
-      Alert.alert('Telefon', 'Najpierw wpisz numer klienta.');
+      setError('Najpierw wpisz numer klienta.');
       return;
     }
     try {
@@ -979,16 +979,19 @@ export default function NoweZlecenieScreen() {
       if (!canOpen) throw new Error('tel_unavailable');
       await Linking.openURL(url);
     } catch {
-      Alert.alert('Telefon', 'Nie udalo sie otworzyc telefonu.');
+      setError('Nie udało się otworzyć telefonu.');
     }
   };
 
   const openClientMap = async () => {
     if (!form.adres.trim() && !form.miasto.trim()) {
-      Alert.alert('Mapa', 'Najpierw wpisz adres albo miasto.');
+      setError('Najpierw wpisz adres albo miasto.');
       return;
     }
-    await openAddressInMaps(form.adres, form.miasto);
+    const result = await openAddressInMaps(form.adres, form.miasto);
+    if (!result.ok) {
+      setError(result.reason === 'missing-address' ? 'Najpierw wpisz adres albo miasto.' : 'Nie udało się otworzyć map.');
+    }
   };
 
   const applyFieldPreset = (preset: FieldPreset) => {
@@ -1028,7 +1031,7 @@ export default function NoweZlecenieScreen() {
       await new Promise((resolve) => setTimeout(resolve, 60));
       const capturedUri = await drawShotRef.current?.capture?.();
       if (!capturedUri) {
-        Alert.alert('Szkic', 'Nie udalo sie zapisac rysunku. Sprobuj jeszcze raz.');
+        setError('Nie udało się zapisać rysunku. Spróbuj jeszcze raz.');
         return;
       }
       const opis = drawPhoto.opis.includes('Szkic zakresu')
@@ -1051,7 +1054,7 @@ export default function NoweZlecenieScreen() {
       void triggerHaptic('success');
       closeDrawEditor();
     } catch {
-      Alert.alert('Szkic', 'Nie udalo sie zapisac rysunku. Sprobuj jeszcze raz.');
+      setError('Nie udało się zapisać rysunku. Spróbuj jeszcze raz.');
       setDrawSaving(false);
     }
   };
@@ -1111,7 +1114,7 @@ export default function NoweZlecenieScreen() {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (perm.status !== 'granted') {
           void triggerHaptic('warning');
-          Alert.alert('Aparat', 'Włącz dostęp do aparatu, żeby dodać zdjęcie z terenu.');
+          setError('Włącz dostęp do aparatu, żeby dodać zdjęcie z terenu.');
           return;
         }
         const picked = await ImagePicker.launchCameraAsync({
@@ -1128,7 +1131,7 @@ export default function NoweZlecenieScreen() {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (perm.status !== 'granted') {
         void triggerHaptic('warning');
-        Alert.alert('Galeria', 'Włącz dostęp do galerii, żeby dodać zdjęcia.');
+        setError('Włącz dostęp do galerii, żeby dodać zdjęcia.');
         return;
       }
       const picked = await ImagePicker.launchImageLibraryAsync({
@@ -1416,26 +1419,26 @@ export default function NoweZlecenieScreen() {
     const plannedValue = effectiveForm.wartosc_planowana || (fieldQuoteMode ? fieldQuote.acceptedPrice || fieldQuote.budget : '');
     const plannedTime = effectiveForm.czas_planowany_godziny || (fieldQuoteMode ? fieldQuote.time : '');
     if (!isTaskCreateFormValid(effectiveForm)) {
-      Alert.alert(t('notif.alert.errorTitle'), t('newOrder.alert.required'));
+      setError(t('newOrder.alert.required'));
       return;
     }
     if (effectiveForm.klient_telefon && !isValidPolishPhone(effectiveForm.klient_telefon)) {
-      Alert.alert(t('notif.alert.errorTitle'), t('newOrder.alert.badPhone'));
+      setError(t('newOrder.alert.badPhone'));
       return;
     }
     if (effectiveForm.data_planowana && !isValidIsoDate(effectiveForm.data_planowana)) {
-      Alert.alert(t('notif.alert.errorTitle'), t('newOrder.alert.badDate'));
+      setError(t('newOrder.alert.badDate'));
       return;
     }
     if (effectiveForm.godzina_rozpoczecia && !isValidTimeHHMM(effectiveForm.godzina_rozpoczecia)) {
-      Alert.alert(t('notif.alert.errorTitle'), t('newOrder.alert.badTime'));
+      setError(t('newOrder.alert.badTime'));
       return;
     }
     if (
       (plannedValue && !isPositiveNumber(plannedValue)) ||
       (plannedTime && !isPositiveNumber(plannedTime))
     ) {
-      Alert.alert(t('notif.alert.errorTitle'), t('newOrder.alert.badNumbers'));
+      setError(t('newOrder.alert.badNumbers'));
       return;
     }
     if (fieldQuoteMode && fieldPhotos.length === 0) {
