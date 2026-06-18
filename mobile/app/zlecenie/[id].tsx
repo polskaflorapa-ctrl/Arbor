@@ -1074,7 +1074,7 @@ export default function ZlecenieDetailScreen() {
         const coords = await pobierzLokalizacje();
         if (!coords) {
           void triggerHaptic('warning');
-          Alert.alert(t('notif.alert.errorTitle'), t('order.startGpsRequired'));
+          showActionNotice(t('order.startGpsRequired'), 'warning');
           return;
         }
         startBody = {
@@ -1116,7 +1116,7 @@ export default function ZlecenieDetailScreen() {
       } else {
         void triggerHaptic('warning');
         const msg = await res.text().catch(() => '');
-        Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
+        showActionNotice(msg.slice(0, 200) || `HTTP ${res.status}`, 'warning');
       }
     } catch {
       void triggerHaptic('warning');
@@ -1431,7 +1431,7 @@ export default function ZlecenieDetailScreen() {
         setOfflineQueueCount(queued);
         showActionNotice(t('order.offlineExtraWorkQueued'));
       } catch {
-        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+        showActionNotice(t('order.loadFail'), 'warning');
       }
     }
   };
@@ -1476,7 +1476,7 @@ export default function ZlecenieDetailScreen() {
         setOfflineQueueCount(queued);
         showActionNotice(t('order.offlineExtraQuoteQueued'));
       } catch {
-        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+        showActionNotice(t('order.loadFail'), 'warning');
       }
     }
   };
@@ -1515,7 +1515,7 @@ export default function ZlecenieDetailScreen() {
         setOfflineQueueCount(queued);
         showActionNotice(t('order.offlineExtraAcceptQueued'));
       } catch {
-        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+        showActionNotice(t('order.loadFail'), 'warning');
       }
     }
   };
@@ -1554,7 +1554,7 @@ export default function ZlecenieDetailScreen() {
         setOfflineQueueCount(queued);
         showActionNotice('Brak sieci — decyzja zostanie wysłana po synchronizacji.');
       } catch {
-        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+        showActionNotice(t('order.loadFail'), 'warning');
       }
     }
   };
