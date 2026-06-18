@@ -14,6 +14,11 @@ const { companySettingsWriteSchema } = require('../schemas/company-settings');
 const router = express.Router();
 const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 
+function invoiceIdScope(user, alias = 'i', startParam = 1) {
+  if (isDyrektor(user)) return { clause: `${alias}.id=$${startParam}`, params: [] };
+  return { clause: `${alias}.id=$${startParam} AND ${alias}.oddzial_id=$${startParam + 1}`, params: [user.oddzial_id] };
+}
+
 const fakturyListQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),
   status: z.string().max(50).optional(),
@@ -40,13 +45,26 @@ router.put('/ustawienia', authMiddleware, requireNieBrygadzista, validateBody(co
   } catch (err) { logger.error('Blad ksiegowosc /ustawienia PUT', { message: err.message, requestId: req.requestId }); res.status(500).json({ error: req.t('errors.http.serverError') }); }
 });
 
-const getNumerFaktury = async (oddzial_id) => {
-  const rok = new Date().getFullYear();
-  const result = await pool.query(
-    `SELECT COUNT(*) as cnt FROM invoices WHERE EXTRACT(YEAR FROM data_wystawienia)=$1 AND oddzial_id=$2`,
+function invoiceYearFromDate(value) {
+  const date = value ? new Date(value) : new Date();
+  return Number.isFinite(date.getTime()) ? date.getFullYear() : new Date().getFullYear();
+}
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const getNumerFaktury = async (client, oddzial_id, data_wystawienia) => {
+  const rok = invoiceYearFromDate(data_wystawienia);
+  await client.query('SELECT pg_advisory_xact_lock($1, $2)', [rok, Number(oddzial_id)]);
+  const result = await client.query(
+    `SELECT COUNT(*) as cnt
+     FROM invoices
+     WHERE EXTRACT(YEAR FROM COALESCE(data_wystawienia, created_at))=$1
+       AND oddzial_id=$2`,
     [rok, oddzial_id]
   );
-  const nr = parseInt(result.rows[0].cnt) + 1;
+  const nr = parseInt(result.rows[0].cnt, 10) + 1;
   return `FV/${rok}/${String(nr).padStart(3,'0')}`;
 };
 
@@ -98,10 +116,11 @@ router.get('/faktury/stats', authMiddleware, requireNieBrygadzista, async (req, 
 
 router.get('/faktury/:id', authMiddleware, requireNieBrygadzista, validateParams(invoiceIdParamsSchema), async (req, res) => {
   try {
+    const scope = invoiceIdScope(req.user, 'i');
     const result = await pool.query(
       `SELECT i.*, b.nazwa as oddzial_nazwa, u.imie||' '||u.nazwisko as wystawil_nazwa
        FROM invoices i LEFT JOIN branches b ON i.oddzial_id=b.id LEFT JOIN users u ON i.wystawil_id=u.id
-       WHERE i.id=$1`, [req.params.id]);
+       WHERE ${scope.clause}`, [req.params.id, ...scope.params]);
     if (!result.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
     const pozycje = await pool.query('SELECT * FROM invoice_items WHERE invoice_id=$1 ORDER BY id', [req.params.id]);
     res.json({ ...result.rows[0], pozycje: pozycje.rows });
@@ -115,7 +134,13 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
     const { task_id, klient_nazwa, klient_nip, klient_adres, klient_email, klient_typ,
       data_wystawienia, data_sprzedazy, termin_platnosci, forma_platnosci, uwagi, pozycje, oddzial_id: bodyOddzial } = req.body;
     const oddzial_id = isDyrektor(req.user) ? (bodyOddzial || req.user.oddzial_id) : req.user.oddzial_id;
-    const numer = await getNumerFaktury(oddzial_id);
+    if (!oddzial_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Oddzial jest wymagany do wystawienia faktury.' });
+    }
+    const issueDate = data_wystawienia || todayIsoDate();
+    const saleDate = data_sprzedazy || issueDate;
+    const numer = await getNumerFaktury(client, oddzial_id, issueDate);
     let netto=0, vat_kwota=0, brutto=0;
     for (const p of pozycje) {
       const wNetto = parseFloat(p.ilosc)*parseFloat(p.cena_netto);
@@ -127,7 +152,7 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
       `INSERT INTO invoices (numer,task_id,oddzial_id,wystawil_id,klient_nazwa,klient_nip,klient_adres,klient_email,klient_typ,data_wystawienia,data_sprzedazy,termin_platnosci,forma_platnosci,uwagi,netto,vat_stawka,vat_kwota,brutto)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
       [numer,task_id||null,oddzial_id,req.user.id,klient_nazwa,klient_nip||null,klient_adres,klient_email||null,klient_typ||'firma',
-       data_wystawienia,data_sprzedazy,termin_platnosci||null,forma_platnosci||'przelew',uwagi||null,
+       issueDate,saleDate,termin_platnosci||null,forma_platnosci||'przelew',uwagi||null,
        netto.toFixed(2),vat_stawka,vat_kwota.toFixed(2),brutto.toFixed(2)]
     );
     const invoiceId = invResult.rows[0].id;
@@ -150,7 +175,12 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
 
 router.put('/faktury/:id/status', authMiddleware, requireNieBrygadzista, validateParams(invoiceIdParamsSchema), validateBody(invoiceStatusBodySchema), async (req, res) => {
   try {
-    await pool.query('UPDATE invoices SET status=$1 WHERE id=$2', [req.body.status, req.params.id]);
+    const scope = invoiceIdScope(req.user, 'invoices', 2);
+    const result = await pool.query(
+      `UPDATE invoices SET status=$1 WHERE ${scope.clause}`,
+      [req.body.status, req.params.id, ...scope.params]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: req.t('errors.generic.notFound') });
     res.json({ message: 'Status zmieniony' });
   } catch (err) { logger.error('Blad ksiegowosc /faktury/:id/status PUT', { message: err.message, requestId: req.requestId }); res.status(500).json({ error: req.t('errors.http.serverError') }); }
 });

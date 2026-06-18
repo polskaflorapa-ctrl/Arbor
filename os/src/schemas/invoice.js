@@ -13,8 +13,8 @@ const invoiceItemSchema = z.object({
   nazwa: z.string().trim().min(1, 'Nazwa pozycji jest wymagana'),
   jednostka: z.string().max(20).optional(),
   ilosc: z.coerce.number().positive(),
-  cena_netto: z.coerce.number(),
-  vat_stawka: z.coerce.number(),
+  cena_netto: z.coerce.number().nonnegative('Cena netto nie moze byc ujemna'),
+  vat_stawka: z.coerce.number().min(0, 'Stawka VAT nie moze byc ujemna').max(100, 'Stawka VAT nie moze przekraczac 100%'),
 });
 
 const invoiceCreateBodySchema = z.object({
