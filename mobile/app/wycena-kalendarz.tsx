@@ -5,7 +5,6 @@ import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   RefreshControl,
   ScrollView,
@@ -101,6 +100,19 @@ function makeCalendarStyles(t: Theme) {
       gap: 8,
     },
     errorBarText: { color: t.warning, fontSize: 12, fontWeight: '700', flex: 1 },
+    notice: {
+      marginHorizontal: 12,
+      marginTop: 8,
+      marginBottom: 2,
+      borderWidth: 1,
+      borderRadius: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    noticeText: { fontSize: 12, fontWeight: '800', lineHeight: 16, flex: 1 },
 
     monthNav: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -331,6 +343,18 @@ export default function WycenaKalendarzScreen() {
   const [slotLoading, setSlotLoading] = useState(false);
   const [etaThreshold, setEtaThreshold] = useState(25);
   const [liveByTeam, setLiveByTeam] = useState<Record<string, any>>({});
+  const [calendarNotice, setCalendarNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
+
+  const showCalendarNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setCalendarNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!calendarNotice) return;
+    const timer = setTimeout(() => setCalendarNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [calendarNotice]);
+
   function formatDate(d: Date) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -486,7 +510,7 @@ export default function WycenaKalendarzScreen() {
   const saveReservation = async () => {
     if (!reserveModal || !token) return;
     if (!reserveDraft.ekipa_id || !reserveDraft.data || !reserveDraft.godzina) {
-      Alert.alert('Brak danych', 'Wybierz ekipę, datę i godzinę.');
+      showCalendarNotice('Wybierz ekipę, datę i godzinę.', 'warning');
       return;
     }
     setSaving(true);
@@ -503,18 +527,18 @@ export default function WycenaKalendarzScreen() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         void triggerHaptic('error');
-        Alert.alert('Błąd', err.error || 'Nie udało się zapisać rezerwacji.');
+        showCalendarNotice(err.error || 'Nie udało się zapisać rezerwacji.', 'warning');
         return;
       }
       void triggerHaptic('success');
-      Alert.alert('Gotowe', 'Termin zarezerwowany wstępnie. Czeka na akceptację specjalisty.');
+      showCalendarNotice('Termin zarezerwowany wstępnie. Czeka na akceptację specjalisty.');
       setReserveModal(null);
       setReserveDiag(null);
       setReserveRuleWarning('');
       loadAll();
     } catch {
       void triggerHaptic('error');
-      Alert.alert('Błąd', 'Błąd sieci podczas zapisu rezerwacji.');
+      showCalendarNotice('Błąd sieci podczas zapisu rezerwacji.', 'warning');
       setRuntimeError('Błąd serwera przy zapisie rezerwacji.');
     } finally {
       setSaving(false);
@@ -580,6 +604,32 @@ export default function WycenaKalendarzScreen() {
           </TouchableOpacity>
         ) : null}
       />
+      {calendarNotice ? (
+        <View
+          style={[
+            s.notice,
+            {
+              backgroundColor: calendarNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: calendarNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <PlatinumIconBadge
+            icon={calendarNotice.tone === 'warning' ? 'warning-outline' : 'checkmark-circle-outline'}
+            color={calendarNotice.tone === 'warning' ? theme.warning : theme.success}
+            size={10}
+            style={s.platinumBarIcon}
+          />
+          <Text
+            style={[
+              s.noticeText,
+              { color: calendarNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {calendarNotice.message}
+          </Text>
+        </View>
+      ) : null}
       {runtimeError ? (
         <View style={s.errorBar}>
           <PlatinumIconBadge icon="warning-outline" color={theme.warning} size={10} style={s.platinumBarIcon} />
