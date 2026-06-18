@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
   RefreshControl,
@@ -97,6 +96,7 @@ export default function KlienciMobileScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [clientNotice, setClientNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   const S = makeStyles(theme);
   const totalOrders = useMemo(() => list.reduce((sum, row) => sum + Number(row.liczba_zlecen || 0), 0), [list]);
   const totalInspections = useMemo(() => list.reduce((sum, row) => sum + Number(row.liczba_ogledzen || 0), 0), [list]);
@@ -106,6 +106,16 @@ export default function KlienciMobileScreen() {
     const fullName = `${detail.imie || ''} ${detail.nazwisko || ''}`.trim();
     return detail.firma?.trim() || fullName || `Klient #${detail.id}`;
   }, [detail]);
+
+  const showClientNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setClientNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!clientNotice) return;
+    const timer = setTimeout(() => setClientNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [clientNotice]);
 
   const loadDetail = useCallback(async (id: number, authToken: string | null) => {
       if (!authToken) return;
@@ -123,11 +133,11 @@ export default function KlienciMobileScreen() {
         setDetail((data || null) as ClientDetail | null);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Blad odczytu klienta.';
-        Alert.alert('Klienci', msg);
+        showClientNotice(msg, 'warning');
       } finally {
         setDetailLoading(false);
       }
-    }, []);
+    }, [showClientNotice]);
 
   const loadList = useCallback(
     async (opts: {
@@ -172,13 +182,13 @@ export default function KlienciMobileScreen() {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Blad pobierania listy klientow.';
-        Alert.alert('Klienci', msg);
+        showClientNotice(msg, 'warning');
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [loadDetail],
+    [loadDetail, showClientNotice],
   );
 
   useEffect(() => {
@@ -239,7 +249,7 @@ export default function KlienciMobileScreen() {
   const saveClient = async () => {
     if (!token) return;
     if (!form.telefon.trim() && !form.email.trim()) {
-      Alert.alert('Klienci', 'Podaj telefon lub email klienta.');
+      showClientNotice('Podaj telefon lub email klienta.', 'warning');
       return;
     }
     setSaving(true);
@@ -284,7 +294,7 @@ export default function KlienciMobileScreen() {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad zapisu klienta.';
-      Alert.alert('Klienci', msg);
+      showClientNotice(msg, 'warning');
     } finally {
       setSaving(false);
     }
@@ -295,7 +305,7 @@ export default function KlienciMobileScreen() {
     const tel = `tel:${phone}`;
     const can = await Linking.canOpenURL(tel);
     if (!can) {
-      Alert.alert('Telefon', 'To urzadzenie nie obsluguje wykonywania polaczen.');
+      showClientNotice('To urzadzenie nie obsluguje wykonywania polaczen.', 'warning');
       return;
     }
     await Linking.openURL(tel);
@@ -322,6 +332,31 @@ export default function KlienciMobileScreen() {
         )}
         edgeSlotWidth={48}
       />
+      {clientNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: clientNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: clientNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={clientNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={clientNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: clientNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {clientNotice.message}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={S.searchWrap}>
         <Ionicons name="search-outline" size={17} color={theme.textMuted} />
@@ -525,6 +560,18 @@ const makeStyles = (t: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
+    notice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginHorizontal: 12,
+      marginTop: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    noticeText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
     searchWrap: {
       marginHorizontal: 12,
       marginTop: 10,
