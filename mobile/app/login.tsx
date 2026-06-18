@@ -18,7 +18,7 @@ import type { Theme } from '../constants/theme';
 import { triggerHaptic } from '../utils/haptics';
 import { saveStoredSession } from '../utils/session';
 import { tryRegisterPushTokenAfterAuth } from '../utils/expo-push-backend';
-import { apiUrl } from '../utils/api-client';
+import { apiUrl, fetchWithTimeout } from '../utils/api-client';
 
 const LAST_LOGIN_KEY = 'last_login_value';
 const REMEMBER_LOGIN_KEY = 'remember_login_enabled';
@@ -54,15 +54,11 @@ export default function Login() {
   const canSubmit = Boolean(login.trim()) && Boolean(haslo) && !loading && !isLocked;
 
   const probeStatus = useCallback(async (path: string): Promise<number | null> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), SERVER_PROBE_TIMEOUT_MS);
     try {
-      const response = await fetch(apiUrl(path), { signal: controller.signal });
+      const response = await fetchWithTimeout(apiUrl(path), {}, SERVER_PROBE_TIMEOUT_MS);
       return response.status;
     } catch {
       return null;
-    } finally {
-      clearTimeout(timeoutId);
     }
   }, []);
 
@@ -129,14 +125,11 @@ export default function Login() {
   }, [isLocked, lockUntil]);
 
   const postLogin = useCallback(async () => {
-    const loginController = new AbortController();
-    const loginTimeout = setTimeout(() => loginController.abort(), LOGIN_TIMEOUT_MS);
-    return fetch(apiUrl('/auth/login'), {
+    return fetchWithTimeout(apiUrl('/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ login: login.trim(), haslo }),
-      signal: loginController.signal,
-    }).finally(() => clearTimeout(loginTimeout));
+    }, LOGIN_TIMEOUT_MS);
   }, [haslo, login]);
 
   const handleLogin = async () => {
