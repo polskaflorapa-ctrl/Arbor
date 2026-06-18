@@ -1577,24 +1577,16 @@ export default function NoweZlecenieScreen() {
         }
         if (fieldPhotos.length || (afterCreate === 'photos' && createdId)) {
           if (afterCreate === 'photos' && createdId) {
-            Alert.alert('Draft zapisany', `Dokumentacja terenowa jest podpieta do zlecenia.${photoLine}${inspectionLine}`, [
-              { text: t('common.ok'), onPress: () => router.replace(`/zlecenie/${createdId}?tab=zdjecia` as never) },
-            ]);
+            router.replace(`/zlecenie/${createdId}?tab=zdjecia` as never);
           } else {
-            Alert.alert(t('newOrder.alert.createdTitle'), `${t('newOrder.alert.createdBody', { id: createdId || data.id })}${photoLine}${inspectionLine}`, [
-              { text: t('common.ok'), onPress: () => safeBack() }
-            ]);
+            safeBack();
           }
           return;
         }
         if (afterCreate === 'photos' && createdId) {
-          Alert.alert('Draft zapisany', `Teraz dodaj zdjęcia i szkic zakresu dla biura i ekipy.${inspectionLine}`, [
-            { text: t('common.ok'), onPress: () => router.replace(`/zlecenie/${createdId}?tab=zdjecia` as never) },
-          ]);
+          router.replace(`/zlecenie/${createdId}?tab=zdjecia` as never);
         } else {
-          Alert.alert(t('newOrder.alert.createdTitle'), `${t('newOrder.alert.createdBody', { id: createdId || data.id })}${inspectionLine}`, [
-            { text: t('common.ok'), onPress: () => safeBack() }
-          ]);
+          safeBack();
         }
       } else {
         if (data?.code === 'TASK_PLAN_CONFLICT') {
@@ -1631,7 +1623,7 @@ export default function NoweZlecenieScreen() {
           return;
         }
         void triggerHaptic('error');
-        Alert.alert(t('notif.alert.errorTitle'), data.error || t('newOrder.alert.saveError'));
+        setError(data.error || t('newOrder.alert.saveError'));
       }
     } catch {
       await enqueueOfflineRequest({
