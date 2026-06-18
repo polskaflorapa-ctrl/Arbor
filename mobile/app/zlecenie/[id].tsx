@@ -200,7 +200,7 @@ export default function ZlecenieDetailScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [cacheNotice, setCacheNotice] = useState('');
-  const [actionNotice, setActionNotice] = useState('');
+  const [actionNotice, setActionNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   const [cmrLista, setCmrLista] = useState<any[]>([]);
   /** Minimalna liczba zdjęć na typ przy wymogu finish — zgodnie z `FINISH_PHOTO_MIN` w os/taskSettlement.js */
   const MIN_FINISH_TYP_PHOTOS = 2;
@@ -826,13 +826,13 @@ export default function ZlecenieDetailScreen() {
     return TASK_STATUSES.includes(s as any) ? t(`zlecenia.status.${s}`) : (s || '').replace(/_/g, ' ');
   };
 
-  const showActionNotice = useCallback((message: string) => {
-    setActionNotice(message);
+  const showActionNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setActionNotice({ message, tone });
   }, []);
 
   useEffect(() => {
     if (!actionNotice) return;
-    const timer = setTimeout(() => setActionNotice(''), 6500);
+    const timer = setTimeout(() => setActionNotice(null), 6500);
     return () => clearTimeout(timer);
   }, [actionNotice]);
 
@@ -921,7 +921,7 @@ export default function ZlecenieDetailScreen() {
     const scope = fieldScopeDraft.trim();
     if (!scope) {
       void triggerHaptic('warning');
-      Alert.alert('Zakres prac', 'Wpisz krótki, konkretny zakres prac dla biura i ekipy.');
+      showActionNotice('Wpisz krótki, konkretny zakres prac dla biura i ekipy.', 'warning');
       return;
     }
     if (sendToOffice) {
@@ -936,7 +936,7 @@ export default function ZlecenieDetailScreen() {
       if (!fieldClientAccepted) missing.push('akceptacja klienta');
       if (missing.length) {
         void triggerHaptic('warning');
-        Alert.alert('Jeszcze nie do biura', `Uzupełnij: ${missing.join(', ')}.`);
+        showActionNotice(`Jeszcze nie do biura. Uzupełnij: ${missing.join(', ')}.`, 'warning');
         return;
       }
     }
@@ -4113,9 +4113,28 @@ export default function ZlecenieDetailScreen() {
         </View>
       ) : null}
       {actionNotice ? (
-        <View style={[S.cacheNotice, { backgroundColor: theme.successBg, borderColor: theme.success }]}>
-          <Ionicons name="checkmark-circle-outline" size={15} color={theme.success} />
-          <Text style={[S.cacheNoticeText, { color: theme.success }]}>{actionNotice}</Text>
+        <View
+          style={[
+            S.cacheNotice,
+            {
+              backgroundColor: actionNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: actionNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={actionNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={15}
+            color={actionNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.cacheNoticeText,
+              { color: actionNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {actionNotice.message}
+          </Text>
         </View>
       ) : null}
 
