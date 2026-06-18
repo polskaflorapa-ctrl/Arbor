@@ -1,5 +1,7 @@
-import { defineConfig, loadEnv, transformWithEsbuild } from 'vite';
+import { defineConfig, loadEnv, transformWithOxc } from 'vite';
 import react from '@vitejs/plugin-react';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { execSync } from 'node:child_process';
 
 function numberEnv(value, fallback) {
   const parsed = Number(value);
@@ -13,15 +15,40 @@ function legacyDefine(env, key, viteKey = key.replace(/^REACT_APP_/, 'VITE_')) {
   };
 }
 
+function resolveBuildVersion(env) {
+  const runtimeEnv = process.env || {};
+  const explicit = runtimeEnv.VITE_APP_VERSION || runtimeEnv.REACT_APP_VERSION || env.VITE_APP_VERSION || env.REACT_APP_VERSION;
+  if (explicit) return explicit;
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return 'local-dev';
+  }
+}
+
+function buildMetadataPlugin(env) {
+  const appVersion = resolveBuildVersion(env);
+  const apiUrl = process.env.VITE_API_URL || env.VITE_API_URL || process.env.REACT_APP_API_URL || env.REACT_APP_API_URL || '';
+  return {
+    name: 'arbor-build-metadata',
+    transformIndexHtml(html) {
+      const tags = [
+        `    <meta name="arbor-web-build" content="${appVersion}" />`,
+        `    <meta name="arbor-web-api" content="${apiUrl}" />`,
+      ].join('\n');
+      return html.replace('    <title>Polska Flora</title>', `${tags}\n    <title>Polska Flora</title>`);
+    },
+  };
+}
+
 function jsxInJsPlugin() {
   return {
     name: 'arbor-jsx-in-js',
     enforce: 'pre',
     transform(code, id) {
       if (!/src[\\/].*\.js(?:\?.*)?$/.test(id)) return null;
-      return transformWithEsbuild(code, id, {
-        loader: 'jsx',
-        jsx: 'automatic',
+      return transformWithOxc(code, id, {
+        lang: 'jsx',
       });
     },
   };
@@ -36,20 +63,18 @@ export default defineConfig(({ mode }) => {
     'http://localhost:3000';
 
   return {
-    plugins: [jsxInJsPlugin(), react({ include: /\.(js|jsx|ts|tsx)$/ })],
+    plugins: [
+      jsxInJsPlugin(),
+      buildMetadataPlugin(env),
+      react({ include: /\.(js|jsx|ts|tsx)$/ }),
+      sentryVitePlugin({
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+        telemetry: false,
+      }),
+    ],
     publicDir: 'public',
-    esbuild: {
-      loader: 'jsx',
-      include: /src[\\/].*\.js$/,
-      exclude: [],
-    },
-    optimizeDeps: {
-      esbuildOptions: {
-        loader: {
-          '.js': 'jsx',
-        },
-      },
-    },
     build: {
       outDir: 'build',
       assetsDir: 'static/assets',

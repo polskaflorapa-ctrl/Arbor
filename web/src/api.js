@@ -1061,7 +1061,7 @@ function getTestModeMockResponse(config) {
           counts: riskCounts,
           items: riskItems,
           text: [
-            `Raport ryzyk dnia ARBOR - ${date}`,
+            `Raport ryzyk dnia Polska Flora - ${date}`,
             `Ryzyka: ${riskCounts.total}, krytyczne: ${riskCounts.critical}, ostrzezenia: ${riskCounts.warning}.`,
             ...riskItems.map((item, index) => `${index + 1}. [${item.severity.toUpperCase()}] ${item.title}`),
           ].join('\n'),
@@ -1840,6 +1840,10 @@ function getTestModeMockResponse(config) {
       risk_resend_sms: 'Ponowienie SMS ryzyka',
       risk_queue_call: 'Telefon Zadarma z ryzyka',
       risk_acknowledge: 'Potwierdzenie ryzyka',
+      risk_owner_resolve: 'Rozwiazanie alertu ownera',
+      risk_owner_escalate: 'Eskalacja ownera ryzyka',
+      risk_owner_auto_remediate: 'Auto-remediacja ownera',
+      risk_owner_remediation_blocked: 'Blokada auto-remediacji ownera',
       risk_reassign_team: 'Przepiecie ekipy z ryzyka',
       risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
     };
@@ -1870,11 +1874,13 @@ function getTestModeMockResponse(config) {
         ? 'Ekipa przepieta'
         : event.action_type === 'risk_replace_equipment'
           ? 'Sprzet przepiety'
-          : event.action_type === 'risk_resend_sms'
-            ? 'SMS wyslany'
-            : event.action_type === 'risk_queue_call'
-              ? 'Telefon Zadarma'
-              : event.note || '',
+          : event.action_type === 'risk_owner_resolve'
+            ? 'Alert rozwiazany'
+            : event.action_type === 'risk_resend_sms'
+              ? 'SMS wyslany'
+              : event.action_type === 'risk_queue_call'
+                ? 'Telefon Zadarma'
+                : event.note || '',
       actor_name: event.actor_name || 'Demo Kierownik',
       action_path: event.task_id ? `/zlecenia/${event.task_id}` : '/kierownik',
     }));
@@ -2056,6 +2062,7 @@ function getTestModeMockResponse(config) {
     const zadarma = events.filter((event) => ['risk_resend_sms', 'risk_queue_call'].includes(event.action_type)).length;
     const kommoOwnerAcks = events.filter((event) => event.action_type === 'risk_acknowledge' && (event.risk_type || event.issue_key) === 'kommo_sync').length;
     const smsOwnerAcks = events.filter((event) => event.action_type === 'risk_acknowledge' && (event.risk_type || event.issue_key) === 'sms_delivery').length;
+    const ownerResolutions = events.filter((event) => event.action_type === 'risk_owner_resolve').length;
     return {
       data: {
         date,
@@ -2081,6 +2088,7 @@ function getTestModeMockResponse(config) {
           owner_acknowledgements: kommoOwnerAcks + smsOwnerAcks,
           kommo_owner_acknowledgements: kommoOwnerAcks,
           sms_owner_acknowledgements: smsOwnerAcks,
+          owner_resolutions: ownerResolutions,
           owner_unresolved_after_remediation: 0,
           owner_unresolved_p1: 0,
           owner_unresolved_p2: 0,
@@ -2389,12 +2397,13 @@ function getTestModeMockResponse(config) {
       ? body.items
       : (Array.isArray(body.alerts) ? body.alerts : []);
     const isEscalation = body.action === 'escalate' || body.action === 'bulk_escalate';
+    const isResolve = body.action === 'mark_resolved' || body.action === 'bulk_resolve';
     const saved = items.map((item) => {
       const task = item.task_id ? getMockTaskDetail(item.task_id) : null;
       return addMockOpsEvent({
         task_id: item.task_id || null,
         oddzial_id: task?.oddzial_id || null,
-        action_type: isEscalation ? 'risk_owner_escalate' : 'risk_acknowledge',
+        action_type: isEscalation ? 'risk_owner_escalate' : (isResolve ? 'risk_owner_resolve' : 'risk_acknowledge'),
         issue_key: item.risk_type || item.type || 'risk_report',
         risk_type: item.risk_type || item.type || 'risk_report',
         risk_id: item.risk_id,
@@ -2405,9 +2414,9 @@ function getTestModeMockResponse(config) {
     });
     return {
       data: {
-        message: isEscalation ? 'Alerty ownerow eskalowane' : 'Alerty ownerow potwierdzone',
+        message: isEscalation ? 'Alerty ownerow eskalowane' : (isResolve ? 'Alerty ownerow oznaczone jako rozwiazane' : 'Alerty ownerow potwierdzone'),
         action: body.action,
-        normalized_action: isEscalation ? 'bulk_escalate' : 'bulk_acknowledge',
+        normalized_action: isEscalation ? 'bulk_escalate' : (isResolve ? 'bulk_resolve' : 'bulk_acknowledge'),
         requested: items.length,
         processed: saved.length,
         saved: saved.length,

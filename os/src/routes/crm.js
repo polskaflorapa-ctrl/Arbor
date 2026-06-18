@@ -11,7 +11,6 @@ const { createTemplate, listTemplates, renderTemplateById } = require('../servic
 const { createNpsSurvey, getNpsSummary, listNpsSurveys } = require('../services/crmNps');
 const { getMessageProviderStatus, processMessageQueue } = require('../services/crmMessageQueue');
 const { ensureCrmLeadMessagesTable } = require('../services/crmInbox');
-const { ensurePhoneCallsTable } = require('../services/phone-call-pipeline');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -108,124 +107,58 @@ function pct(part, total) {
   return t > 0 ? Math.round((p / t) * 100) : 0;
 }
 
-function hoursSince(value) {
-  if (!value) return null;
-  const t = new Date(value).getTime();
-  if (!Number.isFinite(t)) return null;
-  return Math.max(0, Math.round((Date.now() - t) / (60 * 60 * 1000)));
+function crmTodayLeadSelect(extra = '') {
+  return `SELECT l.id, l.title, l.stage, l.source, l.value, l.phone, l.email, l.next_action_at,
+                 l.owner_user_id, l.oddzial_id, l.created_at, l.updated_at,
+                 COALESCE(NULLIF(TRIM(k.firma), ''), NULLIF(TRIM(CONCAT(k.imie, ' ', k.nazwisko)), '')) AS client_name,
+                 o.imie AS owner_imie, o.nazwisko AS owner_nazwisko, o.login AS owner_login
+          FROM crm_leads l
+          LEFT JOIN klienci k ON k.id = l.client_id
+          LEFT JOIN users o ON o.id = l.owner_user_id
+          ${extra}`;
 }
 
-function commandItemForLead(row) {
-  const stage = normStage(row.stage);
-  const value = Number(row.value || 0);
-  const lastMessageHours = hoursSince(row.last_message_at);
-  const nextActionHours = row.next_action_at ? hoursSince(row.next_action_at) : null;
-  const openTasks = Number(row.open_tasks || 0);
-  const overdueTasks = Number(row.overdue_tasks || 0);
-  const phoneFollowupTasks = Number(row.phone_followup_tasks || 0);
-  const overduePhoneFollowupTasks = Number(row.overdue_phone_followup_tasks || 0);
-  const calls30d = Number(row.calls_30d || 0);
-  const source = String(row.source || '').trim().toLowerCase();
-  const isPhoneLead = source.includes('telefon') || row.last_channel === 'phone' || calls30d > 0;
-  const reasons = [];
-  let score = 0;
-
-  if (!row.owner_user_id && isPhoneLead) {
-    score += 34;
-    reasons.push({ key: 'phone_lead_unassigned', label: 'Nowy lead z telefonu bez ownera', severity: 'critical' });
-  } else if (!row.owner_user_id) {
-    score += 24;
-    reasons.push({ key: 'unassigned', label: 'Brak ownera', severity: 'high' });
-  }
-  if (overdueTasks > 0) {
-    score += 30 + Math.min(20, overdueTasks * 5);
-    reasons.push({ key: 'overdue_tasks', label: `${overdueTasks} zalegle zadania`, severity: 'critical' });
-  }
-  if (overduePhoneFollowupTasks > 0) {
-    score += 34 + Math.min(18, overduePhoneFollowupTasks * 6);
-    reasons.push({ key: 'phone_followup_overdue', label: `${overduePhoneFollowupTasks} zalegle follow-up po rozmowie`, severity: 'critical' });
-  } else if (phoneFollowupTasks > 0) {
-    score += 20 + Math.min(12, phoneFollowupTasks * 4);
-    reasons.push({ key: 'phone_followup_open', label: `${phoneFollowupTasks} follow-up po rozmowie`, severity: 'high' });
-  }
-  if (row.next_action_at && nextActionHours !== null && nextActionHours > 0) {
-    score += 22 + Math.min(20, Math.floor(nextActionHours / 12));
-    reasons.push({ key: 'next_action_overdue', label: `Termin akcji minelo ${nextActionHours}h temu`, severity: 'critical' });
-  }
-  if (row.last_direction === 'outbound' && lastMessageHours !== null && lastMessageHours >= 24) {
-    score += 18 + Math.min(18, Math.floor(lastMessageHours / 24) * 4);
-    reasons.push({ key: 'no_reply', label: `Brak odpowiedzi po ${lastMessageHours}h`, severity: 'high' });
-  }
-  if (!row.phone && !row.email) {
-    score += 18;
-    reasons.push({ key: 'missing_contact', label: 'Brak telefonu i emaila', severity: 'high' });
-  }
-  if (value >= 5000) {
-    score += 18;
-    reasons.push({ key: 'high_value', label: `Wysoka wartosc: ${Math.round(value)} PLN`, severity: 'medium' });
-  } else if (value > 0) {
-    score += 8;
-  }
-  if (calls30d > 0 && !row.next_action_at && openTasks === 0) {
-    score += 14;
-    reasons.push({ key: 'call_without_next_step', label: 'Byla rozmowa, brak nastepnego kroku', severity: 'medium' });
-  }
-  if (openTasks > 0) {
-    score += Math.min(14, openTasks * 4);
-  }
-  if (['Lead', 'OglÄ™dziny', 'Do zatwierdzenia'].includes(stage)) {
-    score += 8;
-  }
-  if (['Wygrane', 'Przegrane', 'Techniczny'].includes(stage)) {
-    score = Math.max(0, score - 40);
-  }
-
-  const primary = reasons[0]?.key || 'next_step';
-  const nextBestAction =
-    primary === 'phone_lead_unassigned'
-      ? 'Przypisz ownera do leada z telefonu i ustaw pierwszy kontakt.'
-      : primary === 'unassigned'
-      ? 'Przypisz ownera i zaplanuj pierwszy kontakt.'
-      : primary === 'overdue_tasks' || primary === 'next_action_overdue'
-        ? 'Wykonaj zalegle zadanie albo ustaw nowy termin follow-up.'
-        : primary === 'phone_followup_overdue'
-          ? 'Domknij zalegly follow-up po rozmowie telefonicznej.'
-          : primary === 'phone_followup_open'
-            ? 'Wykonaj follow-up po ostatniej rozmowie i oznacz zadanie jako wykonane.'
-            : primary === 'no_reply'
-              ? 'Zadzwon lub wyslij krotki follow-up do klienta.'
-              : primary === 'missing_contact'
-                ? 'Uzupelnij dane kontaktowe zanim lead ostygnie.'
-                : primary === 'call_without_next_step'
-                  ? 'Dopisz po rozmowie konkretny nastepny krok.'
-                  : 'Ustal nastepny krok i zapisz go w CRM.';
-
+function mapCrmTodayLead(row) {
   return {
     id: row.id,
     title: row.title,
-    oddzial_id: row.oddzial_id,
-    stage,
-    source: row.source || null,
-    value,
+    stage: normStage(row.stage),
+    source: row.source || 'inne',
+    value: Number(row.value || 0),
     phone: row.phone || null,
     email: row.email || null,
+    client_name: row.client_name || null,
     owner_user_id: row.owner_user_id || null,
     owner_name: row.owner_user_id
       ? [row.owner_imie, row.owner_nazwisko].filter(Boolean).join(' ').trim() || row.owner_login || `#${row.owner_user_id}`
       : null,
+    oddzial_id: row.oddzial_id || null,
     next_action_at: row.next_action_at || null,
-    last_message_at: row.last_message_at || null,
-    last_direction: row.last_direction || null,
-    open_tasks: openTasks,
-    overdue_tasks: overdueTasks,
-    phone_followup_tasks: phoneFollowupTasks,
-    overdue_phone_followup_tasks: overduePhoneFollowupTasks,
-    next_phone_followup_at: row.next_phone_followup_at || null,
-    calls_30d: calls30d,
-    score: Math.max(0, Math.min(100, score)),
-    priority: score >= 70 ? 'critical' : score >= 45 ? 'high' : score >= 25 ? 'medium' : 'normal',
-    reasons,
-    next_best_action: nextBestAction,
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null,
+  };
+}
+
+function mapCrmTodayMessage(row) {
+  return {
+    id: row.id,
+    lead_id: row.lead_id,
+    lead_title: row.lead_title || null,
+    client_name: row.client_name || null,
+    channel: row.channel || 'other',
+    direction: row.direction || 'inbound',
+    status: row.status || null,
+    body: row.body || '',
+    subject: row.subject || null,
+    sender_handle: row.sender_handle || null,
+    recipient_handle: row.recipient_handle || null,
+    owner_user_id: row.owner_user_id || null,
+    owner_name: row.owner_user_id
+      ? [row.owner_imie, row.owner_nazwisko].filter(Boolean).join(' ').trim() || row.owner_login || `#${row.owner_user_id}`
+      : null,
+    retry_count: Number(row.retry_count || 0),
+    last_error: row.last_error || null,
+    created_at: row.created_at || null,
   };
 }
 
@@ -526,11 +459,6 @@ router.get('/overview', async (req, res) => {
           callbackParams.push(oddzialId);
           callbackWhere += ` AND oddzial_id = $${callbackParams.length}`;
         }
-        const countR = await pool.query(
-          `SELECT COUNT(*)::int AS c FROM telephony_callbacks ${callbackWhere}`,
-          callbackParams
-        );
-        callbacksOpen = countR.rows[0]?.c ?? 0;
         const callbackRows = await pool.query(
           `
           SELECT id, oddzial_id, phone, task_id, lead_name, priority, due_at, status, notes, assigned_user_id, created_at
@@ -543,6 +471,7 @@ router.get('/overview', async (req, res) => {
         );
         const now = new Date();
         callbacks = callbackRows.rows || [];
+        callbacksOpen = callbacks.length;
         callbacksOverdue = callbacks.filter((row) => row.due_at && new Date(row.due_at) < now).length;
       }
     } catch (e) {
@@ -585,107 +514,199 @@ router.get('/overview', async (req, res) => {
   }
 });
 
-router.get('/command-center', async (req, res) => {
+router.get('/today', async (req, res) => {
   try {
+    await ensureCrmLeadMessagesTable();
     const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
-    const limit = Math.min(Math.max(toInt(req.query.limit) || 25, 1), 100);
-    const params = [];
-    let where = `WHERE l.stage NOT IN ('Wygrane', 'Przegrane', 'Techniczny')`;
+    const leadParams = [];
+    const leadWhere = ["l.stage NOT IN ('Wygrane', 'Przegrane', 'Techniczny')"];
     if (oddzialId) {
-      params.push(oddzialId);
-      where += ` AND l.oddzial_id = $${params.length}`;
+      leadParams.push(oddzialId);
+      leadWhere.push(`l.oddzial_id = $${leadParams.length}`);
     }
-    params.push(limit * 4);
-    const limitParam = params.length;
+    const leadScope = leadWhere.join(' AND ');
 
-    const { rows } = await pool.query(
-      `WITH last_message AS (
-         SELECT DISTINCT ON (m.lead_id)
-           m.lead_id,
-           m.direction AS last_direction,
-           m.channel AS last_channel,
-           m.created_at AS last_message_at
-         FROM crm_lead_messages m
-         ORDER BY m.lead_id, m.created_at DESC, m.id DESC
-       ),
-       activity_stats AS (
-         SELECT
-           a.lead_id,
-           COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL)::int AS open_tasks,
-           COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL AND a.due_at < NOW())::int AS overdue_tasks,
-           COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL AND a.text ILIKE '%CallSid:%')::int AS phone_followup_tasks,
-           COUNT(*) FILTER (
-             WHERE a.type = 'task'
-               AND a.completed_at IS NULL
-               AND a.due_at < NOW()
-               AND a.text ILIKE '%CallSid:%'
-           )::int AS overdue_phone_followup_tasks,
-           MIN(a.due_at) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL AND a.text ILIKE '%CallSid:%') AS next_phone_followup_at
+    const messageParams = [];
+    const messageWhere = [];
+    if (oddzialId) {
+      messageParams.push(oddzialId);
+      messageWhere.push(`l.oddzial_id = $${messageParams.length}`);
+    }
+    const messageScope = messageWhere.length ? `AND ${messageWhere.join(' AND ')}` : '';
+    const messageScopeWhere = messageWhere.length ? `WHERE ${messageWhere.join(' AND ')}` : '';
+
+    const [
+      unassignedRes,
+      overdueActivitiesRes,
+      inboundRes,
+      failedMessagesRes,
+      staleLeadsRes,
+      unassignedCount,
+      overdueCount,
+      inboundCount,
+      failedCount,
+      staleCount,
+    ] = await Promise.all([
+      pool.query(
+        `${crmTodayLeadSelect(`WHERE ${leadScope} AND l.owner_user_id IS NULL`)}
+         ORDER BY l.created_at ASC NULLS LAST, l.id ASC
+         LIMIT 12`,
+        leadParams
+      ),
+      pool.query(
+        `SELECT a.id, a.lead_id, a.text, a.due_at, a.created_at AS activity_created_at,
+                l.title AS lead_title, l.stage, l.source, l.value, l.phone, l.email, l.owner_user_id, l.oddzial_id,
+                COALESCE(NULLIF(TRIM(k.firma), ''), NULLIF(TRIM(CONCAT(k.imie, ' ', k.nazwisko)), '')) AS client_name,
+                o.imie AS owner_imie, o.nazwisko AS owner_nazwisko, o.login AS owner_login
          FROM crm_lead_activities a
-         GROUP BY a.lead_id
-       ),
-       call_stats AS (
-         SELECT
-           regexp_replace(COALESCE(p.client_number, ''), '\\D', '', 'g') AS phone_digits,
-           COUNT(*)::int AS calls_30d
-         FROM phone_call_conversations p
-         WHERE p.created_at >= NOW() - INTERVAL '30 days'
-         GROUP BY 1
-       )
-       SELECT
-         l.id, l.title, l.oddzial_id, l.stage, l.source, l.value, l.phone, l.email,
-         l.owner_user_id, l.next_action_at, l.created_at, l.updated_at,
-         o.imie AS owner_imie, o.nazwisko AS owner_nazwisko, o.login AS owner_login,
-         lm.last_direction, lm.last_channel, lm.last_message_at,
-         COALESCE(ast.open_tasks, 0)::int AS open_tasks,
-         COALESCE(ast.overdue_tasks, 0)::int AS overdue_tasks,
-         COALESCE(ast.phone_followup_tasks, 0)::int AS phone_followup_tasks,
-         COALESCE(ast.overdue_phone_followup_tasks, 0)::int AS overdue_phone_followup_tasks,
-         ast.next_phone_followup_at,
-         COALESCE(cs.calls_30d, 0)::int AS calls_30d
-       FROM crm_leads l
-       LEFT JOIN users o ON o.id = l.owner_user_id
-       LEFT JOIN last_message lm ON lm.lead_id = l.id
-       LEFT JOIN activity_stats ast ON ast.lead_id = l.id
-       LEFT JOIN call_stats cs ON cs.phone_digits = regexp_replace(COALESCE(l.phone, ''), '\\D', '', 'g')
-       ${where}
-       ORDER BY
-         (CASE WHEN l.next_action_at IS NOT NULL AND l.next_action_at < NOW() THEN 0 ELSE 1 END),
-         COALESCE(ast.overdue_tasks, 0) DESC,
-         COALESCE(l.value, 0) DESC,
-         l.updated_at DESC NULLS LAST,
-         l.id DESC
-       LIMIT $${limitParam}`,
-      params
-    );
-
-    const priorities = rows
-      .map(commandItemForLead)
-      .sort((a, b) => b.score - a.score || b.value - a.value || b.id - a.id)
-      .slice(0, limit);
-    const summary = {
-      total: priorities.length,
-      critical: priorities.filter((item) => item.priority === 'critical').length,
-      high: priorities.filter((item) => item.priority === 'high').length,
-      overdue: priorities.filter((item) => item.overdue_tasks > 0 || (item.reasons || []).some((r) => r.key === 'next_action_overdue')).length,
-      unassigned: priorities.filter((item) => !item.owner_user_id).length,
-      phone_unassigned: priorities.filter((item) => (item.reasons || []).some((r) => r.key === 'phone_lead_unassigned')).length,
-      phone_followups: priorities.reduce((sum, item) => sum + Number(item.phone_followup_tasks || 0), 0),
-      phone_followups_overdue: priorities.reduce((sum, item) => sum + Number(item.overdue_phone_followup_tasks || 0), 0),
-      value_at_risk: priorities
-        .filter((item) => ['critical', 'high'].includes(item.priority))
-        .reduce((sum, item) => sum + Number(item.value || 0), 0),
-    };
+         JOIN crm_leads l ON l.id = a.lead_id
+         LEFT JOIN klienci k ON k.id = l.client_id
+         LEFT JOIN users o ON o.id = l.owner_user_id
+         WHERE ${leadScope}
+           AND a.type = 'task'
+           AND a.completed_at IS NULL
+           AND a.due_at IS NOT NULL
+           AND a.due_at <= NOW()
+         ORDER BY a.due_at ASC
+         LIMIT 12`,
+        leadParams
+      ),
+      pool.query(
+        `SELECT m.*,
+                l.title AS lead_title, l.owner_user_id, l.oddzial_id,
+                COALESCE(NULLIF(TRIM(k.firma), ''), NULLIF(TRIM(CONCAT(k.imie, ' ', k.nazwisko)), '')) AS client_name,
+                o.imie AS owner_imie, o.nazwisko AS owner_nazwisko, o.login AS owner_login
+         FROM crm_lead_messages m
+         JOIN crm_leads l ON l.id = m.lead_id
+         LEFT JOIN klienci k ON k.id = l.client_id
+         LEFT JOIN users o ON o.id = l.owner_user_id
+         WHERE m.direction = 'inbound'
+           AND m.status IN ('received', 'failed')
+           ${messageScope}
+         ORDER BY m.created_at DESC
+         LIMIT 12`,
+        messageParams
+      ),
+      pool.query(
+        `SELECT m.*,
+                l.title AS lead_title, l.owner_user_id, l.oddzial_id,
+                COALESCE(NULLIF(TRIM(k.firma), ''), NULLIF(TRIM(CONCAT(k.imie, ' ', k.nazwisko)), '')) AS client_name,
+                o.imie AS owner_imie, o.nazwisko AS owner_nazwisko, o.login AS owner_login
+         FROM crm_lead_messages m
+         JOIN crm_leads l ON l.id = m.lead_id
+         LEFT JOIN klienci k ON k.id = l.client_id
+         LEFT JOIN users o ON o.id = l.owner_user_id
+         WHERE m.direction = 'outbound'
+           AND m.status = 'failed'
+           ${messageScope}
+         ORDER BY m.created_at DESC
+         LIMIT 12`,
+        messageParams
+      ),
+      pool.query(
+        `WITH last_outbound AS (
+           SELECT DISTINCT ON (m.lead_id) m.lead_id, m.created_at AS last_outbound_at
+           FROM crm_lead_messages m
+           WHERE m.direction = 'outbound'
+           ORDER BY m.lead_id, m.created_at DESC
+         )
+         ${crmTodayLeadSelect('JOIN last_outbound lo ON lo.lead_id = l.id')}
+         WHERE ${leadScope}
+           AND lo.last_outbound_at <= NOW() - INTERVAL '24 hours'
+           AND NOT EXISTS (
+             SELECT 1 FROM crm_lead_messages mi
+             WHERE mi.lead_id = l.id
+               AND mi.direction = 'inbound'
+               AND mi.created_at > lo.last_outbound_at
+           )
+         ORDER BY lo.last_outbound_at ASC
+         LIMIT 12`,
+        leadParams
+      ),
+      pool.query(`SELECT COUNT(*)::int AS c FROM crm_leads l WHERE ${leadScope} AND l.owner_user_id IS NULL`, leadParams),
+      pool.query(
+        `SELECT COUNT(*)::int AS c
+         FROM crm_lead_activities a
+         JOIN crm_leads l ON l.id = a.lead_id
+         WHERE ${leadScope}
+           AND a.type = 'task'
+           AND a.completed_at IS NULL
+           AND a.due_at IS NOT NULL
+           AND a.due_at <= NOW()`,
+        leadParams
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS c
+         FROM crm_lead_messages m
+         JOIN crm_leads l ON l.id = m.lead_id
+         ${messageScopeWhere}
+         ${messageScopeWhere ? 'AND' : 'WHERE'} m.direction = 'inbound'
+           AND m.status IN ('received', 'failed')`,
+        messageParams
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS c
+         FROM crm_lead_messages m
+         JOIN crm_leads l ON l.id = m.lead_id
+         ${messageScopeWhere}
+         ${messageScopeWhere ? 'AND' : 'WHERE'} m.direction = 'outbound'
+           AND m.status = 'failed'`,
+        messageParams
+      ),
+      pool.query(
+        `WITH last_outbound AS (
+           SELECT DISTINCT ON (m.lead_id) m.lead_id, m.created_at AS last_outbound_at
+           FROM crm_lead_messages m
+           WHERE m.direction = 'outbound'
+           ORDER BY m.lead_id, m.created_at DESC
+         )
+         SELECT COUNT(*)::int AS c
+         FROM crm_leads l
+         JOIN last_outbound lo ON lo.lead_id = l.id
+         WHERE ${leadScope}
+           AND lo.last_outbound_at <= NOW() - INTERVAL '24 hours'
+           AND NOT EXISTS (
+             SELECT 1 FROM crm_lead_messages mi
+             WHERE mi.lead_id = l.id
+               AND mi.direction = 'inbound'
+               AND mi.created_at > lo.last_outbound_at
+           )`,
+        leadParams
+      ),
+    ]);
 
     res.json({
       generated_at: new Date().toISOString(),
       oddzial_id: oddzialId || null,
-      summary,
-      priorities,
+      kpis: {
+        unassigned_leads: unassignedCount.rows[0]?.c || 0,
+        overdue_followups: overdueCount.rows[0]?.c || 0,
+        new_inbound: inboundCount.rows[0]?.c || 0,
+        failed_messages: failedCount.rows[0]?.c || 0,
+        stale_no_response: staleCount.rows[0]?.c || 0,
+      },
+      unassigned_leads: unassignedRes.rows.map(mapCrmTodayLead),
+      overdue_followups: overdueActivitiesRes.rows.map((row) => ({
+        id: row.id,
+        lead_id: row.lead_id,
+        text: row.text,
+        due_at: row.due_at,
+        created_at: row.activity_created_at,
+        lead: mapCrmTodayLead({
+          ...row,
+          id: row.lead_id,
+          title: row.lead_title,
+          created_at: null,
+          updated_at: null,
+        }),
+      })),
+      inbound_messages: inboundRes.rows.map(mapCrmTodayMessage),
+      failed_messages: failedMessagesRes.rows.map(mapCrmTodayMessage),
+      stale_leads: staleLeadsRes.rows.map(mapCrmTodayLead),
     });
   } catch (err) {
-    logger.error('crm.commandCenter', { message: err.message });
-    res.status(500).json({ error: 'Blad odczytu CRM Command Center' });
+    logger.error('crm.today', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu dzisiejszej pracy CRM' });
   }
 });
 
@@ -1601,7 +1622,7 @@ router.get('/messages/inbox', async (req, res) => {
 });
 
 router.get('/messages/providers', async (_req, res) => {
-  res.json(await getMessageProviderStatus());
+  res.json(getMessageProviderStatus());
 });
 
 router.patch('/messages/:messageId/status', validateBody(patchMessageStatusSchema), async (req, res) => {
@@ -1694,74 +1715,6 @@ router.get('/leads/:id/messages', async (req, res) => {
   } catch (err) {
     logger.error('crm.messages.get', { message: err.message });
     res.status(500).json({ error: 'Blad odczytu wiadomosci CRM' });
-  }
-});
-
-router.get('/leads/:id/calls', async (req, res) => {
-  const id = toInt(req.params.id);
-  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
-  try {
-    const lead = (await pool.query('SELECT id, oddzial_id, phone FROM crm_leads WHERE id = $1', [id])).rows[0];
-    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
-    if (!canAccessOddzial(req.user, lead.oddzial_id)) {
-      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
-    }
-
-    await ensurePhoneCallsTable();
-    const phoneDigits = String(lead.phone || '').replace(/\D/g, '');
-    const params = [id];
-    let contactSql = 'p.lead_id = $1';
-    if (phoneDigits) {
-      params.push(phoneDigits);
-      contactSql = `(p.lead_id = $1 OR regexp_replace(COALESCE(p.client_number, ''), '\\D', '', 'g') = $2)`;
-    }
-    const { rows } = await pool.query(
-      `SELECT
-         p.id,
-         p.twilio_call_sid,
-         p.twilio_recording_sid,
-         p.user_id,
-         p.task_id,
-         p.lead_id,
-         p.staff_number,
-         p.client_number,
-         p.recording_duration_sec,
-         p.recording_archive_backend,
-         p.recording_archive_ref,
-         p.recording_archive_url,
-         p.transcript,
-         p.raport,
-         p.wskazowki_specjalisty,
-         p.status,
-         p.error_message,
-         p.created_at,
-         p.updated_at,
-         u.imie,
-         u.nazwisko,
-         u.login
-       FROM phone_call_conversations p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE ${contactSql}
-       ORDER BY p.created_at DESC, p.id DESC
-       LIMIT 50`,
-      params
-    );
-
-    res.json(rows.map((row) => {
-      const hasRecording = Boolean(row.recording_archive_backend || row.recording_archive_ref || row.recording_archive_url);
-      return {
-        ...row,
-        agent_name: [row.imie, row.nazwisko].filter(Boolean).join(' ').trim() || row.login || null,
-        recording_available: hasRecording,
-        recording_download_url: hasRecording ? `/api/telefon/rozmowy/${row.id}/nagranie` : null,
-        imie: undefined,
-        nazwisko: undefined,
-        login: undefined,
-      };
-    }));
-  } catch (err) {
-    logger.error('crm.calls.get', { message: err.message });
-    res.status(500).json({ error: 'Nie udalo sie pobrac rozmow leada' });
   }
 });
 

@@ -22,7 +22,14 @@ mobile/eas-*.log
 mobile/decoded-deflate.txt
 os/coverage/
 os/coverage_output.txt
+arbor-os/backend/dist/
+arbor-os/backend/coverage/
+arbor-os/backend/tsconfig.tsbuildinfo
+arbor-os/web/dist/
+arbor-os/web/.codex-*.log
+arbor-os/web/tsconfig.tsbuildinfo
 backups/
+arbor-os/backups/
 os/backups/
 deploy-*.zip
 blobs/

@@ -1053,7 +1053,7 @@ export default function CrmPipeline() {
                   <div>
                     <div style={{ fontWeight: 700 }}>{rule.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      {rule.trigger_type} -> {rule.action_type}
+                      {rule.trigger_type} {'->'} {rule.action_type}
                     </div>
                   </div>
                   <span style={{ fontSize: 12, color: rule.active ? 'var(--success)' : 'var(--text-muted)', fontWeight: 700 }}>

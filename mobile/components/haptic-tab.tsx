@@ -1,13 +1,14 @@
+import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs/types';
 import * as Haptics from 'expo-haptics';
-import type { ComponentProps } from 'react';
-import { Pressable } from 'react-native';
+import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
 
-type HapticTabProps = ComponentProps<typeof Pressable>;
+export function HapticTab(props: BottomTabBarButtonProps) {
+  const { pressColor, ...pressableProps } = props;
 
-export function HapticTab(props: HapticTabProps) {
   return (
-    <Pressable
-      {...props}
+    <PlatformPressable
+      {...pressableProps}
+      pressColor={typeof pressColor === 'string' ? pressColor : undefined}
       onPressIn={(ev) => {
         if (process.env.EXPO_OS === 'ios') {
           // Add a soft haptic feedback when pressing down on the tabs.

@@ -1,10 +1,11 @@
 import { TASK_STATUS } from './taskWorkflow';
 
 export const TASK_SERVICE_TYPES = [
-  'Wycinka',
-  'Pielęgnacja',
+  'Wycinka drzew',
+  'Pielęgnacja drzew',
+  'Mycie / malowanie dachów',
+  'Czyszczenie kostki / elewacji',
   'Ogrodnictwo',
-  'Frezowanie pniaków',
   'Inne',
 ];
 
@@ -13,27 +14,39 @@ export const TASK_PRIORITIES = ['Niski', 'Normalny', 'Wysoki', 'Pilny'];
 export const TASK_SCOPE_PRESETS = Object.freeze([
   {
     key: 'crown_pruning',
-    label: 'Przycinka korony',
-    serviceType: 'Pielęgnacja',
-    scopeLine: 'Przycinka korony zgodnie ze szkicem, z zabezpieczeniem ogrodzenia i rabat.',
+    label: 'Pielęgnacja drzew',
+    serviceType: 'Pielęgnacja drzew',
+    scopeLine: 'Przycinka i pielęgnacja korony zgodnie z ustaleniami z oględzin.',
   },
   {
     key: 'removal',
     label: 'Wycinka drzewa',
-    serviceType: 'Wycinka',
-    scopeLine: 'Wycinka drzewa sekcyjnie, kontrolowany zrzut materiału i uporządkowanie terenu.',
+    serviceType: 'Wycinka drzew',
+    scopeLine: 'Wycinka drzewa sekcyjnie, zabezpieczenie otoczenia i uporządkowanie terenu.',
   },
   {
     key: 'stump',
     label: 'Pniak / frezowanie',
-    serviceType: 'Frezowanie pniaków',
+    serviceType: 'Wycinka drzew',
     scopeLine: 'Usunięcie albo frezowanie pniaka, zasypanie urobku i oczyszczenie miejsca pracy.',
+  },
+  {
+    key: 'roof_wash',
+    label: 'Dach',
+    serviceType: 'Mycie / malowanie dachów',
+    scopeLine: 'Mycie lub malowanie dachu po oględzinach, z zabezpieczeniem elewacji i dojścia.',
+  },
+  {
+    key: 'paving_facade',
+    label: 'Kostka / elewacja',
+    serviceType: 'Czyszczenie kostki / elewacji',
+    scopeLine: 'Czyszczenie kostki brukowej albo elewacji po sprawdzeniu dojazdu, wody i odpływu.',
   },
   {
     key: 'hedge',
     label: 'Żywopłot / ogród',
     serviceType: 'Ogrodnictwo',
-    scopeLine: 'Formowanie żywopłotu i prace ogrodnicze według ustalonej linii cięcia.',
+    scopeLine: 'Formowanie żywopłotu i prace ogrodnicze według ustalonego zakresu.',
   },
   {
     key: 'cleanup',

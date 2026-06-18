@@ -16,11 +16,10 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - Kontrola operacyjna pokazuje rejestr potwierdzen ownerow, filtruje `risk_acknowledge` po `risk_type=kommo_sync` albo `risk_type=sms_delivery` i korzysta z tego samego `/ops/action-history`.
 - Dzienny digest pokazuje KPI domkniecia potwierdzen ownerow: lacznie, Kommo i SMS. CSV z `/ops/action-history?format=csv` eksportuje `Owner` oraz `Status potwierdzenia`.
 - `/ops/owner-alerts/open` pokazuje alerty Kommo/SMS bez potwierdzenia ownera, wylicza aging, `sla_status` i eskalacje `P1`/`P2`.
-- `/ops/owner-alerts/actions` pozwala masowo potwierdzic widoczne alerty jako `risk_acknowledge` albo zapisac eskalacje `risk_owner_escalate` bez zamykania alertu.
+- `/ops/owner-alerts/actions` pozwala masowo potwierdzic widoczne alerty jako `risk_acknowledge`, zapisac eskalacje `risk_owner_escalate` bez zamykania alertu albo oznaczyc alert jako rozwiazany przez `risk_owner_resolve` po remediacji.
 - `/ops/owner-alerts/remediation` uruchamia auto-remediacje dopiero po jawnej eskalacji ownera z dzisiaj: `retry_kommo` odblokowuje kolejke Kommo, `resend_sms` ponawia SMS przez gateway, a dzienny limit kontroluje `OPS_OWNER_REMEDIATION_DAILY_LIMIT` (domyslnie 3 na alert).
-- `/ops/owner-alerts/resolve` zamyka petle follow-up po remediacji ownera jako `risk_owner_resolve`; akcja dziala z Kontroli operacyjnej i szczegolow digestu, zapisuje `follow_up=true`, `resolution_status=resolved`, zrodlo (`control`/`digest`) oraz audyt `ops.owner_alert.resolve`.
 - `/ops/owner-alerts/remediation-report` pokazuje dyrektorowi skutecznosc remediacji ownerow: `retry_kommo`, `resend_sms`, sukcesy, bledy, blokady limitu i ostatnie wpisy audytu.
-- Dzienny digest wykrywa nierozwiazane `P1`/`P2` po auto-remediacji ownera i tworzy alert `owner_unresolved_after_remediation` z ownerem, ostatnia decyzja i zleceniem do eskalacji dyrektorskiej; po `risk_owner_resolve` alert znika z tej sekcji.
+- Dzienny digest wykrywa nierozwiazane `P1`/`P2` po auto-remediacji ownera i tworzy alert `owner_unresolved_after_remediation` z ownerem, ostatnia decyzja i zleceniem do eskalacji dyrektorskiej. Wpis `risk_owner_resolve` zamyka te alerty i pokazuje sie w digestcie jako `owner_resolutions`.
 
 ## Kommo
 
@@ -53,8 +52,8 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - Digest i CSV pozwalaja sprawdzic, ile potwierdzen Kommo/SMS zostalo domknietych danego dnia.
 - Kontrola operacyjna pokazuje niedomkniete alerty ownerow z aging SLA; Kommo dead-letter po SLA eskaluje do P1, SMS do P2.
 - Akcje masowe ownerow zawsze zapisuja audyt w `ops_action_events` z `bulk_owner_action`, `risk_id`, `risk_type`, `sla_status` i eskalacja.
+- Akcja `Oznacz rozwiazane` zapisuje `risk_owner_resolve` z `resolved=true`, `resolved_at`, `risk_id` i `risk_type`; po tym alert nie wraca do `/ops/owner-alerts/open` ani do `owner_unresolved_after_remediation`.
 - Auto-remediacja ownerow zawsze wymaga `risk_owner_escalate`, respektuje limit dzienny i zapisuje `risk_owner_auto_remediate` z `remediation_action`, `escalation_event_id`, `daily_limit` i `used_before`.
-- Zamkniecie petli po remediacji zawsze zapisuje osobny follow-up `risk_owner_resolve`; nie miesza sie z `risk_acknowledge`, dzieki czemu rejestr rozroznia "widzialem alert" od "problem rozwiazany po remediacji".
 - Kontrola operacyjna pokazuje skutecznosc remediacji ownerow obok niedomknietych P1/P2, z osobnym licznikiem blokad limitu.
 - Digest dyrektora pokazuje `owner_unresolved_after_remediation`, `owner_unresolved_p1`, `owner_unresolved_p2` i liste ostatnich decyzji ownerow dla alertow nadal otwartych po remediacji.
 - Kommo/SMS dead-letter nie zostaje bez ownera i zapisu w `ops_action_events`.

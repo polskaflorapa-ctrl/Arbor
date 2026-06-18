@@ -90,7 +90,7 @@ const BHP_CHECKLIST = [
 ];
 
 const OFFICE_CHECKLIST = [
-  'Dane klientów i pracowników przetwarzane tylko w ARBOR-OS',
+  'Dane klientów i pracowników przetwarzane tylko w Polska Flora',
   'CRM, zlecenia i follow-upy aktualizowane w dniu kontaktu',
   'Dokumenty finansowe i kadrowe opisane, bez plików na prywatnych kontach',
   'Telefon, e-mail i notatki z rozmów przekazane do właściwego zlecenia',

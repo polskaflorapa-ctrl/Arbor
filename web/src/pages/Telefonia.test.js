@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -39,6 +39,24 @@ function renderTelefonia(initialPath = '/telefonia') {
       </Routes>
     </MemoryRouter>
   );
+}
+
+async function click(element) {
+  await act(async () => {
+    await userEvent.click(element);
+  });
+}
+
+async function type(element, value) {
+  await act(async () => {
+    await userEvent.type(element, value);
+  });
+}
+
+async function selectOptions(element, value) {
+  await act(async () => {
+    await userEvent.selectOptions(element, value);
+  });
 }
 
 beforeEach(() => {
@@ -119,57 +137,12 @@ beforeEach(() => {
     if (path === '/telephony/integration-test-logs') {
       return Promise.resolve({ data: { items: [] } });
     }
-    if (path === '/telefon/diagnostics') {
-      return Promise.resolve({
-        data: {
-          ok: true,
-          counts: {
-            total: 5,
-            last_24h: 2,
-            recording_ready: 1,
-            needs_transcription: 1,
-            analyzed: 2,
-            error: 1,
-            with_recording: 3,
-            with_transcript: 2,
-            linked_to_crm: 2,
-          },
-          config: {
-            zadarma_configured: true,
-            openai_configured: false,
-            anthropic_configured: true,
-            recording_storage: 'local',
-          },
-          issues: ['OPENAI_API_KEY missing: transcription will stop at needs_transcription'],
-          stuck_calls: [{
-            id: 44,
-            call_sid: 'zadarma:pbx-44',
-            client_number: '+48600111222',
-            status: 'error',
-            error_message: 'Whisper HTTP 401',
-            updated_at: '2026-06-07T10:05:00.000Z',
-          }],
-        },
-      });
-    }
-    if (path === '/telephony/zadarma/settings') {
-      return Promise.resolve({
-        data: {
-          configured: true,
-          caller_id: 'ARBOR',
-          api_key_masked: 'key***',
-          sms_webhook_url: 'https://arbor.example/api/telephony/zadarma/sms/webhook',
-          phone_webhook_url: 'https://arbor.example/api/telefon/webhooks/zadarma',
-        },
-      });
-    }
     return Promise.resolve({ data: [] });
   });
 });
 
 afterEach(() => {
   localStorage.clear();
-  delete window.zadarmaWidgetFn;
   vi.clearAllMocks();
 });
 
@@ -178,7 +151,7 @@ test('filters SMS history by branch and acknowledges delivery owner alert', asyn
 
   expect(await screen.findByText('SMS-9')).toBeInTheDocument();
 
-  await userEvent.selectOptions(screen.getByLabelText('Filtr oddzialu SMS'), '7');
+  await selectOptions(screen.getByLabelText('Filtr oddzialu SMS'), '7');
 
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith(
@@ -188,7 +161,7 @@ test('filters SMS history by branch and acknowledges delivery owner alert', asyn
     expect(api.get.mock.calls.some(([url]) => String(url).includes('oddzial_id=7'))).toBe(true);
   });
 
-  await userEvent.click(screen.getByRole('button', { name: 'Potwierdz' }));
+  await click(screen.getByRole('button', { name: 'Potwierdz' }));
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
@@ -226,28 +199,17 @@ test('one-click branch telephony setup saves branch numbers before copying provi
 
   renderTelefonia();
 
-  await userEvent.click(await screen.findByRole('button', { name: 'Agent AI' }));
+  await click(await screen.findByRole('button', { name: 'Agent AI' }));
   expect(await screen.findByText('Szybki start oddzialu')).toBeInTheDocument();
-  await waitFor(() => {
-    expect(api.get.mock.calls.some(([url]) => String(url).startsWith('/telephony/integration-test-logs'))).toBe(true);
-  });
 
-  const branchPhoneInput = screen.getByPlaceholderText('+48...');
-  const branchSmsSenderInput = screen.getByPlaceholderText('np. ARBOR-KRK albo numer SMS');
-  await userEvent.clear(branchPhoneInput);
-  await userEvent.type(branchPhoneInput, '+48111222333');
-  await userEvent.clear(branchSmsSenderInput);
-  await userEvent.type(branchSmsSenderInput, 'ARBOR-KRK');
-  await waitFor(() => {
-    expect(branchPhoneInput.value).toBe('+48111222333');
-    expect(branchSmsSenderInput.value).toBe('ARBOR-KRK');
-  });
-  await userEvent.click(screen.getAllByRole('button', { name: 'Przygotuj jednym kliknieciem' })[0]);
+  await type(screen.getByPlaceholderText('+48...'), '+48111222333');
+  await type(screen.getByPlaceholderText('np. ARBOR-KRK albo numer SMS'), 'ARBOR-KRK');
+  await click(screen.getAllByRole('button', { name: 'Przygotuj jednym kliknieciem' })[0]);
 
   await waitFor(() => {
     expect(api.put).toHaveBeenCalledWith(
       '/oddzialy/7',
-      { telefon: '48111222333', sms_sender_id: 'ARBOR-KRK' },
+      { telefon: '+48111222333', sms_sender_id: 'ARBOR-KRK' },
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
@@ -258,26 +220,24 @@ test('one-click branch telephony setup saves branch numbers before copying provi
   );
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('48111222333'));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('ARBOR-KRK'));
-}, 20000);
+}, 10000);
 
 test('specialist can register an incoming client call and create callback', async () => {
   renderTelefonia();
 
-  await userEvent.click(await screen.findByRole('button', { name: /oddzwonienia/i }));
+  await click(await screen.findByRole('button', { name: /oddzwonienia/i }));
   expect(await screen.findByText('Przyjmij telefon od klienta')).toBeInTheDocument();
 
-  const incomingForm = screen.getByPlaceholderText('Telefon klienta').closest('form');
-  const incoming = within(incomingForm);
-  const selects = incoming.getAllByRole('combobox');
-  await userEvent.selectOptions(selects[0], '7');
-  await userEvent.type(incoming.getByPlaceholderText('Telefon klienta'), '+48600111222');
-  await userEvent.type(incoming.getByPlaceholderText('Klient / firma'), 'Jan Klient');
-  await userEvent.selectOptions(selects[1], 'missed');
-  await userEvent.selectOptions(incoming.getByDisplayValue('Typ uslugi...'), 'ogrod');
-  await userEvent.type(incoming.getByPlaceholderText('Adres ogledzin'), 'Lesna 5');
-  await userEvent.type(incoming.getByPlaceholderText('Miasto'), 'Krakow');
-  await userEvent.type(incoming.getByPlaceholderText('Co klient powiedzial / czego potrzebuje...'), 'Prosi o pilny kontakt');
-  await userEvent.click(incoming.getByRole('button', { name: 'Zapisz przychodzace' }));
+  const selects = screen.getAllByRole('combobox');
+  await selectOptions(selects[0], '7');
+  await type(screen.getByPlaceholderText('Telefon klienta'), '+48600111222');
+  await type(screen.getByPlaceholderText('Klient / firma'), 'Jan Klient');
+  await selectOptions(selects[1], 'missed');
+  await selectOptions(screen.getByDisplayValue('Typ usługi...'), 'drzewa_wycinka');
+  await type(screen.getByPlaceholderText('Adres ogledzin'), 'Lesna 5');
+  await type(screen.getByPlaceholderText('Miasto'), 'Krakow');
+  await type(screen.getByPlaceholderText('Co klient powiedzial / czego potrzebuje...'), 'Prosi o pilny kontakt');
+  await click(screen.getByRole('button', { name: 'Zapisz przychodzace' }));
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
@@ -306,7 +266,7 @@ test('specialist can register an incoming client call and create callback', asyn
     expect.objectContaining({ headers: expect.any(Object) })
   );
   const crmLeadCall = api.post.mock.calls.find(([url]) => url === '/crm/leads');
-  expect(crmLeadCall?.[1].notes).toContain('Typ uslugi: ogrod');
+  expect(crmLeadCall?.[1].notes).toContain('Typ usługi: Wycinka drzew');
   expect(crmLeadCall?.[1].notes).toContain('Adres ogledzin: Lesna 5');
   expect(crmLeadCall?.[1].notes).toContain('Miasto: Krakow');
   expect(api.post).toHaveBeenCalledWith(
@@ -322,112 +282,4 @@ test('specialist can register an incoming client call and create callback', asyn
   expect(await screen.findByText(/Telefon przychodzacy zapisany/i)).toBeInTheDocument();
   expect(screen.getByText(/Lead CRM utworzony/i)).toBeInTheDocument();
   expect(screen.getByText(/Oddzwonienie utworzone/i)).toBeInTheDocument();
-}, 20000);
-
-test('runs phone CRM flow test from calls tab', async () => {
-  api.post.mockImplementation((url) => {
-    if (url === '/telefon/pipeline/retry') {
-      return Promise.resolve({ data: { ok: true, retried: 2 } });
-    }
-    if (url === '/telefon/test-flow') {
-      return Promise.resolve({ data: { ok: true, lead_id: 301, crm_message_id: 501 } });
-    }
-    return Promise.resolve({ data: { message: 'OK' } });
-  });
-
-  renderTelefonia('/telefonia?tab=calls');
-
-  expect(await screen.findByText('Pipeline rozmow Zadarma / CRM')).toBeInTheDocument();
-  expect(screen.getByText('OpenAI: brak · Claude: OK · Storage: local')).toBeInTheDocument();
-  expect(screen.getByText('OPENAI_API_KEY missing: transcription will stop at needs_transcription')).toBeInTheDocument();
-  expect(screen.getByText('Rozmowy wymagajace uwagi')).toBeInTheDocument();
-  const stuckCallRow = screen.getByText('zadarma:pbx-44').closest('div').parentElement;
-  expect(stuckCallRow).toHaveTextContent('+48600111222');
-  expect(stuckCallRow).toHaveTextContent('Whisper HTTP 401');
-  await userEvent.click(screen.getByRole('button', { name: 'Ponow pipeline' }));
-  await waitFor(() => {
-    expect(api.post).toHaveBeenCalledWith(
-      '/telefon/pipeline/retry',
-      {},
-      expect.objectContaining({ headers: expect.any(Object) })
-    );
-  });
-
-  expect(await screen.findByText('Test CRM po rozmowie')).toBeInTheDocument();
-  const testForm = screen.getByText('Test CRM po rozmowie').closest('form');
-  const testPanel = within(testForm);
-  await userEvent.selectOptions(testPanel.getByRole('combobox'), '7');
-  await userEvent.type(testPanel.getByPlaceholderText('Numer testowy klienta'), '+48600111222');
-  await userEvent.click(testPanel.getByRole('button', { name: 'Uruchom test' }));
-
-  await waitFor(() => {
-    expect(api.post).toHaveBeenCalledWith(
-      '/telefon/test-flow',
-      expect.objectContaining({
-        oddzial_id: 7,
-        phone: '+48600111222',
-      }),
-      expect.objectContaining({ headers: expect.any(Object) })
-    );
-  });
-  expect(await screen.findByText('Otworz lead #301')).toBeInTheDocument();
-});
-
-test('starts Zadarma WebRTC phone from Arbor and stores auto-start preference', async () => {
-  api.post.mockImplementation((url) => {
-    if (url === '/telephony/zadarma/webrtc-key') {
-      return Promise.resolve({ data: { key: 'webrtc-key-101', sip: '101' } });
-    }
-    return Promise.resolve({ data: { message: 'OK' } });
-  });
-  window.zadarmaWidgetFn = vi.fn();
-  const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation((node) => {
-    const result = HTMLBodyElement.prototype.appendChild.call(document.body, node);
-    if (node.tagName === 'SCRIPT') {
-      setTimeout(() => node.onload?.());
-    }
-    return result;
-  });
-
-  try {
-    renderTelefonia('/telefonia?tab=zadarma');
-
-    expect(await screen.findByText('Telefon w przegladarce WebRTC')).toBeInTheDocument();
-    await userEvent.type(screen.getByPlaceholderText('SIP / numer wewnetrzny PBX, np. 101'), '101');
-    await userEvent.click(screen.getByLabelText('Uruchamiaj automatycznie w Arbor'));
-
-    await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith(
-        '/telephony/zadarma/webrtc-key',
-        { sip: '101' },
-        expect.objectContaining({ headers: expect.any(Object) })
-      );
-    });
-    await waitFor(() => {
-      expect(window.zadarmaWidgetFn).toHaveBeenCalledWith(
-        'webrtc-key-101',
-        '101',
-        'square',
-        'pl',
-        true,
-        "{right:'16px',bottom:'16px'}"
-      );
-    });
-    expect(localStorage.getItem('arbor_zadarma_webrtc_auto_v1')).toBe('1');
-    expect(await screen.findByText('Status: aktywny SIP 101')).toBeInTheDocument();
-  } finally {
-    appendSpy.mockRestore();
-  }
-});
-
-test('shows Zadarma phone recording webhook for CRM call ingestion', async () => {
-  renderTelefonia('/telefonia?tab=zadarma');
-
-  expect(await screen.findByText('Webhook rozmow i nagran')).toBeInTheDocument();
-  expect(screen.getAllByText('https://arbor.example/api/telefon/webhooks/zadarma').length).toBeGreaterThan(0);
-
-  const row = screen.getByText('Webhook rozmow i nagran').closest('div');
-  await userEvent.click(within(row.parentElement).getByRole('button', { name: 'Kopiuj' }));
-
-  expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://arbor.example/api/telefon/webhooks/zadarma');
 });

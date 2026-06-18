@@ -1,5 +1,4 @@
 const expoBabelPreset = require.resolve('babel-preset-expo');
-const { expoRouterBabelPlugin } = require('babel-preset-expo/build/plugins/expo-router-plugin');
 
 module.exports = function (api) {
   api.cache(true);
@@ -15,7 +14,6 @@ module.exports = function (api) {
       ],
     ],
     plugins: [
-      expoRouterBabelPlugin,
       // react-native-worklets/plugin must be the final plugin.
       'react-native-worklets/plugin',
     ],

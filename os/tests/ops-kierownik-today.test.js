@@ -1057,6 +1057,38 @@ describe('GET /api/ops/owner-alerts/open', () => {
     const escalationInsert = pool.query.mock.calls.find(([sql, params]) => String(sql).includes('INSERT INTO ops_action_events') && params[3] === 'risk_owner_escalate');
     expect(escalationInsert[1][4]).toBe('kommo_sync');
     expect(JSON.parse(escalationInsert[1][10])).toMatchObject({ risk_id: 'kommo_sync:501', bulk_action: 'bulk_escalate' });
+
+    pool.query.mockClear();
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('WHERE t.id = $1')) return { rows: [{ id: 77, oddzial_id: 7, numer: 'ARB-77' }] };
+      if (text.includes('INSERT INTO ops_action_events')) {
+        return { rows: [{ id: 902, action_type: params[3], issue_key: params[4], task_id: params[0] }] };
+      }
+      return { rows: [] };
+    });
+
+    const resolved = await request(app)
+      .post('/api/ops/owner-alerts/actions')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        action: 'mark_resolved',
+        alerts: [{ risk_id: 'kommo_sync:501', risk_type: 'kommo_sync', task_id: 77, escalation_level: 'P1', sla_status: 'overdue' }],
+      });
+
+    expect(resolved.status).toBe(200);
+    expect(resolved.body).toMatchObject({ action: 'mark_resolved', normalized_action: 'bulk_resolve', saved: 1, failed: 0 });
+    const resolvedInsert = pool.query.mock.calls.find(([sql, params]) => String(sql).includes('INSERT INTO ops_action_events') && params[3] === 'risk_owner_resolve');
+    expect(resolvedInsert[1][4]).toBe('kommo_sync');
+    expect(JSON.parse(resolvedInsert[1][10])).toMatchObject({
+      risk_id: 'kommo_sync:501',
+      bulk_action: 'bulk_resolve',
+      resolved: true,
+    });
+    expect(JSON.parse(resolvedInsert[1][10]).resolved_at).toBeTruthy();
   });
 
   it('requires owner escalation before auto-remediation', async () => {

@@ -1,10 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CommandSidebar from '../components/CommandSidebar';
-import { Button } from '../components/ui/Button';
+import Sidebar from '../components/Sidebar';
 import { getStoredToken } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
-import { BarChart3, CalendarDays, ClipboardList, Route } from 'lucide-react';
 
 const FIELD_ROLES = [
   'Dyrektor',
@@ -90,13 +88,14 @@ export default function RaportyCentrum() {
 
   return (
     <div className="app-shell raporty-centrum-shell" style={S.wrap}>
-      <CommandSidebar active="reports" user={user} />
+      <Sidebar />
       <main className="app-main raporty-centrum-main" style={S.main}>
         <section className="raporty-centrum-hero" style={S.hero}>
           <div>
-            <h1 style={S.title}>Centrum raportow</h1>
+            <div style={S.eyebrow}>Centrum raportow</div>
+            <h1 style={S.title}>Jedno miejsce na wyniki, raport dnia i KPI</h1>
             <p style={S.subtitle}>
-              Przeglad wynikow, raportow dnia i kontroli wykonania dla operacji terenowych.
+              Raporty sa teraz uporzadkowane wedlug pracy firmy: zarzad, teren, mobilka i planowanie.
             </p>
           </div>
           <div style={S.heroStats}>
@@ -111,30 +110,23 @@ export default function RaportyCentrum() {
           </div>
         </section>
 
-        <section className="raporty-centrum-opsbar" style={S.opsbar}>
-          <Button type="button" variant="outline" leftIcon={ClipboardList} style={S.opsButton} onClick={() => navigate('/raporty/dzienny')}>Raport dnia</Button>
-          <Button type="button" variant="outline" leftIcon={BarChart3} style={S.opsButton} onClick={() => navigate('/raporty/analityka')}>Analityka</Button>
-          <Button type="button" variant="outline" leftIcon={CalendarDays} style={S.opsButton} onClick={() => navigate('/raporty/kpi-tydzien')}>KPI tygodnia</Button>
-          <Button type="button" leftIcon={Route} style={S.primaryButton} onClick={() => navigate('/raporty/autoplan')}>Autoplan</Button>
-        </section>
-
         <section className="raporty-centrum-section" style={S.section}>
           <div style={S.sectionHead}>
             <div>
-              <div style={S.eyebrow}>Decyzje</div>
-              <h2 style={S.sectionTitle}>Raporty do kontroli</h2>
+              <div style={S.eyebrow}>Najwazniejsze</div>
+              <h2 style={S.sectionTitle}>Raporty do decyzji</h2>
             </div>
           </div>
           <div className="raporty-centrum-grid" style={S.grid}>
             {primary.map((item) => (
-              <Button key={item.path} type="button" variant="ghost" className="raporty-centrum-card" style={{ ...S.card, ...S[item.tone] }} onClick={() => navigate(item.path)}>
+              <button key={item.path} type="button" className="raporty-centrum-card" style={{ ...S.card, ...S[item.tone] }} onClick={() => navigate(item.path)}>
                 <span style={S.cardEyebrow}>{item.eyebrow}</span>
                 <span style={S.cardTop}>
                   <strong style={S.cardTitle}>{item.label}</strong>
                   <span style={S.metric}>{item.metric}</span>
                 </span>
                 <span style={S.cardText}>{item.description}</span>
-              </Button>
+              </button>
             ))}
           </div>
         </section>
@@ -142,17 +134,17 @@ export default function RaportyCentrum() {
         <section className="raporty-centrum-section" style={S.section}>
           <div style={S.sectionHead}>
             <div>
-              <div style={S.eyebrow}>Operacje</div>
+              <div style={S.eyebrow}>Operacyjnie</div>
               <h2 style={S.sectionTitle}>Plan dnia i kontrola wykonania</h2>
             </div>
           </div>
           <div className="raporty-centrum-compact-grid" style={S.compactGrid}>
             {operational.map((item) => (
-              <Button key={item.path} type="button" variant="ghost" className="raporty-centrum-card" style={S.compactCard} onClick={() => navigate(item.path)}>
+              <button key={item.path} type="button" className="raporty-centrum-card" style={S.compactCard} onClick={() => navigate(item.path)}>
                 <span style={S.cardEyebrow}>{item.eyebrow}</span>
                 <strong style={S.cardTitle}>{item.label}</strong>
                 <span style={S.cardText}>{item.description}</span>
-              </Button>
+              </button>
             ))}
           </div>
         </section>
@@ -162,89 +154,55 @@ export default function RaportyCentrum() {
 }
 
 const S = {
-  wrap: { display: 'flex', minHeight: '100vh', background: '#f5f7f8' },
-  main: { flex: 1, width: '100%', padding: '18px clamp(16px, 2.4vw, 30px) 40px', minWidth: 0 },
+  wrap: { display: 'flex', minHeight: '100vh', background: '#f3f6f8' },
+  main: { flex: 1, width: '100%', padding: '18px 28px 40px', maxWidth: 1240, margin: '0 auto', minWidth: 0 },
   hero: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) auto',
-    gap: 16,
+    gap: 18,
     alignItems: 'center',
-    border: '1px solid rgba(18,32,26,0.1)',
-    borderLeft: '4px solid var(--accent)',
-    borderRadius: 8,
+    border: '1px solid #dbe3ea',
+    borderRadius: 10,
     background: '#ffffff',
-    boxShadow: 'var(--shadow-sm)',
-    padding: '18px 20px',
+    boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+    padding: '16px 18px',
     marginBottom: 12,
   },
   eyebrow: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
-  title: { margin: 0, color: 'var(--text)', fontSize: 30, lineHeight: 1.12, fontWeight: 900, letterSpacing: 0 },
-  subtitle: { margin: '6px 0 0', color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.45, maxWidth: 680, fontWeight: 650 },
+  title: { margin: '4px 0 8px', color: 'var(--text)', fontSize: 28, lineHeight: 1.15, fontWeight: 950, letterSpacing: 0 },
+  subtitle: { margin: 0, color: 'var(--text-sub)', fontSize: 14, lineHeight: 1.5, maxWidth: 680, fontWeight: 650 },
   heroStats: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(92px, 1fr))', gap: 10 },
   statBox: {
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid #dbe3ea',
     borderRadius: 8,
     background: '#ffffff',
-    padding: '10px 12px',
-    minHeight: 64,
+    padding: '12px 14px',
+    minHeight: 76,
     display: 'grid',
     alignContent: 'space-between',
   },
   statLabel: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
-  statValue: { color: 'var(--accent)', fontSize: 22, fontWeight: 950 },
-  opsbar: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 8,
-    border: '1px solid rgba(18,32,26,0.1)',
-    borderRadius: 8,
-    background: '#ffffff',
-    boxShadow: 'var(--shadow-sm)',
-    padding: 10,
-    marginBottom: 12,
-  },
-  opsButton: {
-    minHeight: 36,
-    border: '1px solid rgba(18,32,26,0.12)',
-    borderRadius: 6,
-    background: '#ffffff',
-    color: 'var(--text)',
-    padding: '0 12px',
-    fontSize: 13,
-    fontWeight: 800,
-    cursor: 'pointer',
-  },
-  primaryButton: {
-    minHeight: 36,
-    border: '1px solid rgba(15,118,80,0.3)',
-    borderRadius: 6,
-    background: 'var(--accent)',
-    color: '#ffffff',
-    padding: '0 14px',
-    fontSize: 13,
-    fontWeight: 850,
-    cursor: 'pointer',
-  },
+  statValue: { color: 'var(--accent)', fontSize: 24, fontWeight: 950 },
   section: {
-    border: '1px solid rgba(18,32,26,0.1)',
-    borderRadius: 8,
+    border: '1px solid #dbe3ea',
+    borderRadius: 10,
     background: '#ffffff',
-    boxShadow: 'var(--shadow-sm)',
-    padding: 14,
+    boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+    padding: 12,
     marginBottom: 12,
   },
   sectionHead: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 },
   sectionTitle: { margin: 0, color: 'var(--text)', fontSize: 17, fontWeight: 900, letterSpacing: 0 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 },
-  compactGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 8 },
+  compactGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 },
   card: {
-    minHeight: 136,
+    minHeight: 118,
     textAlign: 'left',
-    border: '1px solid rgba(18,32,26,0.1)',
+    border: '1px solid #dbe3ea',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
-    padding: 13,
+    padding: 12,
     boxShadow: 'none',
     display: 'grid',
     gap: 9,
@@ -252,9 +210,9 @@ const S = {
     fontFamily: 'inherit',
   },
   compactCard: {
-    minHeight: 112,
+    minHeight: 104,
     textAlign: 'left',
-    border: '1px solid rgba(18,32,26,0.1)',
+    border: '1px solid #dbe3ea',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
@@ -265,7 +223,7 @@ const S = {
     cursor: 'pointer',
     fontFamily: 'inherit',
   },
-  green: { borderLeft: '4px solid #0f7650' },
+  green: { borderLeft: '4px solid #0f766e' },
   blue: { borderLeft: '4px solid #2563eb' },
   cyan: { borderLeft: '4px solid #0891b2' },
   amber: { borderLeft: '4px solid #d97706' },
@@ -273,7 +231,7 @@ const S = {
   cardTop: { display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'space-between' },
   cardTitle: { color: 'var(--text)', fontSize: 16, lineHeight: 1.25, fontWeight: 900 },
   metric: {
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid #dbe3ea',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--accent)',

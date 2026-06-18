@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -42,6 +42,18 @@ function getLoginFields(container) {
   };
 }
 
+async function click(element) {
+  await act(async () => {
+    await userEvent.click(element);
+  });
+}
+
+async function type(element, value) {
+  await act(async () => {
+    await userEvent.type(element, value);
+  });
+}
+
 beforeEach(() => {
   localStorage.clear();
   api.post.mockReset();
@@ -63,23 +75,23 @@ test('fills a demo account and stores session data after login', async () => {
   const { container } = renderLogin();
   const { loginInput, passwordInput, rememberInput, submitButton } = getLoginFields(container);
 
-  await userEvent.click(screen.getByRole('button', { name: /Dyrektor/ }));
-  expect(loginInput).toHaveValue('demo_dyrektor');
-  expect(passwordInput).toHaveValue('Demo123!ARBOR');
+  await click(screen.getByRole('button', { name: /Dyrektor/ }));
+  expect(loginInput).toHaveValue('dyrektor');
+  expect(passwordInput).toHaveValue('ArborDemo2026!');
 
-  await userEvent.click(rememberInput);
-  await userEvent.click(submitButton);
+  await click(rememberInput);
+  await click(submitButton);
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith('/auth/login', {
-      login: 'demo_dyrektor',
-      haslo: 'Demo123!ARBOR',
+      login: 'dyrektor',
+      password: 'ArborDemo2026!',
     });
   });
   expect(localStorage.getItem('token')).toBe('demo-token');
   expect(JSON.parse(localStorage.getItem('user'))).toMatchObject({ rola: 'Dyrektor' });
   expect(JSON.parse(localStorage.getItem('permissions'))).toEqual(['dashboard:view']);
-  expect(localStorage.getItem('remembered_login')).toBe('demo_dyrektor');
+  expect(localStorage.getItem('remembered_login')).toBe('dyrektor');
   expect(await screen.findByText('Dashboard gotowy')).toBeInTheDocument();
 });
 
@@ -96,9 +108,9 @@ test('returns to the protected route requested before login', async () => {
   });
   const { loginInput, passwordInput, submitButton } = getLoginFields(container);
 
-  await userEvent.type(loginInput, 'demo_dyrektor');
-  await userEvent.type(passwordInput, 'Demo123!ARBOR');
-  await userEvent.click(submitButton);
+  await type(loginInput, 'demo_dyrektor');
+  await type(passwordInput, 'Demo123!ARBOR');
+  await click(submitButton);
 
   expect(await screen.findByText('Zlecenia gotowe')).toBeInTheDocument();
 });
@@ -122,14 +134,14 @@ test('clears stale auth entries when login response is missing token or user', a
   const { container } = renderLogin();
   const { loginInput, passwordInput, submitButton } = getLoginFields(container);
 
-  await userEvent.type(loginInput, 'demo_dyrektor');
-  await userEvent.type(passwordInput, 'Demo123!ARBOR');
-  await userEvent.click(submitButton);
+  await type(loginInput, 'demo_dyrektor');
+  await type(passwordInput, 'Demo123!ARBOR');
+  await click(submitButton);
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith('/auth/login', {
       login: 'demo_dyrektor',
-      haslo: 'Demo123!ARBOR',
+      password: 'Demo123!ARBOR',
     });
   });
 
@@ -154,9 +166,9 @@ test('requests a password reset link by login or email', async () => {
 
   renderLogin();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Nie pamiętasz hasła?' }));
-  await userEvent.type(screen.getByLabelText('Login albo e-mail'), 'admin@arbor.local');
-  await userEvent.click(screen.getByRole('button', { name: 'Wyślij link' }));
+  await click(screen.getByRole('button', { name: 'Nie pamiętasz hasła?' }));
+  await type(screen.getByLabelText('Login albo e-mail'), 'admin@arbor.local');
+  await click(screen.getByRole('button', { name: 'Wyślij link' }));
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith('/auth/forgot-password', {
@@ -181,9 +193,9 @@ test('resets password from a reset token link', async () => {
   renderLogin({ initialEntries: ['/?resetToken=abc-token'] });
 
   expect(screen.getByText('Ustaw nowe hasło')).toBeInTheDocument();
-  await userEvent.type(screen.getByLabelText('Nowe hasło'), 'NoweHaslo123');
-  await userEvent.type(screen.getByLabelText('Powtórz hasło'), 'NoweHaslo123');
-  await userEvent.click(screen.getByRole('button', { name: 'Zmień hasło' }));
+  await type(screen.getByLabelText('Nowe hasło'), 'NoweHaslo123');
+  await type(screen.getByLabelText('Powtórz hasło'), 'NoweHaslo123');
+  await click(screen.getByRole('button', { name: 'Zmień hasło' }));
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith('/auth/reset-password', {
@@ -203,9 +215,9 @@ test('shows a login error and clears the password after failed auth', async () =
   const { container } = renderLogin();
   const { loginInput, passwordInput, submitButton } = getLoginFields(container);
 
-  await userEvent.type(loginInput, 'demo_dyrektor');
-  await userEvent.type(passwordInput, 'zle-haslo');
-  await userEvent.click(submitButton);
+  await type(loginInput, 'demo_dyrektor');
+  await type(passwordInput, 'zle-haslo');
+  await click(submitButton);
 
   expect(await screen.findByText('Nieprawidlowe dane logowania')).toBeInTheDocument();
   expect(passwordInput).toHaveValue('');

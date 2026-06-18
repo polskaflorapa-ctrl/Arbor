@@ -4,7 +4,7 @@ const http = require("node:http");
 const https = require("node:https");
 const { EventEmitter } = require("node:events");
 
-const { httpGet, httpPostJson, checkApiHealth } = require("./lib/stack-utils.cjs");
+const { httpGet, httpPostJson, checkApiHealth, formatPortListeners } = require("./lib/stack-utils.cjs");
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -155,4 +155,30 @@ test("checkApiHealth reports invalid JSON distinctly", async () => {
   } finally {
     await closeServer(server);
   }
+});
+
+test("checkApiHealth preserves unauthorized payloads for port conflict diagnostics", async () => {
+  const server = http.createServer((req, res) => {
+    res.writeHead(401, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "not arbor api" }));
+  });
+
+  const address = await listen(server);
+  try {
+    const result = await checkApiHealth(`http://127.0.0.1:${address.port}`);
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 401);
+    assert.equal(result.note, "status 401");
+    assert.deepEqual(result.payload, { error: "not arbor api" });
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("formatPortListeners includes process names, pids, and paths", () => {
+  assert.equal(
+    formatPortListeners([{ pid: "123", name: "node.exe", path: "C:\\repo\\node.exe" }]),
+    "node.exe pid=123 path=C:\\repo\\node.exe"
+  );
+  assert.equal(formatPortListeners([]), "unknown listener");
 });

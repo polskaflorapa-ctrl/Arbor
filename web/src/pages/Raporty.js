@@ -1408,7 +1408,7 @@ const styles = {
   kpiLabel: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
   tabs: { display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid rgba(15,95,58,0.13)', flexWrap: 'wrap', background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: 6, boxShadow: '0 10px 24px rgba(31,79,50,0.045)' },
   tab: { padding: '9px 14px', border: '1px solid transparent', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '700', color: 'var(--text-muted)', borderRadius: 8, transition: 'all 0.2s' },
-  tabActive: { color: 'var(--accent)', border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-surface)' },
+  tabActive: { color: 'var(--accent)', border: '1px solid rgba(20,131,79,0.22)', backgroundColor: 'var(--accent-surface)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
   card: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: 20, boxShadow: '0 12px 30px rgba(31,79,50,0.065)', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },

@@ -51,7 +51,7 @@ export const TEST_TOKEN_MOBILE = 'test_token_mobile_' + Math.random().toString(3
 
 function mockTaskMissingLabels(task: any) {
   const missing: string[] = [];
-  if (Number(task?.photo_wycena || 0) <= 0) missing.push('zdjęcie ogólne / oględziny');
+  if (Number(task?.photo_wycena || 0) <= 0) missing.push('zdjęcie ogólne / wycena');
   if (Number(task?.photo_szkic || 0) <= 0) missing.push('szkic zakresu');
   if (Number(task?.photo_dojazd || 0) <= 0) missing.push('dojazd / posesja');
   if (Number(task?.wartosc_planowana || task?.budzet || 0) <= 0) missing.push('cena / budżet');
@@ -148,7 +148,7 @@ export const MOCK_DATA_MOBILE = {
       czas_planowany_godziny: 3,
       wartosc_planowana: 2450,
       notatki_wewnetrzne: [
-        'TRYB TERENOWY: szybkie oględziny u klienta',
+        'TRYB TERENOWY: szybka wycena u klienta',
         'PRZEKAZANIE DO BIURA',
         'Gotowosc: 5/5',
         'FORMULARZ WYCENY TERENOWEJ',
@@ -184,7 +184,7 @@ export const MOCK_DATA_MOBILE = {
       ankieta_uproszczona: true,
       czas_planowany_godziny: 2,
       notatki_wewnetrzne: [
-        'TRYB TERENOWY: szybkie oględziny u klienta',
+        'TRYB TERENOWY: szybka wycena u klienta',
         'PRZEKAZANIE DO BIURA',
         'Gotowosc: 3/5',
         'FORMULARZ WYCENY TERENOWEJ',
@@ -393,14 +393,14 @@ export async function loginTestUserMobile(role: MobileRoleKey) {
   try {
     const user = getTestUserMobile(role);
     const token = TEST_TOKEN_MOBILE;
-    
+
     await AsyncStorage.multiSet([
       ['token', token],
       ['user', JSON.stringify(user)],
       [TEST_MODE_STORAGE_KEY, 'true'],
       [TEST_USER_STORAGE_KEY, role],
     ]);
-    
+
     return { token, user };
   } catch (e) {
     console.error('Failed to login test user:', e);
@@ -747,7 +747,7 @@ export async function installMobileTestModeFetchInterceptor() {
   const isEnabled = await isTestModeEnabledMobile();
   if (!isEnabled) return;
 
-  const originalFetch = globalThis.fetch;
+  const originalFetch = (globalThis as any).fetch;
   if (typeof originalFetch !== 'function') return;
   if ((originalFetch as any).__testModePatched) return;
 
@@ -766,7 +766,7 @@ export async function installMobileTestModeFetchInterceptor() {
   };
 
   (patchedFetch as any).__testModePatched = true;
-  globalThis.fetch = patchedFetch as typeof globalThis.fetch;
+  (globalThis as any).fetch = patchedFetch;
 }
 
 export async function installMobileTestModeAxiosAdapter() {

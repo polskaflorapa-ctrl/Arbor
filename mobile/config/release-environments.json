@@ -1,17 +1,17 @@
 {
   "development": {
     "apiUrl": "https://arbor-os-b7k6.onrender.com/api",
-    "expectedApiVersion": "mobile-dev",
+    "expectedApiVersion": "2.2.0-quotations",
     "purpose": "internal dev-client debugging"
   },
   "preview": {
     "apiUrl": "https://arbor-os-b7k6.onrender.com/api",
-    "expectedApiVersion": "mobile-preview",
+    "expectedApiVersion": "2.2.0-quotations",
     "purpose": "internal QA and field testing"
   },
   "production": {
     "apiUrl": "https://arbor-os-b7k6.onrender.com/api",
-    "expectedApiVersion": "mobile-production",
+    "expectedApiVersion": "2.2.0-quotations",
     "purpose": "store-ready release"
   }
 }

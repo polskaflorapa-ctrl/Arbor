@@ -28,6 +28,23 @@ const SUGGESTED = [
   'Jak zatwierdza się wycenę?',
 ];
 
+function normalizeChatContent(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'object') {
+    return normalizeChatContent(
+      value.reply ??
+      value.message ??
+      value.content ??
+      value.text ??
+      value.error ??
+      ''
+    ) || JSON.stringify(value, null, 2);
+  }
+  return String(value);
+}
+
 export default function AiChat() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -52,7 +69,7 @@ export default function AiChat() {
         if (prev.length > 0) return prev;
         return [{
           role: 'assistant',
-          content: '👋 Cześć! Jestem asystentem ARBOR-OS. Mogę pomóc z pytaniami o zlecenia, ekipy, wyceny i harmonogram. O co chcesz zapytać?',
+          content: '👋 Cześć! Jestem asystentem Polska Flora. Mogę pomóc z pytaniami o zlecenia, ekipy, wyceny i harmonogram. O co chcesz zapytać?',
         }];
       });
     }
@@ -81,7 +98,8 @@ export default function AiChat() {
         { messages: newMessages, context },
         { headers: authHeaders(token) }
       );
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
+      const assistantReply = normalizeChatContent(res.data?.reply ?? res.data?.message ?? res.data?.content ?? res.data);
+      setMessages(prev => [...prev, { role: 'assistant', content: assistantReply || 'Brak odpowiedzi z AI.' }]);
       setProviderInfo(res.data.provider ? { provider: res.data.provider, model: res.data.model } : null);
       setApiKeyMissing(false);
     } catch (err) {
@@ -150,7 +168,7 @@ export default function AiChat() {
                 </svg>
               </div>
               <div>
-                <div style={S.headerTitle}>Asystent ARBOR-OS</div>
+                <div style={S.headerTitle}>Asystent Polska Flora</div>
                 <div style={S.headerSub}>
                   <span style={S.dot} />
                   {providerLabel} · online
@@ -242,7 +260,7 @@ export default function AiChat() {
 
 // ── Formatowanie markdown-lite ─────────────────────────────────────────────────
 function formatMessage(text) {
-  const lines = text.split('\n');
+  const lines = normalizeChatContent(text).split('\n');
   return lines.map((line, i) => {
     if (line.startsWith('**') && line.endsWith('**')) {
       return <div key={i} style={{ fontWeight: 700, marginTop: i > 0 ? 6 : 0 }}>{line.slice(2, -2)}</div>;

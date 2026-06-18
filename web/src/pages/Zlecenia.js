@@ -24,6 +24,7 @@ import { getRoleDisplayName } from '../utils/roleDisplay';
 import { canSendTaskSms, canViewFinance, readPermissions } from '../utils/permissions';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
+import { getTaskReadiness, summarizeTaskReadiness } from '../utils/taskReadiness';
 import {
   TASK_PRIORITIES,
   TASK_EQUIPMENT_OPTIONS,
@@ -63,6 +64,7 @@ const SMART_FILTER_INTENT_KEY = 'zlecenia_smart_filter_intent_at';
 const SMART_FILTER_INTENT_MAX_AGE_MS = 15_000;
 const VOLATILE_SMART_FILTERS = new Set(['today']);
 const ZLECENIA_TRYBY = new Set(['lista', 'kanban', 'nowy', 'edytuj', 'szczegoly']);
+const isNumericValidationNoise = (message) => /Validation failed \(numeric string is expected\)/i.test(String(message || ''));
 const SMART_FILTERS = [
   { key: 'myTurn', label: 'Moje teraz' },
   { key: 'overdue', label: 'Przeterminowane' },
@@ -78,6 +80,7 @@ const SMART_FILTERS = [
   { key: 'officeApproval', label: 'Do zatwierdzenia' },
   { key: 'officePlanBlocked', label: 'Pakiet biura blokuje' },
   { key: 'crewPackageBlocked', label: 'Pakiet ekipy blokuje' },
+  { key: 'crewHandoffBlocked', label: 'Brak pakietu ekipy' },
   { key: 'noCheckin', label: 'Brak check-in' },
   { key: 'fieldActive', label: 'Praca trwa' },
   { key: 'readyClose', label: 'Do zamknięcia' },
@@ -92,7 +95,8 @@ const OPERATIONAL_VIEWS = [
   { key: 'intake', label: '1. Telefon', detail: 'zgłoszenie z biura', status: TASK_STATUS.NOWE },
   { key: 'fieldInspection', label: '2. Oględziny', detail: 'u specjalisty ds. wyceny', status: TASK_STATUS.WYCENA_TERENOWA },
   { key: 'officeApproval', label: '3. Biuro planuje', detail: 'po akceptacji klienta', status: TASK_STATUS.DO_ZATWIERDZENIA },
-  { key: 'planned', label: '4. Ekipa gotowa', detail: 'termin i brygada', status: TASK_STATUS.ZAPLANOWANE },
+  { key: 'crewHandoff', label: '4. Start ekip', detail: 'komplet przekazania', smartFilter: 'crewHandoffBlocked' },
+  { key: 'planned', label: '5. Ekipa gotowa', detail: 'termin i brygada', status: TASK_STATUS.ZAPLANOWANE },
   { key: 'active', label: '5. Wykonanie', detail: 'ekipa w terenie', status: TASK_STATUS.W_REALIZACJI },
   { key: 'close', label: '6. Zamknięcie', detail: 'dowody i rozliczenie', smartFilter: 'readyClose' },
 ];
@@ -1062,7 +1066,7 @@ function WorkflowPathPanel({ styles, task, canChange, statusBusy, onChangeStatus
       <div style={styles.workflowPathHeader}>
         <div>
           <div style={styles.detailOpsEyebrow}>Oś statusów</div>
-          <div style={styles.workflowPathTitle}>Telefon -> oględziny -> biuro -> ekipa -> zamknięcie</div>
+          <div style={styles.workflowPathTitle}>Telefon -&gt; oględziny -&gt; biuro -&gt; ekipa -&gt; zamknięcie</div>
           <p style={styles.workflowPathSubtitle}>
             System pokazuje tylko następny logiczny ruch. Przeskoki bokiem są blokowane, żeby zlecenia nie wpadały w chaos.
           </p>
@@ -3084,7 +3088,8 @@ function uniqueTextValues(values) {
 function getTaskSafetyChecklist(task, meta, contact = {}) {
   const diagnostics = meta?.diagnostics || getTaskDiagnostics(task, new Date().toISOString().slice(0, 10));
   const equipment = getTaskEquipmentList(task);
-  const arboristWork = ['Wycinka', 'Pielęgnacja'].includes(task.typ_uslugi) || Boolean(task.arborysta);
+  const serviceType = String(task.typ_uslugi || '').toLowerCase();
+  const arboristWork = serviceType.includes('wycinka') || serviceType.includes('pielęgnacja') || Boolean(task.arborysta);
   const needsCrew = CREW_REQUIRED_TASK_STATUSES.has(String(task.status || ''));
   return [
     {
@@ -4194,7 +4199,10 @@ export default function Zlecenia() {
       return taskRows;
     } catch (err) {
       if (!options.silent) {
-        pokazKomunikat(getApiErrorMessage(err, 'Błąd ładowania danych'), 'error');
+        const message = getApiErrorMessage(err, 'Błąd ładowania danych');
+        if (!isNumericValidationNoise(message)) {
+          pokazKomunikat(message, 'error');
+        }
       }
     } finally {
       setLoading(false);
@@ -4484,7 +4492,7 @@ export default function Zlecenia() {
       ...createTaskFormDefaults({
         ...quickCall,
       status: TASK_STATUS.WYCENA_TERENOWA,
-      typ_uslugi: 'Wycinka',
+      typ_uslugi: TASK_SERVICE_TYPES[0],
       oddzial_id: quickCall.oddzial_id || currentUser?.oddzial_id || '',
       wyceniajacy_id: quickCall.wyceniajacy_id || (isWyceniajacy ? currentUser?.id || '' : ''),
       opis_pracy: appendUniqueLine(quickCall.opis_pracy, intakeNote),
@@ -4591,7 +4599,7 @@ export default function Zlecenia() {
           ...createTaskFormDefaults({
             ...quickCall,
           status: TASK_STATUS.WYCENA_TERENOWA,
-          typ_uslugi: 'Wycinka',
+          typ_uslugi: TASK_SERVICE_TYPES[0],
           opis_pracy: appendUniqueLine(
             quickCall.opis_pracy,
             'Źródło: telefon do biura. Cel: oględziny u klienta i pakiet zdjęć dla biura.',
@@ -5447,6 +5455,10 @@ export default function Zlecenia() {
     const phone = task.klient_telefon || 'brak telefonu';
     const planned = formatTaskPlanLine(task);
     const blockers = diagnostics.items.length ? diagnostics.items.map((item) => item.label).join(', ') : 'brak';
+    const handoffReadiness = getTaskReadiness(task);
+    const handoffMissing = handoffReadiness.blockers.length
+      ? handoffReadiness.blockers.map((item) => item.label).join(', ')
+      : 'brak';
     const mapUrl = getMapsHref(task);
     const equipment = getTaskEquipmentList(task);
     const description = getTaskCrewDescription(task);
@@ -5465,6 +5477,7 @@ export default function Zlecenia() {
       equipment.length || equipmentNote ? `Sprzet: ${[equipment.join(', '), equipmentNote].filter(Boolean).join(' | ')}` : null,
       risk ? `Ryzyka: ${risk}` : null,
       `Zdjecia: ${photos.total} razem, wycena/szkic: ${photos.fieldEvidence}`,
+      `Pakiet dla ekipy: ${handoffReadiness.score}% | Braki: ${handoffMissing}`,
       `Blokery: ${blockers}`,
       `Następny ruch: ${diagnostics.nextAction.label}`,
       mapUrl ? `Mapa: ${mapUrl}` : null,
@@ -5514,7 +5527,7 @@ export default function Zlecenia() {
     });
     const safetyMissing = checklist.filter((item) => !item.ok).map((item) => `${item.label}: ${item.detail}`);
     const text = [
-      `ARBOR-OS | ODPRAWA BRYGADY | Zlecenie #${task.id}`,
+      `Polska Flora | ODPRAWA BRYGADY | Zlecenie #${task.id}`,
       `Gotowość pakietu: ${readiness.score}%`,
       readiness.blockers.length ? `Blokady: ${readiness.blockers.map((item) => item.label).join(', ')}` : 'Blokady: brak',
       '',
@@ -5554,7 +5567,7 @@ export default function Zlecenia() {
       address ? `Adres: ${address}.` : null,
       getClientMessageNextStep(task, diagnostics),
       mapUrl ? `Mapa: ${mapUrl}` : null,
-      'ARBOR-OS',
+      'Polska Flora',
     ].filter(Boolean).join('\n');
   };
 
@@ -5577,7 +5590,7 @@ export default function Zlecenia() {
     const withPhone = scopedTasks.filter((task) => telHref(task.klient_telefon)).length;
     const directionsHref = getDirectionsHref(scopedTasks);
     const manifest = [
-      `ARBOR-OS | Odprawa operacyjna ${label}`,
+      `Polska Flora | Odprawa operacyjna ${label}`,
       `Zleceń: ${scopedTasks.length} | Telefony: ${withPhone}/${scopedTasks.length} | Adresy: ${withAddress}/${scopedTasks.length} | Wartość: ${formatCurrency(value)}`,
       directionsHref ? `Trasa zbiorcza: ${directionsHref}` : null,
       '',
@@ -5626,7 +5639,7 @@ export default function Zlecenia() {
     const mapUrl = getMapsHref(task);
 
     return [
-      `ARBOR-OS | PAKIET PLANOWANIA | Zlecenie #${task.id}`,
+      `Polska Flora | PAKIET PLANOWANIA | Zlecenie #${task.id}`,
       `Status: ${task.status || 'brak'} | Oddzial: ${branchLabel} | Gotowosc: ${diagnostics.score}/100`,
       '',
       'KLIENT',
@@ -5884,7 +5897,7 @@ export default function Zlecenia() {
       'Klient',
       'Adres',
       'Miasto',
-      'Typ uslugi',
+      'Typ usługi',
       'Status',
       'Priorytet',
       'SLA',
@@ -5987,6 +6000,9 @@ export default function Zlecenia() {
       const readiness = getTaskPackageReadiness(task, 'crew');
       return readiness.relevant && !readiness.ready;
     }
+    if (filterKey === 'crewHandoffBlocked') {
+      return !isTaskClosed(task.status) && !getTaskReadiness(task).ready;
+    }
     if (filterKey === 'readyClose') return diagnostics.has.readyClose;
     if (filterKey === 'contactTodo') {
       const contactStatus = getClientContact(task.id).status;
@@ -6060,6 +6076,7 @@ export default function Zlecenia() {
   }));
   const businessGuard = buildBusinessGuardSummary(widoczneZlecenia, todayIso, getClientContact);
   const visibleOpenTasks = widoczneZlecenia.filter((task) => !isTaskClosed(task.status));
+  const crewHandoffSummary = summarizeTaskReadiness(visibleOpenTasks);
   const visibleValue = widoczneZlecenia.reduce((sum, task) => sum + (Number(task.wartosc_planowana) || 0), 0);
   const visibleUnassigned = visibleOpenTasks.filter((task) => getTaskDiagnostics(task, todayIso).has.unassigned).length;
   const visibleNoDate = visibleOpenTasks.filter((task) => !getTaskDay(task)).length;
@@ -6079,6 +6096,7 @@ export default function Zlecenia() {
     const readiness = getTaskPackageReadiness(task, 'crew');
     return readiness.relevant && !readiness.ready;
   }).length;
+  const visibleCrewHandoffBlocked = crewHandoffSummary.blocked;
   const visibleToday = widoczneZlecenia.filter((task) => getTaskDiagnostics(task, todayIso).has.today).length;
   const visibleReadyClose = widoczneZlecenia.filter((task) => getTaskDiagnostics(task, todayIso).has.readyClose).length;
   const visibleWorkflowBlocked = visibleOpenTasks.filter((task) => getTaskDiagnostics(task, todayIso).blockers.length > 0).length;
@@ -6098,6 +6116,14 @@ export default function Zlecenia() {
     { key: 'officePackage', label: 'Pakiet biura', count: visibleOfficePlanBlocked, ok: 'Planowanie OK', danger: 'Blokuje biuro', filterKey: 'officePlanBlocked' },
     { key: 'crewPackage', label: 'Pakiet ekipy', count: visibleCrewPackageBlocked, ok: 'Ekipa gotowa', danger: 'Blokuje ekipę', filterKey: 'crewPackageBlocked' },
   ];
+  dispatchReadiness.push({
+    key: 'handoffPackage',
+    label: 'Przekazanie',
+    count: visibleCrewHandoffBlocked,
+    ok: 'Pakiet OK',
+    danger: 'Braki dla ekipy',
+    filterKey: 'crewHandoffBlocked',
+  });
   const topDispatchBlocker = dispatchReadiness.find((item) => item.count > 0);
   const decisionCommand = visibleWorkflowBlocked > 0
     ? {
@@ -6160,6 +6186,33 @@ export default function Zlecenia() {
     { label: 'Dzisiaj', value: visibleToday, detail: `${visibleReadyClose} do zamknięcia`, tone: 'blue', filterKey: 'today' },
   ];
   const zleceniaDailyCards = zleceniaOpsCards.slice(0, 8);
+  const missionReadiness = visibleOpenTasks.length
+    ? Math.round(((visibleOpenTasks.length - visibleWorkflowBlocked) / visibleOpenTasks.length) * 100)
+    : 100;
+  const missionQueueLabel = visibleWorkflowBlocked
+    ? 'Najpierw usuń blokady'
+    : visibleReadyClose
+      ? 'Domknij gotowe prace'
+      : 'Kolejka operacyjnie czysta';
+  const missionQueueDetail = visibleWorkflowBlocked
+    ? `${visibleWorkflowBlocked} zleceń wymaga reakcji przed planowaniem lub zamknięciem.`
+    : visibleReadyClose
+      ? `${visibleReadyClose} zleceń można przeprowadzić przez finalną kontrolę.`
+      : 'Możesz pracować według ryzyka, wartości albo najbliższego terminu.';
+  const zleceniaMissionCards = [
+    { key: 'visible', label: 'W widoku', value: widoczneZlecenia.length, detail: `${zlecenia.length} w systemie`, tone: 'neutral' },
+    { key: 'readiness', label: 'Gotowość', value: `${missionReadiness}%`, detail: 'bez krytycznych braków', tone: missionReadiness < 70 ? 'warning' : 'green' },
+    { key: 'handoff', label: 'Start ekip', value: visibleCrewHandoffBlocked, detail: 'braki przekazania', tone: visibleCrewHandoffBlocked ? 'warning' : 'green', filterKey: 'crewHandoffBlocked' },
+    { key: 'blocked', label: 'Blokady', value: visibleWorkflowBlocked, detail: 'otwarte decyzje', tone: visibleWorkflowBlocked ? 'danger' : 'green', filterKey: visibleWorkflowBlocked ? 'overdue' : '' },
+    { key: 'value', label: 'Wartość', value: formatMoneyBrief(visibleValue), detail: 'planowana w filtrze', tone: 'blue' },
+  ];
+  const zleceniaFlowLanes = [
+    { key: 'intake', label: 'Telefon', count: visibleOpenTasks.filter((task) => task.status === TASK_STATUS.NOWE).length, filterKey: '' },
+    { key: 'field', label: 'Oględziny', count: visibleFieldInspection, filterKey: 'fieldInspection' },
+    { key: 'office', label: 'Biuro', count: visibleOfficeApproval, filterKey: 'officeApproval' },
+    { key: 'crew', label: 'Ekipa', count: visibleOpenTasks.filter((task) => task.status === TASK_STATUS.ZAPLANOWANE || task.status === TASK_STATUS.W_REALIZACJI).length, filterKey: '' },
+    { key: 'close', label: 'Zamknięcie', count: visibleReadyClose, filterKey: 'readyClose' },
+  ];
   const closureAudit = buildClosureAuditSummary(closureDecisionEvents, zlecenia);
   const effectiveClosureIssueKey = closureAudit.topIssues.some((issue) => issue.key === activeClosureIssueKey)
     ? activeClosureIssueKey
@@ -6911,7 +6964,7 @@ export default function Zlecenia() {
       tone: formPreviewSafetyRequired.length ? 'danger' : 'good',
     },
   ];
- 
+
   return (
     <div className="app-shell zlecenia-shell">
       <CommandSidebar active="orders" user={currentUser} />
@@ -7026,6 +7079,7 @@ export default function Zlecenia() {
           <>
             <PageHeader
               variant="hero"
+              className="command-surface-hero"
               title={t('pages.zlecenia.title')}
               subtitle={t('pages.zlecenia.subtitle')}
               icon={<AssignmentOutlined style={{ fontSize: 26 }} />}
@@ -7036,6 +7090,131 @@ export default function Zlecenia() {
                 </>
               }
             />
+            <section className="zlecenia-v2-cockpit" style={s.z2Cockpit} data-testid="zlecenia-v2-cockpit">
+              <div className="zlecenia-v2-primary" style={s.z2Primary}>
+                <div style={s.z2HeaderLine}>
+                  <span style={s.z2Eyebrow}>Zlecenia 2.0</span>
+                  <span style={{
+                    ...s.z2HealthPill,
+                    ...(visibleWorkflowBlocked ? s.z2HealthPillWarning : s.z2HealthPillGood),
+                  }}>
+                    {visibleWorkflowBlocked ? `${visibleWorkflowBlocked} blokad` : 'czysty widok'}
+                  </span>
+                </div>
+                <h2 style={s.z2Title}>{missionQueueLabel}</h2>
+                <p style={s.z2Lead}>{missionQueueDetail}</p>
+                <div style={s.z2ProgressWrap}>
+                  <div style={s.z2ProgressTop}>
+                    <span>Gotowość operacyjna</span>
+                    <strong>{missionReadiness}%</strong>
+                  </div>
+                  <div style={s.z2ProgressTrack}>
+                    <span
+                      style={{
+                        ...s.z2ProgressFill,
+                        width: `${missionReadiness}%`,
+                        background: missionReadiness < 70
+                          ? 'linear-gradient(90deg, #f59e0b, #facc15)'
+                          : 'linear-gradient(90deg, #10b981, #5eead4)',
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="zlecenia-v2-flow" style={s.z2Flow}>
+                  {zleceniaFlowLanes.map((lane) => {
+                    const active = lane.filterKey && smartFilter === lane.filterKey;
+                    return (
+                      <button
+                        key={lane.key}
+                        type="button"
+                        style={{
+                          ...s.z2FlowStep,
+                          ...(active ? s.z2FlowStepActive : {}),
+                        }}
+                        onClick={() => {
+                          if (lane.filterKey) {
+                            setSmartFilter(active ? '' : lane.filterKey);
+                            setSelectedTaskIds([]);
+                          }
+                        }}
+                      >
+                        <span>{lane.label}</span>
+                        <strong>{lane.count}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="zlecenia-v2-actions" style={s.z2ActionRow}>
+                  <button type="button" style={s.z2PrimaryBtn} onClick={() => {
+                    setSortMode('risk');
+                    setSmartFilter(visibleWorkflowBlocked ? 'overdue' : smartFilter);
+                    setSelectedTaskIds([]);
+                  }}>
+                    Ustaw kolejkę ryzyka
+                  </button>
+                  <button type="button" style={s.z2GhostBtn} onClick={() => setTryb('kanban')}>
+                    Przejdź do Kanban
+                  </button>
+                  {mozeTworzyc ? (
+                    <button type="button" style={s.z2GhostBtn} onClick={focusQuickCallPanel}>
+                      Przyjmij telefon
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <aside className="zlecenia-v2-queue" style={s.z2Queue}>
+                <div style={s.z2QueueHeader}>
+                  <span style={s.z2Eyebrow}>Top kolejki</span>
+                  <strong>{queueItems.length ? `${queueItems.length} teraz` : 'brak alarmów'}</strong>
+                </div>
+                <div style={s.z2QueueList}>
+                  {queueItems.length ? queueItems.map(({ task, meta }, index) => (
+                    <button
+                      key={task.id}
+                      type="button"
+                      style={s.z2QueueItem}
+                      onClick={() => otworzSzczegoly(task)}
+                    >
+                      <span style={s.z2QueueRank}>{index + 1}</span>
+                      <span style={s.z2QueueBody}>
+                        <strong>{task.klient_nazwa || `Zlecenie #${task.id}`}</strong>
+                        <small>{meta.reasons.length ? meta.reasons.join(' + ') : meta.diagnostics.nextAction.label}</small>
+                      </span>
+                      <span style={s.z2QueueScore}>{Math.round(meta.score)}</span>
+                    </button>
+                  )) : (
+                    <div style={s.z2QueueEmpty}>
+                      Nie ma pilnych zleceń w bieżącym widoku.
+                    </div>
+                  )}
+                </div>
+              </aside>
+
+              <div className="zlecenia-v2-metrics" style={s.z2Metrics}>
+                {zleceniaMissionCards.map((card) => (
+                  <button
+                    key={card.key}
+                    type="button"
+                    style={{
+                      ...s.z2Metric,
+                      ...(s[`z2Metric_${card.tone}`] || {}),
+                      cursor: card.filterKey ? 'pointer' : 'default',
+                    }}
+                    onClick={() => {
+                      if (card.filterKey) {
+                        setSmartFilter(smartFilter === card.filterKey ? '' : card.filterKey);
+                        setSelectedTaskIds([]);
+                      }
+                    }}
+                  >
+                    <span style={s.z2MetricLabel}>{card.label}</span>
+                    <strong style={s.z2MetricValue}>{card.value}</strong>
+                    <small style={s.z2MetricDetail}>{card.detail}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
             <div
               data-testid="zlecenia-decision-band"
               style={{
@@ -7449,7 +7628,7 @@ export default function Zlecenia() {
                 <div style={s.workflowLaneHeader}>
                   <div>
                     <div style={s.dispatchEyebrow}>Jedna ścieżka zlecenia</div>
-                    <div style={s.workflowLaneTitle}>Telefon -> oględziny -> biuro -> ekipa -> zamknięcie</div>
+                    <div style={s.workflowLaneTitle}>Telefon -&gt; oględziny -&gt; biuro -&gt; ekipa -&gt; zamknięcie</div>
                   </div>
                   <span style={s.workflowLaneHint}>Kliknij etap, żeby zobaczyć tylko te sprawy.</span>
                 </div>
@@ -8029,7 +8208,20 @@ export default function Zlecenia() {
                       const followupMeta = getContactFollowupMeta(contact);
                       const officePackageReadiness = getTaskPackageReadiness(z, 'office');
                       const crewPackageReadiness = getTaskPackageReadiness(z, 'crew');
-                      const packageReadinessRows = [officePackageReadiness, crewPackageReadiness].filter((item) => item.relevant);
+                      const crewHandoffReadiness = getTaskReadiness(z);
+                      const crewHandoffRow = {
+                        type: 'handoff',
+                        relevant: !isTaskClosed(z.status),
+                        ready: crewHandoffReadiness.ready,
+                        label: 'Przekazanie',
+                        tone: crewHandoffReadiness.ready ? 'good' : crewHandoffReadiness.score < 70 ? 'danger' : 'warning',
+                        total: crewHandoffReadiness.items.length,
+                        readyCount: crewHandoffReadiness.items.filter((item) => item.done).length,
+                        score: crewHandoffReadiness.score,
+                        missing: crewHandoffReadiness.blockers.map((item) => item.label),
+                        status: crewHandoffReadiness.ready ? 'OK' : crewHandoffReadiness.blockers[0]?.label || 'do sprawdzenia',
+                      };
+                      const packageReadinessRows = [officePackageReadiness, crewPackageReadiness, crewHandoffRow].filter((item) => item.relevant);
                       return (
                       <div key={z.id} className="zlecenia-data-card" style={s.listTaskCard} onClick={() => otworzSzczegoly(z)}>
                         <div style={s.listTaskTop}>
@@ -8211,7 +8403,7 @@ export default function Zlecenia() {
                                 }}
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setSmartFilter(item.type === 'office' ? 'officePlanBlocked' : 'crewPackageBlocked');
+                                  setSmartFilter(item.type === 'office' ? 'officePlanBlocked' : item.type === 'handoff' ? 'crewHandoffBlocked' : 'crewPackageBlocked');
                                 }}
                                 title={item.missing.length ? item.missing.join(', ') : `${item.label}: OK`}
                               >
@@ -10060,6 +10252,149 @@ const s = {
   filtrInput: { padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   clearBtn: { padding: '8px 13px', backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 800 },
   countBadge: { fontSize: 12, color: 'var(--accent)', marginLeft: 'auto', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 9px', backgroundColor: 'var(--accent-surface)', fontWeight: 900 },
+  z2Cockpit: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.42fr) minmax(280px, 0.72fr)',
+    gridTemplateAreas: '"primary queue" "metrics metrics"',
+    gap: 14,
+    padding: 16,
+    marginBottom: 14,
+    border: '1px solid rgba(94,234,212,0.22)',
+    borderRadius: 8,
+    background:
+      'radial-gradient(circle at 10% 0%, rgba(34,197,94,0.22), transparent 34%), radial-gradient(circle at 92% 12%, rgba(14,165,233,0.14), transparent 30%), linear-gradient(135deg, #06121f 0%, #0a1b2d 48%, #07170f 100%)',
+    color: '#f8fafc',
+    boxShadow: '0 28px 70px rgba(2,8,23,0.28)',
+    overflow: 'hidden',
+  },
+  z2Primary: {
+    gridArea: 'primary',
+    minWidth: 0,
+    display: 'grid',
+    alignContent: 'start',
+    gap: 14,
+    padding: 14,
+    border: '1px solid rgba(148,163,184,0.18)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(15,23,42,0.72), rgba(6,18,31,0.78))',
+  },
+  z2HeaderLine: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+  z2Eyebrow: { color: '#5eead4', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
+  z2HealthPill: {
+    minHeight: 28,
+    display: 'inline-flex',
+    alignItems: 'center',
+    borderRadius: 8,
+    padding: '4px 9px',
+    border: '1px solid rgba(148,163,184,0.22)',
+    fontSize: 11,
+    fontWeight: 950,
+  },
+  z2HealthPillGood: { color: '#86efac', background: 'rgba(22,163,74,0.12)', borderColor: 'rgba(134,239,172,0.24)' },
+  z2HealthPillWarning: { color: '#fde68a', background: 'rgba(245,158,11,0.12)', borderColor: 'rgba(253,230,138,0.28)' },
+  z2Title: { margin: 0, color: '#ffffff', fontSize: 'clamp(24px, 2.7vw, 34px)', lineHeight: 1.14, fontWeight: 950, letterSpacing: 0, overflowWrap: 'normal' },
+  z2Lead: { margin: 0, maxWidth: 760, color: '#b8c7d9', fontSize: 14, lineHeight: 1.55, fontWeight: 720 },
+  z2ProgressWrap: { display: 'grid', gap: 7 },
+  z2ProgressTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#dbeafe', fontSize: 12, fontWeight: 900 },
+  z2ProgressTrack: { height: 10, borderRadius: 999, overflow: 'hidden', background: 'rgba(148,163,184,0.18)' },
+  z2ProgressFill: { display: 'block', height: '100%', borderRadius: 999, transition: 'width 220ms ease' },
+  z2Flow: { display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 8 },
+  z2FlowStep: {
+    minWidth: 0,
+    minHeight: 58,
+    border: '1px solid rgba(148,163,184,0.18)',
+    borderRadius: 8,
+    background: 'rgba(15,23,42,0.58)',
+    color: '#dbeafe',
+    padding: '8px 9px',
+    cursor: 'pointer',
+    display: 'grid',
+    alignContent: 'center',
+    gap: 2,
+    textAlign: 'left',
+    fontFamily: 'inherit',
+  },
+  z2FlowStepActive: { borderColor: 'rgba(94,234,212,0.58)', background: 'rgba(20,184,166,0.14)', color: '#ffffff' },
+  z2ActionRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  z2PrimaryBtn: {
+    border: '1px solid rgba(16,185,129,0.72)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, #10b981, #059669)',
+    color: '#04130d',
+    minHeight: 42,
+    padding: '9px 13px',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 950,
+    fontFamily: 'inherit',
+    boxShadow: '0 16px 34px rgba(16,185,129,0.24)',
+  },
+  z2GhostBtn: {
+    border: '1px solid rgba(94,234,212,0.26)',
+    borderRadius: 8,
+    background: 'rgba(15,23,42,0.58)',
+    color: '#ccfbf1',
+    minHeight: 42,
+    padding: '9px 13px',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 900,
+    fontFamily: 'inherit',
+  },
+  z2Queue: {
+    gridArea: 'queue',
+    minWidth: 0,
+    padding: 14,
+    border: '1px solid rgba(148,163,184,0.18)',
+    borderRadius: 8,
+    background: 'linear-gradient(180deg, rgba(15,23,42,0.82), rgba(6,18,31,0.72))',
+    display: 'grid',
+    alignContent: 'start',
+    gap: 12,
+  },
+  z2QueueHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, color: '#ffffff' },
+  z2QueueList: { display: 'grid', gap: 8 },
+  z2QueueItem: {
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: '30px minmax(0, 1fr) auto',
+    alignItems: 'center',
+    gap: 9,
+    border: '1px solid rgba(148,163,184,0.16)',
+    borderRadius: 8,
+    background: 'rgba(2,6,23,0.42)',
+    color: '#f8fafc',
+    padding: 9,
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontFamily: 'inherit',
+  },
+  z2QueueRank: { width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'rgba(94,234,212,0.13)', color: '#5eead4', fontWeight: 950 },
+  z2QueueBody: { minWidth: 0, display: 'grid', gap: 2 },
+  z2QueueScore: { color: '#fde68a', fontWeight: 950, fontVariantNumeric: 'tabular-nums' },
+  z2QueueEmpty: { color: '#b8c7d9', border: '1px dashed rgba(148,163,184,0.26)', borderRadius: 8, padding: 12, fontSize: 13 },
+  z2Metrics: { gridArea: 'metrics', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 },
+  z2Metric: {
+    minWidth: 0,
+    minHeight: 98,
+    border: '1px solid rgba(148,163,184,0.18)',
+    borderRadius: 8,
+    background: 'rgba(15,23,42,0.64)',
+    color: '#f8fafc',
+    padding: '11px 12px',
+    display: 'grid',
+    alignContent: 'center',
+    gap: 4,
+    textAlign: 'left',
+    fontFamily: 'inherit',
+  },
+  z2Metric_green: { borderColor: 'rgba(134,239,172,0.24)', background: 'linear-gradient(135deg, rgba(22,163,74,0.16), rgba(15,23,42,0.6))' },
+  z2Metric_warning: { borderColor: 'rgba(253,230,138,0.3)', background: 'linear-gradient(135deg, rgba(245,158,11,0.16), rgba(15,23,42,0.6))' },
+  z2Metric_danger: { borderColor: 'rgba(251,113,133,0.32)', background: 'linear-gradient(135deg, rgba(225,29,72,0.16), rgba(15,23,42,0.6))' },
+  z2Metric_blue: { borderColor: 'rgba(125,211,252,0.26)', background: 'linear-gradient(135deg, rgba(14,165,233,0.16), rgba(15,23,42,0.6))' },
+  z2MetricLabel: { color: '#93a4ba', fontSize: 11, fontWeight: 950, textTransform: 'uppercase' },
+  z2MetricValue: { color: '#ffffff', fontSize: 24, lineHeight: 1, fontWeight: 950, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' },
+  z2MetricDetail: { color: '#b8c7d9', fontSize: 12, fontWeight: 780 },
   decisionBand: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
@@ -10270,14 +10605,17 @@ const s = {
     fontVariantNumeric: 'tabular-nums',
   },
   quickCallPanel: {
-    border: '1px solid var(--glass-border)',
+    border: '1px solid rgba(34,197,94,0.25)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, rgba(34,197,94,0.11), var(--glass-bg))',
+    background:
+      'linear-gradient(135deg, rgba(34,197,94,0.14), rgba(14,165,233,0.08)), linear-gradient(180deg, rgba(255,255,255,0.94), rgba(239,248,243,0.82))',
     padding: 12,
     marginBottom: 12,
-    boxShadow: 'var(--shadow-sm)',
+    boxShadow: '0 16px 40px rgba(31,79,50,0.11)',
     scrollMarginTop: 18,
-    transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+    position: 'relative',
+    overflow: 'hidden',
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease',
   },
   quickCallPanelFocused: {
     border: '1px solid var(--accent)',
@@ -10809,19 +11147,22 @@ const s = {
   dailyOpsCard: {
     position: 'relative',
     minHeight: 104,
-    border: '1px solid var(--glass-border)',
+    border: '1px solid rgba(15,95,58,0.16)',
     borderLeft: '5px solid var(--accent)',
     borderRadius: 8,
-    background: 'linear-gradient(180deg, #ffffff, rgba(246,251,247,0.9))',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.98), rgba(237,248,242,0.9)), linear-gradient(90deg, rgba(15,107,63,0.08), transparent)',
     color: 'var(--text)',
     padding: '12px 12px 11px 14px',
     display: 'grid',
     alignContent: 'space-between',
     gap: 5,
     textAlign: 'left',
-    boxShadow: 'var(--shadow-sm)',
+    boxShadow: '0 14px 32px rgba(31,79,50,0.09)',
     fontFamily: 'inherit',
     overflow: 'hidden',
+    isolation: 'isolate',
+    transition: 'transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease',
   },
   dailyOpsCard_green: { borderLeftColor: 'var(--accent)' },
   dailyOpsCard_blue: { borderLeftColor: 'var(--info)' },
@@ -10869,9 +11210,9 @@ const s = {
   },
   opsCard: {
     minHeight: 92,
-    border: '1px solid var(--glass-border)',
+    border: '1px solid rgba(15,95,58,0.15)',
     borderRadius: 8,
-    background: 'var(--surface-glass)',
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.9), rgba(239,248,243,0.72))',
     color: 'var(--text)',
     padding: '10px 11px',
     textAlign: 'left',
@@ -10879,7 +11220,8 @@ const s = {
     flexDirection: 'column',
     justifyContent: 'space-between',
     gap: 5,
-    boxShadow: 'var(--shadow-sm)',
+    boxShadow: '0 12px 28px rgba(31,79,50,0.07)',
+    transition: 'transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease',
   },
   opsCard_green: { border: '1px solid rgba(120,242,173,0.24)' },
   opsCard_blue: { border: '1px solid rgba(91,192,235,0.24)' },
@@ -12498,11 +12840,14 @@ const s = {
     background: 'rgba(255,255,255,0.58)',
   },
   kanbanCard: {
-    border: '1px solid var(--border)',
-    borderRadius: 14,
-    background: '#fff',
+    position: 'relative',
+    overflow: 'hidden',
+    border: '1px solid rgba(15,95,58,0.14)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.98), rgba(240,248,244,0.88))',
     padding: 10,
-    transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.07)',
+    transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease',
   },
   kanbanCardTitle: {
     fontSize: 13,
@@ -15252,11 +15597,13 @@ const s = {
     lineHeight: 1.3,
   },
   listTaskCard: {
-    background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
+    position: 'relative',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.98), rgba(240,248,244,0.9)), linear-gradient(90deg, rgba(15,107,63,0.08), transparent 42%)',
+    border: '1px solid rgba(15,95,58,0.16)',
     borderLeft: '5px solid var(--accent)',
     borderRadius: 8,
-    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    boxShadow: '0 18px 42px rgba(31,79,50,0.1)',
     padding: 14,
     display: 'flex',
     flexDirection: 'column',
@@ -15264,6 +15611,10 @@ const s = {
     cursor: 'pointer',
     minHeight: 320,
     backdropFilter: 'none',
+    overflow: 'hidden',
+    isolation: 'isolate',
+    transform: 'translateZ(0)',
+    transition: 'transform 190ms ease, border-color 190ms ease, box-shadow 190ms ease, background 190ms ease',
   },
   listTaskTop: {
     display: 'flex',

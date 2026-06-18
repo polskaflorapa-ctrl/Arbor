@@ -274,7 +274,7 @@ export default function PotwierdzeniaEkip() {
             sx={{ minWidth: 180 }}
           />
           <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-            {t('pages.crewAtt.hint')} {attendanceSource === 'api' ? 'Dane zapisuja sie w ARBOR-OS.' : 'Tryb lokalny: polaczenie z serwerem jest ograniczone.'}
+            {t('pages.crewAtt.hint')} {attendanceSource === 'api' ? 'Dane zapisuja sie w Polska Flora.' : 'Tryb lokalny: polaczenie z serwerem jest ograniczone.'}
           </Typography>
         </Stack>
 

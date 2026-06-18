@@ -45,7 +45,7 @@ const OPS_ACTION_LABELS = {
   risk_queue_call: 'Telefon Zadarma z ryzyka',
   risk_acknowledge: 'Potwierdzenie ryzyka',
   risk_owner_escalate: 'Eskalacja ownera ryzyka',
-  risk_owner_resolve: 'Zamkniecie petli ownera',
+  risk_owner_resolve: 'Rozwiazanie alertu ownera',
   risk_owner_auto_remediate: 'Auto-remediacja ownera',
   risk_owner_remediation_blocked: 'Blokada auto-remediacji ownera',
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
@@ -1143,6 +1143,9 @@ function decisionOutcome(row) {
   if (row.action_type === 'risk_acknowledge') {
     return `Potwierdzone: ${meta.risk_type || row.issue_key || 'ryzyko'}`;
   }
+  if (row.action_type === 'risk_owner_resolve') {
+    return `Rozwiazane: ${meta.risk_type || row.issue_key || 'ryzyko'}`;
+  }
   if (row.action_type === 'risk_reassign_team') {
     return `Ekipa ${meta.old_team_id || '-'} -> ${meta.new_team_id || '-'}`;
   }
@@ -1950,7 +1953,7 @@ router.get('/owner-alerts/open', authMiddleware, requireRole(...MANAGER_ROLES), 
          WHERE e.created_at >= $1::date
            AND e.created_at < $1::date + INTERVAL '1 day'
            ${eventBranchSql}
-           AND e.action_type = 'risk_acknowledge'
+           AND e.action_type IN ('risk_acknowledge', 'risk_owner_resolve')
            AND COALESCE(e.metadata->>'risk_type', e.issue_key, '') = ANY($${params.length + 1}::text[])
          GROUP BY e.task_id, e.issue_key, COALESCE(e.metadata->>'risk_type', e.issue_key, 'risk_report'), e.metadata->>'risk_id'`,
         [...params, activeRiskTypes]
@@ -2059,12 +2062,13 @@ router.get('/owner-alerts/open', authMiddleware, requireRole(...MANAGER_ROLES), 
 
 router.post('/owner-alerts/actions', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
   const action = cleanText(req.body?.action, 50);
-  const allowedActions = new Set(['acknowledge', 'escalate', 'bulk_acknowledge', 'bulk_escalate']);
+  const allowedActions = new Set(['acknowledge', 'escalate', 'mark_resolved', 'bulk_acknowledge', 'bulk_escalate', 'bulk_resolve']);
   if (!allowedActions.has(action)) {
     return res.status(400).json({ error: 'Nieznana akcja owner alerts.' });
   }
   const isEscalation = action === 'escalate' || action === 'bulk_escalate';
-  const normalizedBulkAction = isEscalation ? 'bulk_escalate' : 'bulk_acknowledge';
+  const isResolve = action === 'mark_resolved' || action === 'bulk_resolve';
+  const normalizedBulkAction = isEscalation ? 'bulk_escalate' : (isResolve ? 'bulk_resolve' : 'bulk_acknowledge');
 
   const rawItems = Array.isArray(req.body?.items)
     ? req.body.items
@@ -2106,11 +2110,13 @@ router.post('/owner-alerts/actions', authMiddleware, requireRole(...MANAGER_ROLE
       const event = await recordOpsActionEvent({
         task,
         user: req.user,
-        actionType: isEscalation ? 'risk_owner_escalate' : 'risk_acknowledge',
+        actionType: isEscalation ? 'risk_owner_escalate' : (isResolve ? 'risk_owner_resolve' : 'risk_acknowledge'),
         issueKey: item.risk_type,
-        note: noteText || (!isEscalation
-          ? `Masowo potwierdzono alert ownera ${item.risk_id}`
-          : `Masowo eskalowano alert ownera ${item.risk_id}`),
+        note: noteText || (isEscalation
+          ? `Masowo eskalowano alert ownera ${item.risk_id}`
+          : (isResolve
+            ? `Oznaczono alert ownera jako rozwiazany ${item.risk_id}`
+            : `Masowo potwierdzono alert ownera ${item.risk_id}`)),
         metadata: {
           risk_id: item.risk_id,
           risk_type: item.risk_type,
@@ -2122,13 +2128,15 @@ router.post('/owner-alerts/actions', authMiddleware, requireRole(...MANAGER_ROLE
           bulk_action: normalizedBulkAction,
           requested_action: action,
           bulk_owner_action: true,
+          resolved: isResolve,
+          resolved_at: isResolve ? new Date().toISOString() : null,
         },
       });
       results.push({ risk_id: item.risk_id, ok: true, event_id: event?.id || null });
     }
 
     return res.json({
-      message: !isEscalation ? 'Alerty ownerow potwierdzone' : 'Alerty ownerow eskalowane',
+      message: isEscalation ? 'Alerty ownerow eskalowane' : (isResolve ? 'Alerty ownerow oznaczone jako rozwiazane' : 'Alerty ownerow potwierdzone'),
       action,
       normalized_action: normalizedBulkAction,
       requested: items.length,
@@ -2350,74 +2358,6 @@ router.post('/owner-alerts/remediation', authMiddleware, requireRole(...MANAGER_
     });
   } catch (e) {
     logger.error('ops owner-alerts remediation', { message: e.message, requestId: req.requestId });
-    return res.status(500).json({ error: e.message, requestId: req.requestId });
-  }
-});
-
-router.post('/owner-alerts/resolve', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
-  const riskId = cleanText(req.body?.risk_id, 120);
-  const riskType = cleanText(req.body?.risk_type || req.body?.type, 60);
-  const taskId = Number(req.body?.task_id || 0);
-  const noteText = cleanText(req.body?.note, 800);
-  const source = cleanText(req.body?.source, 60) || 'control';
-  const allowedRiskTypes = new Set(['kommo_sync', 'sms_delivery']);
-  if (!riskId || !allowedRiskTypes.has(riskType)) {
-    return res.status(400).json({ error: 'Zamkniecie alertu ownera wymaga risk_id i risk_type Kommo/SMS.' });
-  }
-
-  try {
-    await ensureOpsActionEventsTable();
-    let task = null;
-    const requestedOddzial = req.body?.oddzial_id ? Number(req.body.oddzial_id) : null;
-    const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
-    if (Number.isInteger(taskId) && taskId > 0) {
-      const resolved = await getRiskTask(taskId, req.user);
-      if (resolved.error) return res.status(resolved.error.status).json({ error: resolved.error.message });
-      task = resolved.task;
-    } else if (!isDyrektorOrAdmin(req.user)) {
-      return res.status(403).json({ error: 'Zamkniecie alertu bez task_id wymaga roli centralnej.' });
-    }
-
-    const owner = riskOwner(riskType);
-    const event = await recordOpsActionEvent({
-      task: task || { oddzial_id: oddzialId },
-      user: req.user,
-      actionType: 'risk_owner_resolve',
-      issueKey: riskType,
-      note: noteText || `Oznaczono alert ownera jako rozwiazany: ${riskId}`,
-      metadata: {
-        risk_id: riskId,
-        risk_type: riskType,
-        owner_label: owner.owner_label,
-        owner_role: owner.owner_role,
-        source,
-        follow_up: true,
-        resolution_status: 'resolved',
-        resolution_source: source,
-      },
-    });
-
-    await req.auditLog?.({
-      action: 'ops.owner_alert.resolve',
-      entity: 'ops_owner_alert',
-      entity_id: riskId,
-      details: { risk_id: riskId, risk_type: riskType, task_id: task?.id || null, oddzial_id: task?.oddzial_id || oddzialId || null, source },
-    });
-
-    return res.json({
-      message: 'Alert ownera oznaczony jako rozwiazany',
-      resolved: {
-        risk_id: riskId,
-        risk_type: riskType,
-        task_id: task?.id || null,
-        oddzial_id: task?.oddzial_id || oddzialId || null,
-        source,
-      },
-      event,
-      requestId: req.requestId,
-    });
-  } catch (e) {
-    logger.error('ops owner-alerts resolve', { message: e.message, requestId: req.requestId });
     return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });
@@ -2658,10 +2598,12 @@ router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), asy
         metadata,
         risk_id: metadata.risk_id || null,
         risk_type: metadata.risk_type || row.issue_key || null,
-        owner_label: row.action_type === 'risk_acknowledge'
+        owner_label: ['risk_acknowledge', 'risk_owner_resolve'].includes(row.action_type)
           ? riskOwner(metadata.risk_type || row.issue_key || null).owner_label
           : null,
-        owner_ack_status: row.action_type === 'risk_acknowledge' ? 'Domkniete w kontroli' : null,
+        owner_ack_status: row.action_type === 'risk_acknowledge'
+          ? 'Domkniete w kontroli'
+          : (row.action_type === 'risk_owner_resolve' ? 'Rozwiazane po remediacji' : null),
         outcome: decisionOutcome(row),
         created_at: row.created_at,
         action_path: row.task_id ? `/zlecenia/${row.task_id}` : '/kierownik',

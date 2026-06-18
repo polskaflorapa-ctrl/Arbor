@@ -10,6 +10,8 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: VITE_API_URL
+        value: https://arbor-os-b7k6.onrender.com/api
+      - key: VITE_APP_VERSION
         sync: false
     routes:
       - type: rewrite

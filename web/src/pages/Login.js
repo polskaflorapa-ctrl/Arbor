@@ -7,13 +7,27 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Dyrektor', login: 'demo_dyrektor', haslo: 'Demo123!ARBOR' },
-  { label: 'Prezes', login: 'demo_prezes', haslo: 'Demo123!ARBOR' },
-  { label: 'Specjalista', login: 'demo_specjalista', haslo: 'Demo123!ARBOR' },
+  { label: 'Dyrektor', login: 'dyrektor', haslo: 'ArborDemo2026!', color: '#a855f7' },
+  { label: 'Kierownik oddziału', login: 'kierownik.waw', haslo: 'ArborDemo2026!', color: '#3b82f6' },
+  { label: 'Brygadzista', login: 'brygadzista.a1', haslo: 'ArborDemo2026!', color: '#f59e0b' },
+  { label: 'Pracownik', login: 'pracownik.a1', haslo: 'ArborDemo2026!', color: '#22c55e' },
 ];
 
 const SHOW_DEMO_ACCOUNTS =
   process.env.NODE_ENV !== 'production' || process.env.REACT_APP_SHOW_DEMO_LOGINS === '1';
+
+const FRONTEND_ROLE_LABELS = {
+  ADMINISTRATOR: 'Administrator',
+  DYREKTOR: 'Dyrektor',
+  KIEROWNIK: 'Kierownik',
+  BRYGADZISTA: 'Brygadzista',
+};
+
+const normalizeUserForFrontend = (user = {}) => ({
+  ...user,
+  rola: FRONTEND_ROLE_LABELS[user.rola] || user.rola,
+  oddzial_id: user.oddzial_id ?? user.branchId ?? null,
+});
 
 export default function Login() {
   const { t } = useTranslation();
@@ -56,18 +70,22 @@ export default function Login() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const res = await api.post('/auth/login', { login, haslo });
-      const tok = res.data?.token;
-      const user = res.data?.user;
+      const res = await api.post('/auth/login', { login, password: haslo });
+      const tok = res.data?.token || res.data?.accessToken;
+      const user = res.data?.user ? normalizeUserForFrontend(res.data.user) : null;
       const hasToken = tok != null && tok !== '';
 
       if (!hasToken || !user) {
         clearAuthSession();
         setError(t('login.invalidCredentials'));
         setHaslo('');
+        setLoading(false);
         return;
       } else {
         localStorage.setItem('token', String(tok));
+        if (res.data?.refreshToken) {
+          localStorage.setItem('refreshToken', String(res.data.refreshToken));
+        }
         localStorage.setItem('user', JSON.stringify(user));
         if (user.permissions) {
           localStorage.setItem('permissions', JSON.stringify(user.permissions));
@@ -77,11 +95,13 @@ export default function Login() {
       }
       if (rememberMe) localStorage.setItem('remembered_login', login);
       else localStorage.removeItem('remembered_login');
+      setLoading(false);
       navigate(returnTo, { replace: true });
     } catch (err) {
       setError(err.userMessage || err.response?.data?.error || t('login.invalidCredentials'));
       setHaslo('');
-    } finally { setLoading(false); }
+      setLoading(false);
+    }
   };
 
   const fillDemoAccount = (account) => {
@@ -130,9 +150,36 @@ export default function Login() {
 
   return (
     <div className="login-shell" style={s.root}>
-      {/* Tlo z efektem */}
+      {/* Tło z efektem */}
       <div className="login-glow login-glow-primary" style={s.bgGlow1} />
       <div className="login-glow login-glow-side" style={s.bgGlow2} />
+
+      <section className="login-command-panel" style={s.commandPanel} aria-label="Polska Flora - panel operacyjny">
+        <div style={s.commandBrandRow}>
+          <div style={s.commandLogoIcon}>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v18" />
+              <path d="m7 8 5-5 5 5" />
+              <path d="m6 13 6-6 6 6" />
+              <path d="m5 18 7-7 7 7" />
+            </svg>
+          </div>
+          <div>
+            <h2 style={s.commandTitle}>Polska Flora</h2>
+            <div style={s.commandKicker}>OBSŁUGA ZLECEŃ I OGLĘDZIN</div>
+          </div>
+        </div>
+        <p style={s.commandCopy}>
+          Operacyjny system dla zgłoszeń, bezpłatnych oględzin, ekip terenowych
+          i usług pielęgnacji zieleni w Małopolsce.
+        </p>
+        <div style={s.featureList}>
+          <div style={s.featureRow}><span style={s.featureIcon}>PF</span> Zgłoszenia z telefonu, CRM i formularzy</div>
+          <div style={s.featureRow}><span style={s.featureIcon}>OG</span> Oględziny i trasy dla specjalistów</div>
+          <div style={s.featureRow}><span style={s.featureIcon}>CRM</span> Pipeline, statusy i kontrola oddziału</div>
+          <div style={s.featureRow}><span style={s.featureIcon}>AI</span> Telefonia z agentką Anią i SMS-ami</div>
+        </div>
+      </section>
 
       <div className="login-card" style={s.card}>
         {/* Logo */}
@@ -142,9 +189,9 @@ export default function Login() {
               <path d="M12 22V12M12 12C12 7 7 3 3 3c0 4 2 8 5 10M12 12C12 7 17 3 21 3c0 4-2 8-5 10"/>
             </svg>
           </div>
-          <h1 style={s.logoText}>ARBOR-OS</h1>
+          <h1 style={s.logoText}>Zaloguj się</h1>
         </div>
-        <p style={s.subtitle}>{t('login.subtitle')}</p>
+        <p style={s.subtitle}>Wprowadź dane dostępowe do systemu Polska Flora</p>
 
         <div className="login-language" style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
           <LanguageSwitcher />
@@ -154,7 +201,7 @@ export default function Login() {
           <form className="login-form" onSubmit={handleResetPassword} style={s.form}>
             <div style={s.resetIntro}>
               <strong>Ustaw nowe hasło</strong>
-              <span>Wpisz nowe hasło dla konta ARBOR-OS.</span>
+              <span>Wpisz nowe hasło dla konta Polska Flora.</span>
             </div>
             <div className="login-field" style={s.field}>
               <label htmlFor={resetPasswordInputId} style={s.label}>Nowe hasło</label>
@@ -208,7 +255,7 @@ export default function Login() {
           <>
         {SHOW_DEMO_ACCOUNTS && (
           <div className="login-demo-panel" style={s.demoPanel} aria-label="Konta demo">
-            <div style={s.demoTitle}>Konta demo</div>
+            <div style={s.demoTitle}>Konta demonstracyjne (hasło: ArborDemo2026!)</div>
             <div style={s.demoGrid}>
               {DEMO_ACCOUNTS.map((account) => (
                 <button
@@ -218,8 +265,11 @@ export default function Login() {
                   style={s.demoBtn}
                   onClick={() => fillDemoAccount(account)}
                 >
-                  <span style={s.demoRole}>{account.label}</span>
-                  <span style={s.demoLogin}>{account.login}</span>
+                  <span style={{ ...s.demoDot, background: account.color }} aria-hidden />
+                  <span style={s.demoText}>
+                    <span style={s.demoLogin}>{account.login}</span>
+                    <span style={s.demoRole}>{account.label}</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -309,7 +359,7 @@ export default function Login() {
                 <input
                   id={forgotInputId}
                   style={{ ...s.input, paddingLeft: 14 }}
-                  placeholder="np. admin albo admin@arbor.local"
+                  placeholder="np. admin albo admin@polskaflora.local"
                   value={forgotIdentifier}
                   onChange={(e) => setForgotIdentifier(e.target.value)}
                   autoComplete="email"
@@ -355,7 +405,7 @@ export default function Login() {
           </>
         )}
 
-        <p style={s.footer}>&copy; {new Date().getFullYear()} ARBOR-OS</p>
+        <p style={s.footer}>&copy; {new Date().getFullYear()} Polska Flora</p>
       </div>
     </div>
   );
@@ -363,10 +413,14 @@ export default function Login() {
 
 const s = {
   root: {
-    minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'linear-gradient(90deg, rgba(20,107,67,0.035) 1px, transparent 1px), linear-gradient(0deg, rgba(20,107,67,0.035) 1px, transparent 1px), linear-gradient(135deg, #f4faf5, #fbfefc 48%, #eaf5ee)',
-    backgroundSize: '36px 36px, 36px 36px, auto',
-    position: 'relative', overflow: 'hidden', padding: 24,
+    minHeight: '100vh',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(420px, 50vw)',
+    alignItems: 'stretch',
+    justifyContent: 'stretch',
+    gap: 0,
+    background: '#ffffff',
+    position: 'relative', overflow: 'hidden', padding: 0,
   },
   bgGlow1: {
     position: 'absolute', inset: 0,
@@ -379,80 +433,209 @@ const s = {
     background: 'linear-gradient(90deg, transparent 0%, rgba(20,131,79,0.1) 100%)',
     pointerEvents: 'none',
   },
+  commandPanel: {
+    position: 'relative',
+    zIndex: 1,
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    borderRadius: 0,
+    padding: '72px clamp(44px, 7vw, 92px)',
+    color: '#f8fafc',
+    border: 'none',
+    background:
+      'linear-gradient(90deg, rgba(148,163,184,0.14) 1px, transparent 1px), linear-gradient(0deg, rgba(148,163,184,0.12) 1px, transparent 1px), linear-gradient(135deg, #0b1726 0%, #062f27 56%, #05261f 100%)',
+    backgroundSize: '72px 72px, 72px 72px, auto',
+    boxShadow: 'none',
+    overflow: 'hidden',
+  },
+  commandBrandRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 30,
+  },
+  commandLogoIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    display: 'grid',
+    placeItems: 'center',
+    color: '#ffffff',
+    background: 'linear-gradient(135deg, #10b981, #059669)',
+    boxShadow: '0 22px 48px rgba(16,185,129,0.26)',
+  },
+  commandKicker: {
+    color: '#7fffd4',
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: '0.32em',
+    textTransform: 'uppercase',
+    marginTop: 3,
+  },
+  commandTitle: {
+    margin: 0,
+    fontSize: 34,
+    lineHeight: 1,
+    fontWeight: 950,
+    color: '#ffffff',
+    letterSpacing: 0,
+  },
+  commandCopy: {
+    maxWidth: 520,
+    margin: '0 0 54px',
+    color: 'rgba(248,250,252,0.92)',
+    fontSize: 19,
+    lineHeight: 1.55,
+    fontWeight: 500,
+  },
+  featureList: {
+    display: 'grid',
+    gap: 26,
+    maxWidth: 560,
+  },
+  featureRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    color: '#f8fafc',
+    fontSize: 16,
+    fontWeight: 500,
+  },
+  featureIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    display: 'inline-grid',
+    placeItems: 'center',
+    flex: '0 0 auto',
+    fontSize: 17,
+    background: 'rgba(16,185,129,0.22)',
+    boxShadow: 'inset 0 0 0 1px rgba(16,185,129,0.18)',
+  },
+  commandMap: {
+    position: 'absolute',
+    right: -40,
+    bottom: -42,
+    width: 360,
+    height: 240,
+    borderRadius: 18,
+    border: '1px solid rgba(134,239,172,0.2)',
+    background: 'linear-gradient(90deg, rgba(134,239,172,0.13) 1px, transparent 1px), linear-gradient(0deg, rgba(134,239,172,0.1) 1px, transparent 1px), rgba(3,7,18,0.28)',
+    backgroundSize: '32px 32px',
+    transform: 'rotate(-4deg)',
+  },
+  mapPin: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: '50%',
+    background: '#86efac',
+    boxShadow: '0 0 0 8px rgba(134,239,172,0.16), 0 0 26px rgba(134,239,172,0.7)',
+  },
+  mapRoute: {
+    position: 'absolute',
+    left: '22%',
+    top: '39%',
+    width: '56%',
+    height: '36%',
+    borderTop: '2px dashed rgba(125,211,252,0.72)',
+    borderRight: '2px dashed rgba(125,211,252,0.72)',
+    borderRadius: 14,
+  },
   card: {
-    background: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(239,250,243,0.9) 100%)',
-    borderRadius: 20, padding: '40px 36px', width: '100%', maxWidth: 420,
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)',
-    boxShadow: 'var(--shadow-lg)',
+    alignSelf: 'center',
+    justifySelf: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    background: '#ffffff',
+    borderRadius: 0, padding: '40px 40px', width: 'min(100%, 528px)', maxWidth: 528,
+    borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent',
+    boxShadow: 'none',
     position: 'relative', zIndex: 1, animation: 'fadeInUp 0.4s ease',
   },
-  logoRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 },
+  logoRow: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12, marginBottom: 8 },
   logoIcon: {
+    display: 'none',
     width: 48, height: 48, borderRadius: 14,
     background: 'var(--accent-gradient)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--logo-tint-border)',
     color: 'var(--on-accent)',
   },
-  logoText: { margin: 0, fontSize: 26, fontWeight: 800, color: 'var(--text)', letterSpacing: '0' },
-  subtitle: { margin: '0 0 32px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' },
+  logoText: { margin: 0, fontSize: 26, fontWeight: 850, color: '#020617', letterSpacing: '0' },
+  subtitle: { margin: '0 0 34px', fontSize: 16, color: '#64748b', textAlign: 'left', lineHeight: 1.45 },
   demoPanel: {
-    margin: '0 0 18px',
-    padding: 10,
-    borderRadius: 10,
-    border: '1px solid var(--border)',
-    background: 'var(--accent-surface)',
+    margin: '30px 0 0',
+    padding: 16,
+    borderRadius: 12,
+    border: 'none',
+    background: '#f8fafc',
   },
   demoTitle: {
-    marginBottom: 8,
-    color: 'var(--text-muted)',
-    fontSize: 11,
+    marginBottom: 12,
+    color: '#475569',
+    fontSize: 12,
     fontWeight: 800,
     textTransform: 'uppercase',
-    letterSpacing: 0,
+    letterSpacing: '0.06em',
   },
   demoGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 8,
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 10,
   },
   demoBtn: {
     minWidth: 0,
-    minHeight: 48,
-    display: 'grid',
-    gap: 2,
-    alignContent: 'center',
-    padding: '7px 8px',
+    minHeight: 58,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '10px 12px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-glass)',
-    color: 'var(--text)',
+    border: '1px solid #e2e8f0',
+    background: '#ffffff',
+    color: '#020617',
     cursor: 'pointer',
     textAlign: 'left',
+  },
+  demoDot: {
+    width: 9,
+    height: 9,
+    borderRadius: '50%',
+    flex: '0 0 auto',
+    boxShadow: '0 0 0 4px rgba(15,23,42,0.04)',
+  },
+  demoText: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 2,
   },
   demoRole: {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    color: 'var(--text-muted)',
     fontSize: 12,
-    fontWeight: 800,
+    fontWeight: 700,
   },
   demoLogin: {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    color: 'var(--text-muted)',
-    fontSize: 11,
-    fontWeight: 700,
+    fontSize: 14,
+    fontWeight: 850,
+    color: '#0f172a',
   },
   form: { display: 'flex', flexDirection: 'column', gap: 18 },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
-  label: { fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: 0 },
+  label: { fontSize: 14, fontWeight: 750, color: '#0f172a', textTransform: 'none', letterSpacing: 0 },
   inputWrap: { position: 'relative', display: 'flex', alignItems: 'center' },
   inputIcon: { position: 'absolute', left: 12, pointerEvents: 'none' },
   input: {
-    width: '100%', padding: '11px 12px 11px 40px', background: 'var(--surface-field)',
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 14,
+    width: '100%', minHeight: 50, padding: '0 44px 0 40px', background: '#f8fafc',
+    borderWidth: 1, borderStyle: 'solid', borderColor: '#e2e8f0', borderRadius: 12, color: '#0f172a', fontSize: 16,
     outline: 'none', transition: 'border-color 0.2s',
   },
   eyeBtn: {
@@ -528,13 +711,14 @@ const s = {
   },
   errText: { fontSize: 13, color: 'var(--danger)', flex: 1 },
   btn: {
-    padding: '13px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: 'none', borderRadius: 10,
-    fontSize: 14, fontWeight: 800, letterSpacing: 0, cursor: 'pointer', display: 'flex', alignItems: 'center',
+    minHeight: 48,
+    padding: '13px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff', border: 'none', borderRadius: 10,
+    fontSize: 15, fontWeight: 800, letterSpacing: 0, cursor: 'pointer', display: 'flex', alignItems: 'center',
     justifyContent: 'center', gap: 8, transition: 'opacity 0.2s, filter 0.2s', marginTop: 4,
   },
   spinner: {
     width: 18, height: 18, border: '2px solid rgba(255,255,255,0.35)', borderTop: '2px solid var(--on-accent)',
     borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block',
   },
-  footer: { margin: '28px 0 0', fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' },
+  footer: { display: 'none', margin: '28px 0 0', fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' },
 };

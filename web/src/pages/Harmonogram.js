@@ -413,7 +413,7 @@ function buildTaskCrewBrief({
   const blockers = missingLabels.length ? missingLabels.join(', ') : 'brak';
 
   return [
-    `ARBOR-OS | ODPRAWA EKIPY | Zlecenie #${task.id}`,
+    `Polska Flora | ODPRAWA EKIPY | Zlecenie #${task.id}`,
     `Klient: ${task.klient_nazwa || 'brak'} | Telefon: ${taskPhoneLabel(task)}`,
     `Adres: ${taskAddressLabel(task)}`,
     mapUrl ? `Mapa: ${mapUrl}` : null,
@@ -469,7 +469,7 @@ function buildDayCrewBrief({ dayLabel, dayISO, tasks = [], dispatchRows = [], li
   });
 
   return [
-    `ARBOR-OS | ODPRAWA DNIA | ${dayLabel} (${dayISO})`,
+    `Polska Flora | ODPRAWA DNIA | ${dayLabel} (${dayISO})`,
     `Zlecenia: ${sortedTasks.length} | Pakiety gotowe: ${readyCount}/${sortedTasks.length} | Wartosc: ${value.toLocaleString('pl-PL')} zl`,
     '',
     'Ekipy:',
@@ -1566,7 +1566,7 @@ export default function Harmonogram() {
                 <div style={styles.dispatchEyebrow}>Centrum planowania ekip</div>
                 <h3 style={styles.dispatchTitle}>Dispatch dnia: {selectedDayLabel}</h3>
                 <p style={styles.dispatchSubtitle}>
-                  Przeciagnij zlecenie z kolejki na konkretny slot: ekipa + godzina.
+                  Przeci?gnij zlecenie z kolejki na konkretny slot: ekipa + godzina.
                 </p>
               </div>
               <div style={styles.dispatchHeadActions}>
@@ -1590,7 +1590,7 @@ export default function Harmonogram() {
                   style={styles.dispatchLinkBtn}
                   onClick={copySelectedDayBrief}
                 >
-                  Kopiuj odprawe dnia
+                  Kopiuj odpraw? dnia
                 </button>
                 <button
                   type="button"
@@ -1602,9 +1602,9 @@ export default function Harmonogram() {
                 <button
                   type="button"
                   style={styles.dispatchLinkBtn}
-                  onClick={() => navigate('/kalendarz-zasobow')}
+                  onClick={() => navigate('/kalendarz-zasob?w')}
                 >
-                  Otworz kalendarz zasobow
+                  Otw?rz kalendarz zasob?w
                 </button>
               </div>
             </div>
@@ -1619,7 +1619,7 @@ export default function Harmonogram() {
                     </strong>
                     <p style={styles.dispatchSubtitle}>
                       {loadedDispatchRoutes.length} tras / {loadedDispatchStopCount} stopow / {loadedDispatchStats.tasks_assigned ?? 0}{' '}
-                      z {loadedDispatchStats.tasks_total ?? 0} zlecen przypisanych.
+                      z {loadedDispatchStats.tasks_total ?? 0} zleceń przypisanych.
                     </p>
                   </div>
                   <button
@@ -1864,7 +1864,7 @@ export default function Harmonogram() {
 
               <aside style={styles.dispatchQueue} data-testid="harmonogram-dispatch-queue">
                 <div style={styles.dispatchQueueHeader}>
-                  <strong>Kolejka do dopiecia</strong>
+                  <strong>Kolejka do dopi?cia</strong>
                   <span>{dispatchQueue.length}</span>
                 </div>
                 <div style={styles.dispatchQueueList}>
@@ -2026,7 +2026,7 @@ export default function Harmonogram() {
 
             <div style={styles.quickActions}>
               <button type="button" style={styles.dispatchLinkBtn} onClick={copySelectedTaskBrief}>
-                Kopiuj odprawe zlecenia
+                Kopiuj odpraw? zlecenia
               </button>
               <button
                 type="button"
@@ -2037,10 +2037,10 @@ export default function Harmonogram() {
                 disabled={!selectedTask.ekipa_id}
                 onClick={confirmSelectedForCrew}
               >
-                Zatwierdz dla ekipy
+                Zatwierd? dla ekipy
               </button>
               <button type="button" style={styles.dispatchLinkBtn} onClick={() => navigate(`/zlecenia/${selectedTask.id}`)}>
-                Otworz szczegoly
+                Otw?rz szczeg?y
               </button>
             </div>
           </section>
@@ -2200,7 +2200,7 @@ const styles = {
   dispatchDecisionWarn: { borderLeftColor: 'var(--warning)', background: 'linear-gradient(180deg, #ffffff, rgba(245,158,11,0.09))' },
   dispatchDecisionDanger: { borderLeftColor: 'var(--danger)', background: 'linear-gradient(180deg, #ffffff, rgba(239,68,68,0.09))' },
   dispatchKpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 12 },
-  dispatchKpi: { minHeight: 62, border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
+  dispatchKpi: { minHeight: 62, borderWidth: 1, borderStyle: 'solid', borderColor: 'rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   dispatchKpiWarn: { borderColor: 'rgba(245,158,11,0.42)', background: 'rgba(245,158,11,0.09)' },
   dispatchKpiDanger: { borderColor: 'rgba(239,68,68,0.46)', background: 'rgba(239,68,68,0.1)' },
   dispatchSlotBoard: { border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', marginBottom: 12, overflowX: 'auto', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
@@ -2213,16 +2213,16 @@ const styles = {
   dispatchSlotTeam: { display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', color: 'var(--text)', minHeight: 74 },
   dispatchSlotTeamName: { display: 'block', color: 'var(--text)', fontSize: 12, fontWeight: 950, lineHeight: 1.25 },
   dispatchSlotTeamMeta: { display: 'block', color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, marginTop: 2 },
-  dispatchGpsPill: { display: 'inline-flex', alignItems: 'center', maxWidth: '100%', minHeight: 18, border: '1px solid', borderRadius: 999, padding: '1px 6px', marginTop: 5, fontSize: 9, fontWeight: 950, whiteSpace: 'nowrap' },
+  dispatchGpsPill: { display: 'inline-flex', alignItems: 'center', maxWidth: '100%', minHeight: 18, borderWidth: 1, borderStyle: 'solid', borderColor: 'currentColor', borderRadius: 999, padding: '1px 6px', marginTop: 5, fontSize: 9, fontWeight: 950, whiteSpace: 'nowrap' },
   dispatchSlotCells: { display: 'grid', gridTemplateColumns: `repeat(${GODZINY.length}, minmax(72px, 1fr))` },
   dispatchSlotCell: { minHeight: 74, borderLeft: '1px solid var(--border)', padding: 5, background: 'rgba(255,255,255,0.012)', display: 'flex', flexDirection: 'column', gap: 4, transition: 'all 0.15s ease' },
   dispatchSlotCellDrop: { background: 'rgba(34,197,94,0.12)', boxShadow: 'inset 0 0 0 2px rgba(34,197,94,0.38)' },
   dispatchSlotCellConflict: { background: 'rgba(239,68,68,0.08)' },
-  dispatchSlotTask: { width: '100%', minHeight: 22, border: '1px solid', borderRadius: 7, background: 'var(--surface-field)', padding: '3px 5px', fontSize: 10, fontWeight: 950, textAlign: 'left', cursor: 'grab', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  dispatchSlotTask: { width: '100%', minHeight: 22, borderWidth: 1, borderStyle: 'solid', borderColor: 'currentColor', borderRadius: 7, background: 'var(--surface-field)', padding: '3px 5px', fontSize: 10, fontWeight: 950, textAlign: 'left', cursor: 'grab', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   dispatchSlotMore: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 900, padding: '0 4px' },
   dispatchGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 12, alignItems: 'stretch' },
   dispatchTeamsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, alignContent: 'start' },
-  dispatchTeamCard: { textAlign: 'left', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', color: 'var(--text)', padding: 12, cursor: 'pointer', boxShadow: '0 10px 24px rgba(31,79,50,0.055)', minHeight: 126 },
+  dispatchTeamCard: { textAlign: 'left', borderWidth: 1, borderStyle: 'solid', borderColor: 'rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', color: 'var(--text)', padding: 12, cursor: 'pointer', boxShadow: '0 10px 24px rgba(31,79,50,0.055)', minHeight: 126 },
   dispatchTeamCardDrop: { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px rgba(34,197,94,0.22), var(--shadow-md)', transform: 'translateY(-1px)' },
   dispatchTeamTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
   dispatchTeamDot: { width: 12, height: 12, borderRadius: '50%', flex: '0 0 auto' },
@@ -2231,7 +2231,7 @@ const styles = {
   dispatchLoadTrack: { height: 7, borderRadius: 999, background: 'rgba(148,163,184,0.18)', overflow: 'hidden', marginBottom: 10 },
   dispatchLoadFill: { display: 'block', height: '100%', borderRadius: 999, minWidth: 2 },
   dispatchTeamBadges: { display: 'flex', flexWrap: 'wrap', gap: 6 },
-  dispatchBadge: { display: 'inline-flex', alignItems: 'center', minHeight: 20, border: '1px solid var(--border)', borderRadius: 999, padding: '2px 7px', fontSize: 10, fontWeight: 900, color: 'var(--text-muted)', background: 'var(--surface-field)', maxWidth: '100%' },
+  dispatchBadge: { display: 'inline-flex', alignItems: 'center', minHeight: 20, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 999, padding: '2px 7px', fontSize: 10, fontWeight: 900, color: 'var(--text-muted)', background: 'var(--surface-field)', maxWidth: '100%' },
   dispatchBadgeOk: { color: 'var(--accent)', borderColor: 'rgba(34,197,94,0.28)', background: 'rgba(34,197,94,0.12)' },
   dispatchBadgeWarn: { color: 'var(--warning)', borderColor: 'rgba(245,158,11,0.36)', background: 'rgba(245,158,11,0.12)' },
   dispatchBadgeDanger: { color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.38)', background: 'rgba(239,68,68,0.12)' },
@@ -2258,7 +2258,7 @@ const styles = {
   quickTelemetryGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 10 },
   quickTelemetryItem: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', padding: '8px 9px', display: 'grid', gap: 3 },
   quickPhotoStrip: { display: 'flex', flexWrap: 'wrap', gap: 6 },
-  quickPhotoChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, border: '1px solid var(--border)', borderRadius: 999, padding: '3px 8px', fontSize: 10, fontWeight: 950, background: 'var(--surface-field)' },
+  quickPhotoChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 999, padding: '3px 8px', fontSize: 10, fontWeight: 950, background: 'var(--surface-field)' },
   quickPhotoChipReady: { color: 'var(--accent)', borderColor: 'rgba(34,197,94,0.28)', background: 'rgba(34,197,94,0.11)' },
   quickPhotoChipMissing: { color: 'var(--text-muted)', borderColor: 'rgba(148,163,184,0.22)', background: 'rgba(148,163,184,0.09)' },
   quickBrief: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', padding: '10px 12px', marginBottom: 10 },
@@ -2280,14 +2280,14 @@ const styles = {
   timeLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 800 },
   dayCol: { position: 'relative', borderRight: '1px solid var(--border)' },
   hourCell: { height: HOUR_SLOT_HEIGHT, borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.15s', background: 'rgba(255,255,255,0.012)' },
-  zlecenieBlock: { position: 'absolute', left: 6, right: 6, borderRadius: 8, padding: '7px 8px', cursor: 'pointer', overflow: 'hidden', zIndex: 10, boxShadow: 'var(--shadow-sm)', transition: 'transform 0.15s', border: '1px solid var(--border)' },
+  zlecenieBlock: { position: 'absolute', left: 6, right: 6, borderRadius: 8, padding: '7px 8px', cursor: 'pointer', overflow: 'hidden', zIndex: 10, boxShadow: 'var(--shadow-sm)', transition: 'transform 0.15s', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)' },
   zlecenieBlockConflict: { boxShadow: '0 0 0 2px rgba(239,68,68,0.38), var(--shadow-md)', borderColor: 'rgba(239,68,68,0.62)' },
   nowLine: { position: 'absolute', left: 0, right: 0, borderTop: '2px dashed var(--danger)', zIndex: 9, pointerEvents: 'none' },
   nowDot: { position: 'absolute', left: -4, top: -5, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--danger)' },
   blockTitle: { fontSize: 11, fontWeight: 900, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   blockSub: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 },
   blockBadges: { display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap', overflow: 'hidden', maxHeight: 20 },
-  blockBadge: { display: 'inline-flex', alignItems: 'center', height: 16, padding: '0 5px', borderRadius: 999, fontSize: 9, fontWeight: 900, lineHeight: '16px', whiteSpace: 'nowrap', border: '1px solid transparent' },
+  blockBadge: { display: 'inline-flex', alignItems: 'center', height: 16, padding: '0 5px', borderRadius: 999, fontSize: 9, fontWeight: 900, lineHeight: '16px', whiteSpace: 'nowrap', borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent' },
   blockBadgeOk: { backgroundColor: 'rgba(34,197,94,0.16)', color: 'var(--accent)', borderColor: 'rgba(34,197,94,0.28)' },
   blockBadgeWarn: { backgroundColor: 'rgba(245,158,11,0.16)', color: 'var(--warning)', borderColor: 'rgba(245,158,11,0.32)' },
   blockBadgeDanger: { backgroundColor: 'rgba(239,68,68,0.16)', color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.34)' },

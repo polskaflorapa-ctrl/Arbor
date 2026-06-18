@@ -237,16 +237,16 @@ test('copies a crew-ready brief from the focused schedule task', async () => {
   renderRoute('/harmonogram?date=2026-05-26&team=3&task=42&oddzial=7&view=dzien');
 
   expect(await screen.findByText(/1\/6 typow pakietu/i, {}, { timeout: 10000 })).toBeInTheDocument();
-  fireEvent.click(await screen.findByRole('button', { name: /Kopiuj odprawe zlecenia/i }, { timeout: 10000 }));
+  fireEvent.click(await screen.findByRole('button', { name: /Kopiuj odpraw. zlecenia/i }, {}, { timeout: 10000 }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
   const copied = writeText.mock.calls[0][0];
-  expect(copied).toContain('ARBOR-OS | ODPRAWA EKIPY | Zlecenie #42');
+  expect(copied).toContain('Polska Flora | ODPRAWA EKIPY | Zlecenie #42');
   expect(copied).toContain('Klient harmonogramu');
   expect(copied).toContain('Lesna 12');
   expect(copied).toContain('Przycinka koron nad podjazdem');
   expect(copied).toContain('Korona od ulicy');
-});
+}, 15000);
 
 test('falls back to textarea copy when browser clipboard is blocked', async () => {
   mockHarmonogramApi();
@@ -263,8 +263,8 @@ test('falls back to textarea copy when browser clipboard is blocked', async () =
   renderRoute('/harmonogram?date=2026-05-26&team=3&task=42&oddzial=7&view=dzien');
 
   expect(await screen.findByText(/1\/6 typow pakietu/i, {}, { timeout: 10000 })).toBeInTheDocument();
-  fireEvent.click(await screen.findByRole('button', { name: /Kopiuj odprawe zlecenia/i }, { timeout: 10000 }));
+  fireEvent.click(await screen.findByRole('button', { name: /Kopiuj odpraw. zlecenia/i }, {}, { timeout: 10000 }));
 
   await waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'));
   expect(await screen.findByText(/Odprawa zlecenia #42 skopiowana/i)).toBeInTheDocument();
-});
+}, 15000);

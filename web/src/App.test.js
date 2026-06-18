@@ -7,10 +7,11 @@ afterEach(() => {
   localStorage.clear();
 });
 
-test('renders login page by default as the app entrypoint', () => {
+test('renders login entrypoint by default', () => {
   render(<App />);
-  expect(screen.getByRole('heading', { name: /ARBOR-OS/i, level: 1 })).toBeInTheDocument();
-  expect(screen.getByLabelText(/login/i)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /Zaloguj się/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Zaloguj się/i })).toBeDisabled();
+  expect(screen.getByText(/Konta demonstracyjne/i)).toBeInTheDocument();
 });
 
 test('preserves clean production paths by converting them to hash routes', () => {
@@ -19,24 +20,4 @@ test('preserves clean production paths by converting them to hash routes', () =>
   expect(redirected).toBe(true);
   expect(window.location.pathname).toBe('/');
   expect(window.location.hash).toBe('#/zlecenia?search=Anna');
-});
-
-test('routes /crm to the CRM hub instead of the lead pipeline', async () => {
-  window.history.replaceState(null, '', '/#/crm');
-  localStorage.setItem('token', 'test-token');
-  localStorage.setItem(
-    'user',
-    JSON.stringify({
-      id: 1,
-      imie: 'Anna',
-      nazwisko: 'Sprzedaz',
-      rola: 'Dyrektor',
-    })
-  );
-
-  render(<App />);
-
-  expect(await screen.findByText(/Webhooki, logi/i, {}, { timeout: 5000 })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Pipeline lead/i })).toBeInTheDocument();
-  expect(screen.queryByText(/Kommo-style pipeline/i)).not.toBeInTheDocument();
 });

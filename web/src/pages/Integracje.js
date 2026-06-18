@@ -1393,7 +1393,7 @@ export default function Integracje() {
         <div style={styles.tableWrap}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
             <div>
-              <div style={{ fontWeight: 800 }}>Mapowanie Kommo -> ARBOR</div>
+              <div style={{ fontWeight: 800 }}>Mapowanie Kommo -&gt; Polska Flora</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 Aktualne konto: {kommoConfig.account_key || 'default'} · statusy {Object.keys(kommoConfig.status_map || {}).length} · pola {Object.keys(kommoConfig.field_aliases || {}).length}
               </div>

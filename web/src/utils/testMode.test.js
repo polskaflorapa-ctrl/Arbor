@@ -39,4 +39,17 @@ describe('test mode role scoping', () => {
     expect(brief.recommendations[0].title).toMatch(/solverem/i);
     expect(brief.top_tasks[0].issues.length).toBeGreaterThan(0);
   });
+
+  it('uses Polska Flora service demo data instead of generic test clients', () => {
+    const tasks = getMockData('/tasks/wszystkie');
+    const serviceNames = tasks.map((task) => task.typ_uslugi || '').join(' | ');
+    const clientNames = tasks.map((task) => task.klient_nazwa || '').join(' | ');
+
+    expect(clientNames).not.toMatch(/Test Klient/i);
+    expect(serviceNames).toMatch(/Wycinka drzew/i);
+    expect(serviceNames).toMatch(/Pielęgnacja drzew/i);
+    expect(serviceNames).toMatch(/dach/i);
+    expect(serviceNames).toMatch(/kostki|elewacji/i);
+    expect(serviceNames).toMatch(/ogrod/i);
+  });
 });

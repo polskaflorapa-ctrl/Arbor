@@ -170,7 +170,7 @@ test('copies the dispatcher day brief with task, equipment, risk, and map contex
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
   });
   const copied = navigator.clipboard.writeText.mock.calls[0][0];
-  expect(copied).toContain('ARBOR-OS | Odprawa dnia');
+  expect(copied).toContain('Polska Flora | Odprawa dnia');
   expect(copied).toContain(`Data: ${TEST_DATE}`);
   expect(copied).toContain('=== Brygada Alfa ===');
   expect(copied).toContain('#42 | 08:30-11:30 | Jan Kowalski');
@@ -193,7 +193,7 @@ test('copies a team-only day brief from the team header', async () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
   });
   const copied = navigator.clipboard.writeText.mock.calls[0][0];
-  expect(copied).toContain('ARBOR-OS | Odprawa ekipy');
+  expect(copied).toContain('Polska Flora | Odprawa ekipy');
   expect(copied).toContain('=== Brygada Alfa ===');
   expect(copied).toContain('#42 | 08:30-11:30 | Jan Kowalski');
   expect(copied).not.toContain('Brygada Beta');
@@ -231,7 +231,7 @@ test('keeps an empty team brief tied to the selected team', async () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
   });
   const copied = navigator.clipboard.writeText.mock.calls[0][0];
-  expect(copied).toContain('ARBOR-OS | Odprawa ekipy');
+  expect(copied).toContain('Polska Flora | Odprawa ekipy');
   expect(copied).toContain('=== Brygada Alfa ===');
   expect(copied).toContain('Brak zaplanowanych zlecen dla tej ekipy.');
   expect(await screen.findByText('Odprawa ekipy Brygada Alfa skopiowana.')).toBeInTheDocument();

@@ -1,12 +1,28 @@
-const { getProxyTarget, isPortOpen, checkApiHealth } = require("./lib/stack-utils.cjs");
+const { getProxyTarget, isPortOpen, checkApiHealth, formatPortListeners, getPortListeners } = require("./lib/stack-utils.cjs");
 
 function yesNo(flag) {
   return flag ? "YES" : "NO";
 }
 
-function computeSuggestions({ apiOpen, healthOk, webRunning }) {
+function getProxyPort(proxyTarget) {
+  try {
+    const url = new URL(proxyTarget);
+    if (url.port) return Number(url.port);
+    return url.protocol === "https:" ? 443 : 80;
+  } catch {
+    return 3001;
+  }
+}
+
+function computeSuggestions({ apiOpen, apiPort, healthOk, webRunning, apiPortListeners = [] }) {
   const suggestions = [];
-  if (!apiOpen || !healthOk) suggestions.push("npm run dev:api");
+  if (!apiOpen) {
+    suggestions.push(`start Arbor API on port ${apiPort} or update web/.env.local ARBOR_API_PROXY_TARGET`);
+  } else if (!healthOk && apiPortListeners.length > 0) {
+    suggestions.push(`free port ${apiPort} or set web/.env.local ARBOR_API_PROXY_TARGET to the running Arbor API`);
+  } else if (!healthOk) {
+    suggestions.push("npm run dev:api");
+  }
   if (!webRunning) suggestions.push("npm run dev:web");
   if (webRunning && apiOpen && healthOk) suggestions.push("npm run dev:os (optional)");
   return suggestions;
@@ -18,8 +34,9 @@ async function main() {
   const strictMode = args.has("--strict");
 
   const proxyTarget = getProxyTarget();
+  const apiPort = getProxyPort(proxyTarget);
   const webOpen = await isPortOpen(3000);
-  const apiOpen = await isPortOpen(3001);
+  const apiOpen = await isPortOpen(apiPort);
   const altWebOpen = await isPortOpen(3002);
   const webRunning = webOpen || altWebOpen;
 
@@ -27,7 +44,8 @@ async function main() {
   const healthOk = health.ok;
   const healthNote = health.note;
   const healthy = webRunning && apiOpen && healthOk;
-  const suggestions = computeSuggestions({ apiOpen, healthOk, webRunning });
+  const apiPortListeners = apiOpen && !healthOk ? getPortListeners(apiPort) : [];
+  const suggestions = computeSuggestions({ apiOpen, apiPort, healthOk, webRunning, apiPortListeners });
 
   if (jsonMode) {
     const payload = {
@@ -36,12 +54,13 @@ async function main() {
       ports: {
         web3000: webOpen,
         web3002: altWebOpen,
-        api3001: apiOpen,
+        [`api${apiPort}`]: apiOpen,
       },
       apiHealth: {
         ok: health.ok,
         status: health.status,
         note: health.note,
+        portListeners: apiPortListeners,
       },
       suggestions,
     };
@@ -57,6 +76,9 @@ async function main() {
   console.info(`[status] WEB port 3000 open : ${yesNo(webOpen)}`);
   console.info(`[status] WEB port 3002 open : ${yesNo(altWebOpen)} (Vite dev fallback)`);
   console.info(`[status] API port 3001 open : ${yesNo(apiOpen)}`);
+  if (apiPortListeners.length > 0) {
+    console.info(`[status] API port listener : ${formatPortListeners(apiPortListeners)}`);
+  }
   console.info(`[status] Proxy target       : ${proxyTarget}`);
   console.info(`[status] API health         : ${yesNo(healthOk)}${healthNote ? ` (${healthNote})` : ""}`);
   console.info("[status] -------------------------------");

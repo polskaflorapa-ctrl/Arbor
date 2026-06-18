@@ -164,7 +164,7 @@ export default function Layout() {
   useEffect(() => {
     if (!isNativeNotificationRuntime() || Platform.OS !== 'android') return;
     void Notifications.setNotificationChannelAsync('default', {
-      name: 'Arbor',
+      name: 'Polska Flora',
       importance: Notifications.AndroidImportance.DEFAULT,
     });
     void Notifications.setNotificationChannelAsync('autoplan', {

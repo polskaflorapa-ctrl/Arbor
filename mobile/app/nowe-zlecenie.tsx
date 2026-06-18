@@ -9,9 +9,8 @@ import {
   StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View
 } from 'react-native';
 import Svg, { Path as SvgPath } from 'react-native-svg';
-import ViewShot from 'react-native-view-shot';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import { ErrorBanner } from '../components/ui/app-state';
-import { FieldOpsBackdrop, FieldOpsCockpit, FieldOpsHeroImage } from '../components/ui/field-ops-art';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
@@ -66,12 +65,12 @@ const FIELD_DRAFT_SOURCE_COPY: Record<string, { note: string; header: string }> 
     header: 'Lista oględzin terenowych',
   },
   'wyceniajacy-hub': {
-    note: 'Źródło: centrum oględzin',
-    header: 'Centrum oględzin',
+    note: 'Źródło: centrum specjalisty ds. wyceny',
+    header: 'Centrum specjalisty ds. wyceny',
   },
   'wycena-kalendarz': {
-    note: 'Źródło: kalendarz oględzin',
-    header: 'Kalendarz oględzin',
+    note: 'Źródło: kalendarz wycen',
+    header: 'Kalendarz wycen',
   },
   'plan-ogledzin': {
     note: 'Źródło: plan oględzin',
@@ -217,7 +216,7 @@ const FIELD_QUICK_TOGGLES: { key: FieldBooleanKey; label: string; icon: IoniconN
 const FIELD_RISK_OPTIONS = FIELD_PROTOCOL_RISK_OPTIONS;
 const FIELD_RESULT_OPTIONS = FIELD_PROTOCOL_RESULT_OPTIONS;
 const FIELD_PHOTO_TYPES: { key: FieldPhotoType; label: string; icon: IoniconName }[] = [
-  { key: 'wycena', label: 'Oględziny', icon: 'camera-outline' },
+  { key: 'wycena', label: 'Wycena', icon: 'camera-outline' },
   { key: 'szkic', label: 'Szkic', icon: 'create-outline' },
   { key: 'dojazd', label: 'Dojazd', icon: 'navigate-outline' },
 ];
@@ -226,7 +225,7 @@ const DRAW_COLORS = ['#EF4444', '#F97316', '#FACC15', '#22C55E', '#3B82F6', '#11
 const DRAW_WIDTHS = [3, 6, 10];
 
 const buildFieldQuoteSummary = (field: FieldProtocolForm) =>
-  buildFieldProtocolSummary(field, 'FORMULARZ OGLĘDZIN');
+  buildFieldProtocolSummary(field, 'FORMULARZ WYCENY TERENOWEJ');
 
 function createLocalPhotoId() {
   return `field-photo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -347,7 +346,7 @@ export default function NoweZlecenieScreen() {
   const [drawWidth, setDrawWidth] = useState(6);
   const [drawSaving, setDrawSaving] = useState(false);
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('auto');
-  const drawShotRef = useRef<any>(null);
+  const drawShotRef = useRef<ViewShotRef | null>(null);
   const drawPathRef = useRef('');
   const [form, setForm] = useState(createTaskFormDefaults({
     data_planowana: new Date().toISOString().split('T')[0],
@@ -597,8 +596,8 @@ export default function NoweZlecenieScreen() {
   const fieldCreateStatusLabel = fieldCreateStatus === TASK_STATUS.DO_ZATWIERDZENIA
     ? 'Do zatwierdzenia w biurze'
     : clientWantsTerm
-      ? 'Oględziny - akceptacja jest, plan do dopięcia'
-      : 'Oględziny - czekają na akceptację albo opracowanie';
+      ? 'Wycena terenowa - akceptacja jest, plan do dopięcia'
+      : 'Wycena terenowa - czeka na akceptację albo opracowanie';
   const quickSprintSteps = [
     {
       key: 'client',
@@ -1405,7 +1404,7 @@ export default function NoweZlecenieScreen() {
       return;
     }
     const fieldNote = fieldQuoteMode
-      ? 'TRYB TERENOWY: draft z oględzin u klienta. Biuro powinno zweryfikować opis prac, termin ekipy, rezerwację czasu i szczegóły z klientem.'
+      ? 'TRYB TERENOWY: draft z wyceny u klienta. Biuro powinno zweryfikować opis prac, termin ekipy, rezerwację czasu i szczegóły z klientem.'
       : '';
     const inspectionNote = fieldQuoteMode && prefillInspectionId
       ? `Źródło mobilne: oględziny #${prefillInspectionId}. Po utworzeniu draftu aplikacja zamyka oględziny i podpina wycenę do tej wizyty.`
@@ -1586,8 +1585,7 @@ export default function NoweZlecenieScreen() {
 
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
-      <FieldOpsBackdrop />
-      <AppStatusBar backgroundColor={theme.bg} />
+      <AppStatusBar />
       <ScrollView
         style={S.container}
         contentContainerStyle={{ paddingBottom: 48, flexGrow: 1 }}
@@ -1627,15 +1625,13 @@ export default function NoweZlecenieScreen() {
               <Ionicons name={fieldQuoteMode ? 'flash-outline' : 'business-outline'} size={17} color={theme.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={S.intakeTitle}>{fieldQuoteMode ? 'Szybkie oględziny u klienta' : 'Pełne zlecenie biurowe'}</Text>
+              <Text style={S.intakeTitle}>{fieldQuoteMode ? 'Szybka wycena u klienta' : 'Pełne zlecenie biurowe'}</Text>
               <Text style={S.intakeSub}>{intakeHint}</Text>
             </View>
-            <FieldOpsHeroImage variant={fieldQuoteMode ? 'inspection' : 'dispatch'} size={72} />
             <View style={S.intakeScore}>
               <Text style={S.intakeScoreText}>{intakeReadyCount}/{intakeChecks.length}</Text>
             </View>
           </View>
-          <FieldOpsCockpit variant={fieldQuoteMode ? 'inspection' : 'dispatch'} style={S.intakeCockpit} />
 
           <View style={S.intakeChecks}>
             {intakeChecks.map((check) => (
@@ -1757,7 +1753,7 @@ export default function NoweZlecenieScreen() {
             <Text style={S.sectionTitle}>Tryb terenowy</Text>
           </View>
           <Text style={S.helperText}>
-            Specjalista oględzin tworzy szybki draft u klienta, dodaje zdjęcia i szkic zakresu. Biuro później dopina cenę, ekipę i kalendarz.
+            Specjalista ds. wyceny tworzy szybki draft u klienta, dodaje zdjęcia i szkic zakresu. Biuro później dopina cenę, ekipę i kalendarz.
           </Text>
           <TouchableOpacity
             style={[S.modeSwitch, fieldQuoteMode && S.modeSwitchActive]}
@@ -1775,7 +1771,7 @@ export default function NoweZlecenieScreen() {
                 {fieldQuoteMode ? 'Szybka wycena u klienta' : 'Pełne zlecenie biurowe'}
               </Text>
               <Text style={S.modeDesc}>
-                {fieldQuoteMode ? 'Minimum pól teraz, zdjęcia od razu po zapisie.' : 'Pełne dane bez automatycznego oznaczenia oględzin.'}
+                {fieldQuoteMode ? 'Minimum pól teraz, zdjęcia od razu po zapisie.' : 'Pełne dane bez automatycznego oznaczenia wyceny terenowej.'}
               </Text>
             </View>
             <Ionicons name={fieldQuoteMode ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={fieldQuoteMode ? theme.accent : theme.textMuted} />
@@ -2033,7 +2029,7 @@ export default function NoweZlecenieScreen() {
           <View style={S.section}>
             <View style={S.sectionTitleRow}>
               <Ionicons name="list-outline" size={15} color={theme.accent} />
-              <Text style={S.sectionTitle}>Formularz oględzin</Text>
+              <Text style={S.sectionTitle}>Formularz wyceny terenowej</Text>
               <View style={S.progressPill}>
                 <Text style={S.progressText}>{fieldQuoteProgressLabel}</Text>
               </View>
@@ -2294,7 +2290,7 @@ export default function NoweZlecenieScreen() {
                 multiline
               />
             </Field>
-            <Field label="Dodatkowe notatki specjalisty oględzin" theme={theme}>
+            <Field label="Dodatkowe notatki specjalisty ds. wyceny" theme={theme}>
               <TextInput
                 style={[S.input, { minHeight: 72, textAlignVertical: 'top' }]}
                 value={fieldQuote.notes}
@@ -3067,7 +3063,7 @@ function Field({ label, children, theme }: { label: string; children: React.Reac
 const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1 },
   header: {
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.94)' : t.cardBg,
+    backgroundColor: t.cardBg,
     margin: 14,
     marginBottom: 0,
     paddingHorizontal: 12,
@@ -3077,8 +3073,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
-    borderRadius: 7,
+    borderColor: t.cardBorder,
+    borderRadius: 16,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.45,
       radius: t.shadowRadius * 0.75,
@@ -3089,7 +3085,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 6,
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: t.accentLight,
@@ -3099,7 +3095,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerIcon: {
     width: 42,
     height: 42,
-    borderRadius: 6,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: t.successBg,
@@ -3119,7 +3115,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerScore: {
     minWidth: 54,
     minHeight: 46,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: t.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3144,7 +3140,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.info + '66',
     backgroundColor: t.infoBg,
-    borderRadius: 7,
+    borderRadius: 12,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -3155,9 +3151,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.22)' : t.accent + '3f',
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.94)' : t.cardBg,
-    borderRadius: 7,
+    borderColor: t.accent + '3f',
+    backgroundColor: t.cardBg,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
     ...shadowStyle(t, {
@@ -3175,7 +3171,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   intakeBadge: {
     width: 42,
     height: 42,
-    borderRadius: 6,
+    borderRadius: 13,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '44',
@@ -3187,7 +3183,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   intakeScore: {
     minWidth: 46,
     height: 38,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: t.successBg,
     borderWidth: 1,
     borderColor: t.success + '55',
@@ -3200,19 +3196,15 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
-  intakeCockpit: {
-    marginTop: -2,
-    marginBottom: -2,
-  },
   intakeChecks: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   intakeCheck: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.border,
-    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.88)' : t.surface2,
-    borderRadius: 6,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 7,
   },
@@ -3226,14 +3218,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.border,
-    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.78)' : t.bg,
-    borderRadius: 7,
+    borderColor: t.border,
+    backgroundColor: t.bg,
+    borderRadius: 15,
     padding: 5,
   },
   modeSegmentBtn: {
     flex: 1,
-    borderRadius: 6,
+    borderRadius: 11,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3248,9 +3240,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.accent + '3f',
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
-    borderRadius: 7,
+    borderColor: t.accent + '3f',
+    backgroundColor: t.cardBg,
+    borderRadius: 18,
     padding: 14,
     gap: 12,
     ...shadowStyle(t, {
@@ -3268,7 +3260,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeIntakeIcon: {
     width: 42,
     height: 42,
-    borderRadius: 6,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: t.accent + '44',
     backgroundColor: t.accentLight,
@@ -3279,7 +3271,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeIntakeSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
   officeIntakeScore: {
     minWidth: 56,
-    borderRadius: 6,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
@@ -3303,7 +3295,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     minHeight: 58,
-    borderRadius: 7,
+    borderRadius: 13,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 8,
@@ -3320,7 +3312,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeIntakeCheckDetail: { color: t.textMuted, fontSize: 10.5, fontWeight: '800' },
   officeIntakeNext: {
     minHeight: 42,
-    borderRadius: 6,
+    borderRadius: 13,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 9,
@@ -3338,7 +3330,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flex: 1.2,
     minWidth: 164,
     minHeight: 46,
-    borderRadius: 6,
+    borderRadius: 13,
     backgroundColor: t.accent,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3351,7 +3343,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flex: 1,
     minWidth: 132,
     minHeight: 46,
-    borderRadius: 6,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: t.accent + '66',
     backgroundColor: t.accentLight,
@@ -3369,7 +3361,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent + '35',
     backgroundColor: t.surface,
-    borderRadius: 7,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
   },
@@ -3381,7 +3373,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   journeyIcon: {
     width: 40,
     height: 40,
-    borderRadius: 6,
+    borderRadius: 13,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '44',
@@ -3397,7 +3389,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 9,
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
@@ -3412,7 +3404,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   journeyStepNumber: {
     width: 24,
     height: 24,
-    borderRadius: 7,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3425,7 +3417,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   journeyStepIcon: {
     width: 30,
     height: 30,
-    borderRadius: 6,
+    borderRadius: 10,
     backgroundColor: t.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3437,9 +3429,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.22)' : t.accent + '44',
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.surface,
-    borderRadius: 7,
+    borderColor: t.accent + '44',
+    backgroundColor: t.surface,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
   },
@@ -3451,7 +3443,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldHeroIcon: {
     width: 40,
     height: 40,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '55',
@@ -3462,7 +3454,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldHeroSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
   fieldHeroScore: {
     minWidth: 58,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.bg,
@@ -3483,7 +3475,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 6,
   },
@@ -3507,7 +3499,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '47%',
     minHeight: 72,
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
@@ -3548,7 +3540,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldHeroPrimary: {
     flex: 1.25,
     minHeight: 48,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: t.accent,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3559,7 +3551,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldHeroSecondary: {
     flex: 1,
     minHeight: 48,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: t.accent + '66',
     backgroundColor: t.accentLight,
@@ -3573,9 +3565,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.16)' : t.cardBorder,
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
-    borderRadius: 7,
+    borderColor: t.cardBorder,
+    backgroundColor: t.cardBg,
+    borderRadius: 13,
     padding: 12,
     gap: 10,
   },
@@ -3583,7 +3575,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   quickClientIcon: {
     width: 40,
     height: 40,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '55',
@@ -3597,9 +3589,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.inputBorder,
-    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.86)' : t.inputBg,
-    borderRadius: 7,
+    borderColor: t.inputBorder,
+    backgroundColor: t.inputBg,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingTop: 9,
     paddingBottom: 9,
@@ -3623,7 +3615,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.accentLight,
-    borderRadius: 5,
+    borderRadius: 999,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3639,9 +3631,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.accent + '55',
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.surface,
-    borderRadius: 7,
+    borderColor: t.accent + '55',
+    backgroundColor: t.surface,
+    borderRadius: 15,
     padding: 14,
     gap: 12,
   },
@@ -3649,7 +3641,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sprintIcon: {
     width: 40,
     height: 40,
-    borderRadius: 7,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -3659,7 +3651,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sprintSub: { color: t.textSub, fontSize: 12, lineHeight: 17, marginTop: 2 },
   sprintScore: {
     minWidth: 52,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     backgroundColor: t.cardBg,
     paddingHorizontal: 8,
@@ -3673,7 +3665,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 6,
     maxWidth: '48%',
@@ -3683,7 +3675,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sprintStepDot: {
     width: 18,
     height: 18,
-    borderRadius: 5,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3693,7 +3685,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sprintPrimary: {
     flex: 1.25,
     minHeight: 46,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: t.accent,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3704,7 +3696,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sprintSecondary: {
     flex: 1,
     minHeight: 46,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: t.accent + '66',
     backgroundColor: t.accentLight,
@@ -3716,7 +3708,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sprintSecondaryText: { color: t.accent, fontSize: 12, fontWeight: '900' },
   sprintSubmit: {
     minHeight: 48,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accent,
@@ -3730,7 +3722,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 10,
     borderWidth: 1,
-    borderRadius: 7,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
   },
@@ -3740,7 +3732,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   handoffIcon: {
     width: 40,
     height: 40,
-    borderRadius: 7,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -3750,7 +3742,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   handoffSub: { color: t.textSub, fontSize: 12, lineHeight: 17, marginTop: 2 },
   handoffScore: {
     minWidth: 54,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 7,
@@ -3764,7 +3756,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 6,
   },
@@ -3775,9 +3767,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.18)' : t.accent + '3f',
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
-    borderRadius: 7,
+    borderColor: t.accent + '3f',
+    backgroundColor: t.cardBg,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
   },
@@ -3789,7 +3781,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldOfficePlanIcon: {
     width: 40,
     height: 40,
-    borderRadius: 6,
+    borderRadius: 13,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '44',
@@ -3800,9 +3792,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldOfficePlanSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
   assignmentBox: {
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.16)' : t.accent + '44',
-    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.84)' : t.surface,
-    borderRadius: 6,
+    borderColor: t.accent + '44',
+    backgroundColor: t.surface,
+    borderRadius: 14,
     padding: 12,
     gap: 10,
   },
@@ -3810,7 +3802,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   assignmentIcon: {
     width: 38,
     height: 38,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '55',
@@ -3821,7 +3813,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   assignmentSub: { color: t.textMuted, fontSize: 12, lineHeight: 16, marginTop: 2 },
   assignmentSegment: {
     minHeight: 44,
-    borderRadius: 6,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.bg,
@@ -3831,7 +3823,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   assignmentSegmentBtn: {
     flex: 1,
-    borderRadius: 6,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3844,7 +3836,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.success + '44',
     backgroundColor: t.cardBg,
-    borderRadius: 6,
+    borderRadius: 13,
     padding: 10,
     gap: 8,
   },
@@ -3865,7 +3857,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 5,
+    borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 6,
     maxWidth: '48%',
@@ -3873,7 +3865,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   autoAltText: { color: t.textSub, fontSize: 11, fontWeight: '800' },
   planWindowCard: {
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 14,
     padding: 12,
     gap: 10,
   },
@@ -3893,7 +3885,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   planWindowIcon: {
     width: 38,
     height: 38,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: t.border,
     alignItems: 'center',
@@ -3910,7 +3902,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   planWindowTrack: {
     height: 7,
-    borderRadius: 5,
+    borderRadius: 999,
     backgroundColor: t.surface,
     overflow: 'hidden',
     borderWidth: 1,
@@ -3918,7 +3910,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   planWindowFill: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 999,
   },
   planWindowMetaRow: {
     flexDirection: 'row',
@@ -3933,7 +3925,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   planWindowAction: {
     minHeight: 38,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: t.accent + '55',
     backgroundColor: t.cardBg,
@@ -3944,13 +3936,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   planWindowActionText: { color: t.accent, fontSize: 12, fontWeight: '900' },
   section: {
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
+    backgroundColor: t.cardBg,
     marginHorizontal: 12,
     marginTop: 10,
-    borderRadius: 7,
+    borderRadius: 18,
     padding: 15,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.16)' : t.cardBorder,
+    borderColor: t.cardBorder,
     ...shadowStyle(t, {
       opacity: 0.05,
       radius: 12,
@@ -3961,7 +3953,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sectionTitleRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginBottom: 12, paddingBottom: 9,
-    borderBottomWidth: 1, borderBottomColor: t.name === 'dark' ? 'rgba(255,255,255,0.08)' : t.border,
+    borderBottomWidth: 1, borderBottomColor: t.border,
   },
   sectionTitle: { fontSize: 15, fontWeight: '900', color: t.text },
   progressPill: {
@@ -3969,7 +3961,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent,
     backgroundColor: t.accentLight,
-    borderRadius: 5,
+    borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 4,
   },
@@ -3979,7 +3971,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   presetRow: { gap: 8, paddingBottom: 12 },
   presetChip: {
     minHeight: 42,
-    borderRadius: 5,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
@@ -3998,7 +3990,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface2,
-    borderRadius: 5,
+    borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
@@ -4007,7 +3999,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   noRiskChipActive: { borderColor: t.success, backgroundColor: t.successBg },
   riskReadinessBox: {
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 13,
     paddingHorizontal: 10,
     paddingVertical: 9,
     marginBottom: 9,
@@ -4024,7 +4016,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
-    borderRadius: 7,
+    borderRadius: 12,
     padding: 12,
     marginTop: 4,
   },
@@ -4034,7 +4026,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
-    borderRadius: 7,
+    borderRadius: 12,
     padding: 12,
     marginTop: 12,
     gap: 10,
@@ -4045,7 +4037,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoCounter: {
     minWidth: 30,
     height: 30,
-    borderRadius: 6,
+    borderRadius: 10,
     backgroundColor: t.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -4056,9 +4048,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoCaptureCard: {
     minHeight: 78,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.22)' : t.accent + '55',
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
-    borderRadius: 7,
+    borderColor: t.accent + '55',
+    backgroundColor: t.cardBg,
+    borderRadius: 16,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -4067,7 +4059,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoCaptureIcon: {
     width: 42,
     height: 42,
-    borderRadius: 6,
+    borderRadius: 14,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '44',
@@ -4078,7 +4070,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoCaptureSub: { color: t.textMuted, fontSize: 11, lineHeight: 16, marginTop: 2 },
   photoCaptureBtn: {
     minHeight: 42,
-    borderRadius: 6,
+    borderRadius: 13,
     backgroundColor: t.accent,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -4092,9 +4084,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flex: 1,
     minHeight: 62,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.border,
-    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.86)' : t.cardBg,
-    borderRadius: 6,
+    borderColor: t.border,
+    backgroundColor: t.cardBg,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
@@ -4114,7 +4106,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoStatLabel: { color: t.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase', marginTop: 1 },
   photoEvidencePanel: {
     borderWidth: 1,
-    borderRadius: 7,
+    borderRadius: 12,
     padding: 10,
     gap: 9,
   },
@@ -4126,7 +4118,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoEvidenceScore: {
     minWidth: 42,
     height: 32,
-    borderRadius: 6,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -4139,7 +4131,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexBasis: '31%',
     minHeight: 50,
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 11,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',
@@ -4154,9 +4146,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.border,
-    backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.86)' : t.cardBg,
-    borderRadius: 6,
+    borderColor: t.border,
+    backgroundColor: t.cardBg,
+    borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
@@ -4167,11 +4159,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoActionBtn: {
     flex: 1,
     minHeight: 48,
-    borderRadius: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: t.accent,
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
+    backgroundColor: t.cardBg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -4184,9 +4176,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoThumbCard: {
     width: 118,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.12)' : t.border,
-    borderRadius: 7,
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
+    borderColor: t.border,
+    borderRadius: 12,
+    backgroundColor: t.cardBg,
     overflow: 'hidden',
   },
   photoThumbImage: { width: '100%', height: 86, backgroundColor: t.bg },
@@ -4194,7 +4186,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     position: 'absolute',
     left: 6,
     top: 6,
-    borderRadius: 5,
+    borderRadius: 999,
     backgroundColor: t.accent,
     paddingHorizontal: 7,
     paddingVertical: 3,
@@ -4206,7 +4198,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     top: 6,
     width: 23,
     height: 23,
-    borderRadius: 5,
+    borderRadius: 999,
     backgroundColor: t.danger,
     alignItems: 'center',
     justifyContent: 'center',
@@ -4225,9 +4217,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   photoThumbText: { color: t.textSub, fontSize: 10, lineHeight: 14, padding: 7 },
   photoEmpty: {
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.border,
-    borderRadius: 7,
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
+    borderColor: t.border,
+    borderRadius: 12,
+    backgroundColor: t.cardBg,
     padding: 11,
     flexDirection: 'row',
     alignItems: 'center',
@@ -4249,7 +4241,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   drawHeaderBtn: {
     width: 44,
     height: 44,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -4259,7 +4251,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   drawSaveBtn: {
     minWidth: 76,
     height: 42,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: t.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -4268,7 +4260,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   drawSaveText: { color: t.accentText, fontSize: 13, fontWeight: '900' },
   drawBody: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 12 },
   drawShot: {
-    borderRadius: 7,
+    borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#111827',
     borderWidth: 1,
@@ -4287,7 +4279,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   drawColorDot: {
     width: 44,
     height: 44,
-    borderRadius: 5,
+    borderRadius: 999,
     borderWidth: 2,
   },
   drawColorDotActive: { borderColor: '#ffffff', borderWidth: 4, transform: [{ scale: 1.08 }] },
@@ -4295,7 +4287,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   drawWidthBtn: {
     width: 44,
     height: 44,
-    borderRadius: 7,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
@@ -4303,13 +4295,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   drawWidthBtnActive: { borderColor: t.accent, backgroundColor: t.accentLight },
-  drawWidthLine: { width: 24, borderRadius: 5 },
+  drawWidthLine: { width: 24, borderRadius: 999 },
   drawUndoBtn: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderRadius: 7,
+    borderRadius: 12,
     paddingHorizontal: 10,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
@@ -4318,7 +4310,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   drawUndoText: { color: t.textSub, fontSize: 12, fontWeight: '800' },
   modeSwitch: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderWidth: 1, borderColor: t.border, borderRadius: 7,
+    borderWidth: 1, borderColor: t.border, borderRadius: 12,
     padding: 12, backgroundColor: t.surface,
   },
   modeSwitchActive: {
@@ -4326,7 +4318,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.accentLight,
   },
   modeIcon: {
-    width: 36, height: 36, borderRadius: 6,
+    width: 36, height: 36, borderRadius: 10,
     justifyContent: 'center', alignItems: 'center',
   },
   modeTitle: { color: t.text, fontSize: 14, fontWeight: '800' },
@@ -4335,7 +4327,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minHeight: 50,
     borderWidth: 1,
     borderColor: t.inputBorder,
-    borderRadius: 6,
+    borderRadius: 14,
     paddingHorizontal: 13,
     paddingVertical: 11,
     fontSize: 15,
@@ -4347,7 +4339,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 9,
-    borderRadius: 5,
+    borderRadius: 999,
     backgroundColor: t.surface2,
     borderWidth: 1,
     borderColor: t.border,
@@ -4360,7 +4352,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent + '44',
     backgroundColor: t.cardBg,
-    borderRadius: 7,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
     ...shadowStyle(t, {
@@ -4378,7 +4370,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSubmitIcon: {
     width: 42,
     height: 42,
-    borderRadius: 6,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: t.border,
     alignItems: 'center',
@@ -4388,7 +4380,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSubmitSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
   fieldSubmitScore: {
     minWidth: 54,
-    borderRadius: 6,
+    borderRadius: 13,
     borderWidth: 1,
     backgroundColor: t.bg,
     paddingHorizontal: 8,
@@ -4410,7 +4402,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSubmitCancel: {
     flex: 1,
     minHeight: 44,
-    borderRadius: 6,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.bg,
@@ -4423,7 +4415,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSubmitAlt: {
     flex: 1.35,
     minHeight: 44,
-    borderRadius: 6,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: t.accent + '66',
     backgroundColor: t.accentLight,
@@ -4435,7 +4427,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldSubmitAltText: { color: t.accent, fontSize: 12, fontWeight: '900' },
   btnRow: { flexDirection: 'row', gap: 10, marginHorizontal: 14, marginTop: 8, marginBottom: 16 },
   cancelBtn: {
-    flex: 1, backgroundColor: t.cardBg, padding: 16, borderRadius: 6,
+    flex: 1, backgroundColor: t.cardBg, padding: 16, borderRadius: 14,
     alignItems: 'center', borderWidth: 1, borderColor: t.border,
   },
   cancelText: { color: t.textMuted, fontWeight: '600', fontSize: 15 },

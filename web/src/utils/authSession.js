@@ -1,4 +1,4 @@
-const AUTH_STORAGE_KEYS = ['token', 'user', 'permissions'];
+const AUTH_STORAGE_KEYS = ['token', 'refreshToken', 'user', 'permissions'];
 
 let isRedirectingToLogin = false;
 

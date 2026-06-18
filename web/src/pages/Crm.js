@@ -24,6 +24,7 @@ export default function Crm() {
       { path: '/ogledziny', titleKey: 'crm.cardInspections', descKey: 'crm.cardInspectionsDesc' },
       { path: '/telefonia', titleKey: 'crm.cardTelephony', descKey: 'crm.cardTelephonyDesc' },
       { path: '/integracje', titleKey: 'crm.cardIntegrations', descKey: 'crm.cardIntegrationsDesc' },
+      { path: '/crm/today', title: 'Dzisiaj w CRM', desc: 'Pilne wiadomosci, follow-upy, leady bez ownera i bledy wysylki.' },
       { path: '/crm/dashboard', titleKey: 'crm.cardDashboard', descKey: 'crm.cardDashboardDesc' },
       { path: '/crm/inbox', title: 'Unified Inbox', desc: 'Wspolna skrzynka WhatsApp, SMS, e-mail i webchat.' },
       { path: '/crm/pipeline', titleKey: 'crm.cardPipeline', descKey: 'crm.cardPipelineDesc' },

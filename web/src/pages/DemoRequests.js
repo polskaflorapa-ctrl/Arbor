@@ -153,7 +153,7 @@ export default function DemoRequests() {
       <main className="demo-requests-main" style={styles.main}>
         <PageHeader
           title="Zgłoszenia demo"
-          subtitle="Leady z publicznego formularza na landing page Arbor OS."
+          subtitle="Leady z publicznego formularza na landing page Polska Flora."
           icon={<AssignmentTurnedIn />}
           actions={(
             <Button type="button" variant="outline" leftIcon={RefreshCw} style={styles.refreshButton} onClick={loadData}>

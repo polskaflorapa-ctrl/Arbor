@@ -394,6 +394,74 @@ export default function Sidebar() {
     }
   };
 
+  const referenceNavItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { path: '/zlecenia', label: 'Zlecenia', icon: 'zlecenia' },
+    { path: '/ekipy', label: 'Ekipy', icon: 'ekipy' },
+    { path: '/rozliczenia-polowe', label: 'Czas pracy', icon: 'harmonogram' },
+    { path: '/flota', label: 'Sprzęt', icon: 'flota' },
+    { path: '/magazyn', label: 'Zużycie', icon: 'warehouse' },
+    { path: '/kadry-dokumenty', label: 'Uprawnienia', icon: 'uzytkownicy' },
+    { path: '/powiadomienia', label: 'Problemy', icon: 'bell' },
+    { path: '/telefonia', label: 'Telefonia', icon: 'telefonia' },
+    { path: '/oddzialy', label: 'Oddziały', icon: 'oddzialy' },
+    { path: '/ksiegowosc', label: 'Finanse', icon: 'ksiegowosc' },
+    { path: '/auto-dispatch', label: 'AI Dispatcher', icon: 'dispatch' },
+    { path: '/mapa-live', label: 'Mapa', icon: 'liveMap' },
+    { path: '/uzytkownicy', label: 'Użytkownicy', icon: 'uzytkownicy' },
+    { path: '/raporty', label: 'Raporty', icon: 'raporty' },
+    { path: '/integracje', label: 'Ustawienia', icon: 'integracje' },
+  ];
+
+  return (
+    <aside className="pf-sidebar" style={pfSb.root}>
+      <div style={pfSb.logo}>
+        <div style={pfSb.logoIcon}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M12 22V12M12 12C12 7 7 3 3 3c0 4 2 8 5 10M12 12C12 7 17 3 21 3c0 4-2 8-5 10" />
+          </svg>
+        </div>
+        <div>
+          <div style={pfSb.logoName}>Polska Flora</div>
+          <div style={pfSb.logoSub}>Zarządzanie usługami terenowymi</div>
+        </div>
+      </div>
+
+      <nav style={pfSb.nav}>
+        {referenceNavItems.map((item) => {
+          const active = isActivePath(location.pathname, item.path);
+          return (
+            <button
+              key={item.path}
+              type="button"
+              onClick={() => navigate(item.path)}
+              style={{ ...pfSb.navItem, ...(active ? pfSb.navItemActive : {}) }}
+            >
+              <span style={pfSb.navIcon}>{ICONS[item.icon]}</span>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div style={pfSb.bottom}>
+        {currentUser ? (
+          <button type="button" style={pfSb.userButton}>
+            <span style={pfSb.avatar}>{currentUser.imie?.[0]}{currentUser.nazwisko?.[0]}</span>
+            <span style={pfSb.userText}>
+              <strong>{currentUser.imie} {currentUser.nazwisko}</strong>
+              <small>{getRoleDisplayName(currentUser.rola)}</small>
+            </span>
+          </button>
+        ) : null}
+        <button type="button" onClick={handleLogout} style={pfSb.logoutBtn}>
+          <span style={pfSb.navIcon}>{ICONS.logout}</span>
+          <span>Wyloguj się</span>
+        </button>
+      </div>
+    </aside>
+  );
+
   return (
     <>
       <div className="ios-glass-panel arbor-sidebar" style={{ ...sb.root, width: W }}>
@@ -412,8 +480,8 @@ export default function Sidebar() {
           </div>
           {!collapsed && (
               <div>
-              <div style={sb.logoName}>ARBOR-OS</div>
-              <div style={sb.logoSub}>Tree Care Operations</div>
+              <div style={sb.logoName}>Polska Flora</div>
+              <div style={sb.logoSub}>Operacje terenowe</div>
             </div>
           )}
         </div>
@@ -825,24 +893,138 @@ export default function Sidebar() {
 
 // ─── Style ────────────────────────────────────────────────────────────────────
 /* Arbor navigation shell. */
-const NAV_BG = '#06331f';
-const NAV_MUTED= 'rgba(244,255,248,0.62)';
-const NAV_BORDER = 'rgba(255,255,255,0.14)';
+const NAV_BG = '#07111f';
+const NAV_MUTED= 'rgba(226,232,240,0.72)';
+const NAV_BORDER = 'rgba(148,163,184,0.18)';
+
+const pfSb = {
+  root: {
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    zIndex: 200,
+    width: 256,
+    height: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    background: '#0f172a',
+    color: '#ffffff',
+    boxShadow: '18px 0 42px rgba(15, 23, 42, 0.18)',
+  },
+  logo: {
+    height: 64,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 16px',
+    borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
+  },
+  logoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    background: '#059669',
+    color: '#ffffff',
+  },
+  logoName: { fontSize: 18, lineHeight: 1.05, fontWeight: 800, color: '#ffffff' },
+  logoSub: { marginTop: 3, fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' },
+  nav: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 10px' },
+  navItem: {
+    width: '100%',
+    minHeight: 42,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    border: 0,
+    borderRadius: 10,
+    background: 'transparent',
+    color: '#cbd5e1',
+    padding: '10px 12px',
+    textAlign: 'left',
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  navItemActive: {
+    background: '#059669',
+    color: '#ffffff',
+  },
+  navIcon: {
+    width: 20,
+    height: 20,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  bottom: {
+    display: 'grid',
+    gap: 8,
+    padding: 12,
+    borderTop: '1px solid rgba(148, 163, 184, 0.22)',
+  },
+  userButton: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    border: 0,
+    borderRadius: 10,
+    background: 'rgba(255,255,255,0.05)',
+    color: '#ffffff',
+    padding: 10,
+    textAlign: 'left',
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(135deg, #34d399, #059669)',
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  userText: { display: 'grid', gap: 2, minWidth: 0, fontSize: 13 },
+  logoutBtn: {
+    width: '100%',
+    minHeight: 40,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    border: 0,
+    borderRadius: 10,
+    background: 'transparent',
+    color: '#cbd5e1',
+    padding: '9px 10px',
+    textAlign: 'left',
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+};
 
 const sb = {
   root: {
     height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 200,
-    background: 'linear-gradient(180deg, #06331f, #0c4d31 68%, #093a25)',
+    background:
+      'linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.025) 1px, transparent 1px), radial-gradient(circle at 18% 8%, rgba(132,204,22,0.22), transparent 25%), radial-gradient(circle at 88% 26%, rgba(37,99,235,0.18), transparent 24%), linear-gradient(180deg, #050a14 0%, #0b1729 48%, #07131f 100%)',
     backgroundColor: NAV_BG,
     display: 'flex', flexDirection: 'column',
     borderRight: 'none',
     transition: 'width 0.25s ease',
     overflow: 'hidden',
-    boxShadow: '16px 0 46px rgba(11,61,39,0.22)',
+    boxShadow: '22px 0 60px rgba(2,6,23,0.42)',
   },
   collapseBtn: {
     position: 'absolute', right: -13, top: 28, width: 26, height: 26,
-    borderRadius: '50%', background: '#0c4d31',
+    borderRadius: '50%', background: '#0f172a',
     border: `1px solid ${NAV_BORDER}`,
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     color: '#f4fff8', zIndex: 201, boxShadow: '0 10px 24px rgba(0,0,0,0.24)',
@@ -853,15 +1035,15 @@ const sb = {
     padding: '16px 14px 14px', borderBottom: `1px solid ${NAV_BORDER}`,
   },
   logoIcon: {
-    width: 34, height: 34, borderRadius: 8, background: 'linear-gradient(145deg, #eaffef, #8ce6ac)',
+    width: 36, height: 36, borderRadius: 12, background: 'linear-gradient(145deg, #84cc16, #22d3ee)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0, color: '#0f5f3a',
+    flexShrink: 0, color: '#04120d',
   },
   logoName: { fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 700, color: '#ffffff', letterSpacing: 0 },
   logoSub: { fontSize: 10, color: NAV_MUTED, letterSpacing: 0, marginTop: 2, fontWeight: 500 },
   userCard: {
     display: 'flex', alignItems: 'center', gap: 10, margin: '10px 10px 6px',
-    background: 'rgba(255,255,255,0.075)', borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.13), rgba(37,99,235,0.1))', borderRadius: 14,
     border: `1px solid ${NAV_BORDER}`,
     padding: '10px 12px',
   },
@@ -880,9 +1062,9 @@ const sb = {
   quickPanel: {
     margin: '4px 8px 10px',
     padding: '10px',
-    borderRadius: 8,
+    borderRadius: 12,
     border: `1px solid ${NAV_BORDER}`,
-    background: 'rgba(255,255,255,0.075)',
+    background: 'linear-gradient(135deg, rgba(2,6,23,0.76), rgba(15,23,42,0.9))',
   },
   quickTitle: {
     margin: '0 0 8px',
@@ -900,8 +1082,8 @@ const sb = {
     alignItems: 'center',
     gap: 9,
     border: `1px solid ${NAV_BORDER}`,
-    borderRadius: 8,
-    background: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    background: 'rgba(255,255,255,0.075)',
     color: '#ffffff',
     padding: '6px 9px',
     fontSize: 13,
@@ -918,7 +1100,7 @@ const sb = {
   quickIcon: {
     width: 22, height: 22, borderRadius: 6,
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    color: '#8ce6ac', background: 'rgba(255,255,255,0.12)',
+    color: '#86efac', background: 'rgba(34,211,142,0.12)',
     flexShrink: 0,
   },
   sectionLabel: {
@@ -934,9 +1116,9 @@ const sb = {
     fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif',
     color: NAV_MUTED, letterSpacing: '0.09em', textTransform: 'uppercase',
   },
-  navGroupInset: { margin: 0, border: `1px solid ${NAV_BORDER}`, background: 'rgba(255,255,255,0.07)', borderRadius: 8 },
+  navGroupInset: { margin: 0, border: `1px solid ${NAV_BORDER}`, background: 'rgba(2,6,23,0.38)', borderRadius: 12 },
   navItem: {
-    display: 'flex', alignItems: 'center', borderRadius: 6, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', borderRadius: 10, cursor: 'pointer',
     fontSize: 13, fontWeight: 500, transition: 'background 0.12s ease, color 0.12s ease',
     marginBottom: 3, userSelect: 'none',
   },
@@ -951,7 +1133,7 @@ const sb = {
   },
   subNavSummaryDot: {
     width: 6, height: 6, borderRadius: '50%',
-    background: '#8ce6ac', opacity: 0.8, flexShrink: 0,
+    background: '#86efac', opacity: 0.9, flexShrink: 0,
   },
   subNavCount: {
     minWidth: 20, height: 20, borderRadius: 6,
@@ -978,7 +1160,7 @@ const sb = {
     flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500,
     lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
-  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#8ce6ac' },
+  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#86efac', boxShadow: '0 0 18px rgba(134,239,172,0.8)' },
   bottom: { padding: '4px 8px 10px', flexShrink: 0 },
   languageBlock: {
     display: 'grid',

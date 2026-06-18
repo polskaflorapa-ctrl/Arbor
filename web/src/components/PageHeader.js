@@ -16,7 +16,7 @@ import { Button } from './ui/Button';
  * @param {{ onClick: () => void, label?: string, ariaLabel?: string } | false} [props.back] — `false` wyłącza przycisk
  * @param {boolean} [props.showBack] — gdy `true` (domyślnie), pokazuj „Powrót” (history -1) poza ekranem logowania
  */
-export default function PageHeader({ variant = 'plain', title, subtitle, icon, actions, back, showBack = true }) {
+export default function PageHeader({ variant = 'plain', title, subtitle, icon, actions, back, showBack = true, className = '' }) {
   const isHero = variant === 'hero';
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -38,7 +38,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
 
   return (
     <header
-      className={`module-page-header ${isHero ? 'module-page-header-hero ios-glass-panel' : 'module-page-header-plain'}`}
+      className={`module-page-header ${isHero ? 'module-page-header-hero ios-glass-panel' : 'module-page-header-plain'} ${className}`.trim()}
       style={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -48,7 +48,19 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
         marginBottom: 24,
         boxSizing: 'border-box',
         width: '100%',
-        ...(isHero
+        ...(className.includes('command-surface-hero')
+          ? {
+              padding: 'clamp(24px, 4vw, 44px)',
+              borderRadius: 18,
+              background:
+                'linear-gradient(90deg, rgba(148, 163, 184, 0.16) 1px, transparent 1px), linear-gradient(0deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px), linear-gradient(135deg, #07131f 0%, #0b3d32 58%, #06251f 100%)',
+              backgroundSize: '52px 52px, 52px 52px, auto',
+              border: '1px solid rgba(15, 23, 42, 0.1)',
+              boxShadow: '0 26px 70px rgba(15, 23, 42, 0.16)',
+              minHeight: 210,
+              overflow: 'hidden',
+            }
+          : isHero
           ? {
               padding: '18px 20px',
               borderRadius: 10,
@@ -128,7 +140,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
                 textTransform: 'uppercase',
               }}
             >
-              ARBOR Operations
+              Polska Flora Operations
             </div>
           ) : null}
           <h1

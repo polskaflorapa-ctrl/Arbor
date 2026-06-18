@@ -19,6 +19,8 @@ const { register, metricsMiddleware, metricsEnabled, bindPoolMetrics } = require
 const { HTTP_NOT_FOUND } = require('./constants/error-codes');
 const { assertProductionSecurityConfig } = require('./config/security-hardening');
 
+const { getSentry } = require('./config/sentry');
+
 const authRoutes = require('./routes/auth');
 const tasksRoutes = require('./routes/tasks');
 const uzytkownicyRoutes = require('./routes/uzytkownicy');
@@ -101,7 +103,39 @@ const createApp = () => {
     app.use(metricsMiddleware);
     bindPoolMetrics(pool);
   }
-  app.use(helmet({ contentSecurityPolicy: false }));
+  const cspDirectives = {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+    imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+    connectSrc: ["'self'", 'https:', 'wss:'],
+    mediaSrc: ["'self'", 'data:', 'https:', 'blob:'],
+    frameSrc: ["'self'"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"],
+    frameAncestors: ["'none'"],
+    upgradeInsecureRequests: env.NODE_ENV === 'production' ? [] : null,
+  };
+
+  const csp = Object.entries(cspDirectives)
+    .filter(([, v]) => v !== null)
+    .map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()} ${v.join(' ')}`)
+    .join('; ');
+
+  app.use(helmet({
+    contentSecurityPolicy: env.NODE_ENV === 'production' ? { directives: cspDirectives } : false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
+
+  app.use((req, res, next) => {
+    if (env.NODE_ENV === 'production') {
+      res.setHeader('Content-Security-Policy', csp);
+    }
+    next();
+  });
   app.use(
     cors({
       origin: isWildcardCors ? true : allowedOrigins,
@@ -294,6 +328,24 @@ const createApp = () => {
       });
     }
   });
+
+  app.get('/api/live', (req, res) => {
+    res.json({
+      status: 'alive',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      requestId: req.requestId,
+    });
+  });
+
+  const sentry = getSentry();
+  if (sentry) {
+    app.use(sentry.Handlers.errorHandler({
+      shouldHandleError() {
+        return env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';
+      },
+    }));
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

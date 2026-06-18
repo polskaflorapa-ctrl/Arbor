@@ -37,16 +37,15 @@ export default function UzytkownicyScreen() {
   const { t } = useLanguage();
   const guard = useOddzialFeatureGuard('/uzytkownicy-mobile');
   const [uzytkownicy, setUzytkownicy] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
   const [oddzialy, setOddzialy] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [filtrRola, setFiltrRola] = useState('');
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { void loadData(); }, []);
 
-  useEffect(() => {
+  const filtered = useMemo(() => {
     let wynik = uzytkownicy;
     if (search) {
       wynik = wynik.filter(u =>
@@ -56,10 +55,10 @@ export default function UzytkownicyScreen() {
       );
     }
     if (filtrRola) wynik = wynik.filter(u => u.rola === filtrRola);
-    setFiltered(wynik);
+    return wynik;
   }, [search, filtrRola, uzytkownicy]);
 
-  const loadData = async () => {
+  async function loadData() {
     try {
       const { token: storedToken } = await getStoredSession();
       if (!storedToken) { router.replace('/login'); return; }
@@ -76,7 +75,7 @@ export default function UzytkownicyScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 

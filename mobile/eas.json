@@ -9,7 +9,7 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://arbor-os-b7k6.onrender.com/api",
-        "EXPO_PUBLIC_EXPECTED_API_VERSION": "mobile-dev"
+        "EXPO_PUBLIC_EXPECTED_API_VERSION": "2.2.0-quotations"
       },
       "ios": {
         "simulator": false
@@ -19,14 +19,14 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://arbor-os-b7k6.onrender.com/api",
-        "EXPO_PUBLIC_EXPECTED_API_VERSION": "mobile-preview"
+        "EXPO_PUBLIC_EXPECTED_API_VERSION": "2.2.0-quotations"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://arbor-os-b7k6.onrender.com/api",
-        "EXPO_PUBLIC_EXPECTED_API_VERSION": "mobile-production"
+        "EXPO_PUBLIC_EXPECTED_API_VERSION": "2.2.0-quotations"
       }
     }
   },

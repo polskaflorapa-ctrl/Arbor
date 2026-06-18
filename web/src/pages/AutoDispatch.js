@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+﻿import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import CommandSidebar from '../components/CommandSidebar';
@@ -68,7 +68,7 @@ const RISK_FILTERS = [
 ];
 const EMPTY_TASKS = [];
 
-// Reason codes → human-readable labels (kept in Polish; not in locale file)
+// Reason codes -> human-readable labels (kept in Polish; not in locale file)
 const REASON_LABEL = {
   no_teams:           'Brak ekip',
   no_capable_team:    'Brak ekipy z wymaganym sprzętem/kompetencjami',
@@ -180,10 +180,10 @@ function buildNextDispatchAction(advisor, riskTasks) {
     return {
       kind: 'task',
       tone: critical ? 'bad' : 'warn',
-      eyebrow: critical ? 'Nastepna blokada' : 'Nastepna uwaga',
+      eyebrow: critical ? 'Następna blokada' : 'Następna uwaga',
       title: `${taskLabel}: ${issueLabel(issue)}`,
-      detail: `${client}${issue?.action || 'Otworz zlecenie i uzupelnij dane.'}`,
-      button: critical ? 'Napraw blokade' : 'Otworz uwage',
+      detail: `${client}${issue?.action || 'Otwórz zlecenie i uzupełnij dane.'}`,
+      button: critical ? 'Napraw blokadę' : 'Otwórz uwagę',
       task: nextTask,
     };
   }
@@ -197,8 +197,8 @@ function buildNextDispatchAction(advisor, riskTasks) {
       tone: 'bad',
       eyebrow: 'Blokady w odprawie',
       title: `${blocked} blokad do znalezienia`,
-      detail: 'Odprawa nie wskazala konkretnego zlecenia. Odswiez analize po sprawdzeniu listy.',
-      button: 'Odswiez odprawe',
+      detail: 'Odprawa nie wskazała konkretnego zlecenia. Odśwież analizę po sprawdzeniu listy.',
+      button: 'Odśwież odprawę',
     };
   }
 
@@ -206,11 +206,11 @@ function buildNextDispatchAction(advisor, riskTasks) {
     kind: total > 0 ? 'ready' : 'idle',
     tone: 'ready',
     eyebrow: total > 0 ? 'Gotowe do planowania' : 'Brak zlecen',
-    title: total > 0 ? 'Plan gotowy do solvera' : 'Nie ma zlecen do planowania',
+    title: total > 0 ? 'Plan gotowy do solvera' : 'Nie ma zleceń do planowania',
     detail: total > 0
-      ? (warnings > 0 ? `Bez blokad krytycznych. Zostalo ${warnings} uwag do kontroli.` : 'Brak blokad i uwag w odprawie dnia.')
-      : 'Odprawa nie znalazla otwartych zlecen na wybrany dzien.',
-    button: total > 0 ? 'Generuj podglad planu' : '',
+      ? (warnings > 0 ? `Bez blokad krytycznych. Zostało ${warnings} uwag do kontroli.` : 'Brak blokad i uwag w odprawie dnia.')
+      : 'Odprawa nie znalazła otwartych zleceń na wybrany dzień.',
+    button: total > 0 ? 'Generuj podgląd planu' : '',
   };
 }
 
@@ -219,14 +219,14 @@ function formatAdvisorBrief(advisor) {
   const lines = [
     'AI Dyspozytor - odprawa dnia',
     advisor?.summary ? `Podsumowanie: ${advisor.summary}` : null,
-    `Gotowe: ${metrics.ready_for_dispatch ?? 0}/${metrics.tasks_total ?? 0} | Blokady: ${metrics.blocked ?? 0} | Uwagi: ${metrics.warnings ?? 0} | Jakosc: ${metrics.avg_quality ?? 100}%`,
+    `Gotowe: ${metrics.ready_for_dispatch ?? 0}/${metrics.tasks_total ?? 0} | Blokady: ${metrics.blocked ?? 0} | Uwagi: ${metrics.warnings ?? 0} | Jakość: ${metrics.avg_quality ?? 100}%`,
   ].filter(Boolean);
 
   const recommendations = (advisor?.recommendations || []).slice(0, 3);
   if (recommendations.length) {
     lines.push('', 'Rekomendacje:');
     recommendations.forEach(item => {
-      lines.push(`- [${item.priority || 'info'}] ${item.title || 'Bez tytulu'}${item.suggested_action ? ` -> ${item.suggested_action}` : ''}`);
+      lines.push(`- [${item.priority || 'info'}] ${item.title || 'Bez tytułu'}${item.suggested_action ? ` -> ${item.suggested_action}` : ''}`);
     });
   }
 
@@ -293,7 +293,7 @@ function formatRouteBrief(route = {}, date = '') {
     `Odprawa ekipy - ${route.team_name || `Ekipa #${route.team_id || ''}`.trim()}`,
     `Data: ${route.date || date || '-'}`,
     `Zlecenia: ${(route.stops || []).length} | Czas: ${fmt(route.total_min)} | Dystans: ~${route.distance_km ?? 0} km`,
-    route.end_time ? `Powrot do bazy: ${route.end_time} (+${route.return_travel_min ?? '?'} min)` : null,
+    route.end_time ? `Powrót do bazy: ${route.end_time} (+${route.return_travel_min ?? '?'} min)` : null,
     '',
     'Trasa:',
   ].filter(Boolean);
@@ -314,7 +314,7 @@ function formatDayDispatchBrief(plan = {}, date = '') {
   ];
 
   if (planAppliedStatus(plan)) {
-    lines.push('Status: plan zastosowany i gotowy do wyslania ekipom');
+    lines.push('Status: plan zastosowany i gotowy do wysłania ekipom');
   }
 
   lines.push('', 'Ekipy:');
@@ -381,7 +381,7 @@ function routeBriefStatusText(status = {}) {
   const pending = Number(status.pending ?? Math.max(0, sentTo - confirmed));
   if (pending <= 0) return `Potwierdzone ${confirmed}/${sentTo}`;
   if (confirmed > 0) return `Potwierdzone ${confirmed}/${sentTo} | czeka ${pending}`;
-  return `Wyslano do ${sentTo} | czeka ${pending}`;
+  return `Wysłano do ${sentTo} | czeka ${pending}`;
 }
 
 function routeBriefRecipientName(recipient = {}) {
@@ -561,7 +561,7 @@ export default function AutoDispatch() {
             total: Number(brief?.metrics?.tasks_total || 0),
             ready: Number(brief?.metrics?.ready_for_dispatch || 0),
           });
-          setError(`AI Dyspozytor zatrzymal zapis planu: ${blocked} zlecen ma blokady krytyczne.`);
+          setError(`AI Dyspozytor zatrzymał zapis planu: ${blocked} zleceń ma blokady krytyczne.`);
           return;
         }
       }
@@ -657,7 +657,7 @@ export default function AutoDispatch() {
         const refreshedAdvisor = await fetchAdvisorBrief().catch(() => null);
         if (refreshedAdvisor) setAdvisor(refreshedAdvisor);
         setPreflightHold(null);
-        setSuccess('Preflight nie znalazl blokad ekipy/GPS dla tego dnia. Mozesz ponowic zapis planu.');
+        setSuccess('Preflight nie znalazł blokad ekipy/GPS dla tego dnia. Możesz ponowić zapis planu.');
         return;
       }
 
@@ -688,7 +688,7 @@ export default function AutoDispatch() {
       } : null);
       setSuccess(dispatchPreflightSummary(preflight) || 'Preflight dispatchera wykonany.');
     } catch (e) {
-      setError(e.response?.data?.error || e.message || 'Nie udalo sie uruchomic preflightu dispatchera.');
+      setError(e.response?.data?.error || e.message || 'Nie udało się uruchomić preflightu dispatchera.');
     } finally {
       setPreflightApplying(false);
     }
@@ -704,7 +704,7 @@ export default function AutoDispatch() {
       const refreshed = await loadAdvisor();
       if (cancelled) return;
       if (refreshed) {
-        setSuccess('Poprawka zapisana. Odprawa odswiezona.');
+        setSuccess('Poprawka zapisana. Odprawa odświeżona.');
         navigate(stripAdvisorRefresh(location.pathname, location.search), { replace: true });
       }
     })();
@@ -725,7 +725,7 @@ export default function AutoDispatch() {
     } catch (e) {
       setBriefCopied(false);
       setBriefCopyText(briefText);
-      setAdvisorError('Automatyczne kopiowanie jest zablokowane. Pakiet odprawy jest zaznaczony ponizej.');
+      setAdvisorError('Automatyczne kopiowanie jest zablokowane. Pakiet odprawy jest zaznaczony poniżej.');
     }
   }, [advisor]);
 
@@ -739,7 +739,7 @@ export default function AutoDispatch() {
     } catch (e) {
       setDispatchBriefCopied('');
       setDispatchBriefText(text);
-      setError('Automatyczne kopiowanie odprawy jest zablokowane. Tekst jest zaznaczony ponizej.');
+      setError('Automatyczne kopiowanie odprawy jest zablokowane. Tekst jest zaznaczony poniżej.');
     }
   }, []);
 
@@ -755,7 +755,7 @@ export default function AutoDispatch() {
   const sendRouteBrief = useCallback(async (route) => {
     const teamKey = routeBriefKey(route);
     if (!route?.team_id) {
-      setError('Nie mozna wyslac odprawy bez identyfikatora ekipy.');
+      setError('Nie można wysłać odprawy bez identyfikatora ekipy.');
       return;
     }
     setDispatchBriefSending(teamKey);
@@ -778,7 +778,7 @@ export default function AutoDispatch() {
       const status = routeBriefStatusFromResponse(route, res.data);
       setRouteBriefStatuses(prev => ({ ...prev, [teamKey]: status }));
       setDispatchBriefSent(teamKey);
-      setSuccess(`${res.data?.message || 'Odprawa wyslana'}: ${route.team_name || `Ekipa #${route.team_id}`} (${status.sent_to})`);
+      setSuccess(`${res.data?.message || 'Odprawa wysłana'}: ${route.team_name || `Ekipa #${route.team_id}`} (${status.sent_to})`);
     } catch (e) {
       setDispatchBriefSent('');
       setError(e.response?.data?.error || e.message);
@@ -790,7 +790,7 @@ export default function AutoDispatch() {
   const sendAllRouteBriefs = useCallback(async () => {
     const routes = (plan?.routes || []).filter(route => route?.team_id && (route.stops || []).length);
     if (!routes.length) {
-      setError('Brak tras z ekipami do wyslania.');
+      setError('Brak tras z ekipami do wysłania.');
       return;
     }
     setDispatchBriefSendingAll(true);
@@ -828,10 +828,10 @@ export default function AutoDispatch() {
     setDispatchBriefSending('');
     setDispatchBriefSendingAll(false);
     if (failed.length) {
-      setError(`Nie wyslano odpraw: ${failed.join(', ')}.`);
+      setError(`Nie wysłano odpraw: ${failed.join(', ')}.`);
     }
     if (sentTeams > 0) {
-      setSuccess(`Wyslano odprawy: ${sentTeams}/${routes.length} ekip, ${sentRecipients} odbiorcow. Czekamy na potwierdzenia.`);
+      setSuccess(`Wysłano odprawy: ${sentTeams}/${routes.length} ekip, ${sentRecipients} odbiorców. Czekamy na potwierdzenia.`);
     }
   }, [date, plan?.routes, user?.oddzial_id]);
 
@@ -869,11 +869,11 @@ export default function AutoDispatch() {
     const routeStatus = routeBriefStatuses[teamKey];
     const pendingRecipients = routeBriefPendingRecipients(routeStatus);
     if (!routeStatus?.brief_id) {
-      setError('Brak wyslanej odprawy dla tej ekipy.');
+      setError('Brak wysłanej odprawy dla tej ekipy.');
       return;
     }
     if (!pendingRecipients.length) {
-      setSuccess(`Wszyscy odbiorcy potwierdzili odprawe: ${route.team_name || `Ekipa #${route.team_id}`}.`);
+      setSuccess(`Wszyscy odbiorcy potwierdzili odprawę: ${route.team_name || `Ekipa #${route.team_id}`}.`);
       return;
     }
     setDispatchBriefReminding(teamKey);
@@ -887,7 +887,7 @@ export default function AutoDispatch() {
         { headers: authHeaders(token) }
       );
       const reminded = Number(res.data?.reminded ?? pendingRecipients.length);
-      setSuccess(`${res.data?.message || 'Przypomnienie wyslane'}: ${route.team_name || `Ekipa #${route.team_id}`} (${reminded})`);
+      setSuccess(`${res.data?.message || 'Przypomnienie wysłane'}: ${route.team_name || `Ekipa #${route.team_id}`} (${reminded})`);
       await refreshRouteBriefStatuses({ quiet: true });
     } catch (e) {
       setError(e.response?.data?.error || e.message);
@@ -905,7 +905,7 @@ export default function AutoDispatch() {
       });
 
     if (!routes.length) {
-      setSuccess('Nie ma oczekujacych odbiorcow odpraw.');
+      setSuccess('Nie ma oczekujących odbiorców odpraw.');
       return;
     }
 
@@ -943,10 +943,10 @@ export default function AutoDispatch() {
     }
 
     if (failed.length) {
-      setError(`Nie wyslano przypomnien: ${failed.join(', ')}.`);
+      setError(`Nie wysłano przypomnień: ${failed.join(', ')}.`);
     }
     if (remindedTeams > 0) {
-      setSuccess(`Przypomnienia wyslane: ${remindedTeams}/${routes.length} ekip, ${remindedRecipients} odbiorcow.`);
+      setSuccess(`Przypomnienia wysłane: ${remindedTeams}/${routes.length} ekip, ${remindedRecipients} odbiorców.`);
     }
   }, [plan?.routes, refreshRouteBriefStatuses, routeBriefStatuses]);
 
@@ -1053,19 +1053,19 @@ export default function AutoDispatch() {
         label: 'Blokady danych',
         detail: advisorLoaded || preflightHold
           ? (blocked > 0 ? `${blocked} do naprawy` : (warnings > 0 ? `${warnings} uwag do kontroli` : 'Brak krytycznych'))
-          : 'Czeka na odprawe',
+          : 'Czeka na odprawę',
         status: blocked > 0 ? 'blocked' : (advisorLoaded ? 'done' : 'pending'),
       },
       {
         key: 'solver',
-        label: 'Podglad solvera',
+        label: 'Podgląd solvera',
         detail: hasPlan ? `${assigned} / ${total || assigned} przypisane` : (advisorLoaded && blocked === 0 ? 'Gotowy do generowania' : 'Po naprawach'),
         status: hasPlan ? 'done' : (advisorLoaded && blocked === 0 ? 'active' : 'pending'),
       },
       {
         key: 'release',
         label: 'Zapis i zastosowanie',
-        detail: planApplied ? 'Zastosowany' : (hasSavedPlan ? 'Gotowy do zastosowania' : (hasPlan ? 'Zapisz, gdy plan pasuje' : 'Po podgladzie')),
+        detail: planApplied ? 'Zastosowany' : (hasSavedPlan ? 'Gotowy do zastosowania' : (hasPlan ? 'Zapisz, gdy plan pasuje' : 'Po podglądzie')),
         status: planApplied ? 'done' : (hasSavedPlan || hasPlan ? 'active' : 'pending'),
       },
     ];
@@ -1092,7 +1092,7 @@ export default function AutoDispatch() {
             <h1 style={s.title}>{t('autoDispatch.title')}</h1>
             <p style={s.sub}>{t('autoDispatch.subtitle')}</p>
           </div>
-          <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>Powrot</button>
+          <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>Powrót</button>
         </div>
 
         {/* Controls */}
@@ -1156,13 +1156,13 @@ export default function AutoDispatch() {
           <section className="autodispatch-competency-block" style={s.competencyBlock}>
             <strong style={s.competencyBlockTitle}>Blokada kompetencji</strong>
             <span style={s.competencyBlockText}>
-              Zlecenie #{plan.competency_block.task_id} nie moze zostac przypisane do ekipy #{plan.competency_block.team_id}.
+              Zlecenie #{plan.competency_block.task_id} nie może zostać przypisane do ekipy #{plan.competency_block.team_id}.
               {' '}Brakuje: {(plan.competency_block.missing_competencies || []).join(', ') || 'wymaganych kompetencji'}.
             </span>
           </section>
         )}
 
-        <section className="autodispatch-workflow" style={s.workflowStrip} aria-label="Postep dyspozycji dnia">
+        <section className="autodispatch-workflow" style={s.workflowStrip} aria-label="Postęp dyspozycji dnia">
           {workflowSteps.map((step, idx) => (
             <div
               key={step.key}
@@ -1206,7 +1206,7 @@ export default function AutoDispatch() {
         {preflightHold && (
           <div style={s.preflightBox}>
             <div style={s.preflightText}>
-              <strong>AI Dyspozytor zatrzymal zapis planu.</strong>
+              <strong>AI Dyspozytor zatrzymał zapis planu.</strong>
               <span>
                 Gotowe: {preflightHold.ready} / {preflightHold.total}. Blokady: {preflightHold.blocked}.
                 {preflightHold.warnings > 0 ? ` Uwagi: ${preflightHold.warnings}.` : ''}
@@ -1239,21 +1239,21 @@ export default function AutoDispatch() {
             <div style={s.advisorHeader}>
               <div>
                 <div style={s.advisorEyebrow}>AI Dyspozytor</div>
-                <h2 style={s.advisorTitle}>{advisor.summary || 'Kontrola jakosci planu dnia'}</h2>
+                <h2 style={s.advisorTitle}>{advisor.summary || 'Kontrola jakości planu dnia'}</h2>
               </div>
               <div style={s.advisorActions}>
                 <button type="button" onClick={copyAdvisorBrief} style={s.copyBriefBtn}>
-                  {briefCopied ? 'Skopiowano' : 'Kopiuj odprawe'}
+                  {briefCopied ? 'Skopiowano' : 'Kopiuj odprawę'}
                 </button>
                 <span style={s.advisorSource}>
-                  {advisor.source === 'ai' ? (advisor.provider || 'AI') : 'Reguly'}
+                  {advisor.source === 'ai' ? (advisor.provider || 'AI') : 'Reguły'}
                 </span>
               </div>
             </div>
 
             {briefCopyText && (
               <textarea
-                aria-label="Pakiet odprawy do recznego skopiowania"
+                aria-label="Pakiet odprawy do ręcznego skopiowania"
                 value={briefCopyText}
                 readOnly
                 autoFocus
@@ -1279,11 +1279,11 @@ export default function AutoDispatch() {
                 tone={(advisor.metrics?.warnings ?? 0) > 0 ? 'warn' : 'ok'}
               />
               <Stat
-                label="Jakosc"
+                label="Jakość"
                 value={`${advisor.metrics?.avg_quality ?? 100}%`}
                 tone={(advisor.metrics?.avg_quality ?? 100) >= 80 ? 'ok' : 'warn'}
               />
-              <Stat label="Wartosc" value={money(advisor.metrics?.total_value)} />
+              <Stat label="Wartość" value={money(advisor.metrics?.total_value)} />
             </div>
 
             {nextDispatchAction && (
@@ -1323,7 +1323,7 @@ export default function AutoDispatch() {
                     {loading && nextDispatchAction.kind === 'ready'
                       ? 'Generuje...'
                       : advisorLoading && nextDispatchAction.kind === 'blocked_summary'
-                        ? 'Odswieza...'
+                        ? 'Odświeża...'
                         : nextDispatchAction.button}
                   </button>
                 )}
@@ -1367,7 +1367,7 @@ export default function AutoDispatch() {
                   )}
                 </div>
                 {issueSummary.length > 0 && (
-                  <div style={s.issueSummary} aria-label="Najczestsze braki">
+                  <div style={s.issueSummary} aria-label="Najczęstsze braki">
                     <span style={s.issueSummaryLabel}>Braki</span>
                     {issueSummary.map(issue => (
                       <button
@@ -1386,16 +1386,16 @@ export default function AutoDispatch() {
                     ))}
                     {riskIssueFilter && (
                       <button type="button" onClick={() => setRiskIssueFilter('')} style={s.issueClearBtn}>
-                        Wyczysc brak
+                        Wyczyść brak
                       </button>
                     )}
                   </div>
                 )}
                 {riskStats.all === 0 && (
-                  <div style={s.advisorEmpty}>Brak otwartych zlecen do analizy.</div>
+                  <div style={s.advisorEmpty}>Brak otwartych zleceń do analizy.</div>
                 )}
                 {riskStats.all > 0 && filteredRiskTasks.length === 0 && (
-                  <div style={s.advisorEmpty}>Brak zlecen w tym filtrze.</div>
+                  <div style={s.advisorEmpty}>Brak zleceń w tym filtrze.</div>
                 )}
                 {filteredRiskTasks.map(task => (
                   <div key={task.task_id} style={s.riskTask}>
@@ -1418,10 +1418,10 @@ export default function AutoDispatch() {
                           type="button"
                           onClick={() => openRiskTask(task)}
                           disabled={!task.task_id}
-                          aria-label={`Otworz zlecenie ${task.task_numer || task.task_id || ''}`.trim()}
+                          aria-label={`Otwórz zlecenie ${task.task_numer || task.task_id || ''}`.trim()}
                           style={s.openTaskCta}
                         >
-                          Otworz zlecenie
+                          Otwórz zlecenie
                         </button>
                         <button
                           type="button"
@@ -1463,13 +1463,13 @@ export default function AutoDispatch() {
           <section className="autodispatch-availability-panel" style={absentTeams.length ? { ...s.availabilityPanel, ...s.availabilityPanelWarn } : s.availabilityPanel}>
             <div style={s.availabilityHeader}>
               <div style={s.availabilityTitleWrap}>
-                <span style={s.availabilityEyebrow}>Gotowosc ekip</span>
+                <span style={s.availabilityEyebrow}>Gotowość ekip</span>
                 <strong style={s.availabilityTitle}>
-                  {absentTeams.length ? `Nieobecne ekipy: ${absentTeams.length}` : 'Wszystkie ekipy dostepne'}
+                  {absentTeams.length ? `Nieobecne ekipy: ${absentTeams.length}` : 'Wszystkie ekipy dostępne'}
                 </strong>
               </div>
               <span style={absentTeams.length ? { ...s.availabilityCounter, ...s.availabilityCounterWarn } : s.availabilityCounter}>
-                {availabilityAvailable}/{availabilityTotal || availabilityAvailable} dostepne
+                {availabilityAvailable}/{availabilityTotal || availabilityAvailable} dostępne
               </span>
             </div>
             {absentTeams.length ? (
@@ -1477,12 +1477,12 @@ export default function AutoDispatch() {
                 {absentTeams.map(team => (
                   <div key={`${team.team_id || team.team_name}`} style={s.absentTeamItem}>
                     <strong>{team.team_name || `Ekipa #${team.team_id}`}</strong>
-                    <span>{team.note || 'Oznaczona jako nieobecna na ten dzien.'}</span>
+                    <span>{team.note || 'Oznaczona jako nieobecna na ten dzień.'}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p style={s.availabilityNote}>Solver moze korzystac ze wszystkich aktywnych ekip dla wybranego dnia.</p>
+              <p style={s.availabilityNote}>Solver może korzystać ze wszystkich aktywnych ekip dla wybranego dnia.</p>
             )}
           </section>
         )}
@@ -1493,10 +1493,10 @@ export default function AutoDispatch() {
               <div style={s.handoffTitleWrap}>
                 <span style={s.handoffEyebrow}>Odprawy dla ekip</span>
                 <strong style={s.handoffTitle}>
-                  {planApplied ? 'Plan gotowy do wyslania ekipom.' : 'Skopiuj plan dnia albo odprawe konkretnej ekipy.'}
+                  {planApplied ? 'Plan gotowy do wysłania ekipom.' : 'Skopiuj plan dnia albo odprawę konkretnej ekipy.'}
                 </strong>
                 <span style={s.handoffDetail}>
-                  {(plan.routes || []).length} ekip · {stats?.tasks_assigned ?? 0}/{stats?.tasks_total ?? 0} zlecen · {stats?.coverage_pct ?? 0}% pokrycia
+                  {(plan.routes || []).length} ekip · {stats?.tasks_assigned ?? 0}/{stats?.tasks_total ?? 0} zleceń · {stats?.coverage_pct ?? 0}% pokrycia
                 </span>
                 {dispatchBriefStatusCheckedAt && (
                   <span style={s.handoffStatusMeta}>
@@ -1520,13 +1520,13 @@ export default function AutoDispatch() {
                     ...((dispatchBriefStatusLoading || dispatchBriefRemindingAll || dispatchBriefSendingAll || dispatchableRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
                   }}
                 >
-                  {dispatchBriefStatusLoading ? 'Odswiezam...' : 'Odswiez odbior'}
+                  {dispatchBriefStatusLoading ? 'Odświeżam...' : 'Odśwież odbiór'}
                 </button>
                 <button
                   type="button"
                   onClick={remindAllRouteBriefPending}
                   disabled={dispatchBriefRemindingAll || dispatchBriefSendingAll || pendingRouteBriefRoutes.length === 0}
-                  aria-label={`Przypomnij wszystkim oczekujacym (${pendingRouteBriefRecipients})`}
+                  aria-label={`Przypomnij wszystkim oczekującym (${pendingRouteBriefRecipients})`}
                   style={{
                     ...s.remindAllBriefBtn,
                     ...((dispatchBriefRemindingAll || dispatchBriefSendingAll || pendingRouteBriefRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
@@ -1536,7 +1536,7 @@ export default function AutoDispatch() {
                     ? 'Przypominam...'
                     : pendingRouteBriefRecipients > 0
                       ? `Przypomnij wszystkim (${pendingRouteBriefRecipients})`
-                      : 'Brak oczekujacych'}
+                      : 'Brak oczekujących'}
                 </button>
                 <button
                   type="button"
@@ -1548,16 +1548,16 @@ export default function AutoDispatch() {
                   }}
                 >
                   {dispatchBriefSendingAll
-                    ? 'Wysylanie odpraw...'
+                    ? 'Wysyłanie odpraw...'
                     : sentRoutesCount === dispatchableRoutes.length && dispatchableRoutes.length > 0
-                      ? 'Odprawy wyslane'
-                      : 'Wyslij odprawy do ekip'}
+                      ? 'Odprawy wysłane'
+                      : 'Wyślij odprawy do ekip'}
                 </button>
               </div>
             </div>
             {dispatchBriefText && (
               <textarea
-                aria-label="Pakiet odpraw dla ekip do recznego skopiowania"
+                aria-label="Pakiet odpraw dla ekip do ręcznego skopiowania"
                 value={dispatchBriefText}
                 readOnly
                 autoFocus
@@ -1593,7 +1593,7 @@ export default function AutoDispatch() {
                     >
                       <span style={{ ...s.teamDot, background: color }} />
                       <strong style={s.teamName}>{route.team_name}</strong>
-                      <span style={s.routeMeta}>{route.stops.length} zlec · {fmt(route.total_min)} · ~{route.distance_km} km</span>
+                      <span style={s.routeMeta}>{route.stops.length} zlec. · {fmt(route.total_min)} · ~{route.distance_km} km</span>
                       <span style={s.chevron}>{open ? '▲' : '▼'}</span>
                     </button>
                       <div style={s.routeBriefActions}>
@@ -1610,18 +1610,18 @@ export default function AutoDispatch() {
                         <button
                           type="button"
                           onClick={() => copyRouteBrief(route)}
-                          aria-label={`Kopiuj odprawe ekipy ${route.team_name || route.team_id || ''}`.trim()}
+                          aria-label={`Kopiuj odprawę ekipy ${route.team_name || route.team_id || ''}`.trim()}
                           style={s.routeBriefBtn}
                         >
                           {dispatchBriefCopied === routeKey
                             ? 'Skopiowano'
-                            : 'Kopiuj odprawe ekipy'}
+                            : 'Kopiuj odprawę ekipy'}
                         </button>
                         <button
                           type="button"
                           onClick={() => sendRouteBrief(route)}
                           disabled={sendDisabled}
-                          aria-label={`Wyslij odprawe ekipy ${route.team_name || route.team_id || ''}`.trim()}
+                          aria-label={`Wyślij odprawę ekipy ${route.team_name || route.team_id || ''}`.trim()}
                           style={{
                             ...s.routeBriefBtn,
                             ...s.routeSendBtn,
@@ -1629,10 +1629,10 @@ export default function AutoDispatch() {
                           }}
                         >
                           {sendingRoute
-                            ? 'Wysylanie...'
+                            ? 'Wysyłanie...'
                             : dispatchBriefSent === routeKey
-                              ? 'Wyslano'
-                              : 'Wyslij odprawe'}
+                              ? 'Wysłano'
+                              : 'Wyślij odprawę'}
                         </button>
                       </div>
                     </div>
@@ -1645,13 +1645,13 @@ export default function AutoDispatch() {
                               type="button"
                               onClick={() => remindRouteBriefPending(route)}
                               disabled={remindDisabled}
-                              aria-label={`Przypomnij oczekujacym ${route.team_name || route.team_id || ''}`.trim()}
+                              aria-label={`Przypomnij oczekującym ${route.team_name || route.team_id || ''}`.trim()}
                               style={{
                                 ...s.routeReminderBtn,
                                 ...(remindDisabled ? s.routeBriefBtnDisabled : {}),
                               }}
                             >
-                              {remindingRoute ? 'Przypomina...' : 'Przypomnij oczekujacym'}
+                              {remindingRoute ? 'Przypominam...' : 'Przypomnij oczekującym'}
                             </button>
                           )}
                         </div>
@@ -1686,7 +1686,7 @@ export default function AutoDispatch() {
                           <DispatchStopRow key={stop.task_id} stop={stop} index={si} t={t} />
                         ))}
                         <div style={s.returnRow}>
-                          🏠 {t('autoDispatch.returnToBase')} — {route.end_time} (+{route.return_travel_min} min)
+                          ↩ {t('autoDispatch.returnToBase')} — {route.end_time} (+{route.return_travel_min} min)
                         </div>
                       </div>
                     )}

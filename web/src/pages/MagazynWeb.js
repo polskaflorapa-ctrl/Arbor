@@ -11,6 +11,7 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
+import MagazynPolskaFlora from './MagazynPolskaFlora';
 
 const blankMaterial = { nazwa: '', jednostka: 'szt', min_stan: '0', koszt_jednostkowy: '0', kategoria: '' };
 const blankMove = { material_id: '', ilosc: '1', koszt_jednostkowy: '', task_id: '', notatki: '' };
@@ -112,6 +113,24 @@ export default function MagazynWeb() {
         : 'Nie udalo sie zapisac ruchu magazynowego.'));
     }
   };
+
+  return (
+    <MagazynPolskaFlora
+      items={items}
+      loading={loading}
+      msg={msg}
+      material={material}
+      setMaterial={setMaterial}
+      receipt={receipt}
+      setReceipt={setReceipt}
+      issue={issue}
+      setIssue={setIssue}
+      createMaterial={createMaterial}
+      saveMove={saveMove}
+      blankMove={blankMove}
+      isDyrektor={isDyrektor}
+    />
+  );
 
   return (
     <Box className="app-shell warehouse-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'transparent' }}>

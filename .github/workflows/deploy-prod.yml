@@ -1,0 +1,98 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.2.3)'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migrations (production)
+        run: |
+          cd os
+          npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          NODE_ENV: production
+
+      - name: Deploy API to Render (production)
+        uses: render-actions/deploy@v1
+        if: ${{ secrets.RENDER_PROD_API_SERVICE_ID != '' }}
+        with:
+          service-id: ${{ secrets.RENDER_PROD_API_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+
+      - name: Deploy Web to Vercel (production)
+        uses: amondnet/vercel-action@v25
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./web
+
+      - name: Deploy Web to Render and wait for smoke
+        run: |
+          if [ -z "$RENDER_WEB_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_WEB_DEPLOY_HOOK_URL is not configured; skipping Render web deploy."
+            exit 0
+          fi
+          EXPECTED_BUILD="${GITHUB_SHA::7}"
+          npm run deploy:render:web:wait -- --timeout-ms 45000 --wait-attempts 30 --wait-interval-ms 10000 --expected-build "$EXPECTED_BUILD"
+        env:
+          RENDER_WEB_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}
+
+      - name: Health check production API
+        run: |
+          for i in {1..60}; do
+            curl -sf https://${{ secrets.PROD_API_URL }}/api/ready/ && break
+            sleep 10
+          done
+
+      - name: Health check production Web
+        run: |
+          for i in {1..15}; do
+            curl -sf https://${{ secrets.PROD_WEB_URL }} && break
+            sleep 5
+          done
+
+      - name: Production readiness report
+        run: npm run status:production -- --skip-local
+        env:
+          RENDER_WEB_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}
+
+      - name: Create GitHub Release
+        if: ${{ github.event.inputs.version != '' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: Release ${{ github.event.inputs.version }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

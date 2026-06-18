@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
-import CommandSidebar from '../components/CommandSidebar';
+import DownloadOutlined from '@mui/icons-material/DownloadOutlined';
+import MailOutlineOutlined from '@mui/icons-material/MailOutlineOutlined';
+import PrintOutlined from '@mui/icons-material/PrintOutlined';
+import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
+import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
-import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
-import { Check, Download, Mail, Printer, RefreshCw, Save, ShieldAlert } from 'lucide-react';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -36,7 +38,7 @@ const ACTION_FILTERS = [
   { value: 'risk_resend_sms', label: 'Zadarma/SMS' },
   { value: 'risk_queue_call', label: 'Telefon Zadarma' },
   { value: 'risk_acknowledge', label: 'Potwierdzenie ownera' },
-  { value: 'risk_owner_resolve', label: 'Zamkniecie ownera' },
+  { value: 'risk_owner_resolve', label: 'Rozwiazanie ownera' },
   { value: 'risk_owner_auto_remediate', label: 'Auto-remediacja ownera' },
   { value: 'risk_owner_remediation_blocked', label: 'Blokady remediacji' },
   { value: 'risk_reassign_team', label: 'Przepiecie ekipy' },
@@ -82,7 +84,6 @@ export default function KontrolaOperacyjna() {
   const [loading, setLoading] = useState(false);
   const [ownerAlertsLoading, setOwnerAlertsLoading] = useState(false);
   const [ownerBulkAction, setOwnerBulkAction] = useState('');
-  const [ownerResolveAction, setOwnerResolveAction] = useState('');
   const [digestLoading, setDigestLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -305,12 +306,16 @@ export default function KontrolaOperacyjna() {
     setError('');
     try {
       const token = getStoredToken();
-      const normalizedAction = action === 'acknowledge' ? 'bulk_acknowledge' : 'bulk_escalate';
+      const normalizedAction = action === 'acknowledge'
+        ? 'bulk_acknowledge'
+        : (action === 'resolve' ? 'bulk_resolve' : 'bulk_escalate');
       await api.post('/ops/owner-alerts/actions', {
         action: normalizedAction,
         note: normalizedAction === 'bulk_acknowledge'
           ? 'Masowe potwierdzenie z kontroli operacyjnej'
-          : 'Masowa eskalacja z kontroli operacyjnej',
+          : (normalizedAction === 'bulk_resolve'
+            ? 'Oznaczono jako rozwiazane z kontroli operacyjnej'
+            : 'Masowa eskalacja z kontroli operacyjnej'),
         items: selected.map((item) => ({
           risk_id: item.risk_id,
           risk_type: item.risk_type || item.type,
@@ -328,41 +333,17 @@ export default function KontrolaOperacyjna() {
     }
   };
 
-  const resolveOwnerAlert = async (item, source = 'control') => {
-    const riskId = item?.risk_id || item?.id;
-    const riskType = item?.risk_type || item?.type;
-    if (!riskId || !riskType) return;
-    const actionKey = `${source}:${riskId}`;
-    setOwnerResolveAction(actionKey);
-    setError('');
-    try {
-      const token = getStoredToken();
-      await api.post('/ops/owner-alerts/resolve', {
-        risk_id: riskId,
-        risk_type: riskType,
-        task_id: item.task_id || null,
-        oddzial_id: item.oddzial_id || oddzialId || null,
-        source,
-        note: source === 'digest'
-          ? 'Oznaczono jako rozwiazane z digestu dyrektora'
-          : 'Oznaczono jako rozwiazane z kontroli operacyjnej',
-      }, { headers: authHeaders(token) });
-      await Promise.all([loadOpenOwnerAlerts(), loadOwnerRemediationReport(), loadHistory(), loadDigestHistory()]);
-      if (digest) await loadDigest();
-    } catch (e) {
-      setError(getApiErrorMessage(e, 'Nie udalo sie oznaczyc alertu ownera jako rozwiazanego.'));
-    } finally {
-      setOwnerResolveAction('');
-    }
-  };
-
   const items = history.items || [];
   const actionSummary = history.summary?.actions || [];
   const issueSummary = history.summary?.issues || [];
   const ownerAckCount = actionSummary
     .filter((item) => item.action_type === 'risk_acknowledge')
     .reduce((sum, item) => sum + Number(item.count || 0), 0);
+  const ownerResolveCount = actionSummary
+    .filter((item) => item.action_type === 'risk_owner_resolve')
+    .reduce((sum, item) => sum + Number(item.count || 0), 0);
   const ownerAckRows = items.filter((item) => item.action_type === 'risk_acknowledge');
+  const ownerResolveRows = items.filter((item) => item.action_type === 'risk_owner_resolve');
   const openOwnerItems = openOwnerAlerts.items || [];
   const openOwnerSummary = openOwnerAlerts.summary || {};
   const ownerRemediationSummary = ownerRemediationReport.summary || {};
@@ -374,7 +355,7 @@ export default function KontrolaOperacyjna() {
 
   return (
     <div className="app-shell kontrola-shell" style={s.layout}>
-      <CommandSidebar active="dashboard" />
+      <Sidebar />
       <main className="app-main kontrola-main" style={s.main}>
         <PageHeader
           variant="hero"
@@ -383,16 +364,18 @@ export default function KontrolaOperacyjna() {
           icon={<AssessmentOutlined />}
           actions={(
             <div style={s.headerActions}>
-              <Button type="button" variant="outline" leftIcon={Printer} style={s.secondaryBtn} onClick={printPdf}>
-                Druk/PDF
-              </Button>
-              <Button type="button" variant="outline" leftIcon={Mail} style={s.secondaryBtn} onClick={loadDigest} loading={digestLoading}>
-                {digestLoading ? 'Digest...' : 'Digest'}
-              </Button>
-              <Button type="button" leftIcon={Download} style={s.primaryBtn} onClick={exportCsv} loading={exporting}>
-                {exporting ? 'Eksport...' : 'CSV'}
-              </Button>
-              <Button type="button" size="sm" variant="outline" leftIcon={RefreshCw} style={s.iconBtn} onClick={loadHistory} loading={loading} aria-label="Odswiez" />
+              <button type="button" style={s.secondaryBtn} onClick={printPdf}>
+                <PrintOutlined style={{ fontSize: 18 }} /> Druk/PDF
+              </button>
+              <button type="button" style={s.secondaryBtn} onClick={loadDigest} disabled={digestLoading}>
+                <MailOutlineOutlined style={{ fontSize: 18 }} /> {digestLoading ? 'Digest...' : 'Digest'}
+              </button>
+              <button type="button" style={s.primaryBtn} onClick={exportCsv} disabled={exporting}>
+                <DownloadOutlined style={{ fontSize: 18 }} /> {exporting ? 'Eksport...' : 'CSV'}
+              </button>
+              <button type="button" style={s.iconBtn} onClick={loadHistory} disabled={loading} aria-label="Odswiez">
+                <RefreshOutlined style={{ fontSize: 19 }} />
+              </button>
             </div>
           )}
         />
@@ -470,8 +453,9 @@ export default function KontrolaOperacyjna() {
             <strong style={s.kpiValue}>{zadarmaCount}</strong>
           </div>
           <div style={s.kpi}>
-            <span style={s.kpiLabel}>Potwierdzenia ownerow</span>
-            <strong style={s.kpiValue}>{ownerAckCount || kommoSmsAckCount}</strong>
+            <span style={s.kpiLabel}>Domkniecia ownerow</span>
+            <strong style={s.kpiValue}>{(ownerAckCount || kommoSmsAckCount) + ownerResolveCount}</strong>
+            <small style={s.subLine}>Rozwiazane {ownerResolveCount}</small>
           </div>
           <div style={s.kpi}>
             <span style={s.kpiLabel}>Niedomkniete P1/P2</span>
@@ -502,27 +486,30 @@ export default function KontrolaOperacyjna() {
               <p style={s.muted}>Kommo/SMS bez potwierdzenia ownera, z agingiem SLA i eskalacja P1/P2.</p>
             </div>
             <div style={s.panelActions}>
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                leftIcon={ShieldAlert}
                 style={s.secondaryBtn}
                 onClick={() => runOwnerBulkAction('escalate')}
-                loading={ownerBulkAction === 'escalate'}
                 disabled={!openOwnerItems.length || Boolean(ownerBulkAction)}
               >
                 {ownerBulkAction === 'escalate' ? 'Eskalacja...' : 'Eskaluj widoczne'}
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                leftIcon={Check}
+                style={s.secondaryBtn}
+                onClick={() => runOwnerBulkAction('resolve')}
+                disabled={!openOwnerItems.length || Boolean(ownerBulkAction)}
+              >
+                {ownerBulkAction === 'resolve' ? 'Zapisywanie...' : 'Oznacz rozwiazane'}
+              </button>
+              <button
+                type="button"
                 style={s.primaryBtn}
                 onClick={() => runOwnerBulkAction('acknowledge')}
-                loading={ownerBulkAction === 'acknowledge'}
                 disabled={!openOwnerItems.length || Boolean(ownerBulkAction)}
               >
                 {ownerBulkAction === 'acknowledge' ? 'Potwierdzanie...' : 'Potwierdz widoczne'}
-              </Button>
+              </button>
               <span style={s.badge}>{ownerAlertsLoading ? 'Ladowanie' : `${openOwnerSummary.open_total ?? openOwnerItems.length} otwarte`}</span>
             </div>
           </div>
@@ -543,17 +530,6 @@ export default function KontrolaOperacyjna() {
                 <div style={s.ownerAckMeta}>
                   <span>{item.numer || '-'}</span>
                   <span>{item.klient_nazwa || '-'}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    leftIcon={Check}
-                    style={s.smallBtn}
-                    onClick={() => resolveOwnerAlert(item, 'control')}
-                    loading={ownerResolveAction === `control:${item.risk_id || item.id}`}
-                  >
-                    {ownerResolveAction === `control:${item.risk_id || item.id}` ? 'Zapis...' : 'Oznacz rozwiazane'}
-                  </Button>
                 </div>
               </div>
             ))}
@@ -602,13 +578,13 @@ export default function KontrolaOperacyjna() {
               <h2 style={s.h2}>Rejestr potwierdzen ownerow</h2>
               <p style={s.muted}>Potwierdzenia alertow Kommo/SMS zapisane w `ops_action_events` z ownerem, ryzykiem i oddzialem.</p>
             </div>
-            <span style={s.badge}>{ownerAckRows.length} potwierdzen</span>
+            <span style={s.badge}>{ownerAckRows.length} potwierdzen / {ownerResolveRows.length} rozwiazanych</span>
           </div>
           <div style={s.ownerAckList}>
-            {ownerAckRows.slice(0, 8).map((item) => (
+            {[...ownerResolveRows, ...ownerAckRows].slice(0, 8).map((item) => (
               <div key={`ack-${item.id}`} style={s.ownerAckItem}>
                 <div>
-                  <strong>{item.risk_type || item.issue_label || 'risk_report'}</strong>
+                  <strong>{item.action_type === 'risk_owner_resolve' ? 'Rozwiazane' : 'Potwierdzone'} / {item.risk_type || item.issue_label || 'risk_report'}</strong>
                   <div style={s.subLine}>{item.actor_name || '-'} / {item.oddzial_nazwa || item.oddzial_id || 'global'} / {formatDateTime(item.created_at)}</div>
                 </div>
                 <div style={s.ownerAckMeta}>
@@ -617,7 +593,7 @@ export default function KontrolaOperacyjna() {
                 </div>
               </div>
             ))}
-            {!ownerAckRows.length ? <div style={s.emptyLine}>Brak potwierdzen ownerow dla wybranych filtrow.</div> : null}
+            {!ownerAckRows.length && !ownerResolveRows.length ? <div style={s.emptyLine}>Brak potwierdzen ownerow dla wybranych filtrow.</div> : null}
           </div>
         </section>
 
@@ -641,6 +617,11 @@ export default function KontrolaOperacyjna() {
                 <small style={s.subLine}>Kommo {digest.summary?.kommo_owner_acknowledgements || 0} / SMS {digest.summary?.sms_owner_acknowledgements || 0}</small>
               </div>
               <div style={s.digestMetric}>
+                <span>Rozwiazane owner</span>
+                <strong>{digest.summary?.owner_resolutions || 0}</strong>
+                <small style={s.subLine}>Po remediacji</small>
+              </div>
+              <div style={s.digestMetric}>
                 <span>Nierozwiazane P1/P2 po remediacji</span>
                 <strong>{digest.summary?.owner_unresolved_after_remediation || 0}</strong>
                 <small style={s.subLine}>P1 {digest.summary?.owner_unresolved_p1 || 0} / P2 {digest.summary?.owner_unresolved_p2 || 0}</small>
@@ -655,32 +636,6 @@ export default function KontrolaOperacyjna() {
               ))}
               {!(digest.alerts || []).length ? <div style={s.emptyLine}>Brak krytycznych alertow w digestcie.</div> : null}
             </div>
-            {(digest.details?.owner_unresolved_after_remediation || []).length ? (
-              <div style={s.ownerAckList}>
-                {digest.details.owner_unresolved_after_remediation.slice(0, 5).map((item) => (
-                  <div key={`digest-resolve-${item.risk_id}`} style={s.ownerAckItem}>
-                    <div>
-                      <strong>{item.escalation_level || 'P1'} / {item.risk_type || 'alert'} / {item.remediation_action || 'remediacja'}</strong>
-                      <div style={s.subLine}>{item.owner_label || 'Owner'} / {item.numer || item.risk_id} / {formatDateTime(item.last_remediation_at)}</div>
-                    </div>
-                    <div style={s.ownerAckMeta}>
-                      <span>{item.klient_nazwa || '-'}</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        leftIcon={Check}
-                        style={s.smallBtn}
-                        onClick={() => resolveOwnerAlert(item, 'digest')}
-                        loading={ownerResolveAction === `digest:${item.risk_id}`}
-                      >
-                        {ownerResolveAction === `digest:${item.risk_id}` ? 'Zapis...' : 'Oznacz rozwiazane'}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </section>
         ) : null}
 
@@ -731,7 +686,7 @@ export default function KontrolaOperacyjna() {
                 <span style={s.label}>Dodatkowe emaile</span>
                 <input style={s.input} value={settingsForm.extra_emails} onChange={(e) => setSettingsForm((f) => ({ ...f, extra_emails: e.target.value }))} placeholder="dyrektor@firma.pl" />
               </label>
-              <Button type="submit" leftIcon={Save} style={s.primaryBtn} loading={settingsSaving}>{settingsSaving ? 'Zapis...' : 'Zapisz konfiguracje'}</Button>
+              <button type="submit" style={s.primaryBtn} disabled={settingsSaving}>{settingsSaving ? 'Zapis...' : 'Zapisz konfiguracje'}</button>
             </form>
           </section>
         ) : null}
@@ -843,7 +798,6 @@ const s = {
   ownerAckList: { display: 'grid', gap: 8, padding: 16 },
   ownerAckItem: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 12, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: 'rgba(241,249,244,0.5)' },
   ownerAckMeta: { display: 'flex', gap: 8, flexWrap: 'wrap', color: 'var(--text-sub)', fontSize: 12, fontWeight: 700, justifyContent: 'flex-end' },
-  smallBtn: { border: '1px solid rgba(15,95,58,0.18)', background: '#ffffff', color: 'var(--text)', borderRadius: 8, padding: '7px 9px', fontWeight: 800, cursor: 'pointer', fontSize: 12 },
   emptyLine: { color: 'var(--text-sub)', fontSize: 13 },
   panel: { border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(31,79,50,0.065)' },
   panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', padding: 18, borderBottom: '1px solid rgba(15,95,58,0.1)' },

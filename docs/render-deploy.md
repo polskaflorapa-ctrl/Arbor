@@ -43,6 +43,7 @@ Before clicking deploy, run locally:
 ```bash
 npm run deploy:prod:dry-run
 npm run deploy:free:check
+npm run verify:render-unified
 npm run deploy:env:print
 ```
 
@@ -78,14 +79,20 @@ the same public URL write/read/delete test used by `/api/ops/storage-smoke`.
 5. Render will create:
    - `arbor-os` as a free Node service,
    - `arbor-web` as a static site.
-6. In `arbor-os -> Environment`, set:
+6. Current unified production pair:
+   - web: `https://arbo-web.onrender.com`,
+   - API: `https://arbor-os-b7k6.onrender.com/api`.
+7. In `arbor-os -> Environment`, set:
    - `DATABASE_URL=<your Neon connection string>`.
-7. Optional after `arbor-web` gets its URL:
-   - set `CORS_ORIGINS=https://<arbor-web>.onrender.com`.
-8. Before using real customer photos or sending client offer PDFs on Render Free,
+8. Keep `CORS_ORIGINS=https://arbo-web.onrender.com`.
+9. Before using real customer photos or sending client offer PDFs on Render Free,
    set R2/S3 variables from the storage block above and change `UPLOAD_STORAGE=s3`.
 
-The web service gets `VITE_API_URL` automatically from `arbor-os`.
+The web service uses `VITE_API_URL=https://arbor-os-b7k6.onrender.com/api`.
+Run `npm run verify:render-unified` before redeploying the static site so the
+current frontend and the live Render backend stay in one production version.
+If the Render deploy hook is available, trigger the static site redeploy with
+`RENDER_WEB_DEPLOY_HOOK_URL=<hook> npm run deploy:render:web`.
 
 ### Existing arbo-os.com setup
 
@@ -209,6 +216,7 @@ After deploy:
 ```bash
 npm run deploy:free:check -- https://<arbor-os-url>.onrender.com
 npm run smoke:render -- https://<arbor-os-url>.onrender.com
+npm run smoke:render-unified:live
 ```
 
 Authenticated smoke check after creating the first admin:

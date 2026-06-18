@@ -11,7 +11,7 @@ import {
   ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import ViewShot from 'react-native-view-shot';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import { AppStatusBar } from '../components/ui/app-status-bar';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
@@ -73,7 +73,7 @@ export default function WycenaRysujScreen() {
   const [selectedGrubosc, setSelectedGrubosc] = useState(6);
   const [saving, setSaving] = useState(false);
 
-  const viewShotRef = useRef<any>(null);
+  const viewShotRef = useRef<ViewShotRef | null>(null);
   const isDrawing = useRef(false);
   const currentPathRef = useRef('');
 
@@ -213,7 +213,7 @@ export default function WycenaRysujScreen() {
         const formData = new FormData();
         formData.append('zdjecie', { uri: capturedUri, name: `szkic_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
         formData.append('typ', photoKind || 'szkic');
-        formData.append('opis', 'Szkic zakresu prac z oględzin.');
+        formData.append('opis', 'Szkic zakresu prac z wyceny terenowej.');
         formData.append('tagi', 'wycena,szkic,teren');
 
         const res = await fetch(`${API_URL}/tasks/${taskId}/zdjecia`, {
@@ -234,7 +234,7 @@ export default function WycenaRysujScreen() {
               url: `${API_URL}/tasks/${taskId}/zdjecia`,
               fileUri: capturedUri,
               typ: photoKind || 'szkic',
-              opis: 'Szkic zakresu prac z oględzin.',
+              opis: 'Szkic zakresu prac z wyceny terenowej.',
               tagi: 'wycena,szkic,teren',
             });
             void triggerHaptic('warning');
@@ -316,7 +316,7 @@ export default function WycenaRysujScreen() {
             url: `${API_URL}/tasks/${taskId}/zdjecia`,
             fileUri: capturedUri,
             typ: photoKind || 'szkic',
-            opis: 'Szkic zakresu prac z oględzin.',
+            opis: 'Szkic zakresu prac z wyceny terenowej.',
             tagi: 'wycena,szkic,teren',
           });
           void triggerHaptic('warning');
@@ -531,7 +531,7 @@ function makeDrawStyles(t: Theme, canvasW: number, canvasH: number) {
     toolBtn: {
       width: 44,
       height: 44,
-      borderRadius: 7,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: t.surface2,
@@ -556,7 +556,7 @@ function makeDrawStyles(t: Theme, canvasW: number, canvasH: number) {
       position: 'absolute',
       left: 10,
       bottom: 10,
-      borderRadius: 5,
+      borderRadius: 999,
       paddingHorizontal: 10,
       paddingVertical: 6,
       backgroundColor: 'rgba(0,0,0,0.55)',
@@ -577,7 +577,7 @@ function makeDrawStyles(t: Theme, canvasW: number, canvasH: number) {
     presetRow: { gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
     presetBtn: {
       minHeight: 40,
-      borderRadius: 7,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.surface2,
@@ -590,12 +590,12 @@ function makeDrawStyles(t: Theme, canvasW: number, canvasH: number) {
     presetText: { color: t.textMuted, fontSize: 12, fontWeight: '900' },
     colorRow: { paddingHorizontal: 12, marginBottom: 10 },
     colorDot: {
-      width: 48, height: 48, borderRadius: 8,
+      width: 48, height: 48, borderRadius: 24,
       marginRight: 8, borderWidth: 2,
     },
     colorDotActive: { borderColor: t.text, borderWidth: 3, transform: [{ scale: 1.2 }] },
     eraserBtn: {
-      width: 48, height: 48, borderRadius: 7, marginRight: 8,
+      width: 48, height: 48, borderRadius: 12, marginRight: 8,
       backgroundColor: t.surface2, justifyContent: 'center', alignItems: 'center',
       borderWidth: 2, borderColor: t.border,
     },
@@ -606,7 +606,7 @@ function makeDrawStyles(t: Theme, canvasW: number, canvasH: number) {
 
     gruboscRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     gruboscBtn: {
-      width: 48, height: 48, borderRadius: 7,
+      width: 48, height: 48, borderRadius: 12,
       backgroundColor: t.surface2, justifyContent: 'center', alignItems: 'center',
       borderWidth: 1.5, borderColor: t.border,
     },

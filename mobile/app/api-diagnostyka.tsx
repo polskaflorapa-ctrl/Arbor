@@ -679,7 +679,7 @@ export default function ApiDiagnostykaScreen() {
               <Ionicons name={healthIcon} size={22} color={healthColor} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={S.heroEyebrow}>ARBOR-OS API</Text>
+              <Text style={S.heroEyebrow}>POLSKA FLORA API</Text>
               <Text style={S.heroTitle}>{health.label}</Text>
               <Text style={S.heroSub} numberOfLines={2}>
                 {t('apiDiag.info.summary', { ok: okCount, err: errorCount })} · {t('apiDiag.info.avgLatency', { ms: averageLatency ?? '-' })}

@@ -5,56 +5,6 @@ const { RATE_LIMIT_EXCEEDED, LOGIN_TOO_MANY_ATTEMPTS } = require('../constants/e
 const windowMs = env.RATE_LIMIT_WINDOW_MS || 60_000;
 const max = env.RATE_LIMIT_MAX || 40;
 
-const publicWindowMs = Number(process.env.PUBLIC_RATE_LIMIT_WINDOW_MS) || 60_000;
-const publicMax = Number(process.env.PUBLIC_RATE_LIMIT_MAX) || 120;
-const webhookWindowMs = Number(process.env.WEBHOOK_RATE_LIMIT_WINDOW_MS) || 60_000;
-const webhookMax = Number(process.env.WEBHOOK_RATE_LIMIT_MAX) || 240;
-
-function tooManyRequests(res, req) {
-  res.status(429).json({
-    error: 'Za duzo zadan. Sprobuj ponownie za chwile.',
-    code: RATE_LIMIT_EXCEEDED,
-    requestId: req.requestId,
-  });
-}
-
-/**
- * Limit dla kosztownych tras (AI, SMS, PDF, telefon / Twilio Voice) - per IP.
- */
-const costlyApiLimiter = rateLimit({
-  windowMs,
-  max,
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => tooManyRequests(res, req),
-});
-
-/**
- * Limit dla publicznych linkow tokenowych: tracking, akceptacje ofert,
- * decyzje okien czasowych. W prod powinien byc wsparty reverse-proxy/WAF.
- */
-const publicTokenLimiter = rateLimit({
-  windowMs: publicWindowMs,
-  max: publicMax,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: () => String(process.env.RATE_LIMIT_DISABLED || '').toLowerCase() === 'true',
-  handler: (req, res) => tooManyRequests(res, req),
-});
-
-/**
- * Limit dla webhookow zewnetrznych providerow. Jest luzniejszy od tokenowego,
- * bo providery potrafia wyslac serie statusow, ale nadal ucina probe floodu.
- */
-const webhookLimiter = rateLimit({
-  windowMs: webhookWindowMs,
-  max: webhookMax,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: () => String(process.env.RATE_LIMIT_DISABLED || '').toLowerCase() === 'true',
-  handler: (req, res) => tooManyRequests(res, req),
-});
-
 function resolveRedisStoreConstructor(redisStorePackage) {
   let RedisStore =
     redisStorePackage.RedisStore ||
@@ -71,6 +21,66 @@ function resolveRedisStoreConstructor(redisStorePackage) {
 
   return RedisStore;
 }
+
+function createRedisStore(prefix) {
+  if (env.RATE_LIMIT_STORE !== 'redis') {
+    return new rateLimit.MemoryStore();
+  }
+
+  if (!env.RATE_LIMIT_REDIS_URL) {
+    console.warn(
+      `[rate-limit] RATE_LIMIT_STORE=redis but RATE_LIMIT_REDIS_URL is missing. Falling back to in-memory store.`
+    );
+    return new rateLimit.MemoryStore();
+  }
+
+  try {
+    const { createClient } = require('redis');
+    const redisStorePackage = require('rate-limit-redis');
+    const RedisStore = resolveRedisStoreConstructor(redisStorePackage);
+    const client = createClient({ url: env.RATE_LIMIT_REDIS_URL });
+
+    let ready = Promise.resolve();
+    if (typeof client.connect === 'function' && !client.isOpen) {
+      ready = client.connect().catch((error) => {
+        const detail = error && error.message ? error.message : String(error);
+        console.warn(`[rate-limit] Failed to connect Redis client: ${detail}`);
+      });
+    }
+
+    return new RedisStore({
+      prefix: `arbor:rl:${prefix}:`,
+      sendCommand: async (...command) => {
+        await ready;
+        return client.sendCommand(command);
+      },
+    });
+  } catch (error) {
+    const detail = error && error.message ? error.message : String(error);
+    console.warn(`[rate-limit] Redis store unavailable: ${detail}. Falling back to in-memory store.`);
+    return new rateLimit.MemoryStore();
+  }
+}
+
+/**
+ * Limit dla kosztownych tras (AI, SMS, PDF, telefon / Twilio Voice) - per IP.
+ */
+const costlyApiLimiterStore = createRedisStore('costly');
+const costlyApiLimiter = rateLimit({
+  windowMs,
+  max,
+  store: costlyApiLimiterStore,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => String(process.env.RATE_LIMIT_DISABLED || '').toLowerCase() === 'true',
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Za duzo zadan. Sprobuj ponownie za chwile.',
+      code: RATE_LIMIT_EXCEEDED,
+      requestId: req.requestId,
+    });
+  },
+});
 
 function createLoginLimiterStore() {
   if (env.LOGIN_RATE_LIMIT_STORE !== 'redis') {
@@ -148,8 +158,6 @@ const resetLoginLimiterForTests = () => {
 module.exports = {
   costlyApiLimiter,
   loginLimiter,
-  publicTokenLimiter,
   resetLoginLimiterForTests,
-  webhookLimiter,
   __createLoginLimiterStore: createLoginLimiterStore,
 };

@@ -231,12 +231,16 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
   await userEvent.click(screen.getAllByRole('button', { name: 'Oznacz rozwiazane' })[0]);
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
-      '/ops/owner-alerts/resolve',
+      '/ops/owner-alerts/actions',
       expect.objectContaining({
-        risk_id: 'kommo_sync:501',
-        risk_type: 'kommo_sync',
-        task_id: 77,
-        source: 'control',
+        action: 'bulk_resolve',
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            risk_id: 'kommo_sync:501',
+            risk_type: 'kommo_sync',
+            task_id: 77,
+          }),
+        ]),
       }),
       expect.objectContaining({ headers: expect.any(Object) })
     );
@@ -263,6 +267,21 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
       '/ops/owner-alerts/actions',
       expect.objectContaining({
         action: 'bulk_acknowledge',
+        items: expect.arrayContaining([
+          expect.objectContaining({ risk_id: 'kommo_sync:501', risk_type: 'kommo_sync' }),
+          expect.objectContaining({ risk_id: 'sms_delivery:9', risk_type: 'sms_delivery' }),
+        ]),
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  await userEvent.click(screen.getByRole('button', { name: 'Oznacz rozwiazane' }));
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/owner-alerts/actions',
+      expect.objectContaining({
+        action: 'bulk_resolve',
         items: expect.arrayContaining([
           expect.objectContaining({ risk_id: 'kommo_sync:501', risk_type: 'kommo_sync' }),
           expect.objectContaining({ risk_id: 'sms_delivery:9', risk_type: 'sms_delivery' }),
@@ -325,12 +344,16 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
   await userEvent.click(resolveButtons[resolveButtons.length - 1]);
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
-      '/ops/owner-alerts/resolve',
+      '/ops/owner-alerts/actions',
       expect.objectContaining({
-        risk_id: 'kommo_sync:501',
-        risk_type: 'kommo_sync',
-        task_id: 77,
-        source: 'digest',
+        action: 'bulk_resolve',
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            risk_id: 'kommo_sync:501',
+            risk_type: 'kommo_sync',
+            task_id: 77,
+          }),
+        ]),
       }),
       expect.objectContaining({ headers: expect.any(Object) })
     );

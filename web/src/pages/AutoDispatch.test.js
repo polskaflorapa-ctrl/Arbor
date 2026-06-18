@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -7,11 +7,6 @@ import AutoDispatch from './AutoDispatch';
 import api from '../api';
 
 vi.mock('../components/Sidebar', () => ({
-  __esModule: true,
-  default: () => null,
-}));
-
-vi.mock('../components/CommandSidebar', () => ({
   __esModule: true,
   default: () => null,
 }));
@@ -50,6 +45,12 @@ function renderAutoDispatch(initialEntry = '/auto-dispatch') {
       </Routes>
     </MemoryRouter>
   );
+}
+
+async function click(element) {
+  await act(async () => {
+    await userEvent.click(element);
+  });
 }
 
 beforeEach(() => {
@@ -108,7 +109,7 @@ test('loads and renders AI dispatch advisor brief', async () => {
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
-  await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+  await click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
 
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith(
@@ -127,23 +128,23 @@ test('loads and renders AI dispatch advisor brief', async () => {
   expect(screen.getByText('Blokady danych')).toBeInTheDocument();
   expect(screen.getByText('2 do naprawy')).toBeInTheDocument();
   expect(screen.getByText('Po naprawach')).toBeInTheDocument();
-  expect(screen.getByText('Nastepna blokada')).toBeInTheDocument();
+  expect(screen.getByText('Następna blokada')).toBeInTheDocument();
   expect(screen.getByText('ZL/42: Brak telefonu')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Napraw blokade' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Napraw blokadę' })).toBeInTheDocument();
   expect(screen.getByText('ZL/42')).toBeInTheDocument();
   expect(screen.getAllByText(/Jan Kowalski/).length).toBeGreaterThan(0);
   expect(screen.getByText('1 kryt.')).toBeInTheDocument();
-  expect(screen.getByText('Otworz zlecenie')).toBeInTheDocument();
+  expect(screen.getByText('Otwórz zlecenie')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/42' })).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe' }));
+  await click(screen.getByRole('button', { name: 'Kopiuj odprawę' }));
   await waitFor(() => {
     expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('AI Dyspozytor - odprawa dnia'));
   });
   expect(writeTextMock.mock.calls[0][0]).toContain('ZL/42 (1 kryt.) Jan Kowalski');
   expect(await screen.findByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/42' }));
+  await click(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/42' }));
   const routeProbe = await screen.findByText(/Sciezka zlecenia:/);
   expect(routeProbe).toHaveTextContent('/zlecenia/42?mode=edit');
   expect(routeProbe).toHaveTextContent('step=client');
@@ -187,10 +188,10 @@ test('auto-refreshes advisor after returning from a repair', async () => {
   renderAutoDispatch('/auto-dispatch?date=2026-05-25&refresh=advisor&repaired=1');
 
   expect(await screen.findByText('Po poprawce zostala jedna uwaga.')).toBeInTheDocument();
-  expect(screen.getByText('Poprawka zapisana. Odprawa odswiezona.')).toBeInTheDocument();
-  expect(screen.getByText('Nastepna uwaga')).toBeInTheDocument();
+  expect(screen.getByText('Poprawka zapisana. Odprawa odświeżona.')).toBeInTheDocument();
+  expect(screen.getByText('Następna uwaga')).toBeInTheDocument();
   expect(screen.getByText('TEST-103: Brak pinezki GPS')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Otworz uwage' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Otwórz uwagę' })).toBeInTheDocument();
   expect(screen.getByText('TEST-103')).toBeInTheDocument();
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith(
@@ -235,13 +236,13 @@ test('shows a solver-ready next action when the advisor has no blockers', async 
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
-  await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+  await click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
   expect(await screen.findByText('Wszystko gotowe do planowania.')).toBeInTheDocument();
   expect(screen.getByText('Plan gotowy do solvera')).toBeInTheDocument();
   expect(screen.getByText('Brak blokad i uwag w odprawie dnia.')).toBeInTheDocument();
   expect(screen.getByText('Gotowy do generowania')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Generuj podglad planu' }));
+  await click(screen.getByRole('button', { name: 'Generuj podgląd planu' }));
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
@@ -279,10 +280,10 @@ test('shows absent team availability returned by dispatch preview', async () => 
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
-  await userEvent.click(screen.getByRole('button', { name: /Podgląd planu/i }));
+  await click(screen.getByRole('button', { name: /Podgląd planu/i }));
 
   expect(await screen.findByText('Nieobecne ekipy: 1')).toBeInTheDocument();
-  expect(screen.getAllByText('2/3 dostepne').length).toBeGreaterThan(0);
+  expect(screen.getByText('2/3 dostępne')).toBeInTheDocument();
   expect(screen.getByText('Brygada Alfa')).toBeInTheDocument();
   expect(screen.getByText('Auto w serwisie')).toBeInTheDocument();
 });
@@ -362,7 +363,7 @@ test('copies day and team handoff briefs from the generated plan', async () => {
     })
     .mockResolvedValueOnce({
       data: {
-        message: 'Przypomnienie wyslane',
+        message: 'Przypomnienie wysłane',
         brief_id: 77,
         team_id: 10,
         team_name: 'Brygada Alfa',
@@ -383,31 +384,31 @@ test('copies day and team handoff briefs from the generated plan', async () => {
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
-  await userEvent.click(screen.getByRole('button', { name: /Podgl.d planu/i }));
+  await click(screen.getByRole('button', { name: /Podgl.d planu/i }));
 
   expect(await screen.findByText('Odprawy dla ekip')).toBeInTheDocument();
-  expect(screen.getByText('Skopiuj plan dnia albo odprawe konkretnej ekipy.')).toBeInTheDocument();
+  expect(screen.getByText('Skopiuj plan dnia albo odprawę konkretnej ekipy.')).toBeInTheDocument();
 
   expect(screen.getByText(/Anna Nowak/)).toBeInTheDocument();
   expect(screen.getByText('Tel. +48500111222')).toBeInTheDocument();
   expect(screen.getByText('Brak telefonu')).toBeInTheDocument();
   expect(screen.getByText('Brak pinezki GPS')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Kopiuj plan dnia' }));
+  await click(screen.getByRole('button', { name: 'Kopiuj plan dnia' }));
   await waitFor(() => {
     expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('Plan dnia - 2026-05-25'));
   });
   expect(writeTextMock.mock.calls.at(-1)[0]).toContain('Brygada Alfa');
   expect(writeTextMock.mock.calls.at(-1)[0]).toContain('ZL/102 - Brak Kontaktu');
 
-  await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe ekipy Brygada Alfa' }));
+  await click(screen.getByRole('button', { name: 'Kopiuj odprawę ekipy Brygada Alfa' }));
   await waitFor(() => {
     expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('Odprawa ekipy - Brygada Alfa'));
   });
   expect(writeTextMock.mock.calls.at(-1)[0]).toContain('tel: brak telefonu');
   expect(writeTextMock.mock.calls.at(-1)[0]).toContain('uwagi: brak telefonu, brak pinezki gps, ryzyko okna czasowego');
 
-  await userEvent.click(screen.getByRole('button', { name: 'Wyslij odprawy do ekip' }));
+  await click(screen.getByRole('button', { name: 'Wyślij odprawy do ekip' }));
   await waitFor(() => {
     expect(api.post).toHaveBeenLastCalledWith(
       '/dispatch/route-brief/send',
@@ -422,14 +423,14 @@ test('copies day and team handoff briefs from the generated plan', async () => {
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
-  expect(await screen.findByText('Wyslano odprawy: 1/1 ekip, 2 odbiorcow. Czekamy na potwierdzenia.')).toBeInTheDocument();
-  expect(screen.getByText('Wyslano do 2 | czeka 2')).toBeInTheDocument();
+  expect(await screen.findByText('Wysłano odprawy: 1/1 ekip, 2 odbiorców. Czekamy na potwierdzenia.')).toBeInTheDocument();
+  expect(screen.getByText('Wysłano do 2 | czeka 2')).toBeInTheDocument();
   expect(screen.getByText('Odbiorcy odprawy')).toBeInTheDocument();
   expect(screen.getByText('Jan Brygadzista')).toBeInTheDocument();
   expect(screen.getByText('Anna Pomocnik')).toBeInTheDocument();
   expect(screen.getAllByText('Czeka')).toHaveLength(2);
 
-  await userEvent.click(screen.getByRole('button', { name: 'Przypomnij oczekujacym Brygada Alfa' }));
+  await click(screen.getByRole('button', { name: 'Przypomnij oczekującym Brygada Alfa' }));
   await waitFor(() => {
     expect(api.post).toHaveBeenLastCalledWith(
       '/dispatch/route-brief/77/remind',
@@ -437,7 +438,7 @@ test('copies day and team handoff briefs from the generated plan', async () => {
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
-  expect(await screen.findByText('Przypomnienie wyslane: Brygada Alfa (2)')).toBeInTheDocument();
+  expect(await screen.findByText('Przypomnienie wysłane: Brygada Alfa (2)')).toBeInTheDocument();
 }, 10000);
 
 test('loads persisted route brief confirmation statuses for a generated plan', async () => {
@@ -502,7 +503,7 @@ test('loads persisted route brief confirmation statuses for a generated plan', a
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
-  await userEvent.click(screen.getByRole('button', { name: /Podgl.d planu/i }));
+  await click(screen.getByRole('button', { name: /Podgl.d planu/i }));
 
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith(
@@ -518,12 +519,12 @@ test('loads persisted route brief confirmation statuses for a generated plan', a
     );
   });
   expect(await screen.findByText('Potwierdzone 1/2 | czeka 1')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Odswiez odbior' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Odśwież odbiór' })).toBeInTheDocument();
   expect(screen.getByText('Jan Brygadzista')).toBeInTheDocument();
   expect(screen.getByText('Anna Pomocnik')).toBeInTheDocument();
   expect(screen.getByText('Potwierdzono')).toBeInTheDocument();
   expect(screen.getByText('Czeka')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Przypomnij oczekujacym Brygada Alfa' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Przypomnij oczekującym Brygada Alfa' })).toBeInTheDocument();
 }, 10000);
 
 test('reminds all teams with pending route brief confirmations', async () => {
@@ -621,15 +622,14 @@ test('reminds all teams with pending route brief confirmations', async () => {
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
-  await userEvent.click(screen.getByRole('button', { name: /Podgl.d planu/i }));
-  expect(await screen.findByText('Brygada Alfa')).toBeInTheDocument();
+  await click(screen.getByRole('button', { name: /Podgl.d planu/i }));
 
   const remindAllButton = await screen.findByRole('button', {
-    name: 'Przypomnij wszystkim oczekujacym (3)',
+    name: 'Przypomnij wszystkim oczekującym (3)',
   });
   expect(remindAllButton).toBeEnabled();
 
-  await userEvent.click(remindAllButton);
+  await click(remindAllButton);
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
@@ -643,7 +643,7 @@ test('reminds all teams with pending route brief confirmations', async () => {
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
-  expect(await screen.findByText('Przypomnienia wyslane: 2/2 ekip, 3 odbiorcow.')).toBeInTheDocument();
+  expect(await screen.findByText('Przypomnienia wysłane: 2/2 ekip, 3 odbiorców.')).toBeInTheDocument();
 }, 10000);
 
 test('falls back when Clipboard API is blocked', async () => {
@@ -674,16 +674,16 @@ test('falls back when Clipboard API is blocked', async () => {
   try {
     renderAutoDispatch();
 
-    await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+    await click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
     expect(await screen.findByText('Odprawa gotowa do wyslania.')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe' }));
+    await click(screen.getByRole('button', { name: 'Kopiuj odprawę' }));
 
     await waitFor(() => {
       expect(execCommandMock).toHaveBeenCalledWith('copy');
     });
     expect(await screen.findByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
-    expect(screen.queryByText('Nie udalo sie skopiowac odprawy.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nie udało się skopiować odprawy.')).not.toBeInTheDocument();
   } finally {
     Object.defineProperty(document, 'execCommand', {
       value: originalExecCommand,
@@ -728,13 +728,13 @@ test('shows a manual dispatch brief when automated copy is unavailable', async (
   try {
     renderAutoDispatch();
 
-    await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+    await click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
     expect(await screen.findByText('Schowek wymaga recznego kopiowania.')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe' }));
+    await click(screen.getByRole('button', { name: 'Kopiuj odprawę' }));
 
     expect(await screen.findByText(/Automatyczne kopiowanie jest zablokowane/i)).toBeInTheDocument();
-    const manualBrief = screen.getByRole('textbox', { name: 'Pakiet odprawy do recznego skopiowania' });
+    const manualBrief = screen.getByRole('textbox', { name: 'Pakiet odprawy do ręcznego skopiowania' });
     expect(manualBrief.value).toContain('AI Dyspozytor - odprawa dnia');
     expect(manualBrief.value).toContain('ZL/51 (1 uwag) Manual Copy');
   } finally {
@@ -785,7 +785,7 @@ test('filters risky advisor tasks by severity', async () => {
 
   renderAutoDispatch();
 
-  await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+  await click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
   expect(await screen.findByText('Lista ryzyk gotowa.')).toBeInTheDocument();
 
   expect(screen.getByRole('button', { name: 'Wszystkie 2' })).toBeInTheDocument();
@@ -796,27 +796,27 @@ test('filters risky advisor tasks by severity', async () => {
   expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
   expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Brak ceny 1' }));
+  await click(screen.getByRole('button', { name: 'Brak ceny 1' }));
   expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
   expect(screen.queryByText('ZL/UWAG')).not.toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Wyczysc brak' }));
+  await click(screen.getByRole('button', { name: 'Wyczyść brak' }));
   expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
   expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Krytyczne 1' }));
+  await click(screen.getByRole('button', { name: 'Krytyczne 1' }));
   expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
   expect(screen.queryByText('ZL/UWAG')).not.toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Uwagi 1' }));
+  await click(screen.getByRole('button', { name: 'Uwagi 1' }));
   expect(screen.queryByText('ZL/KRYT')).not.toBeInTheDocument();
   expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Wszystkie 2' }));
+  await click(screen.getByRole('button', { name: 'Wszystkie 2' }));
   expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
   expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/UWAG' }));
+  await click(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/UWAG' }));
   const routeProbe = await screen.findByText(/Sciezka zlecenia:/);
   expect(routeProbe).toHaveTextContent('/zlecenia/72?focus=officePlan');
   expect(routeProbe).toHaveTextContent('issue=gps');
@@ -842,9 +842,9 @@ test('checks AI advisor before saving and stops when blockers exist', async () =
 
   renderAutoDispatch();
 
-  await userEvent.click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
+  await click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
 
-  expect((await screen.findAllByText(/AI Dyspozytor zatrzymal zapis planu/i)).length).toBeGreaterThan(0);
+  expect((await screen.findAllByText(/AI Dyspozytor zatrzymał zapis planu/i)).length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { name: 'Zapisz mimo blokad' })).toBeInTheDocument();
   expect(api.post).not.toHaveBeenCalled();
 });
@@ -883,9 +883,9 @@ test('allows saving after the dispatcher preflight is bypassed', async () => {
 
   renderAutoDispatch();
 
-  await userEvent.click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
-  expect((await screen.findAllByText(/AI Dyspozytor zatrzymal zapis planu/i)).length).toBeGreaterThan(0);
-  await userEvent.click(screen.getByRole('button', { name: 'Zapisz mimo blokad' }));
+  await click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
+  expect((await screen.findAllByText(/AI Dyspozytor zatrzymał zapis planu/i)).length).toBeGreaterThan(0);
+  await click(screen.getByRole('button', { name: 'Zapisz mimo blokad' }));
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
@@ -961,10 +961,10 @@ test('runs dispatcher preflight repair from the blocked save gate', async () => 
 
   renderAutoDispatch();
 
-  await userEvent.click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
+  await click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
   expect(await screen.findByRole('button', { name: 'Uruchom preflight' })).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Uruchom preflight' }));
+  await click(screen.getByRole('button', { name: 'Uruchom preflight' }));
 
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith(
@@ -1043,12 +1043,12 @@ test('marks the dispatch progress as applied after applying a saved plan', async
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
-  await userEvent.click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
+  await click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
 
   expect(await screen.findByText(/Plan zapisany/)).toBeInTheDocument();
   expect(screen.getByText('Gotowy do zastosowania')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: /Zastosuj/i }));
+  await click(screen.getByRole('button', { name: /Zastosuj/i }));
 
   await waitFor(() => {
     expect(api.post).toHaveBeenLastCalledWith(
@@ -1063,5 +1063,5 @@ test('marks the dispatch progress as applied after applying a saved plan', async
   });
   expect(await screen.findByText('Plan zastosowany!')).toBeInTheDocument();
   expect(screen.getByText('Zastosowany')).toBeInTheDocument();
-  expect(screen.getByText('Plan gotowy do wyslania ekipom.')).toBeInTheDocument();
+  expect(screen.getByText('Plan gotowy do wysłania ekipom.')).toBeInTheDocument();
 }, 10000);

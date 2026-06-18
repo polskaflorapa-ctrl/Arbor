@@ -34,6 +34,7 @@ function main() {
   assertIncludes('os/src/routes/ops.js', "/owner-alerts/remediation", 'owner alert remediation endpoint');
   assertIncludes('os/src/routes/ops.js', "/owner-alerts/remediation-report", 'owner alert remediation report endpoint');
   assertIncludes('os/src/routes/ops.js', 'risk_owner_escalate', 'owner alert escalation audit');
+  assertIncludes('os/src/routes/ops.js', 'risk_owner_resolve', 'owner alert resolved audit');
   assertIncludes('os/src/routes/ops.js', 'risk_owner_auto_remediate', 'owner alert remediation audit');
   assertIncludes('os/src/routes/ops.js', 'risk_owner_remediation_blocked', 'owner alert remediation block audit');
   assertIncludes('os/src/services/opsDigest.js', 'owner_unresolved_after_remediation', 'owner unresolved remediation digest alert');
@@ -49,6 +50,7 @@ function main() {
   assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Niedomkniete alerty ownerow', 'open owner alerts UI');
   assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Potwierdz widoczne', 'bulk acknowledge owner alerts UI');
   assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Eskaluj widoczne', 'bulk escalate owner alerts UI');
+  assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Oznacz rozwiazane', 'mark resolved owner alerts UI');
   assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Skutecznosc remediacji ownerow', 'owner remediation effectiveness UI');
   assertIncludes('web/src/api.js', '/ops/owner-alerts/open', 'test-mode open owner alerts API');
   assertIncludes('web/src/api.js', '/ops/owner-alerts/actions', 'test-mode bulk owner alerts API');
@@ -56,6 +58,7 @@ function main() {
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', 'ARB-OPEN-KOMMO', 'open owner alerts UI test');
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', "action: 'bulk_acknowledge'", 'bulk acknowledge UI test');
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', "action: 'bulk_escalate'", 'bulk escalate UI test');
+  assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', "action: 'bulk_resolve'", 'bulk resolve UI test');
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', 'Skutecznosc remediacji ownerow', 'owner remediation UI test');
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', 'Nierozwiazane P1/P2 po remediacji', 'owner unresolved digest preview test');
   assertIncludes('os/tests/opsDigest.test.js', 'Potwierdzenia ownerow: 3 domkniete', 'digest acknowledgement text test');

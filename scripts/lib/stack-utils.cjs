@@ -158,6 +158,49 @@ function getPidsByPortWindows(port) {
   return [...pids];
 }
 
+function getProcessDetailsWindows(pid) {
+  try {
+    const query = `ProcessId=${pid}`;
+    const output = execSync(
+      `wmic process where "${query}" get ProcessId,Name,ExecutablePath /format:list`,
+      { encoding: "utf8", windowsHide: true }
+    );
+    const details = { pid: String(pid), name: "", path: "" };
+    for (const rawLine of output.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const idx = line.indexOf("=");
+      if (idx < 0) continue;
+      const key = line.slice(0, idx);
+      const value = line.slice(idx + 1).trim();
+      if (key === "Name") details.name = value;
+      if (key === "ExecutablePath") details.path = value;
+    }
+    return details;
+  } catch {
+    return { pid: String(pid), name: "", path: "" };
+  }
+}
+
+function getPortListeners(port) {
+  if (process.platform !== "win32") return [];
+  try {
+    return getPidsByPortWindows(port).map(getProcessDetailsWindows);
+  } catch {
+    return [];
+  }
+}
+
+function formatPortListeners(listeners) {
+  if (!listeners.length) return "unknown listener";
+  return listeners
+    .map((listener) => {
+      const name = listener.name || "unknown";
+      return `${name} pid=${listener.pid}${listener.path ? ` path=${listener.path}` : ""}`;
+    })
+    .join("; ");
+}
+
 function killPortListeners(ports, tag = "stack") {
   if (process.platform !== "win32") {
     console.info(`[${tag}] Automatic port cleanup currently supports Windows only.`);
@@ -192,6 +235,8 @@ module.exports = {
   httpGet,
   httpPostJson,
   checkApiHealth,
+  formatPortListeners,
   getPidsByPortWindows,
+  getPortListeners,
   killPortListeners,
 };

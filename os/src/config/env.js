@@ -108,6 +108,11 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
+  RATE_LIMIT_STORE: z
+    .preprocess((v) => String(v || 'memory').trim().toLowerCase(), z.enum(['memory', 'redis']))
+    .default('memory'),
+  RATE_LIMIT_REDIS_URL: z
+    .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
   LOGIN_RATE_LIMIT_STORE: z
     .preprocess((v) => String(v || 'memory').trim().toLowerCase(), z.enum(['memory', 'redis']))
     .default('memory'),

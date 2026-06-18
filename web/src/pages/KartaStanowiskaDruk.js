@@ -25,7 +25,7 @@ const BHP_CHECKLIST = [
   'Drzewo, martwe konary, linie energetyczne i warunki pogodowe zostały ocenione przed startem.',
   'Pilarki, rębak, liny, uprzęże i pozostały sprzęt są sprawne oraz używane zgodnie z instrukcją.',
   'Apteczka, łączność, osoba asekurująca i plan awaryjny są dostępne na miejscu.',
-  'Zdjęcia, raport mobilny i uwagi po realizacji są przekazywane w ARBOR-OS.',
+  'Zdjęcia, raport mobilny i uwagi po realizacji są przekazywane w Polska Flora.',
 ];
 
 const OFFICE_CHECKLIST = [
@@ -194,7 +194,7 @@ export default function KartaStanowiskaDruk() {
           <>
             <header style={S.header}>
               <div>
-                <div style={S.brand}>ARBOR-OS</div>
+                <div style={S.brand}>Polska Flora</div>
                 <h1 style={S.title}>{fieldWorker ? 'Karta stanowiska i BHP' : 'Karta stanowiska pracy'}</h1>
                 <p style={S.subtitle}>Dokument kadrowy przygotowany do podpisu, wydruku lub zapisania jako PDF.</p>
               </div>

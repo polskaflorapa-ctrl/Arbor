@@ -13,7 +13,7 @@ const OPS_ACTION_LABELS = {
   risk_queue_call: 'Telefon Zadarma z ryzyka',
   risk_acknowledge: 'Potwierdzenie ryzyka',
   risk_owner_escalate: 'Eskalacja ownera ryzyka',
-  risk_owner_resolve: 'Zamkniecie petli ownera',
+  risk_owner_resolve: 'Rozwiazanie alertu ownera',
   risk_owner_auto_remediate: 'Auto-remediacja ownera',
   risk_owner_remediation_blocked: 'Blokada auto-remediacji ownera',
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
@@ -365,6 +365,7 @@ async function buildOperationalDigest(pool, options = {}) {
         WHERE e.action_type = 'risk_acknowledge'
           AND COALESCE(e.metadata->>'risk_type', e.issue_key, '') = 'sms_delivery'
       )::int AS sms_owner_acknowledgements,
+      COUNT(*) FILTER (WHERE e.action_type = 'risk_owner_resolve')::int AS owner_resolutions,
       COUNT(*) FILTER (WHERE e.action_type IN ('risk_reassign_team','risk_replace_equipment'))::int AS risk_resolution_actions,
       COUNT(*) FILTER (WHERE e.action_type = 'mark_reason')::int AS reason_actions
     FROM ops_action_events e
@@ -484,7 +485,7 @@ async function buildOperationalDigest(pool, options = {}) {
       LEFT JOIN users u ON u.id = ev.actor_id
       WHERE ev.metadata->>'risk_id' = oa.risk_id
         AND COALESCE(ev.metadata->>'risk_type', ev.issue_key, '') = oa.risk_type
-        AND ev.action_type IN ('risk_owner_escalate', 'risk_owner_auto_remediate', 'risk_owner_remediation_blocked', 'risk_owner_resolve')
+        AND ev.action_type IN ('risk_owner_escalate', 'risk_owner_auto_remediate', 'risk_owner_remediation_blocked')
       ORDER BY ev.created_at DESC, ev.id DESC
       LIMIT 1
     ) decision ON true
@@ -635,6 +636,7 @@ async function buildOperationalDigest(pool, options = {}) {
       owner_acknowledgements: count(actionSummary, 'kommo_owner_acknowledgements') + count(actionSummary, 'sms_owner_acknowledgements'),
       kommo_owner_acknowledgements: count(actionSummary, 'kommo_owner_acknowledgements'),
       sms_owner_acknowledgements: count(actionSummary, 'sms_owner_acknowledgements'),
+      owner_resolutions: count(actionSummary, 'owner_resolutions'),
       owner_unresolved_after_remediation: unresolvedOwnerResult.rows.length,
       owner_unresolved_p1: unresolvedOwnerResult.rows.filter((row) => row.escalation_level === 'P1').length,
       owner_unresolved_p2: unresolvedOwnerResult.rows.filter((row) => row.escalation_level === 'P2').length,
@@ -764,6 +766,11 @@ function buildDigestText(digest) {
     const kommo = Number(digest.summary.kommo_owner_acknowledgements || 0);
     const sms = Number(digest.summary.sms_owner_acknowledgements || 0);
     lines.push(`Potwierdzenia ownerow: ${ownerAcks} domkniete (Kommo: ${kommo}, SMS: ${sms}).`);
+  }
+
+  const ownerResolutions = Number(digest.summary.owner_resolutions || 0);
+  if (ownerResolutions > 0) {
+    lines.push(`Rozwiazania ownerow: ${ownerResolutions} alertow oznaczonych jako rozwiazane po remediacji.`);
   }
 
   const unresolvedOwners = Number(digest.summary.owner_unresolved_after_remediation || 0);

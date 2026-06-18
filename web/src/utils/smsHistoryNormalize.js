@@ -1,5 +1,5 @@
 /**
- * Mapuje wiersz z GET /api/sms/historia (ARBOR-OS: telefon, tresc, klient_nazwa)
+ * Mapuje wiersz z GET /api/sms/historia (Polska Flora: telefon, tresc, klient_nazwa)
  * na pola używane przez Telefonia.js (recipient_*, typ).
  */
 export function normalizeSmsHistoryRow(row) {

@@ -1,0 +1,572 @@
+/* Canopy Command: final token layer and production UI polish. */
+@import url('https://fonts.googleapis.com/css2?family=Calistoga&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+:root,
+body.theme-light {
+  --cc-primary: #0f172a;
+  --cc-on-primary: #ffffff;
+  --cc-secondary: #334155;
+  --cc-accent: #0f766e;
+  --cc-accent-strong: #115e59;
+  --cc-accent-soft: rgba(15, 118, 110, 0.1);
+  --cc-bg: #f8fafc;
+  --cc-fg: #020617;
+  --cc-surface: #ffffff;
+  --cc-surface-2: #f1f5f9;
+  --cc-muted: #64748b;
+  --cc-border: #dbe4ea;
+  --cc-danger: #dc2626;
+  --cc-warning: #b45309;
+  --cc-success: #15803d;
+  --cc-info: #0369a1;
+  --cc-ring: rgba(15, 118, 110, 0.26);
+  --cc-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 24px rgba(15, 23, 42, 0.06);
+  --cc-shadow-2: 0 18px 42px rgba(15, 23, 42, 0.1);
+  --cc-radius-xs: 4px;
+  --cc-radius-sm: 6px;
+  --cc-radius-md: 8px;
+  --cc-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --cc-font-display: 'Calistoga', Georgia, serif;
+  --cc-font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+
+  --bg: var(--cc-bg);
+  --bg-card: var(--cc-surface);
+  --bg-card2: var(--cc-surface-2);
+  --bg-deep: #eef4f7;
+  --bg-edge: #f5f8fb;
+  --sidebar: #0f2f28;
+  --accent: var(--cc-accent);
+  --accent-dk: var(--cc-accent-strong);
+  --accent-strong: var(--cc-accent-strong);
+  --on-accent: var(--cc-on-primary);
+  --text: var(--cc-fg);
+  --text-sub: var(--cc-secondary);
+  --text-muted: var(--cc-muted);
+  --border: var(--cc-border);
+  --border2: rgba(15, 118, 110, 0.28);
+  --danger: var(--cc-danger);
+  --warning: var(--cc-warning);
+  --success: var(--cc-success);
+  --info: var(--cc-info);
+  --input-bg: var(--cc-surface);
+  --focus-ring: var(--cc-ring);
+  --shadow-sm: var(--cc-shadow-1);
+  --shadow-md: var(--cc-shadow-1);
+  --shadow-lg: var(--cc-shadow-2);
+  --radius-sm: var(--cc-radius-xs);
+  --radius-md: var(--cc-radius-sm);
+  --radius-lg: var(--cc-radius-md);
+  --radius-xl: var(--cc-radius-md);
+  --font-sans: var(--cc-font-sans);
+  --font-display: var(--cc-font-display);
+  --font-mono: var(--cc-font-mono);
+  --surface-field: rgba(15, 23, 42, 0.035);
+  --surface-raised: linear-gradient(180deg, var(--cc-surface), var(--cc-surface-2));
+  --surface-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
+  --glass-bg: rgba(255, 255, 255, 0.88);
+  --glass-bg-strong: rgba(255, 255, 255, 0.98);
+  --glass-border: var(--cc-border);
+  --accent-surface: var(--cc-accent-soft);
+  --success-surface: rgba(21, 128, 61, 0.1);
+  --warning-surface: rgba(180, 83, 9, 0.11);
+  --danger-surface: rgba(220, 38, 38, 0.1);
+  --accent-gradient: linear-gradient(135deg, #0f766e, #15803d);
+}
+
+body.theme-dark {
+  --cc-primary: #e2e8f0;
+  --cc-on-primary: #020617;
+  --cc-secondary: #cbd5e1;
+  --cc-accent: #5eead4;
+  --cc-accent-strong: #99f6e4;
+  --cc-accent-soft: rgba(94, 234, 212, 0.12);
+  --cc-bg: #07111f;
+  --cc-fg: #f8fafc;
+  --cc-surface: #0f172a;
+  --cc-surface-2: #111c2f;
+  --cc-muted: #a8b3c7;
+  --cc-border: rgba(226, 232, 240, 0.16);
+  --cc-danger: #fca5a5;
+  --cc-warning: #fbbf24;
+  --cc-success: #86efac;
+  --cc-info: #7dd3fc;
+  --cc-ring: rgba(94, 234, 212, 0.32);
+  --cc-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.32), 0 16px 32px rgba(0, 0, 0, 0.24);
+  --cc-shadow-2: 0 24px 52px rgba(0, 0, 0, 0.36);
+  --bg-deep: #040b14;
+  --bg-edge: #0a1828;
+  --sidebar: #06130f;
+  --surface-field: rgba(226, 232, 240, 0.06);
+  --surface-raised: linear-gradient(180deg, var(--cc-surface), var(--cc-surface-2));
+  --surface-glass: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(17, 28, 47, 0.88));
+  --glass-bg: rgba(15, 23, 42, 0.86);
+  --glass-bg-strong: rgba(15, 23, 42, 0.97);
+  --accent-gradient: linear-gradient(135deg, #2dd4bf, #22c55e);
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  background:
+    linear-gradient(90deg, rgba(15, 118, 110, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 118, 110, 0.03) 1px, transparent 1px),
+    linear-gradient(135deg, var(--bg-deep), var(--bg) 48%, var(--bg-edge)) !important;
+  background-size: 36px 36px, 36px 36px, auto !important;
+  font-family: var(--cc-font-sans);
+}
+
+body::before,
+body::after {
+  display: none !important;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--text);
+  text-wrap: balance;
+}
+
+button,
+[role='button'],
+a,
+summary {
+  touch-action: manipulation;
+}
+
+button,
+input,
+select,
+textarea {
+  min-height: 44px;
+}
+
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+summary {
+  cursor: pointer;
+}
+
+button:not(:disabled):active,
+[role='button']:not([aria-disabled='true']):active,
+.landing-button:active,
+.arbor-action:active {
+  transform: scale(0.98);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role='button']:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--focus-ring) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+
+input,
+select,
+textarea {
+  border-radius: var(--cc-radius-sm) !important;
+  border-color: var(--border) !important;
+  background: var(--input-bg) !important;
+  color: var(--text) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent) !important;
+}
+
+.loading,
+.route-loading-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--text);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.route-loading-card {
+  width: min(560px, 100%);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--cc-radius-md);
+  background: var(--surface-glass);
+  box-shadow: var(--shadow-sm);
+}
+
+.route-loading-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.route-loading-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--cc-radius-md);
+  background: var(--accent-gradient);
+}
+
+.route-loading-lines {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+}
+
+.skeleton-line,
+.skeleton-block,
+.route-loading-mark {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-line,
+.skeleton-block {
+  display: block;
+  border-radius: var(--cc-radius-sm);
+  background: var(--surface-field);
+}
+
+.skeleton-line {
+  height: 12px;
+}
+
+.skeleton-block {
+  height: 92px;
+}
+
+.skeleton-line::after,
+.skeleton-block::after,
+.route-loading-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  animation: cc-shimmer 1.3s ease-in-out infinite;
+}
+
+.app-error-fallback {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.app-error-card {
+  width: min(620px, 100%);
+  padding: 22px;
+  border: 1px solid var(--cc-danger);
+  border-radius: var(--cc-radius-md);
+  background: var(--cc-surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+
+.app-error-card pre {
+  max-height: 180px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: var(--cc-radius-sm);
+  background: var(--surface-field);
+}
+
+.app-error-card button {
+  border: 1px solid var(--accent);
+  border-radius: var(--cc-radius-sm);
+  background: var(--accent-gradient);
+  color: var(--on-accent);
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.arbor-panel,
+.arbor-card,
+.module-page-header-hero,
+.module-page-header-plain,
+#root .MuiPaper-root,
+#root .MuiCard-root {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--cc-radius-md) !important;
+  background: var(--surface-glass) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.module-page-header {
+  isolation: isolate;
+}
+
+.module-page-header::after {
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--info), transparent 70%);
+}
+
+.module-stat-grid,
+.dashboard-kpi-grid,
+[class*='stat-grid'],
+[class*='kpi-grid'] {
+  gap: 12px !important;
+}
+
+.ios-inset-row,
+.modern-data-row,
+.arbor-action,
+.landing-button,
+.login-demo-btn,
+.explore-tile {
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, color 180ms ease !important;
+}
+
+.ios-inset-row:hover,
+.modern-data-row:hover,
+.arbor-card:hover,
+.explore-tile:hover {
+  border-color: var(--border2) !important;
+}
+
+.modern-data-empty,
+.empty-state,
+[class*='empty'] {
+  border-radius: var(--cc-radius-md);
+}
+
+#root table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#root th {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#root td,
+#root th {
+  border-bottom: 1px solid var(--border);
+}
+
+#root .MuiButton-root {
+  min-height: 44px;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+}
+
+#root .MuiChip-root {
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 700;
+}
+
+#root .MuiAlert-root {
+  border-radius: var(--cc-radius-md) !important;
+  border: 1px solid var(--border);
+}
+
+.landing-page {
+  --landing-max: 1180px;
+  background:
+    linear-gradient(90deg, rgba(15, 118, 110, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 118, 110, 0.03) 1px, transparent 1px),
+    linear-gradient(135deg, #f8fafc, #ffffff 44%, #eaf4f2) !important;
+  background-size: 36px 36px, 36px 36px, auto !important;
+}
+
+.landing-brand-mark,
+.login-logo-icon,
+.ios-icon-tile {
+  border-radius: var(--cc-radius-md) !important;
+}
+
+.landing-hero h1,
+.landing-section-copy h2 {
+  letter-spacing: 0 !important;
+}
+
+.landing-product-shell,
+.landing-module,
+.landing-price-panel,
+.landing-proof > div {
+  border-radius: var(--cc-radius-md) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.login-card {
+  border-radius: var(--cc-radius-md) !important;
+}
+
+.login-logo-row h1 {
+  letter-spacing: 0 !important;
+}
+
+@keyframes cc-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (max-width: 900px) {
+  html {
+    font-size: 16px;
+  }
+
+  .main-content,
+  [class*='-main'] {
+    padding-inline: 14px !important;
+  }
+
+  .module-page-header,
+  .module-page-header-hero,
+  .module-page-header-plain {
+    margin-bottom: 16px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  button,
+  input,
+  select,
+  textarea {
+    width: 100%;
+  }
+
+  .route-loading-card,
+  .app-error-card {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line::after,
+  .skeleton-block::after,
+  .route-loading-mark::after {
+    animation: none !important;
+  }
+
+  button:not(:disabled):active,
+  [role='button']:not([aria-disabled='true']):active,
+  .landing-button:active,
+  .arbor-action:active {
+    transform: none !important;
+  }
+}
+
+/* High-impact login and dashboard polish for the Canopy Command direction. */
+.login-command-panel strong {
+  color: #ffffff;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.login-command-panel h2 {
+  color: #f8fafc !important;
+  text-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+.login-command-panel p {
+  color: rgba(226, 232, 240, 0.88) !important;
+}
+
+.login-command-panel span {
+  color: rgba(226, 232, 240, 0.74);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.login-demo-btn:hover {
+  border-color: rgba(34, 211, 142, 0.44) !important;
+  background: rgba(34, 211, 142, 0.09) !important;
+  transform: translateY(-1px);
+}
+
+.login-language {
+  display: none !important;
+}
+
+.login-card > .login-form {
+  order: 3;
+}
+
+.login-card > .login-demo-panel {
+  order: 4;
+}
+
+.login-options {
+  display: none !important;
+}
+
+.login-submit:disabled {
+  background: #cfd4dc !important;
+  color: #ffffff !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+.dashboard-shell button:hover,
+.landing-page button:hover,
+.login-shell button:hover {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.dashboard-command-hero::after {
+  content: "";
+  position: absolute;
+  right: -92px;
+  bottom: -114px;
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  border: 1px solid rgba(134, 239, 172, 0.22);
+  background:
+    linear-gradient(90deg, rgba(134, 239, 172, 0.11) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(134, 239, 172, 0.09) 1px, transparent 1px);
+  background-size: 34px 34px;
+  pointer-events: none;
+}
+
+@media (max-width: 960px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 440px) !important;
+    align-content: center !important;
+  }
+
+  .login-command-panel {
+    display: none !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .login-shell {
+    padding: 16px !important;
+  }
+
+  .login-card {
+    padding: 26px 20px !important;
+    border-radius: 14px !important;
+  }
+
+  .login-demo-panel [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}

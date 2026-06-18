@@ -3,8 +3,9 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { ThemeProvider } from './ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import LandingPage from './pages/LandingPage';
+import LandingCommand from './pages/LandingCommand.js';
 import AiChat from './components/AiChat';
-import { getStoredToken } from './utils/storedToken';
 
 const DevPanel = import.meta.env.DEV
   ? lazy(() => import('./components/DevPanel').then((module) => ({ default: module.DevPanel })))
@@ -34,6 +35,7 @@ const RezerwacjeSprzetu = lazy(() => import('./pages/RezerwacjeSprzetu'));
 const PotwierdzeniaEkip = lazy(() => import('./pages/PotwierdzeniaEkip'));
 const RankingBrygad = lazy(() => import('./pages/RankingBrygad'));
 const Crm = lazy(() => import('./pages/Crm'));
+const CrmToday = lazy(() => import('./pages/CrmToday'));
 const CrmDashboard = lazy(() => import('./pages/CrmDashboard'));
 const CrmInbox = lazy(() => import('./pages/CrmInbox'));
 const CrmPipeline = lazy(() => import('./pages/CrmPipeline'));
@@ -68,7 +70,6 @@ const HrPanel = lazy(() => import('./pages/HrPanel'));
 const KalendarzZasobow = lazy(() => import('./pages/KalendarzZasobow'));
 const MapaLive = lazy(() => import('./pages/MapaLive'));
 const ArborSpecPage = lazy(() => import('./pages/ArborSpecPage'));
-const StreetThemeDemo = lazy(() => import('./pages/StreetThemeDemo'));
 
 // Role constants — single source of truth for App.js route guards
 const ADMIN   = ['Prezes', 'Dyrektor', 'Administrator'];
@@ -83,12 +84,26 @@ function AuthenticatedRoute({ children }) {
 
 function AppChrome() {
   const location = useLocation();
-  const hideChat = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/street-theme';
+  const hideChat = location.pathname === '/' || location.pathname === '/login';
   return hideChat ? null : <AiChat />;
 }
 
-function RootEntry() {
-  return getStoredToken() ? <Navigate to="/dashboard" replace /> : <Login />;
+function RouteLoadingFallback() {
+  return (
+    <div className="route-loading-shell" role="status" aria-live="polite" aria-label="Ladowanie widoku">
+      <section className="route-loading-card">
+        <div className="route-loading-top">
+          <span className="route-loading-mark" aria-hidden="true" />
+          <span className="route-loading-lines" aria-hidden="true">
+            <span className="skeleton-line" style={{ width: '58%' }} />
+            <span className="skeleton-line" style={{ width: '82%' }} />
+          </span>
+        </div>
+        <span className="skeleton-block" aria-hidden="true" />
+        <span className="sr-only">Ladowanie...</span>
+      </section>
+    </div>
+  );
 }
 
 export function redirectCleanPathToHashRoute() {
@@ -114,13 +129,12 @@ function App() {
             <DevPanel />
           </Suspense>
         )}
-        <Suspense fallback={<div className="loading">Ladowanie...</div>}>
+        <Suspense fallback={<RouteLoadingFallback />}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<RootEntry />} />
+          <Route path="/" element={<LandingCommand />} />
           <Route path="/login" element={<Login />} />
           <Route path="/arbor-os-spec" element={<ArborSpecPage />} />
-          <Route path="/street-theme" element={<StreetThemeDemo />} />
 
           {/* All authenticated users */}
           <Route path="/dashboard" element={<AuthenticatedRoute><Dashboard /></AuthenticatedRoute>} />
@@ -187,8 +201,8 @@ function App() {
           <Route path="/crm" element={
             <ProtectedRoute roles={SALES}><Crm /></ProtectedRoute>
           } />
-          <Route path="/crm/hub" element={
-            <ProtectedRoute roles={SALES}><Crm /></ProtectedRoute>
+          <Route path="/crm/today" element={
+            <ProtectedRoute roles={SALES}><CrmToday /></ProtectedRoute>
           } />
           <Route path="/crm/dashboard" element={
             <ProtectedRoute roles={SALES}><CrmDashboard /></ProtectedRoute>

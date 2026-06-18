@@ -31,15 +31,15 @@ export default function TestModeScreen() {
   const [selectedRole, setSelectedRole] = useState<keyof typeof TEST_USERS_MOBILE>('dyrektor');
 
   useEffect(() => {
-    checkTestModeStatus();
+    void checkTestModeStatus();
   }, []);
 
-  const checkTestModeStatus = async () => {
+  async function checkTestModeStatus() {
     const enabled = await isTestModeEnabledMobile();
     const storedRole = await getCurrentTestRoleMobile();
     if (storedRole) setSelectedRole(storedRole);
     setTestModeEnabled(enabled);
-  };
+  }
 
   const handleTestModeToggle = async (value: boolean) => {
     try {

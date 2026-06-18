@@ -5,7 +5,7 @@ export default function ArborSpecPage() {
   return (
     <main style={styles.page}>
       <iframe
-        title="Specyfikacja Systemu ARBOR-OS"
+        title="Specyfikacja Systemu Polska Flora"
         src={src}
         style={styles.frame}
       />

@@ -44,7 +44,7 @@ export function AppPrivacyLock() {
       return;
     }
     const r = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Odblokuj Arbor',
+      promptMessage: 'Odblokuj Polska Flora',
       cancelLabel: 'Anuluj',
     });
     if (r.success) setLocked(false);

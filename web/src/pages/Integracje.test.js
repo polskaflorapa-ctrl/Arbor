@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -159,6 +159,18 @@ function renderIntegracje() {
   );
 }
 
+async function click(element) {
+  await act(async () => {
+    await userEvent.click(element);
+  });
+}
+
+async function selectOptions(element, value) {
+  await act(async () => {
+    await userEvent.selectOptions(element, value);
+  });
+}
+
 beforeEach(() => {
   localStorage.setItem('token', 'test-jwt-integration');
   localStorage.setItem('user', USER_JSON);
@@ -214,7 +226,7 @@ describe('Integracje (integration-style)', () => {
     expect(screen.getByText('P1 gdy dead-letter > 0 po 30 min')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Filtr oddzialu Kommo' })).toBeInTheDocument();
 
-    await userEvent.click(screen.getAllByRole('button', { name: 'Potwierdz' })[0]);
+    await click(screen.getAllByRole('button', { name: 'Potwierdz' })[0]);
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
@@ -234,7 +246,7 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     expect(await screen.findByText('Kommo task.sync')).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText('Filtr oddzialu Kommo'), '2');
+    await selectOptions(screen.getByLabelText('Filtr oddzialu Kommo'), '2');
 
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
@@ -246,7 +258,7 @@ describe('Integracje (integration-style)', () => {
     });
 
     const confirmButtons = await screen.findAllByRole('button', { name: 'Potwierdz' });
-    await userEvent.click(confirmButtons[0]);
+    await click(confirmButtons[0]);
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
@@ -266,7 +278,7 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     await screen.findByRole('button', { name: /^Retry$/ });
-    await userEvent.click(screen.getByRole('button', { name: /^Retry$/ }));
+    await click(screen.getByRole('button', { name: /^Retry$/ }));
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
@@ -281,7 +293,7 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     await screen.findByRole('button', { name: /Retry batch/i });
-    await userEvent.click(screen.getByRole('button', { name: /Retry batch/i }));
+    await click(screen.getByRole('button', { name: /Retry batch/i }));
 
     expect(api.post).not.toHaveBeenCalledWith(
       '/integrations/logs/retry-batch',
@@ -297,9 +309,9 @@ describe('Integracje (integration-style)', () => {
     const boxes = screen.getAllByRole('checkbox');
     const auto = boxes[0];
     expect(auto).toBeChecked();
-    await userEvent.click(auto);
+    await click(auto);
     expect(auto).not.toBeChecked();
-    await userEvent.click(auto);
+    await click(auto);
     expect(auto).toBeChecked();
   });
 
@@ -366,7 +378,7 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     await screen.findByText('CRM API / widgety');
-    await userEvent.click(screen.getByRole('button', { name: /Dodaj CRM app/i }));
+    await click(screen.getByRole('button', { name: /Dodaj CRM app/i }));
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
@@ -398,7 +410,7 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     await screen.findByText('WhatsApp Krakow');
-    await userEvent.click(screen.getByRole('button', { name: /Kopiuj paczke/i }));
+    await click(screen.getByRole('button', { name: /Kopiuj paczke/i }));
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('"channel": "whatsapp"'));
@@ -438,7 +450,7 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     await screen.findByText('WhatsApp Krakow');
-    await userEvent.click(screen.getByRole('button', { name: /Pauzuj/i }));
+    await click(screen.getByRole('button', { name: /Pauzuj/i }));
 
     await waitFor(() => {
       expect(api.patch).toHaveBeenCalledWith(
@@ -479,20 +491,20 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     expect(await screen.findByText('Checklisty podpiecia oddzialow')).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByDisplayValue('Tylko do dopiecia'), 'all');
+    await selectOptions(screen.getByDisplayValue('Tylko do dopiecia'), 'all');
     expect(await screen.findByText('Oddzial Krakow')).toBeInTheDocument();
     expect(screen.getByText(/Gotowe: 1\/1/i)).toBeInTheDocument();
     expect(screen.getByText(/5\/5 gotowe/i)).toBeInTheDocument();
     expect(await screen.findByText(/Utworzono kanal/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Gotowy/i).length).toBeGreaterThan(0);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Historia' }));
+    await click(screen.getByRole('button', { name: 'Historia' }));
     expect(await screen.findByText('Historia podpiecia')).toBeInTheDocument();
     expect(screen.getByText(/manager/i)).toBeInTheDocument();
     expect(screen.getByText(/Webhook: \/api\/webhooks\/crm\/tok_wa/i)).toBeInTheDocument();
     expect(screen.getByText(/Lead testowy: #101/i)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: /Kopiuj historie/i }));
+    await click(screen.getByRole('button', { name: /Kopiuj historie/i }));
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Historia podpiecia: Oddzial Krakow'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Webhook: /api/webhooks/crm/tok_wa'));
@@ -525,13 +537,13 @@ describe('Integracje (integration-style)', () => {
 
     expect(await screen.findByText('Oddzial Gdansk')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: /Kopiuj braki/i }));
+    await click(screen.getByRole('button', { name: /Kopiuj braki/i }));
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Oddzial Gdansk'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('kanal inbox'));
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Kopiuj komplet' }));
+    await click(screen.getByRole('button', { name: 'Kopiuj komplet' }));
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Paczka podpiecia oddzialu: Oddzial Gdansk'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Telefon oddzialu: +48555111222'));
@@ -547,7 +559,7 @@ describe('Integracje (integration-style)', () => {
       );
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Kopiuj komplety' }));
+    await click(screen.getByRole('button', { name: 'Kopiuj komplety' }));
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Zbiorcze paczki podpiecia oddzialow'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Widoczne oddzialy: 1/1'));
@@ -562,7 +574,7 @@ describe('Integracje (integration-style)', () => {
       );
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /Formularz/i }));
+    await click(screen.getByRole('button', { name: /Formularz/i }));
     expect(screen.getByDisplayValue('3')).toBeInTheDocument();
     expect(screen.getByDisplayValue('+48555111222')).toBeInTheDocument();
   });
@@ -605,7 +617,7 @@ describe('Integracje (integration-style)', () => {
 
     renderIntegracje();
 
-    await userEvent.selectOptions(screen.getByDisplayValue('Tylko do dopiecia'), 'all');
+    await selectOptions(screen.getByDisplayValue('Tylko do dopiecia'), 'all');
 
     const worst = await screen.findByText('Oddzial Najwiecej Brakow');
     const middle = await screen.findByText('Oddzial Sredni');
@@ -658,7 +670,7 @@ describe('Integracje (integration-style)', () => {
 
     renderIntegracje();
 
-    await userEvent.selectOptions(screen.getByDisplayValue('Tylko do dopiecia'), 'requires_reaction');
+    await selectOptions(screen.getByDisplayValue('Tylko do dopiecia'), 'requires_reaction');
 
     expect(await screen.findByText('Oddzial Reakcja')).toBeInTheDocument();
     expect(screen.queryByText('Oddzial Zdrowy')).not.toBeInTheDocument();
@@ -691,7 +703,7 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     expect(await screen.findByText('Oddzial Gdansk')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /Utworz i testuj Inbox/i }));
+    await click(screen.getByRole('button', { name: /Utworz i testuj Inbox/i }));
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
@@ -750,7 +762,7 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     expect(await screen.findByText('Oddzial Gdansk')).toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole('button', { name: /Eksport CSV/i })[0]);
+    await click(screen.getAllByRole('button', { name: /Eksport CSV/i })[0]);
 
     expect(window.URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect(appendSpy).toHaveBeenCalledWith(expect.objectContaining({

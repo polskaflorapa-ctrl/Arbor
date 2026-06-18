@@ -34,6 +34,7 @@ const USER_JSON = JSON.stringify({
 });
 
 const scrollIntoViewMock = vi.fn();
+const clipboardWriteTextMock = vi.fn();
 
 const TASK = {
   id: 42,
@@ -112,6 +113,7 @@ function renderRoute(path) {
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
+        <Route path="/zlecenia" element={<Zlecenia />} />
         <Route path="/zlecenia/:id" element={<Zlecenia />} />
         <Route path="/auto-dispatch" element={<div>Powrot do AI Dyspozytora</div>} />
         <Route path="/harmonogram" element={<LocationProbe label="Harmonogram fokus" />} />
@@ -136,7 +138,12 @@ beforeEach(() => {
     configurable: true,
     value: scrollIntoViewMock,
   });
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: clipboardWriteTextMock },
+  });
   scrollIntoViewMock.mockClear();
+  clipboardWriteTextMock.mockReset();
   api.get.mockReset();
   api.post.mockReset();
   api.put.mockReset();
@@ -242,6 +249,50 @@ test('opens routed office planning focus links in task details', async () => {
   await waitFor(() => {
     expect(scrollIntoViewMock.mock.contexts).toContain(officePlanSection);
   });
+}, 15000);
+
+test('shows crew handoff readiness tile on the task list', async () => {
+  mockZleceniaApi({
+    task: {
+      ...TASK,
+      id: 77,
+      klient_nazwa: 'Pakiet dla ekipy',
+      klient_telefon: '',
+      adres: '',
+      miasto: '',
+      opis_pracy: '',
+      typ_uslugi: '',
+      data_planowana: '',
+      wartosc_planowana: 0,
+      ekipa_id: '',
+      ekipa_nazwa: '',
+    },
+  });
+
+  renderRoute('/zlecenia');
+
+  expect((await screen.findAllByText('Pakiet dla ekipy', {}, SLOW_FORM_RENDER)).length).toBeGreaterThan(0);
+  const handoffTile = await screen.findByTestId('task-77-package-handoff', {}, SLOW_FORM_RENDER);
+  expect(handoffTile).toHaveTextContent('Przekazanie');
+  expect(handoffTile).toHaveTextContent('Brak telefonu');
+  expect(handoffTile).toHaveAttribute('title', expect.stringContaining('Brak adresu'));
+
+  const taskCard = handoffTile.closest('.zlecenia-data-card');
+  expect(taskCard).toBeTruthy();
+  fireEvent.click(within(taskCard).getByRole('button', { name: /Brief/i }));
+
+  await waitFor(() => {
+    expect(clipboardWriteTextMock).toHaveBeenCalledWith(expect.stringContaining('Pakiet dla ekipy:'));
+  });
+  expect(clipboardWriteTextMock.mock.calls.at(-1)?.[0]).toContain('Braki: Brak telefonu');
+  expect(clipboardWriteTextMock.mock.calls.at(-1)?.[0]).toContain('Brak adresu');
+
+  fireEvent.click(screen.getAllByRole('button', { name: /Start ekip/i })[0]);
+  expect(await screen.findByText('Brak pakietu ekipy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+
+  fireEvent.click(handoffTile);
+
+  expect(await screen.findByText('Brak pakietu ekipy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
 }, 15000);
 
 test('blocks office plan when selected team vehicle is in repair', async () => {

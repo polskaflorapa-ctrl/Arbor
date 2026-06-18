@@ -8,7 +8,12 @@ const criticalNodeFiles = [
   'scripts/deploy-netlify-check.cjs',
   'scripts/deploy-koyeb-check.cjs',
   'scripts/demo-deploy-check.cjs',
+  'scripts/github-actions-check.cjs',
   'scripts/deploy-cloudflare-pages.cjs',
+  'scripts/render-redeploy-web.cjs',
+  'scripts/render-unified-check.cjs',
+  'scripts/render-unified-live-smoke.cjs',
+  'scripts/production-readiness-report.cjs',
   'scripts/run-production-bootstrap.cjs',
   'scripts/start-api-with-migrations.cjs',
   'api/[...path].js',
@@ -46,6 +51,7 @@ function run(command, args, options = {}) {
 
 function main() {
   run('npm', ['run', 'deploy:free:check']);
+  run('npm', ['run', 'verify:render-unified']);
   run('npm', ['run', 'deploy:vercel:check']);
   run('npm', ['run', 'deploy:netlify:check']);
   run('npm', ['run', 'deploy:koyeb:check']);

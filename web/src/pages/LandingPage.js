@@ -116,10 +116,10 @@ export default function LandingPage() {
 
   return (
     <main className="landing-page">
-      <header className="landing-nav" aria-label="Arbor OS">
-        <a className="landing-brand" href="#top" aria-label="Arbor OS home">
+      <header className="landing-nav" aria-label="Polska Flora">
+        <a className="landing-brand" href="#top" aria-label="Polska Flora home">
           <span className="landing-brand-mark">A</span>
-          <span>Arbor OS</span>
+          <span>Polska Flora</span>
         </a>
         <nav>
           <a href="#product">Produkt</a>
@@ -306,7 +306,7 @@ export default function LandingPage() {
         <div className="landing-hero-copy">
           <h1>Prowadź operacje terenowe z jednego spokojnego centrum dowodzenia</h1>
           <p>
-            Arbor OS łączy dyspozytornię, CRM, ekipy, flotę i raporty, żeby każde zlecenie szło
+            Polska Flora łączy dyspozytornię, CRM, ekipy, flotę i raporty, żeby każde zlecenie szło
             do przodu bez ciągłego poganiania.
           </p>
           <div className="landing-hero-actions">
@@ -320,7 +320,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="landing-product-shell" aria-label="Podgląd produktu Arbor OS">
+        <div className="landing-product-shell" aria-label="Podgląd systemu Polska Flora">
           <div className="landing-product-topbar">
             <span></span>
             <strong>Operacje dzisiaj</strong>
@@ -373,7 +373,7 @@ export default function LandingPage() {
         <div className="landing-section-copy">
           <h2>Każde zlecenie ma jedno źródło prawdy</h2>
           <p>
-            Od pierwszego telefonu po podpisany raport Arbor pokazuje ten sam wątek sprzedaży,
+            Od pierwszego telefonu po podpisany raport Polska Flora pokazuje ten sam wątek sprzedaży,
             biuru, ekipom terenowym i zarządowi.
           </p>
         </div>
@@ -449,14 +449,14 @@ export default function LandingPage() {
         <div className="landing-section-copy">
           <h2>Zacznij od centrum dowodzenia. Rozwijaj według procesów.</h2>
           <p>
-            Arbor OS jest przygotowany dla rosnących firm usługowych, które potrzebują dyspozytorni,
+            Polska Flora jest przygotowana dla rosnących firm usługowych, które potrzebują dyspozytorni,
             CRM, pracy mobilnej i raportowania w jednym systemie operacyjnym.
           </p>
         </div>
         <form className="landing-price-panel landing-demo-form" id="contact" onSubmit={submitDemoRequest}>
           <CalendarMonth />
-          <strong>Umów demo Arbor OS</strong>
-          <span>Opisz firmę i procesy, a zespół Arbor przygotuje rozmowę pod Twoje operacje.</span>
+          <strong>Umów demo Polska Flora</strong>
+          <span>Opisz firmę i procesy, a zespół Polska Flora przygotuje rozmowę pod Twoje operacje.</span>
           <div className="landing-form-grid">
             <label>
               Imię i nazwisko
@@ -516,7 +516,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="landing-footer">
-        <span>Arbor OS</span>
+        <span>Polska Flora</span>
         <span>Operacje terenowe bez codziennego poganiania.</span>
       </footer>
     </main>

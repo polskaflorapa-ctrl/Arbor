@@ -878,7 +878,7 @@ export default function HarmonogramScreen() {
       '',
       ...rows.map((task, index) => buildTaskDayBriefLine(task, index, equipmentRowsForTask(task))),
       '',
-      'ARBOR-OS: plan dnia z aplikacji.',
+      'Polska Flora: plan dnia z aplikacji.',
     ].join('\n\n');
 
     try {

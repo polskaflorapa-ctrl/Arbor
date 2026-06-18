@@ -1,4 +1,4 @@
-const { getProxyTarget, isPortOpen, checkApiHealth } = require("./lib/stack-utils.cjs");
+const { getProxyTarget, isPortOpen, checkApiHealth, formatPortListeners, getPortListeners } = require("./lib/stack-utils.cjs");
 
 async function main() {
   const proxyTarget = getProxyTarget();
@@ -16,9 +16,17 @@ async function main() {
   const health = await checkApiHealth(proxyTarget);
   const healthOk = health.ok;
   console.info(`[doctor] api health: ${healthOk ? "OK" : "FAIL"} (${health.note})`);
+  const apiPortListeners = apiPortOpen && !healthOk ? getPortListeners(3001) : [];
+  if (apiPortListeners.length > 0) {
+    console.info(`[doctor] api:3001 listener: ${formatPortListeners(apiPortListeners)}`);
+  }
 
   console.info("");
-  if (!apiPortOpen || !healthOk) {
+  if (!apiPortOpen) {
+    console.info("[doctor] Next: npm run dev:api");
+  } else if (!healthOk && apiPortListeners.length > 0) {
+    console.info("[doctor] Next: free port 3001 or set web/.env.local ARBOR_API_PROXY_TARGET to the running Arbor API");
+  } else if (!healthOk) {
     console.info("[doctor] Next: npm run dev:api");
   }
   if (!webRunning) {

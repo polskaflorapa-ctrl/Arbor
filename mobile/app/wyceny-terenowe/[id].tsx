@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -46,6 +47,7 @@ type QuotationRow = Record<string, unknown> & {
   offer_email_status?: string | null;
   offer_email_error?: string | null;
   offer_email_at?: string | null;
+  client_acceptance_token?: string | null;
 };
 
 type ItemRow = {
@@ -392,6 +394,19 @@ export default function WycenaTerenowaDetailScreen() {
               {q.offer_email_at ? ` · ${fmtPlDateTime(q.offer_email_at)}` : ''}
             </Text>
             {q.offer_email_error ? <Text style={s.errSmall}>{String(q.offer_email_error).slice(0, 240)}</Text> : null}
+            {typeof q.client_acceptance_token === 'string' && q.client_acceptance_token ? (
+              <TouchableOpacity
+                style={[s.btn, { marginTop: 14 }]}
+                onPress={() => {
+                  const link = apiUrl(`/public/quotations/${q.client_acceptance_token}`);
+                  void Share.share({
+                    message: `Dzień dobry, oto Państwa wycena od Polska Flora:\n${link}`,
+                  });
+                }}
+              >
+                <Text style={s.btnTxt}>Wyślij / udostępnij ofertę klientowi</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         )}
 

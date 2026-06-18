@@ -3430,7 +3430,7 @@ export default function ZlecenieDetailScreen() {
     const packageMissingLines = crewPackageRequiredMissing
       .map((row) => `${row.label}: ${row.hint}`);
     const brief = [
-      `ARBOR-OS | ODPRAWA BRYGADY | Zlecenie #${id}`,
+      `Polska Flora | ODPRAWA BRYGADY | Zlecenie #${id}`,
       `Gotowosc pakietu: ${crewPackageScore}%`,
       packageMissingLines.length ? `Blokady:\n- ${packageMissingLines.join('\n- ')}` : 'Blokady: brak',
       '',

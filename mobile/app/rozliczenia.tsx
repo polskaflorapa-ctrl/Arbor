@@ -150,11 +150,11 @@ export default function RozliczeniaScreen() {
     };
   }, []);
 
-  const showMsg = (m: string) => {
+  function showMsg(m: string) {
     setMsg(m);
     if (msgTimeoutRef.current) clearTimeout(msgTimeoutRef.current);
     msgTimeoutRef.current = setTimeout(() => setMsg(''), 3000);
-  };
+  }
 
   const zapiszGodziny = async () => {
     if (!task_id) return;

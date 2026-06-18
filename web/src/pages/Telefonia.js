@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
-import CommandSidebar from '../components/CommandSidebar';
+import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import ModernDataRow from '../components/ModernDataRow';
@@ -11,7 +11,7 @@ import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { telHref, normalizePhone } from '../utils/telLink';
 import { normalizeSmsHistoryRow } from '../utils/smsHistoryNormalize';
 
-/** Rozmiar strony dla GET /api/sms/historia?limit=&offset= (ARBOR-OS). */
+/** Rozmiar strony dla GET /api/sms/historia?limit=&offset= (Polska Flora). */
 const SMS_HIST_PAGE_SIZE = 15;
 const BRANCH_STATUS_VIEW_KEY = 'arbor_telefonia_branch_status_view_v1';
 const BRANCH_STATUS_FILTERS = new Set(['all', 'ready', 'todo', 'attention', 'retest']);
@@ -25,49 +25,14 @@ const BRANCH_STAGE_ORDER = {
   Gotowy: 4,
 };
 const BRANCH_TEST_STALE_DAYS = 14;
-const ZADARMA_WEBRTC_SIP_KEY = 'arbor_zadarma_webrtc_sip_v1';
-const ZADARMA_WEBRTC_AUTO_KEY = 'arbor_zadarma_webrtc_auto_v1';
-const ZADARMA_WIDGET_SCRIPTS = [
-  'https://my.zadarma.com/webphoneWebRTCWidget/v8/js/loader-phone-lib.js?v=23',
-  'https://my.zadarma.com/webphoneWebRTCWidget/v8/js/loader-phone-fn.js?v=23',
-];
-
-function loadExternalScript(src) {
-  if (typeof document === 'undefined') return Promise.reject(new Error('Brak przegladarki.'));
-  const existing = document.querySelector(`script[src="${src}"]`);
-  if (existing?.dataset.loaded === 'true') return Promise.resolve();
-  if (existing) {
-    return new Promise((resolve, reject) => {
-      existing.addEventListener('load', resolve, { once: true });
-      existing.addEventListener('error', reject, { once: true });
-    });
-  }
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = true;
-    script.onload = () => {
-      script.dataset.loaded = 'true';
-      resolve();
-    };
-    script.onerror = () => reject(new Error(`Nie udalo sie zaladowac ${src}`));
-    document.body.appendChild(script);
-  });
-}
-
-async function loadZadarmaWidgetScripts() {
-  for (const src of ZADARMA_WIDGET_SCRIPTS) {
-    await loadExternalScript(src);
-  }
-}
-
-function getStoredBoolean(key) {
-  try {
-    return localStorage.getItem(key) === '1';
-  } catch {
-    return false;
-  }
-}
+const POLSKA_FLORA_AGENT_SERVICE_TYPES = Object.freeze([
+  { value: 'drzewa_wycinka', label: 'Wycinka drzew' },
+  { value: 'drzewa_pielegnacja', label: 'Pielęgnacja drzew' },
+  { value: 'dach_mycie_malowanie', label: 'Mycie / malowanie dachów' },
+  { value: 'elewacja_kostka', label: 'Czyszczenie kostki / elewacji' },
+  { value: 'ogrod', label: 'Ogrodnictwo' },
+  { value: 'inne', label: 'Inne' },
+]);
 
 function useNarrowViewport(maxWidth = 760) {
   const [isNarrow, setIsNarrow] = useState(() =>
@@ -118,40 +83,15 @@ export default function Telefonia() {
     recipient_phone: '',
     text: '',
   });
-  const [zadarmaSettings, setZadarmaSettings] = useState(null);
-  const [zadarmaForm, setZadarmaForm] = useState({
-    api_key: '',
-    api_secret: '',
-    caller_id: '',
-  });
-  const [zadarmaLoading, setZadarmaLoading] = useState(false);
-  const [zadarmaSaving, setZadarmaSaving] = useState(false);
-  const [zadarmaTesting, setZadarmaTesting] = useState(false);
-  const [zadarmaMessage, setZadarmaMessage] = useState('');
-  const [zadarmaError, setZadarmaError] = useState('');
-  const [zadarmaSip, setZadarmaSip] = useState(() => {
-    try {
-      return localStorage.getItem(ZADARMA_WEBRTC_SIP_KEY) || '';
-    } catch {
-      return '';
-    }
-  });
-  const [zadarmaWebrtcAuto, setZadarmaWebrtcAuto] = useState(() => getStoredBoolean(ZADARMA_WEBRTC_AUTO_KEY));
-  const [zadarmaWebrtcLoading, setZadarmaWebrtcLoading] = useState(false);
-  const [zadarmaWebrtcStartedSip, setZadarmaWebrtcStartedSip] = useState('');
 
-  const [tab, setTab] = useState(() => (['sms', 'calls', 'zadarma', 'agent'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'sms'));
+  const [tab, setTab] = useState('sms');
   const [oddzialy, setOddzialy] = useState([]);
   const [callRows, setCallRows] = useState([]);
   const [callbacks, setCallbacks] = useState([]);
-  const [phoneDiagnostics, setPhoneDiagnostics] = useState(null);
   const [telLoading, setTelLoading] = useState(false);
   const [telError, setTelError] = useState('');
   const [telMessage, setTelMessage] = useState('');
-  const [phonePipelineRetrying, setPhonePipelineRetrying] = useState(false);
   const [savingCall, setSavingCall] = useState(false);
-  const [testFlowSaving, setTestFlowSaving] = useState(false);
-  const [lastTestLeadId, setLastTestLeadId] = useState(null);
   const [savingCb, setSavingCb] = useState(false);
   const [startingCallKey, setStartingCallKey] = useState(null);
   const [updatingCbId, setUpdatingCbId] = useState(null);
@@ -251,17 +191,13 @@ export default function Telefonia() {
     create_callback: false,
     priority: 'high',
   });
-  const [testFlowForm, setTestFlowForm] = useState({
-    oddzial_id: '',
-    phone: '',
-  });
 
   const SMS_LIMIT = 480;
   const SMS_TEMPLATES = [
     {
       id: 'potwierdzenie',
       label: 'Potwierdzenie terminu',
-      text: 'Dzien dobry, potwierdzamy realizacje zlecenia w ustalonym terminie. Pozdrawiamy, ARBOR-OS.',
+      text: 'Dzień dobry, potwierdzamy realizację zlecenia w ustalonym terminie. Pozdrawiamy, Polska Flora.',
     },
     {
       id: 'przypomnienie',
@@ -398,16 +334,14 @@ export default function Telefonia() {
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
-      const [o, c, b, d] = await Promise.all([
+      const [o, c, b] = await Promise.all([
         api.get('/oddzialy', { headers: h }),
         api.get('/telephony/calls', { headers: h }),
         api.get('/telephony/callbacks', { headers: h }),
-        api.get('/telefon/diagnostics', { headers: h }),
       ]);
       setOddzialy(Array.isArray(o.data) ? o.data : []);
       setCallRows(Array.isArray(c.data) ? c.data : []);
       setCallbacks(Array.isArray(b.data) ? b.data : []);
-      setPhoneDiagnostics(d.data || null);
     } catch (e) {
       setTelError(getApiErrorMessage(e, 'Nie udało się pobrać danych telefonii.'));
     } finally {
@@ -419,22 +353,6 @@ export default function Telefonia() {
     if (tab === 'calls' || tab === 'agent') loadTelephonyExtras();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
-
-  const retryPhonePipeline = async () => {
-    setPhonePipelineRetrying(true);
-    setTelError('');
-    setTelMessage('');
-    try {
-      const token = getStoredToken();
-      const { data } = await api.post('/telefon/pipeline/retry', {}, { headers: authHeaders(token) });
-      setTelMessage(`Ponowiono pipeline dla ${data?.retried || 0} rozmow.`);
-      await loadTelephonyExtras();
-    } catch (e) {
-      setTelError(getApiErrorMessage(e, 'Nie udalo sie ponowic pipeline rozmow.'));
-    } finally {
-      setPhonePipelineRetrying(false);
-    }
-  };
 
   useEffect(() => {
     const t = searchParams.get('tab');
@@ -616,119 +534,6 @@ export default function Telefonia() {
     }
   }, []);
 
-  const loadZadarmaSettings = useCallback(async () => {
-    setZadarmaLoading(true);
-    setZadarmaError('');
-    try {
-      const token = getStoredToken();
-      const { data } = await api.get('/telephony/zadarma/settings', { headers: authHeaders(token) });
-      setZadarmaSettings(data || null);
-      setZadarmaForm((f) => ({
-        ...f,
-        caller_id: data?.caller_id || f.caller_id || 'ARBOR',
-      }));
-    } catch (e) {
-      setZadarmaError(getApiErrorMessage(e, 'Nie udalo sie pobrac ustawien Zadarmy.'));
-    } finally {
-      setZadarmaLoading(false);
-    }
-  }, []);
-
-  const saveZadarmaSettings = async (e) => {
-    e.preventDefault();
-    setZadarmaSaving(true);
-    setZadarmaError('');
-    setZadarmaMessage('');
-    try {
-      const token = getStoredToken();
-      const { data } = await api.put('/telephony/zadarma/settings', {
-        api_key: zadarmaForm.api_key || null,
-        api_secret: zadarmaForm.api_secret || null,
-        caller_id: zadarmaForm.caller_id || 'ARBOR',
-      }, { headers: authHeaders(token) });
-      setZadarmaSettings(data || null);
-      setZadarmaForm((f) => ({ ...f, api_key: '', api_secret: '', caller_id: data?.caller_id || f.caller_id }));
-      setZadarmaMessage('Zadarma zapisana. Od teraz SMS i przycisk polaczenia moga korzystac z tej konfiguracji.');
-    } catch (err) {
-      setZadarmaError(getApiErrorMessage(err, 'Nie udalo sie zapisac Zadarmy.'));
-    } finally {
-      setZadarmaSaving(false);
-    }
-  };
-
-  const testZadarmaSettings = async () => {
-    setZadarmaTesting(true);
-    setZadarmaError('');
-    setZadarmaMessage('');
-    try {
-      const token = getStoredToken();
-      const { data } = await api.post('/telephony/zadarma/test', {}, { headers: authHeaders(token) });
-      setZadarmaSettings(data.settings || zadarmaSettings);
-      setZadarmaMessage(data.message || 'Zadarma API dziala.');
-    } catch (err) {
-      setZadarmaError(getApiErrorMessage(err, 'Test Zadarmy nie przeszedl.'));
-    } finally {
-      setZadarmaTesting(false);
-    }
-  };
-
-  const setZadarmaWebrtcAutoPreference = (checked) => {
-    setZadarmaWebrtcAuto(checked);
-    try {
-      localStorage.setItem(ZADARMA_WEBRTC_AUTO_KEY, checked ? '1' : '0');
-    } catch {
-      /* localStorage can be unavailable in private mode */
-    }
-  };
-
-  const startZadarmaWebPhone = useCallback(async ({ silent = false } = {}) => {
-    const sip = String(zadarmaSip || '').trim();
-    if (!sip) {
-      setZadarmaError('Podaj SIP login albo numer wewnetrzny PBX z Zadarmy.');
-      return;
-    }
-    setZadarmaWebrtcLoading(true);
-    setZadarmaError('');
-    setZadarmaMessage('');
-    try {
-      try {
-        localStorage.setItem(ZADARMA_WEBRTC_SIP_KEY, sip);
-      } catch {
-        /* localStorage can be unavailable in private mode */
-      }
-      const token = getStoredToken();
-      const { data } = await api.post('/telephony/zadarma/webrtc-key', { sip }, { headers: authHeaders(token) });
-      await loadZadarmaWidgetScripts();
-      if (typeof window.zadarmaWidgetFn !== 'function') {
-        throw new Error('Widget Zadarma nie zaladowal sie poprawnie.');
-      }
-      window.zadarmaWidgetFn(
-        data.key,
-        data.sip || sip,
-        'square',
-        'pl',
-        true,
-        "{right:'16px',bottom:'16px'}",
-      );
-      setZadarmaWebrtcStartedSip(data.sip || sip);
-      if (!silent) {
-        setZadarmaMessage('Telefon Zadarma uruchomiony w przegladarce. Mozesz dzwonic i odbierac po zalogowaniu do widgetu.');
-      }
-    } catch (err) {
-      setZadarmaError(getApiErrorMessage(err, 'Nie udalo sie uruchomic telefonu WebRTC Zadarma.'));
-    } finally {
-      setZadarmaWebrtcLoading(false);
-    }
-  }, [zadarmaSip]);
-
-  useEffect(() => {
-    const sip = String(zadarmaSip || '').trim();
-    if (tab !== 'zadarma') return;
-    if (!zadarmaWebrtcAuto || !zadarmaSettings?.configured || !sip) return;
-    if (zadarmaWebrtcLoading || zadarmaWebrtcStartedSip === sip) return;
-    startZadarmaWebPhone({ silent: true });
-  }, [tab, zadarmaWebrtcAuto, zadarmaSettings?.configured, zadarmaSip, zadarmaWebrtcLoading, zadarmaWebrtcStartedSip, startZadarmaWebPhone]);
-
   useEffect(() => {
     if (tab === 'agent' && agentForm.oddzial_id) {
       loadBranchIntegrationStatuses();
@@ -738,10 +543,6 @@ export default function Telefonia() {
       loadIntegrationTestLogs(agentForm.oddzial_id);
     }
   }, [tab, agentForm.oddzial_id, loadBranchIntegrationStatuses, loadVoiceAgentIntegration, loadVoiceAgentIntakes, loadAgentReminderPreview, loadIntegrationTestLogs]);
-
-  useEffect(() => {
-    if (tab === 'zadarma') loadZadarmaSettings();
-  }, [tab, loadZadarmaSettings]);
 
   useEffect(() => {
     setAgentHistoryPage(1);
@@ -768,7 +569,7 @@ export default function Telefonia() {
       setAgentIntegration(data.integration || null);
       setAgentConfig(data.config || agentConfig);
       setAgentForm((f) => ({ ...f, provider_api_key: '' }));
-      setAgentMessage('Agent Ania jest wlaczony dla oddzialu. Webhook i sekret sa gotowe do wklejenia u providera.');
+      setAgentMessage('Agent Ania jest włączony dla oddziału. Webhook i sekret są gotowe do wklejenia u providera.');
       await loadVoiceAgentIntakes(agentForm.oddzial_id);
       await loadAgentReminderPreview(agentForm.oddzial_id);
       await loadBranchIntegrationStatuses();
@@ -851,8 +652,8 @@ export default function Telefonia() {
       setAgentIntegration(data.integration || null);
       setAgentForm((f) => ({ ...f, status }));
       setAgentMessage(status === 'active'
-        ? 'Agent Ania i automatyczne przypomnienia sa aktywne dla oddzialu.'
-        : 'Agent Ania zatrzymany. Webhook i przypomnienia SMS nie beda dzialac dla tego oddzialu.');
+        ? 'Agent Ania i automatyczne przypomnienia są aktywne dla oddziału.'
+        : 'Agent Ania zatrzymany. Webhook i przypomnienia SMS nie będą działać dla tego oddziału.');
       await Promise.all([
         loadVoiceAgentIntegration(agentForm.oddzial_id),
         loadAgentReminderPreview(agentForm.oddzial_id),
@@ -876,7 +677,7 @@ export default function Telefonia() {
       await api.post(`/telephony/voice-agent/polska-flora/intakes/${selectedAgentIntake.id}/sms`, {
         body,
       }, { headers: authHeaders(token) });
-      setAgentMessage('SMS potwierdzajacy ogledziny zostal wyslany i zapisany w CRM.');
+      setAgentMessage('SMS potwierdzający oględziny został wysłany i zapisany w CRM.');
       await Promise.all([
         loadVoiceAgentIntakes(agentForm.oddzial_id),
         loadAgentReminderPreview(agentForm.oddzial_id),
@@ -901,7 +702,7 @@ export default function Telefonia() {
     try {
       const token = getStoredToken();
       await api.put(`/oddzialy/${agentForm.oddzial_id}`, {
-        telefon: normalizePhone(branchTelephonyForm.telefon.trim()).replace(/^\+/, ''),
+        telefon: branchTelephonyForm.telefon.trim(),
         sms_sender_id: branchTelephonyForm.sms_sender_id.trim(),
       }, { headers: authHeaders(token) });
       setAgentMessage('Numery oddzialu zapisane. SMS i Agent AI beda uzywac tej konfiguracji oddzialowej.');
@@ -980,7 +781,7 @@ export default function Telefonia() {
         }, { headers: authHeaders(token) });
         smsNote = `SMS OK (${data.provider || 'provider'}).`;
       }
-      setAgentMessage(`Test calosci oddzialu OK: webhook gotowy. ${smsNote}`);
+      setAgentMessage(`Test całości oddziału OK: webhook gotowy. ${smsNote}`);
       await Promise.all([
         loadVoiceAgentIntegration(agentForm.oddzial_id),
         loadIntegrationTestLogs(agentForm.oddzial_id),
@@ -990,7 +791,7 @@ export default function Telefonia() {
         testPhone ? loadSms(1) : Promise.resolve(),
       ]);
     } catch (err) {
-      setAgentError(getApiErrorMessage(err, 'Test calosci oddzialu nie przeszedl.'));
+      setAgentError(getApiErrorMessage(err, 'Test całości oddziału nie przeszedł.'));
       await Promise.all([
         loadIntegrationTestLogs(agentForm.oddzial_id),
         loadBranchIntegrationStatuses(),
@@ -1020,7 +821,7 @@ export default function Telefonia() {
       'Ta paczka jest oddzialowa - nie mieszaj sekretow ani numerow pomiedzy oddzialami.',
       'W panelu Zadarma ustaw webhook POST i header x-voice-agent-secret.',
       'Payload musi wysylac oddzial_id oraz dane rozmowy klienta.',
-      'Po zapisaniu w providerze uruchom w ARBOR-OS Test calosci oddzialu.',
+      'Po zapisaniu w providerze uruchom w Polska Flora Test całości oddziału.',
     ],
     payload_example: {
       oddzial_id: row?.oddzial_id ? Number(row.oddzial_id) : null,
@@ -1029,15 +830,15 @@ export default function Telefonia() {
       customer_name: 'Jan Kowalski',
       inspection_address: 'ul. Przykladowa 1',
       city: row?.miasto || 'Krakow',
-      service_type: 'ogrod',
+      service_type: 'drzewa_wycinka',
       appointment_at: new Date(Date.now() + 86400000).toISOString(),
-      notes: 'Klient prosi o bezplatne ogledziny.',
+      notes: 'Klient prosi o bezpłatne oględziny. Obsługujemy Małopolskie, bez podawania ceny przez telefon.',
       transcript: 'Skrocony transkrypt rozmowy.',
     },
   }, null, 2);
 
   const branchSetupPhonePatch = () => ({
-    telefon: normalizePhone(branchTelephonyForm.telefon.trim()).replace(/^\+/, ''),
+    telefon: branchTelephonyForm.telefon.trim(),
     sms_sender_id: branchTelephonyForm.sms_sender_id.trim(),
   });
 
@@ -1088,7 +889,7 @@ export default function Telefonia() {
         sms_sender_id: preparedRow.sms_sender_id || f.sms_sender_id,
       }));
       await navigator.clipboard.writeText(buildPreparedProviderPackage({ integration, row: preparedRow }));
-      setAgentMessage(`Podpiecie oddzialu ${preparedRow.oddzial_name || `#${preparedRow.oddzial_id}`} gotowe i skopiowane. Numery oddzialu sa zapisane, wklej paczke w panelu Zadarma, potem uruchom Test calosci oddzialu.`);
+      setAgentMessage(`Podpięcie oddziału ${preparedRow.oddzial_name || `#${preparedRow.oddzial_id}`} gotowe i skopiowane. Numery oddziału są zapisane, wklej paczkę w panelu Zadarma, potem uruchom Test całości oddziału.`);
       await Promise.all([
         hasBranchPatch ? loadTelephonyExtras() : Promise.resolve(),
         loadVoiceAgentIntegration(preparedRow.oddzial_id),
@@ -1153,15 +954,15 @@ export default function Telefonia() {
       customer_name: 'Jan Kowalski',
       inspection_address: 'ul. Przykladowa 1',
       city: 'Krakow',
-      service_type: 'ogrod',
+      service_type: 'drzewa_wycinka',
       appointment_at: new Date(Date.now() + 86400000).toISOString(),
-      notes: 'Klient prosi o bezplatne ogledziny.',
+      notes: 'Klient prosi o bezpłatne oględziny. Obsługujemy Małopolskie, bez podawania ceny przez telefon.',
       transcript: 'Skrocony transkrypt rozmowy.',
     },
     notes: [
       'Wysylaj sekret w headerze x-voice-agent-secret.',
       'Oddzial decyduje o numerze i nadawcy SMS.',
-      'Nie podawaj cen przez telefon; umawiaj bezplatne ogledziny.',
+      'Nie podawaj cen przez telefon; umawiaj bezpłatne oględziny w dni robocze 8:00-17:00, tylko Małopolskie.',
     ],
   }, null, 2);
 
@@ -1204,7 +1005,7 @@ export default function Telefonia() {
         set_webhook_method: 'POST',
         add_header: 'x-voice-agent-secret',
         send_oddzial_id: row?.oddzial_id ? Number(row.oddzial_id) : (agentForm.oddzial_id ? Number(agentForm.oddzial_id) : null),
-        run_test_after_setup: 'Kliknij Test calosci oddzialu w ARBOR-OS.',
+        run_test_after_setup: 'Kliknij Test całości oddziału w Polska Flora.',
       },
     }, null, 2);
   };
@@ -1229,10 +1030,10 @@ export default function Telefonia() {
       'Wymagane po stronie Zadarma:',
       '- ustaw webhook po rozmowie / po zebraniu danych klienta',
       '- wysylaj oddzial_id w payloadzie',
-      '- przekazuj telefon klienta, imie/nazwisko, adres, miasto, typ uslugi, termin i transkrypt',
-      '- po podpieciu wykonaj test w ARBOR-OS: Test calosci oddzialu',
+      '- przekazuj telefon klienta, imię/nazwisko, adres, miasto, typ usługi, termin i transkrypt',
+      '- po podpięciu wykonaj test w Polska Flora: Test całości oddziału',
       '',
-      `Gotowosc w ARBOR-OS: ${readiness.percent}%`,
+      `Gotowo?? w Polska Flora: ${readiness.percent}%`,
       `Etap: ${branchLaunchStage(row).label}`,
       `Braki: ${readiness.blockers.length ? readiness.blockers.join(', ') : 'brak'}`,
       branchNextAction(row),
@@ -1300,14 +1101,14 @@ export default function Telefonia() {
           ready: !!lastWebhookOk,
           detail: lastWebhookOk
             ? `Ostatni OK: ${formatAgentDate(lastWebhookOk.created_at)}`
-            : (lastWebhookLog?.error || 'Kliknij Test calosci oddzialu albo Test konfiguracji.'),
+            : (lastWebhookLog?.error || 'Kliknij Test całości oddziału albo Test konfiguracji.'),
         },
         {
           label: 'Test SMS oddzialu OK',
           ready: !!lastSmsOk,
           detail: lastSmsOk
             ? `Ostatni OK: ${formatAgentDate(lastSmsOk.created_at)}`
-            : (lastSmsLog?.error || 'Wpisz numer testowy i kliknij Test calosci oddzialu.'),
+            : (lastSmsLog?.error || 'Wpisz numer testowy i kliknij Test całości oddziału.'),
         },
       ];
     const readyCount = steps.filter((step) => step.ready).length;
@@ -1449,52 +1250,6 @@ export default function Telefonia() {
     }
   };
 
-  const runPhoneCrmFlowTest = async (e) => {
-    e.preventDefault();
-    const oid = toIntLocal(testFlowForm.oddzial_id);
-    const phone = normalizePhone(testFlowForm.phone);
-    if (!oid) {
-      setTelError('Wybierz oddzial do testu.');
-      return;
-    }
-    if (!phone) {
-      setTelError('Podaj numer testowy klienta.');
-      return;
-    }
-    setTestFlowSaving(true);
-    setLastTestLeadId(null);
-    setTelError('');
-    setTelMessage('');
-    try {
-      const token = getStoredToken();
-      const { data } = await api.post(
-        '/telefon/test-flow',
-        {
-          oddzial_id: oid,
-          phone,
-          transcript: 'Testowa rozmowa ARBOR: klient pyta o termin ogledzin i prosi o kontakt zwrotny.',
-          raport: 'Test przeplywu CRM: utworzyc lead, zapisac notatke i dodac follow-up po rozmowie.',
-        },
-        { headers: authHeaders(token) }
-      );
-      await loadTelephonyExtras();
-      const leadId = data?.lead_id;
-      setTelMessage(
-        leadId
-          ? `Test OK: rozmowa trafila do CRM jako lead #${leadId}.`
-          : 'Test zapisany, ale backend nie zwrocil leada CRM.'
-      );
-      if (leadId) {
-        setLastTestLeadId(leadId);
-        setTestFlowForm((f) => ({ ...f, phone: '' }));
-      }
-    } catch (e2) {
-      setTelError(getApiErrorMessage(e2, 'Nie udalo sie uruchomic testu CRM po rozmowie.'));
-    } finally {
-      setTestFlowSaving(false);
-    }
-  };
-
   const startSpecialistCall = async ({ phone, oddzial_id, lead_name, task_id, notes, callbackId, key }) => {
     const oid = toIntLocal(oddzial_id || callForm.oddzial_id || agentForm.oddzial_id);
     const targetPhone = normalizePhone(phone);
@@ -1596,7 +1351,7 @@ export default function Telefonia() {
             value: 0,
             notes: [
               `Telefon przychodzacy: ${incomingForm.status}`,
-              incomingForm.service_type ? `Typ uslugi: ${incomingForm.service_type}` : '',
+              incomingForm.service_type ? `Typ usługi: ${agentServiceLabel(incomingForm.service_type)}` : '',
               incomingForm.inspection_address.trim() ? `Adres ogledzin: ${incomingForm.inspection_address.trim()}` : '',
               incomingForm.city.trim() ? `Miasto: ${incomingForm.city.trim()}` : '',
               incomingForm.appointment_at ? `Proponowany termin: ${incomingForm.appointment_at}` : '',
@@ -1964,10 +1719,12 @@ export default function Telefonia() {
     try {
       const token = getStoredToken();
       await api.post(
-        '/sms/wyslij',
+        '/sms/manual',
         {
-          telefon: normalizePhone(manualForm.recipient_phone.trim()),
-          tresc: manualForm.text.trim().slice(0, SMS_LIMIT),
+          recipient_name: manualForm.recipient_name.trim() || null,
+          recipient_phone: normalizePhone(manualForm.recipient_phone.trim()),
+          text: manualForm.text.trim().slice(0, SMS_LIMIT),
+          typ: 'manual_text',
         },
         { headers: authHeaders(token) }
       );
@@ -2036,7 +1793,7 @@ export default function Telefonia() {
   const buildAgentSmsConfirmation = (row) => {
     const when = row?.appointment_at ? new Date(row.appointment_at).toLocaleString('pl-PL') : '';
     const address = [row?.inspection_address, row?.city].filter(Boolean).join(', ');
-    const parts = ['Dzien dobry, potwierdzamy bezplatne ogledziny Polska Flora'];
+    const parts = ['Dzień dobry, potwierdzamy bezpłatne oględziny Polska Flora'];
     if (when) parts.push(`termin: ${when}`);
     if (address) parts.push(`adres: ${address}`);
     return `${parts.join(', ')}. W razie pytan prosimy o kontakt.`.slice(0, SMS_LIMIT);
@@ -2075,10 +1832,10 @@ export default function Telefonia() {
 
   const agentServiceLabel = (value) => {
     const v = String(value || '').toLowerCase();
-    if (v === 'dach') return 'Dach';
-    if (v === 'elewacja_kostka') return 'Elewacja / kostka';
-    if (v === 'ogrod') return 'Ogrod';
-    if (v === 'wycinka_pielegnacja') return 'Drzewa';
+    const match = POLSKA_FLORA_AGENT_SERVICE_TYPES.find((option) => option.value === v);
+    if (match) return match.label;
+    if (v === 'dach') return 'Mycie / malowanie dachów';
+    if (v === 'wycinka_pielegnacja') return 'Wycinka / pielęgnacja drzew';
     return value || 'Inne';
   };
   const agentIssueLabel = (value) => ({
@@ -2463,7 +2220,7 @@ export default function Telefonia() {
       ready: selectedBranchStatus ? branchHasFreshOkTest(selectedBranchStatus) : false,
       detail: selectedBranchStatus && branchHasFreshOkTest(selectedBranchStatus)
         ? branchLastTestLabel(selectedBranchStatus)
-        : 'Po wklejeniu danych w Zadarma uruchom Test calosci oddzialu.',
+        : 'Po wklejeniu danych w Zadarma uruchom Test całości oddziału.',
     },
   ];
   const filteredAgentIntakes = agentIntakes.filter((x) => {
@@ -2493,7 +2250,7 @@ export default function Telefonia() {
       const msg = getApiErrorMessage(e, 'Nie udalo sie zaktualizowac statusu SMS.');
       setError(
         e?.response?.status === 404
-          ? `${msg} (w ARBOR-OS status dostawy ustawia automatycznie Twilio — edycja ręczna jest wyłączona.)`
+          ? `${msg} (w Polska Flora status dostawy ustawia automatycznie Twilio — edycja ręczna jest wyłączona.)`
           : msg
       );
     } finally {
@@ -2503,21 +2260,14 @@ export default function Telefonia() {
 
   const pageSubtitle = tab === 'sms'
     ? `Historia SMS: ${filtered.length}${serverPaging && smsTotalAll > 0 ? ` w bazie: ${smsTotalAll}` : ''}`
-    : tab === 'zadarma'
-      ? `Zadarma: ${zadarmaSettings?.configured ? 'skonfigurowana' : 'do skonfigurowania'}`
     : tab === 'agent'
       ? `Agent Ania: ${agentIntegration?.status === 'active' ? 'aktywny' : 'do podpiecia'}`
       : `Log polaczen: ${callRows.length} | kolejka oddzwonien: ${callbacks.filter((x) => x.status === 'open').length}`;
-  const branchTodoCount = branchIntegrationStatuses.filter((row) => {
-    const stage = String(row.stage || row.setup_stage || row.status || '').toLowerCase();
-    return !['gotowy', 'ready', 'ok', 'active', 'connected'].includes(stage);
-  }).length;
-  const activeCalls = callRows.filter((row) => ['incoming', 'outbound', 'answered'].includes(String(row.status || row.call_type || '').toLowerCase())).length;
 
   return (
     <div className="app-shell telefonia-shell" style={s.root}>
-      <CommandSidebar active="dashboard" />
-      <div className="app-main command-content-main telefonia-main" style={{ ...s.content, ...(isNarrow ? s.contentNarrow : null) }}>
+      <Sidebar />
+      <div className="app-main telefonia-main" style={{ ...s.content, ...(isNarrow ? s.contentNarrow : null) }}>
         <PageHeader
           icon={
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -2544,18 +2294,11 @@ export default function Telefonia() {
                   {agentExporting ? 'Eksport...' : 'Eksport CSV'}
                 </button>
               )}
-              {tab !== 'zadarma' && (
-                <button type="button" style={s.refreshBtn} onClick={() => setTab('zadarma')}>
-                  Konfiguracja Zadarma
-                </button>
-              )}
               <button
                 type="button"
                 style={s.refreshBtn}
                 onClick={() => (tab === 'sms'
                   ? loadSms(page)
-                  : tab === 'zadarma'
-                    ? loadZadarmaSettings()
                   : tab === 'agent'
                     ? Promise.all([
                       loadBranchIntegrationStatuses(),
@@ -2569,43 +2312,12 @@ export default function Telefonia() {
           }
         />
 
-        <section className="telefonia-command-strip">
-          <div className="telefonia-command-lead">
-            <span>Centrum kontaktu</span>
-            <strong>{stats.total}</strong>
-            <small>SMS w aktualnym widoku</small>
-          </div>
-          <div className={`telefonia-command-card ${stats.failed + stats.missing > 0 ? 'is-warning' : 'is-good'}`}>
-            <span>SMS ryzyka</span>
-            <strong>{stats.failed + stats.missing}</strong>
-            <small>{stats.failed} bledy / {stats.missing} brak numeru</small>
-          </div>
-          <div className="telefonia-command-card is-blue">
-            <span>Polaczenia</span>
-            <strong>{callRows.length}</strong>
-            <small>{activeCalls} aktywne lub odebrane</small>
-          </div>
-          <div className={`telefonia-command-card ${openCallbacks.length > 0 ? 'is-warning' : 'is-good'}`}>
-            <span>Oddzwonienia</span>
-            <strong>{openCallbacks.length}</strong>
-            <small>otwarte w kolejce</small>
-          </div>
-          <div className={`telefonia-command-card ${agentIntegration?.status === 'active' ? 'is-good' : 'is-danger'}`}>
-            <span>Agent AI</span>
-            <strong>{agentIntegration?.status === 'active' ? 'ON' : 'OFF'}</strong>
-            <small>{agentNeedsReviewCount} do sprawdzenia / {branchTodoCount} oddzialy</small>
-          </div>
-        </section>
-
         <div className="telefonia-tabs" style={{ ...s.tabRow, ...(isNarrow ? s.tabRowNarrow : null) }}>
           <button type="button" style={tab === 'sms' ? s.tabActive : s.tab} onClick={() => setTab('sms')}>
             SMS
           </button>
           <button type="button" style={tab === 'calls' ? s.tabActive : s.tab} onClick={() => setTab('calls')}>
             Połączenia i oddzwonienia
-          </button>
-          <button type="button" style={tab === 'zadarma' ? s.tabActive : s.tab} onClick={() => setTab('zadarma')}>
-            Zadarma
           </button>
           <button type="button" style={tab === 'agent' ? s.tabActive : s.tab} onClick={() => setTab('agent')}>
             Agent AI
@@ -2627,16 +2339,6 @@ export default function Telefonia() {
             <StatusMessage message={telMessage} tone="success" />
           </div>
         )}
-        {!!zadarmaError && tab === 'zadarma' && (
-          <div style={{ marginBottom: 12 }}>
-            <StatusMessage message={zadarmaError} tone="error" />
-          </div>
-        )}
-        {!!zadarmaMessage && tab === 'zadarma' && (
-          <div style={{ marginBottom: 12 }}>
-            <StatusMessage message={zadarmaMessage} tone="success" />
-          </div>
-        )}
         {!!agentError && tab === 'agent' && (
           <div style={{ marginBottom: 12 }}>
             <StatusMessage message={agentError} tone="error" />
@@ -2645,184 +2347,6 @@ export default function Telefonia() {
         {!!agentMessage && tab === 'agent' && (
           <div style={{ marginBottom: 12 }}>
             <StatusMessage message={agentMessage} tone="success" />
-          </div>
-        )}
-
-        {tab === 'zadarma' && (
-          <div className="telefonia-panel telefonia-zadarma-panel" style={s.panel}>
-            <div style={s.callsIntro}>
-              Wpisujesz klucze raz w panelu. ARBOR uzyje Zadarmy do SMS-ow, statusow dostarczenia i przycisku polaczenia z klientem.
-            </div>
-            <div style={s.agentHealthBox}>
-              <div style={s.agentHistoryHeader}>
-                <div>
-                  <div style={s.manualTitle}>Status Zadarmy</div>
-                  <div style={s.agentHistoryMeta}>
-                    Zrodlo: {zadarmaSettings?.source || 'brak'} · API key: {zadarmaSettings?.api_key_masked || 'brak'} · secret: {zadarmaSettings?.api_secret_masked || 'brak'}
-                  </div>
-                </div>
-                <div style={s.inlineActions}>
-                  <button type="button" style={s.rowBtn} onClick={loadZadarmaSettings} disabled={zadarmaLoading}>
-                    {zadarmaLoading ? 'Sprawdzam...' : 'Odswiez'}
-                  </button>
-                  <button type="button" style={s.rowBtnActive} onClick={testZadarmaSettings} disabled={zadarmaTesting || !zadarmaSettings?.configured}>
-                    {zadarmaTesting ? 'Test...' : 'Test API'}
-                  </button>
-                </div>
-              </div>
-              <div style={s.agentHealthGrid}>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>
-                    <span style={{ ...s.agentHealthDot, background: zadarmaSettings?.configured ? '#22c55e' : '#ef4444' }} />
-                    <span>Konfiguracja</span>
-                  </div>
-                  <strong style={s.agentHealthValue}>{zadarmaSettings?.configured ? 'Gotowa' : 'Brak kluczy'}</strong>
-                  <div style={s.agentHistoryMeta}>Klucze sa przechowywane zaszyfrowane w bazie.</div>
-                </div>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>Nadawca SMS</div>
-                  <strong style={s.agentHealthValue}>{zadarmaSettings?.caller_id || 'ARBOR'}</strong>
-                  <div style={s.agentHistoryMeta}>Mozesz nadpisac nadawce per oddzial w danych oddzialu.</div>
-                </div>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>Webhook SMS</div>
-                  <strong style={s.agentHealthValue}>{zadarmaSettings?.sms_webhook_url ? 'Gotowy' : 'Brak PUBLIC_BASE_URL'}</strong>
-                  <div style={s.agentHistoryMeta}>
-                    {zadarmaSettings?.sms_webhook_url || 'Ustaw PUBLIC_BASE_URL na backendzie.'}
-                  </div>
-                </div>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>Webhook rozmow</div>
-                  <strong style={s.agentHealthValue}>{zadarmaSettings?.phone_webhook_url ? 'Gotowy' : 'Brak PUBLIC_BASE_URL'}</strong>
-                  <div style={s.agentHistoryMeta}>
-                    {zadarmaSettings?.phone_webhook_url || 'Ustaw PUBLIC_BASE_URL na backendzie.'}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div style={s.agentGrid}>
-              <form style={s.callForm} onSubmit={saveZadarmaSettings}>
-                <div style={s.manualTitle}>Klucze API Zadarma</div>
-                <input
-                  value={zadarmaForm.api_key}
-                  onChange={(e) => setZadarmaForm((f) => ({ ...f, api_key: e.target.value }))}
-                  placeholder={zadarmaSettings?.api_key_masked ? `Zapisany: ${zadarmaSettings.api_key_masked}` : 'ZADARMA_API_KEY'}
-                  style={s.input}
-                  type="password"
-                />
-                <input
-                  value={zadarmaForm.api_secret}
-                  onChange={(e) => setZadarmaForm((f) => ({ ...f, api_secret: e.target.value }))}
-                  placeholder={zadarmaSettings?.api_secret_masked ? `Zapisany: ${zadarmaSettings.api_secret_masked}` : 'ZADARMA_API_SECRET'}
-                  style={s.input}
-                  type="password"
-                />
-                <input
-                  value={zadarmaForm.caller_id}
-                  onChange={(e) => setZadarmaForm((f) => ({ ...f, caller_id: e.target.value }))}
-                  placeholder="Nadawca SMS, np. ARBOR"
-                  style={s.input}
-                />
-                <div style={s.inlineActions}>
-                  <button type="submit" style={s.sendBtn} disabled={zadarmaSaving}>
-                    {zadarmaSaving ? 'Zapisuje...' : 'Zapisz Zadarme'}
-                  </button>
-                  <button type="button" style={s.rowBtn} onClick={testZadarmaSettings} disabled={zadarmaTesting || !zadarmaSettings?.configured}>
-                    {zadarmaTesting ? 'Test...' : 'Testuj po zapisie'}
-                  </button>
-                </div>
-              </form>
-              <div style={s.callForm}>
-                <div style={s.manualTitle}>Telefon w przegladarce WebRTC</div>
-                <div style={s.agentHistoryMeta}>
-                  Wpisz SIP login albo numer wewnetrzny PBX pracownika. ARBOR pobierze tymczasowy klucz WebRTC z Zadarmy i wlaczy telefon w rogu przegladarki.
-                </div>
-                <input
-                  value={zadarmaSip}
-                  onChange={(e) => {
-                    setZadarmaSip(e.target.value);
-                    setZadarmaWebrtcStartedSip('');
-                  }}
-                  placeholder="SIP / numer wewnetrzny PBX, np. 101"
-                  style={s.input}
-                />
-                <label style={s.checkboxWrap}>
-                  <input
-                    type="checkbox"
-                    checked={zadarmaWebrtcAuto}
-                    onChange={(e) => setZadarmaWebrtcAutoPreference(e.target.checked)}
-                  />
-                  Uruchamiaj automatycznie w Arbor
-                </label>
-                <div style={s.inlineActions}>
-                  <button
-                    type="button"
-                    style={s.sendBtn}
-                    onClick={() => startZadarmaWebPhone()}
-                    disabled={zadarmaWebrtcLoading || !zadarmaSettings?.configured}
-                  >
-                    {zadarmaWebrtcLoading ? 'Uruchamiam...' : 'Uruchom telefon w przegladarce'}
-                  </button>
-                  <button
-                    type="button"
-                    style={s.rowBtn}
-                    onClick={() => copyAgentText(zadarmaSip, 'SIP Zadarma')}
-                    disabled={!zadarmaSip}
-                  >
-                    Kopiuj SIP
-                  </button>
-                </div>
-                <div style={s.agentHistoryMeta}>
-                  Status: {zadarmaWebrtcStartedSip ? `aktywny SIP ${zadarmaWebrtcStartedSip}` : zadarmaWebrtcAuto ? 'auto wlaczone, czeka na poprawny SIP i konfiguracje' : 'reczny start'}
-                </div>
-                <div style={s.agentHistoryMeta}>
-                  W panelu Zadarma dodaj domene tej aplikacji w Integrations and API / WebRTC widget integration. Nie wystawiaj widgetu poza zalogowanym panelem.
-                </div>
-              </div>
-              <div style={s.callForm}>
-                <div style={s.manualTitle}>Co ustawic w panelu Zadarma</div>
-                <div style={s.providerChecklistList}>
-                  <div style={s.providerChecklistItem}>
-                    <span style={zadarmaSettings?.configured ? s.okBadge : s.reviewBadge}>{zadarmaSettings?.configured ? 'OK' : '1'}</span>
-                    <div>
-                      <strong>API keys</strong>
-                      <div style={s.agentHistoryMeta}>Settings / Integrations and API / API keys: skopiuj key i secret do formularza obok.</div>
-                    </div>
-                  </div>
-                  <div style={s.providerChecklistItem}>
-                    <span style={zadarmaSettings?.sms_webhook_url ? s.okBadge : s.reviewBadge}>{zadarmaSettings?.sms_webhook_url ? 'OK' : '2'}</span>
-                    <div style={{ minWidth: 0 }}>
-                      <strong>SMS webhook</strong>
-                      <div style={s.agentHistoryMeta}>{zadarmaSettings?.sms_webhook_url || 'Najpierw ustaw PUBLIC_BASE_URL.'}</div>
-                    </div>
-                    {zadarmaSettings?.sms_webhook_url ? (
-                      <button type="button" style={s.rowBtn} onClick={() => copyAgentText(zadarmaSettings.sms_webhook_url, 'Webhook SMS Zadarma')}>
-                        Kopiuj
-                      </button>
-                    ) : null}
-                  </div>
-                  <div style={s.providerChecklistItem}>
-                    <span style={zadarmaSettings?.phone_webhook_url ? s.okBadge : s.reviewBadge}>{zadarmaSettings?.phone_webhook_url ? 'OK' : '3'}</span>
-                    <div style={{ minWidth: 0 }}>
-                      <strong>Webhook rozmow i nagran</strong>
-                      <div style={s.agentHistoryMeta}>{zadarmaSettings?.phone_webhook_url || 'Najpierw ustaw PUBLIC_BASE_URL.'}</div>
-                    </div>
-                    {zadarmaSettings?.phone_webhook_url ? (
-                      <button type="button" style={s.rowBtn} onClick={() => copyAgentText(zadarmaSettings.phone_webhook_url, 'Webhook rozmow Zadarma')}>
-                        Kopiuj
-                      </button>
-                    ) : null}
-                  </div>
-                  <div style={s.providerChecklistItem}>
-                    <span style={s.okBadge}>4</span>
-                    <div>
-                      <strong>WebRTC widget</strong>
-                      <div style={s.agentHistoryMeta}>Dodaj domene ARBOR w WebRTC widget integration i przypisz numer DID do SIP/PBX. Potem uzyj pola Telefon w przegladarce.</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -3392,7 +2916,7 @@ export default function Telefonia() {
                     onClick={runBranchSetupTest}
                     disabled={branchSetupTesting || !agentIntegration || !agentForm.oddzial_id}
                   >
-                    {branchSetupTesting ? 'Test calosci...' : 'Test calosci oddzialu'}
+                    {branchSetupTesting ? 'Test całości...' : 'Test całości oddziału'}
                   </button>
                 </div>
               </form>
@@ -3836,12 +3360,10 @@ export default function Telefonia() {
                       onChange={(e) => setAgentFixForm((f) => ({ ...f, service_type: e.target.value }))}
                       style={s.input}
                     >
-                      <option value="">Typ uslugi...</option>
-                      <option value="wycinka_pielegnacja">Drzewa</option>
-                      <option value="dach">Dach</option>
-                      <option value="elewacja_kostka">Elewacja / kostka</option>
-                      <option value="ogrod">Ogrod</option>
-                      <option value="inne">Inne</option>
+                      <option value="">Typ usługi...</option>
+                      {POLSKA_FLORA_AGENT_SERVICE_TYPES.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select>
                     <input
                       type="datetime-local"
@@ -3915,126 +3437,6 @@ export default function Telefonia() {
             <div style={s.callsIntro}>
               Nowy przeplyw: specjalista klika "Zadzwon i zapisz", a przy telefonie od klienta zapisuje rozmowe jako przychodzaca i opcjonalnie tworzy oddzwonienie.
             </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={s.manualTitle}>Pipeline rozmow Zadarma / CRM</div>
-              <div style={s.agentHealthGrid}>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>Rozmowy</div>
-                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.total ?? 0}</strong>
-                  <div style={s.agentHistoryMeta}>Ostatnie 24h: {phoneDiagnostics?.counts?.last_24h ?? 0}</div>
-                </div>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>Nagrania</div>
-                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.with_recording ?? 0}</strong>
-                  <div style={s.agentHistoryMeta}>Gotowe do obrobki: {phoneDiagnostics?.counts?.recording_ready ?? 0}</div>
-                </div>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>Transkrypcje</div>
-                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.with_transcript ?? 0}</strong>
-                  <div style={s.agentHistoryMeta}>Czeka: {phoneDiagnostics?.counts?.needs_transcription ?? 0}</div>
-                </div>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>CRM</div>
-                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.linked_to_crm ?? 0}</strong>
-                  <div style={s.agentHistoryMeta}>Raport AI: {phoneDiagnostics?.counts?.analyzed ?? 0}</div>
-                </div>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>Bledy</div>
-                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.counts?.error ?? 0}</strong>
-                  <div style={s.agentHistoryMeta}>Status pipeline</div>
-                </div>
-                <div style={s.agentHealthItem}>
-                  <div style={s.agentHealthTop}>Konfiguracja</div>
-                  <strong style={s.agentHealthValue}>{phoneDiagnostics?.config?.zadarma_configured ? 'Zadarma OK' : 'Zadarma brak'}</strong>
-                  <div style={s.agentHistoryMeta}>
-                    OpenAI: {phoneDiagnostics?.config?.openai_configured ? 'OK' : 'brak'} · Claude: {phoneDiagnostics?.config?.anthropic_configured ? 'OK' : 'brak'} · Storage: {phoneDiagnostics?.config?.recording_storage || 'none'}
-                  </div>
-                </div>
-              </div>
-              {phoneDiagnostics?.issues?.length ? (
-                <div style={s.agentSmsPreview}>
-                  {phoneDiagnostics.issues.slice(0, 5).map((issue) => (
-                    <div key={issue}>{issue}</div>
-                  ))}
-                </div>
-              ) : (
-                <div style={s.agentHistoryMeta}>Brak aktywnych blokad w pipeline rozmow.</div>
-              )}
-              {((phoneDiagnostics?.counts?.recording_ready || 0) + (phoneDiagnostics?.counts?.needs_transcription || 0) + (phoneDiagnostics?.counts?.error || 0)) > 0 ? (
-                <div style={s.inlineActions}>
-                  <button
-                    type="button"
-                    style={s.rowBtnActive}
-                    onClick={retryPhonePipeline}
-                    disabled={phonePipelineRetrying}
-                  >
-                    {phonePipelineRetrying ? 'Ponawiam...' : 'Ponow pipeline'}
-                  </button>
-                  <span style={s.agentHistoryMeta}>
-                    Ponawia maksymalnie 10 rozmow z nagraniem, ktore utknely w obrobce.
-                  </span>
-                </div>
-              ) : null}
-              {phoneDiagnostics?.stuck_calls?.length ? (
-                <div style={{ marginTop: 10 }}>
-                  <div style={s.agentHistoryMeta}>Rozmowy wymagajace uwagi</div>
-                  <div style={s.providerChecklistList}>
-                    {phoneDiagnostics.stuck_calls.slice(0, 5).map((call) => (
-                      <div key={call.id || call.call_sid} style={s.providerChecklistItem}>
-                        <span style={String(call.status || '').toLowerCase() === 'error' ? s.reviewBadge : s.okBadge}>
-                          {call.status || 'status'}
-                        </span>
-                        <div style={{ minWidth: 0 }}>
-                          <strong>{call.call_sid || `Rozmowa #${call.id}`}</strong>
-                          <div style={s.agentHistoryMeta}>
-                            {call.client_number || 'brak numeru'} · {call.error_message || 'czeka na ponowienie pipeline'}
-                          </div>
-                        </div>
-                        {call.lead_id ? (
-                          <button type="button" style={s.rowBtn} onClick={() => navigate(`/crm/pipeline?lead_id=${call.lead_id}`)}>
-                            CRM
-                          </button>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            <form style={s.testFlowCard} onSubmit={runPhoneCrmFlowTest}>
-              <div style={s.manualTitle}>Test CRM po rozmowie</div>
-              <div style={s.inline2}>
-                <select
-                  value={testFlowForm.oddzial_id}
-                  onChange={(e) => setTestFlowForm((f) => ({ ...f, oddzial_id: e.target.value }))}
-                  style={s.input}
-                  required
-                >
-                  <option value="">Oddzial...</option>
-                  {oddzialy.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.nazwa || `Oddzial #${o.id}`}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={testFlowForm.phone}
-                  onChange={(e) => setTestFlowForm((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="Numer testowy klienta"
-                  style={s.input}
-                />
-              </div>
-              <div style={s.inlineActions}>
-                <button type="submit" style={s.sendBtn} disabled={testFlowSaving}>
-                  {testFlowSaving ? 'Test...' : 'Uruchom test'}
-                </button>
-                {lastTestLeadId ? (
-                  <button type="button" style={s.rowBtnActive} onClick={() => navigate(`/crm/pipeline?lead_id=${lastTestLeadId}`)}>
-                    Otworz lead #{lastTestLeadId}
-                  </button>
-                ) : null}
-              </div>
-            </form>
             <div style={s.callsGrid}>
               <form style={s.callForm} onSubmit={saveIncomingCall}>
                 <div style={s.manualTitle}>Przyjmij telefon od klienta</div>
@@ -4087,12 +3489,10 @@ export default function Telefonia() {
                     onChange={(e) => setIncomingForm((f) => ({ ...f, service_type: e.target.value }))}
                     style={s.input}
                   >
-                    <option value="">Typ uslugi...</option>
-                    <option value="wycinka_pielegnacja">Drzewa</option>
-                    <option value="dach">Dach</option>
-                    <option value="elewacja_kostka">Elewacja / kostka</option>
-                    <option value="ogrod">Ogrod</option>
-                    <option value="inne">Inne</option>
+                    <option value="">Typ usługi...</option>
+                    {POLSKA_FLORA_AGENT_SERVICE_TYPES.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                   <input
                     type="datetime-local"
@@ -4401,7 +3801,6 @@ export default function Telefonia() {
                       { label: 'Typ', value: x.call_type || 'brak' },
                       { label: 'Czas', value: x.duration_sec != null ? `${x.duration_sec}s` : 'brak', tone: x.duration_sec ? 'success' : undefined },
                       { label: 'Kontakt', value: x.lead_name || 'brak', mono: false },
-                      { label: 'CRM', value: x.lead_id ? `Lead #${x.lead_id}` : 'brak', tone: x.lead_id ? 'success' : undefined },
                       { label: 'Zlecenie', value: x.task_id ? `#${x.task_id}` : 'brak', tone: x.task_id ? 'info' : undefined },
                       { label: 'Notatka', value: x.notes || 'brak', mono: false },
                     ]}
@@ -4415,11 +3814,6 @@ export default function Telefonia() {
                         {x.task_id ? (
                           <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
                             #{x.task_id}
-                          </button>
-                        ) : null}
-                        {x.lead_id ? (
-                          <button type="button" style={s.rowBtnActive} onClick={() => navigate(`/crm/pipeline?lead_id=${x.lead_id}`)}>
-                            Otworz CRM
                           </button>
                         ) : null}
                       </>
@@ -4623,7 +4017,7 @@ export default function Telefonia() {
                           </button>
                         ) : null}
                         {x._fromOsApi ? (
-                          <span style={s.twilioLock} title="ARBOR-OS: status dostawy ustawia provider webhook">
+                          <span style={s.twilioLock} title="Polska Flora: status dostawy ustawia provider webhook">
                             {x.provider || 'Webhook'}
                           </span>
                         ) : (
@@ -5058,16 +4452,6 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
-  },
-  testFlowCard: {
-    background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
-    borderRadius: 8,
-    padding: 12,
-    display: 'grid',
-    gap: 8,
-    marginBottom: 12,
     boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   inline2: {

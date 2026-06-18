@@ -34,14 +34,14 @@
     "ci:check": "node ./scripts/ci-check.cjs",
     "circleci:trigger": "node ./scripts/circleci-trigger-pipeline.cjs",
     "verify:circleci": "node ./scripts/circleci-config-check.cjs",
-    "verify:scripts": "npm run test:scripts && npm run verify:circleci",
+    "verify:github-actions": "node ./scripts/github-actions-check.cjs",
+    "verify:scripts": "npm run test:scripts && npm run verify:circleci && npm run verify:github-actions",
     "verify:mobile": "npm run typecheck -w arbor-mobile && npm run lint -w arbor-mobile",
     "verify:web:test": "npm test -w arbor-web",
     "verify:web": "npm run build -w arbor-web",
     "verify:os": "npm run lint -w arbor-os",
     "verify:os:test": "npm test -w arbor-os",
     "verify:os:full": "npm run verify:os && npm run verify:os:test",
-    "verify:api-routes": "npm run verify:routes:auth -w arbor-os",
     "verify:static": "npm run verify:scripts && npm run verify:mobile && npm run verify:web:test && npm run verify:web && npm run verify:os",
     "verify:static:parallel": "concurrently -n scripts,mobile,web,os -c auto \"npm run verify:scripts\" \"npm run verify:mobile\" \"npm run verify:web:test && npm run verify:web\" \"npm run verify:os\"",
     "check": "npm run verify:static",
@@ -72,8 +72,6 @@
     "verify:resource-calendar-dnd": "node ./scripts/resource-calendar-dnd-check.cjs",
     "verify:planning-map": "node ./scripts/planning-map-check.cjs",
     "verify:equipment-cards": "node ./scripts/equipment-cards-check.cjs",
-    "verify:fleet-repair-due-controls": "node ./scripts/fleet-repair-due-controls-check.cjs",
-    "verify:fleet-repair-parts-cost": "node ./scripts/fleet-repair-parts-cost-check.cjs",
     "verify:dispatcher-day-plan": "node ./scripts/dispatcher-day-plan-check.cjs",
     "verify:machine-cards-crud": "node ./scripts/machine-cards-crud-check.cjs",
     "verify:equipment-usage-rules": "node ./scripts/equipment-usage-rules-check.cjs",
@@ -84,15 +82,18 @@
     "verify:team-competency-assignment-block": "node ./scripts/team-competency-assignment-block-check.cjs",
     "verify:dispatcher-competency-consistency": "node ./scripts/dispatcher-competency-consistency-check.cjs",
     "verify:kommo-idempotency-retry": "node ./scripts/kommo-idempotency-retry-check.cjs",
-    "verify:integrations-release": "node ./scripts/integrations-release-check.cjs",
     "verify:ops-alert-ownership": "node ./scripts/ops-alert-ownership-check.cjs",
     "verify:ops-alert-owner-ui": "node ./scripts/ops-alert-owner-ui-check.cjs",
     "verify:ops-owner-control": "node ./scripts/ops-owner-control-check.cjs",
-    "verify:ops-owner-remediation-closure": "node ./scripts/ops-owner-remediation-closure-check.cjs",
+    "verify:polska-flora-ready": "node ./scripts/polska-flora-readiness-check.cjs",
+    "verify:render-unified": "node ./scripts/render-unified-check.cjs",
+    "smoke:render-unified:live": "node ./scripts/render-unified-live-smoke.cjs",
+    "status:production": "node ./scripts/production-readiness-report.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
-    "prod:ready": "node ./scripts/production-readiness.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
+    "deploy:render:web": "node ./scripts/render-redeploy-web.cjs",
+    "deploy:render:web:wait": "node ./scripts/render-redeploy-web.cjs --wait",
     "deploy:vercel:check": "node ./scripts/deploy-vercel-check.cjs",
     "deploy:vercel": "node ./scripts/deploy-vercel-prod.cjs",
     "deploy:vercel:migrate": "npm run db:migrate -w arbor-os",
@@ -127,22 +128,20 @@
     "@emotion/styled": "^11.14.1",
     "@types/react": "19.2.14",
     "concurrently": "^9.2.1",
-    "expo-router": "~56.2.9",
-    "react-dom": "19.2.3",
     "react-native": "0.85.3",
-    "uuid": "^11.1.1",
     "yaml": "^2.9.0"
   },
   "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.85.3",
-    "minimatch@10": {
-      "brace-expansion": "5.0.6"
+    "js-yaml": "4.2.0",
+    "@istanbuljs/load-nyc-config@1.1.0": {
+      "js-yaml": "4.2.0"
     },
-    "@expo/metro-config@56.0.13": {
-      "postcss": "8.5.15"
-    },
+    "shell-quote": "1.8.4",
+    "uuid": "11.1.1",
     "xcode@3.0.1": {
-      ".": "3.0.1",
       "uuid": "11.1.1"
     },
     "@expo/vector-icons": {
@@ -151,6 +150,7 @@
   },
   "dependencies": {
     "@netlify/database": "^1.0.0",
-    "serverless-http": "^4.0.0"
+    "serverless-http": "^4.0.0",
+    "uuid": "11.1.1"
   }
 }

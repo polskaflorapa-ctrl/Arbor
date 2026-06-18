@@ -8,7 +8,6 @@ import {
   TouchableOpacity, View,
 } from 'react-native';
 import { AppStatusBar } from '../components/ui/app-status-bar';
-import { FieldOpsBackdrop, FieldOpsHeroImage } from '../components/ui/field-ops-art';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../constants/LanguageContext';
@@ -231,7 +230,6 @@ export default function Login() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <FieldOpsBackdrop />
       <AppStatusBar backgroundColor={theme.bg} />
 
       <View style={S.shell}>
@@ -239,30 +237,12 @@ export default function Login() {
           <View style={S.logoCircle}>
             <Ionicons name="leaf" size={38} color={theme.accentText} />
           </View>
-          <View style={S.brandText}>
-            <Text style={S.brandKicker}>FIELD COMMAND</Text>
-            <Text style={S.appName}>ARBOR-OS</Text>
-            <Text style={S.tagline}>{t('login.subtitle')}</Text>
-          </View>
-          <FieldOpsHeroImage variant="dispatch" size={82} />
+          <Text style={S.appName}>Polska Flora</Text>
+          <Text style={S.tagline}>{t('login.subtitle')}</Text>
         </View>
 
         <View style={S.card}>
-          <View style={S.cardTop}>
-            <View>
-              <Text style={S.cardKicker}>Dostęp operacyjny</Text>
-              <Text style={S.cardTitle}>{t('login.title')}</Text>
-            </View>
-            <View style={S.cardStatus}>
-              <View style={[
-                S.cardStatusDot,
-                { backgroundColor: serverStatus === 'online' ? theme.success : serverStatus === 'offline' ? theme.danger : theme.warning },
-              ]} />
-              <Text style={S.cardStatusText}>
-                {serverStatus === 'online' ? 'online' : serverStatus === 'offline' ? 'offline' : 'check'}
-              </Text>
-            </View>
-          </View>
+          <Text style={S.cardTitle}>{t('login.title')}</Text>
           <View style={S.serverRow}>
             <Ionicons
               name={serverStatus === 'online' ? 'cloud-done-outline' : serverStatus === 'offline' ? 'cloud-offline-outline' : 'sync-outline'}
@@ -377,7 +357,7 @@ export default function Login() {
           />
         </View>
 
-        <Text style={S.footer}>Arbor Services 2026</Text>
+        <Text style={S.footer}>Polska Flora 2026</Text>
       </View>
     </KeyboardAvoidingView>
   );
@@ -389,31 +369,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
   },
   shell: {
     width: '100%',
-    maxWidth: 440,
+    maxWidth: 460,
     alignSelf: 'center',
   },
-  brandArea: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 14,
-    padding: 12,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.22)' : t.cardBorder,
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.90)' : t.surface,
-    overflow: 'hidden',
-  },
+  brandArea: { alignItems: 'center', marginBottom: 22 },
   logoCircle: {
-    width: 54, height: 54, borderRadius: 6,
-    backgroundColor: t.name === 'dark' ? t.accentLight : t.accent,
+    width: 74, height: 74, borderRadius: 20,
+    backgroundColor: t.accent,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.50)' : 'transparent',
+    marginBottom: 12,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.28,
       radius: t.shadowRadius * 0.5,
@@ -421,84 +389,31 @@ const makeStyles = (t: Theme) => StyleSheet.create({
       elevation: 4,
     }),
   },
-  brandText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  brandKicker: {
-    color: t.accent,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0,
-    marginBottom: 2,
-  },
   appName: {
-    fontSize: 25, fontWeight: '900',
-    color: t.text, letterSpacing: 0, marginBottom: 2,
+    fontSize: 29, fontWeight: '900',
+    color: t.text, letterSpacing: 0, marginBottom: 5,
   },
-  tagline: { fontSize: 12, color: t.textSub, letterSpacing: 0, fontWeight: '700' },
+  tagline: { fontSize: 13, color: t.textSub, letterSpacing: 0, fontWeight: '700' },
   card: {
     width: '100%',
-    backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.94)' : t.surface,
-    borderRadius: 7, padding: 16,
-    borderWidth: 1, borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
+    backgroundColor: t.surface,
+    borderRadius: t.radiusLg, padding: 20,
+    borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
-      opacity: t.shadowOpacity * 0.95,
-      radius: t.shadowRadius,
-      offsetY: Math.max(4, t.shadowOffsetY),
-      elevation: 5,
+      offsetY: Math.max(2, t.shadowOffsetY),
+      elevation: 3,
     }),
-  },
-  cardTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 14,
-  },
-  cardKicker: {
-    color: t.accent,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0,
-    marginBottom: 3,
   },
   cardTitle: {
     fontSize: 20, fontWeight: '900',
-    color: t.text, letterSpacing: 0,
-  },
-  cardStatus: {
-    minHeight: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: t.cardBorder,
-    backgroundColor: t.surface2,
-  },
-  cardStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  cardStatusText: {
-    color: t.textSub,
-    fontSize: 10,
-    fontWeight: '900',
+    color: t.text, marginBottom: 16, letterSpacing: 0,
   },
   serverRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginTop: -6,
     marginBottom: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: t.surface2,
-    borderWidth: 1,
-    borderColor: t.cardBorder,
   },
   serverText: { fontSize: 12, fontWeight: '600' },
   apiHostText: {
@@ -513,9 +428,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginBottom: 12,
     alignSelf: 'flex-start',
     backgroundColor: t.accent,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -523,10 +438,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   retryBtnText: { color: t.accentText, fontSize: 12, fontWeight: '700' },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: t.name === 'dark' ? t.surface2 : t.inputBg,
-    borderWidth: 1, borderColor: t.name === 'dark' ? 'rgba(255,255,255,0.10)' : t.inputBorder,
-    borderRadius: 6, paddingHorizontal: 13,
-    marginBottom: 12, height: 52,
+    backgroundColor: t.inputBg,
+    borderWidth: 1, borderColor: t.inputBorder,
+    borderRadius: 12, paddingHorizontal: 13,
+    marginBottom: 12, height: 50,
   },
   inputIcon: { marginRight: 10 },
   input: { flex: 1, fontSize: 16, color: t.inputText },
@@ -555,7 +470,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: t.dangerBg,
-    borderRadius: 7,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: t.danger + '66',
     paddingHorizontal: 12,
@@ -574,8 +489,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   lockInfoText: { fontSize: 12, color: t.warning, fontWeight: '600' },
   btn: {
-    backgroundColor: t.accent, borderRadius: 6,
-    height: 52, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: t.accent, borderRadius: 12,
+    height: 50, alignItems: 'center', justifyContent: 'center',
     marginTop: 6,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.2,

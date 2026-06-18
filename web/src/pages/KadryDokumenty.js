@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import CommandSidebar from '../components/CommandSidebar';
+import Sidebar from '../components/Sidebar';
 import ModernDataRow from '../components/ModernDataRow';
-import { Button } from '../components/ui/Button';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken } from '../utils/storedToken';
-import { Download, Edit3, FileText, RefreshCw, User } from 'lucide-react';
+import KadryDokumentyPolskaFlora from './KadryDokumentyPolskaFlora';
 
 const MANAGEMENT_ROLES = new Set(['Administrator', 'Dyrektor', 'Kierownik']);
 const FIELD_ROLES = new Set(['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia']);
@@ -203,8 +202,37 @@ export default function KadryDokumenty() {
   };
 
   return (
+    <KadryDokumentyPolskaFlora
+      allowed={allowed}
+      cards={cards}
+      filteredCards={filteredCards}
+      summary={summary}
+      competencyAlerts={competencyAlerts}
+      alertsByUser={alertsByUser}
+      roles={roles}
+      loading={loading}
+      message={message}
+      query={query}
+      setQuery={setQuery}
+      statusFilter={statusFilter}
+      setStatusFilter={setStatusFilter}
+      roleFilter={roleFilter}
+      setRoleFilter={setRoleFilter}
+      loadCards={loadCards}
+      exportCsv={exportCsv}
+      navigate={navigate}
+      fullName={fullName}
+      statusMeta={statusMeta}
+      competencyMeta={competencyMeta}
+      isFieldWorker={isFieldWorker}
+      formatSettlement={formatSettlement}
+      formatDateTime={formatDateTime}
+    />
+  );
+
+  return (
     <div className="app-shell hr-docs-shell" style={S.wrap}>
-      <CommandSidebar active="profile" />
+      <Sidebar />
       <main className="app-main hr-docs-main" style={S.main}>
         <header className="hr-docs-header" style={S.header}>
           <div>
@@ -215,8 +243,8 @@ export default function KadryDokumenty() {
             </p>
           </div>
           <div className="hr-docs-actions" style={S.headerActions}>
-            <Button type="button" variant="outline" leftIcon={RefreshCw} onClick={loadCards}>Odśwież</Button>
-            <Button type="button" leftIcon={Edit3} onClick={() => navigate('/profil')}>Edytuj kartę</Button>
+            <button type="button" style={S.secondaryBtn} onClick={loadCards}>Odśwież</button>
+            <button type="button" style={S.primaryBtn} onClick={() => navigate('/profil')}>Edytuj kartę</button>
           </div>
         </header>
 
@@ -255,9 +283,9 @@ export default function KadryDokumenty() {
                   <option value="all">Wszystkie role</option>
                   {roles.map((role) => <option key={role} value={role}>{role}</option>)}
                 </select>
-                <Button type="button" variant="outline" leftIcon={Download} onClick={exportCsv} disabled={!filteredCards.length}>
+                <button type="button" style={S.secondaryBtn} onClick={exportCsv} disabled={!filteredCards.length}>
                   Eksport CSV
-                </Button>
+                </button>
               </div>
               {message ? <div style={S.alert}>{message}</div> : null}
               {loading ? (
@@ -291,12 +319,12 @@ export default function KadryDokumenty() {
                         ]}
                         actions={
                           <>
-                            <Button type="button" size="sm" variant="outline" leftIcon={User} onClick={() => navigate(`/profil/${card.user_id}`)}>
+                            <button type="button" style={S.rowBtn} onClick={() => navigate(`/profil/${card.user_id}`)}>
                               Profil
-                            </Button>
-                            <Button type="button" size="sm" leftIcon={FileText} onClick={() => navigate(`/kadry-dokumenty/druk/${card.user_id}`)}>
+                            </button>
+                            <button type="button" style={S.rowBtnPrimary} onClick={() => navigate(`/kadry-dokumenty/druk/${card.user_id}`)}>
                               PDF
-                            </Button>
+                            </button>
                           </>
                         }
                       />

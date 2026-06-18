@@ -4,6 +4,7 @@ const { env } = require('./config/env');
 const { API_VERSION } = require('./config/version');
 const logger = require('./config/logger');
 const { startMessageQueueWorker, stopMessageQueueWorker } = require('./services/crmMessageQueue');
+const { initSentry } = require('./config/sentry');
 
 const initDatabase = async () => {
   const fs = require('fs');
@@ -29,6 +30,7 @@ let serverInstance = null;
 let shutdownInProgress = false;
 
 const startServer = async () => {
+  initSentry();
   try {
     const dbConnected = await pool.testConnection();
     if (!dbConnected) {

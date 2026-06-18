@@ -35,11 +35,25 @@ services:
       - key: UPLOADS_DIR
         value: /tmp/arbor-uploads
       - key: UPLOAD_STORAGE
-        value: local
+        value: s3
       - key: PHONE_RECORDING_STORAGE
-        value: local
-      - key: PHONE_RECORDINGS_DIR
-        value: /tmp/arbor-phone-recordings
+        value: s3
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_PUBLIC_BASE_URL
+        sync: false
+      - key: S3_UPLOAD_PREFIX
+        value: uploads
+      - key: S3_FORCE_PATH_STYLE
+        value: "true"
       - key: METRICS_ENABLED
         value: "false"
       - key: DB_POOL_MAX
@@ -77,6 +91,24 @@ services:
         sync: false
       - key: DEMO_REQUEST_TELEGRAM_PARSE_MODE
         value: HTML
+      # Rate limiting Redis (Upstash Free tier)
+      - key: RATE_LIMIT_STORE
+        value: redis
+      - key: RATE_LIMIT_REDIS_URL
+        sync: false
+      - key: LOGIN_RATE_LIMIT_STORE
+        value: redis
+      - key: LOGIN_RATE_LIMIT_REDIS_URL
+        sync: false
+      # Sentry
+      - key: SENTRY_DSN
+        sync: false
+      # AI pomocnik (asystent ARBOR-OS w webie + analiza zdjęć w mobile).
+      # Wklej klucz w panelu Render → Environment. Bez niego /api/ai zwraca 503.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-opus-4-8
 
   - type: web
     name: arbor-web
@@ -87,10 +119,20 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: VITE_API_URL
-        fromService:
-          name: arbor-os
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
+        value: https://arbor-os-b7k6.onrender.com/api
+      - key: VITE_SENTRY_DSN
+        sync: false
+      - key: VITE_SENTRY_ENVIRONMENT
+        value: production
+      - key: VITE_APP_VERSION
+        sync: false
+      # Sentry Vite plugin (build-time)
+      - key: SENTRY_ORG
+        sync: false
+      - key: SENTRY_PROJECT
+        sync: false
+      - key: SENTRY_AUTH_TOKEN
+        sync: false
     routes:
       - type: rewrite
         source: /*

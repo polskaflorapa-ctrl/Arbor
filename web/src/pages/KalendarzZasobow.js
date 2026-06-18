@@ -384,7 +384,7 @@ function buildDayBrief({
     });
 
   const header = [
-    'ARBOR-OS | Odprawa dnia',
+    'Polska Flora | Odprawa dnia',
     `Data: ${dayISO} (${dayLabel})`,
     `Oddzial: ${branchName}`,
     `Zlecenia: ${dayOpsSummary.tasks} | Rezerwacje sprzetu: ${dayOpsSummary.equipment} | Kolizje: ${dayOpsSummary.teamConflicts + dayOpsSummary.equipmentConflicts}`,
@@ -1931,7 +1931,7 @@ export default function KalendarzZasobow() {
         delegated: team && isTeamDelegatedToView(team) ? [team] : [],
         delegatedTasks: [],
       },
-    }).replace('ARBOR-OS | Odprawa dnia', 'ARBOR-OS | Odprawa ekipy');
+    }).replace('Polska Flora | Odprawa dnia', 'Polska Flora | Odprawa ekipy');
     if (!teamTasks.length) {
       brief = `${brief}\n\n=== ${teamName} ===\nBrak zaplanowanych zlecen dla tej ekipy.`;
     }
