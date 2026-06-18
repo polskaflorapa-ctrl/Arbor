@@ -7,10 +7,16 @@ afterEach(() => {
   localStorage.clear();
 });
 
-test('renders login entrypoint by default', () => {
+test('renders public landing entrypoint by default', () => {
   render(<App />);
-  expect(screen.getByRole('heading', { name: /Zaloguj się/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Zaloguj się/i })).toBeDisabled();
+  expect(screen.getByRole('heading', { name: /Centrum operacyjne/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Wy.*lij zg.*oszenie/i })).toBeInTheDocument();
+});
+
+test('keeps login available on the login route', () => {
+  window.history.replaceState(null, '', '/#/login');
+  render(<App />);
+  expect(screen.getByRole('heading', { name: /Zaloguj/i })).toBeInTheDocument();
   expect(screen.getByText(/Konta demonstracyjne/i)).toBeInTheDocument();
 });
 

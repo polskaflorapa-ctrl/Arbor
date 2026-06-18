@@ -76,8 +76,17 @@ export default function LandingPage() {
   };
 
   const saveLocalDemoRequest = (payload) => {
-    const saved = JSON.parse(localStorage.getItem(DEMO_REQUEST_STORAGE_KEY) || '[]');
-    localStorage.setItem(DEMO_REQUEST_STORAGE_KEY, JSON.stringify([payload, ...saved].slice(0, 20)));
+    try {
+      const parsed = JSON.parse(localStorage.getItem(DEMO_REQUEST_STORAGE_KEY) || '[]');
+      const saved = Array.isArray(parsed) ? parsed : [];
+      localStorage.setItem(DEMO_REQUEST_STORAGE_KEY, JSON.stringify([payload, ...saved].slice(0, 20)));
+    } catch {
+      try {
+        localStorage.setItem(DEMO_REQUEST_STORAGE_KEY, JSON.stringify([payload].slice(0, 20)));
+      } catch {
+        // Public lead capture must not fail because a browser blocks local backup.
+      }
+    }
   };
 
   const submitDemoRequest = async (event) => {
@@ -105,10 +114,10 @@ export default function LandingPage() {
 
       saveLocalDemoRequest(payload);
       setDemoForm(initialDemoForm);
-      setDemoStatus('Dziękujemy. Zgłoszenie demo zostało wysłane.');
+      setDemoStatus('Dziękujemy. Zgłoszenie demo zostało wysłane. Oddzwonimy z konkretnym planem rozmowy.');
     } catch (error) {
       saveLocalDemoRequest({ ...payload, deliveryError: error.message });
-      setDemoError('Nie udało się wysłać zgłoszenia do API. Zapisaliśmy je lokalnie w tej przeglądarce.');
+      setDemoError('Nie udało się wysłać zgłoszenia do API. Spróbuj ponownie za chwilę, a dane zostają zabezpieczone lokalnie w tej przeglądarce.');
     } finally {
       setSubmittingDemo(false);
     }

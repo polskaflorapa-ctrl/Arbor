@@ -4,7 +4,6 @@ import { ThemeProvider } from './ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
-import LandingCommand from './pages/LandingCommand.js';
 import AiChat from './components/AiChat';
 
 const DevPanel = import.meta.env.DEV
@@ -132,7 +131,7 @@ function App() {
         <Suspense fallback={<RouteLoadingFallback />}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<LandingCommand />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/arbor-os-spec" element={<ArborSpecPage />} />
 
