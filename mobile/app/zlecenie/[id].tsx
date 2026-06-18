@@ -1441,7 +1441,7 @@ export default function ZlecenieDetailScreen() {
     const raw = quoteAmount[ewId];
     const amt = parseFloat(String(raw || '').replace(',', '.'));
     if (!Number.isFinite(amt) || amt <= 0) {
-      Alert.alert('Uwaga', 'Podaj kwotę w PLN.');
+      showActionNotice('Podaj kwotę w PLN.', 'warning');
       return;
     }
     const body = { amount_pln: amt };
@@ -1847,7 +1847,7 @@ export default function ZlecenieDetailScreen() {
       const coords = await pobierzLokalizacje();
       if (!coords) {
         void triggerHaptic('warning');
-        Alert.alert('GPS wymagany', 'Nie udalo sie pobrac lokalizacji. Wlacz GPS i sprobuj ponownie.');
+        showActionNotice('GPS wymagany. Nie udało się pobrać lokalizacji. Włącz GPS i spróbuj ponownie.', 'warning');
         return;
       }
       checkinBody = {
