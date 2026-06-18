@@ -605,7 +605,7 @@ export default function ZlecenieDetailScreen() {
         ankieta_uproszczona: true,
       }));
       void triggerHaptic('success');
-      Alert.alert('Przekazano do terenu', 'Zgloszenie jest teraz w kolejce ogledzin.');
+      showActionNotice('Zgloszenie jest teraz w kolejce ogledzin.');
       await loadAll();
     } catch (err) {
       void triggerHaptic('error');
@@ -871,7 +871,7 @@ export default function ZlecenieDetailScreen() {
                 body: { status: nowyStatus },
               });
               setOfflineQueueCount(queued);
-              Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStatusQueued'));
+        showActionNotice(t('order.offlineStatusQueued'));
             } else {
               void triggerHaptic('warning');
               const { data, text } = await readApiErrorBody(res);
@@ -889,7 +889,7 @@ export default function ZlecenieDetailScreen() {
               body: { status: nowyStatus },
             });
             setOfflineQueueCount(queued);
-            Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStatusQueued'));
+            showActionNotice(t('order.offlineStatusQueued'));
           }
           finally { setChangingStatus(false); }
         }
@@ -1112,7 +1112,7 @@ export default function ZlecenieDetailScreen() {
         });
         setOfflineQueueCount(queued);
         await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'start', body: startBody });
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStartQueued'));
+        showActionNotice(t('order.offlineStartQueued'));
       } else {
         void triggerHaptic('warning');
         const msg = await res.text().catch(() => '');
@@ -1149,7 +1149,7 @@ export default function ZlecenieDetailScreen() {
       });
       setOfflineQueueCount(queued);
       await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'start', body: startBody });
-      Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStartQueued'));
+      showActionNotice(t('order.offlineStartQueued'));
     }
     finally { setChangingStatus(false); }
   };
@@ -1416,7 +1416,7 @@ export default function ZlecenieDetailScreen() {
           body,
         });
         setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraWorkQueued'));
+        showActionNotice(t('order.offlineExtraWorkQueued'));
       } else {
         const txt = await res.text();
         Alert.alert(t('notif.alert.errorTitle'), txt.slice(0, 200));
@@ -1429,7 +1429,7 @@ export default function ZlecenieDetailScreen() {
           body,
         });
         setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraWorkQueued'));
+        showActionNotice(t('order.offlineExtraWorkQueued'));
       } catch {
         Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
       }
@@ -1461,7 +1461,7 @@ export default function ZlecenieDetailScreen() {
           body,
         });
         setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraQuoteQueued'));
+        showActionNotice(t('order.offlineExtraQuoteQueued'));
       } else {
         Alert.alert(t('notif.alert.errorTitle'), await res.text());
       }
@@ -1473,7 +1473,7 @@ export default function ZlecenieDetailScreen() {
           body,
         });
         setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraQuoteQueued'));
+        showActionNotice(t('order.offlineExtraQuoteQueued'));
       } catch {
         Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
       }
@@ -1499,7 +1499,7 @@ export default function ZlecenieDetailScreen() {
           body,
         });
         setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraAcceptQueued'));
+        showActionNotice(t('order.offlineExtraAcceptQueued'));
       } else {
         Alert.alert(t('notif.alert.errorTitle'), await res.text());
       }
@@ -1511,7 +1511,7 @@ export default function ZlecenieDetailScreen() {
           body,
         });
         setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraAcceptQueued'));
+        showActionNotice(t('order.offlineExtraAcceptQueued'));
       } catch {
         Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
       }
@@ -1537,7 +1537,7 @@ export default function ZlecenieDetailScreen() {
           body,
         });
         setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), 'Brak sieci — decyzja zostanie wysłana po synchronizacji.');
+        showActionNotice('Brak sieci — decyzja zostanie wysłana po synchronizacji.');
       } else {
         Alert.alert(t('notif.alert.errorTitle'), await res.text());
       }
@@ -1549,7 +1549,7 @@ export default function ZlecenieDetailScreen() {
           body,
         });
         setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), 'Brak sieci — decyzja zostanie wysłana po synchronizacji.');
+        showActionNotice('Brak sieci — decyzja zostanie wysłana po synchronizacji.');
       } catch {
         Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
       }
@@ -2016,7 +2016,7 @@ export default function ZlecenieDetailScreen() {
         setClientSignature({ ...body, updated_at: new Date().toISOString() });
         setShowClientSignatureModal(false);
         void triggerHaptic('warning');
-        Alert.alert(t('notif.alert.offlineTitle'), 'Podpis zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
+        showActionNotice('Podpis zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
         return;
       }
       const msg = await res.text().catch(() => '');
@@ -2034,7 +2034,7 @@ export default function ZlecenieDetailScreen() {
       setClientSignature({ ...body, updated_at: new Date().toISOString() });
       setShowClientSignatureModal(false);
       void triggerHaptic('warning');
-      Alert.alert(t('notif.alert.offlineTitle'), 'Podpis zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
+      showActionNotice('Podpis zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
     }
   };
 
@@ -2543,7 +2543,7 @@ export default function ZlecenieDetailScreen() {
     await AsyncStorage.setItem(scopeConfirmKey, '1');
     setScopeConfirmed(true);
     void triggerHaptic('success');
-    Alert.alert('Odprawa potwierdzona', 'Zakres, zdjęcia i BHP są potwierdzone dla tej brygady.');
+    showActionNotice('Zakres, zdjęcia i BHP są potwierdzone dla tej brygady.');
   };
   const fieldDraftPhotoChecklist = [
     {
