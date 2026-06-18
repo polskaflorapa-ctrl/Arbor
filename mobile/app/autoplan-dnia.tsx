@@ -274,6 +274,17 @@ export default function AutoplanDniaScreen() {
   const [rulesDenyDraft, setRulesDenyDraft] = useState('');
   const [savingRules, setSavingRules] = useState(false);
   const [userRola, setUserRola] = useState('');
+  const [operationNotice, setOperationNotice] = useState('');
+
+  const showOperationNotice = useCallback((message: string) => {
+    setOperationNotice(message);
+  }, []);
+
+  useEffect(() => {
+    if (!operationNotice) return;
+    const timer = setTimeout(() => setOperationNotice(''), 6500);
+    return () => clearTimeout(timer);
+  }, [operationNotice]);
 
   const load = useCallback(async () => {
     const { token, user } = await getStoredSession();
@@ -370,7 +381,7 @@ export default function AutoplanDniaScreen() {
     setSavingRules(true);
     try {
       await saveAutoplanRules(next);
-      Alert.alert(t('common.saved'), t('autoplan.rules.saved'));
+      showOperationNotice(t('autoplan.rules.saved'));
       setRefreshing(true);
       void load();
     } finally {
@@ -446,7 +457,7 @@ export default function AutoplanDniaScreen() {
             actor,
           });
           setHistory(hist);
-          Alert.alert(t('autoplan.applyResultTitle'), t('autoplan.applyResultBody', { ok, queued }));
+          showOperationNotice(t('autoplan.applyResultBody', { ok, queued }));
           void load();
         },
       },
@@ -507,7 +518,7 @@ export default function AutoplanDniaScreen() {
             actor,
           });
           setHistory(hist);
-          Alert.alert(t('autoplan.rollbackResultTitle'), t('autoplan.rollbackResultBody', { ok, queued }));
+          showOperationNotice(t('autoplan.rollbackResultBody', { ok, queued }));
           void load();
         },
       },
@@ -530,7 +541,7 @@ export default function AutoplanDniaScreen() {
       await Share.share({
         message: `${t('autoplan.exportIntro')}\n\n${csv}`,
       });
-      Alert.alert(t('autoplan.exportTitle'), t('autoplan.exportDone'));
+      showOperationNotice(t('autoplan.exportDone'));
     } catch {
       Alert.alert(t('autoplan.exportTitle'), t('autoplan.exportFail'));
     } finally {
@@ -604,7 +615,7 @@ export default function AutoplanDniaScreen() {
       await Share.share({
         message: `${t('autoplan.dailyIntro')}\n\n${summary}\n\n${csv}`,
       });
-      Alert.alert(t('autoplan.dailyTitle'), t('autoplan.dailyDone'));
+      showOperationNotice(t('autoplan.dailyDone'));
     } catch {
       Alert.alert(t('autoplan.dailyTitle'), t('autoplan.dailyFail'));
     } finally {
@@ -636,7 +647,7 @@ export default function AutoplanDniaScreen() {
       await Share.share({
         message: `${mgmtText}\n\n${t('autoplan.exportIntro')}\n\n${csv}`,
       });
-      Alert.alert(t('autoplan.mgmt.title'), t('autoplan.mgmt.done'));
+      showOperationNotice(t('autoplan.mgmt.done'));
     } catch {
       Alert.alert(t('autoplan.mgmt.title'), t('autoplan.mgmt.fail'));
     } finally {
@@ -673,7 +684,7 @@ export default function AutoplanDniaScreen() {
     setReminderBusy(true);
     try {
       await scheduleAutoplanDailyReminder(next.hour, next.minute);
-      Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.rescheduled', { time: formatClock(next.hour, next.minute) }));
+      showOperationNotice(t('autoplan.reminder.rescheduled', { time: formatClock(next.hour, next.minute) }));
     } catch {
       Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.error'));
     } finally {
@@ -693,7 +704,7 @@ export default function AutoplanDniaScreen() {
       const rt = await getAutoplanReminderTime();
       setReminderTimeState(rt);
       setReminderEnabled(true);
-      Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.enabled', { time: formatClock(rt.hour, rt.minute) }));
+      showOperationNotice(t('autoplan.reminder.enabled', { time: formatClock(rt.hour, rt.minute) }));
     } catch {
       Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.error'));
     } finally {
@@ -706,7 +717,7 @@ export default function AutoplanDniaScreen() {
     try {
       await cancelAutoplanDailyReminder();
       setReminderEnabled(false);
-      Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.disabled'));
+      showOperationNotice(t('autoplan.reminder.disabled'));
     } catch {
       Alert.alert(t('autoplan.reminder.title'), t('autoplan.reminder.error'));
     } finally {
@@ -726,6 +737,12 @@ export default function AutoplanDniaScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} colors={[theme.accent]} />}
       >
         <Text style={S.hint}>{t('autoplan.hint')}</Text>
+        {operationNotice ? (
+          <View style={S.noticeBox}>
+            <Ionicons name="checkmark-circle-outline" size={16} color={theme.success} />
+            <Text style={S.noticeTxt}>{operationNotice}</Text>
+          </View>
+        ) : null}
         <View style={S.rulesBox}>
           <Text style={S.rulesTitle}>{t('autoplan.rules.title')}</Text>
           <Text style={S.rulesHint}>{t('autoplan.rules.maxHint')}</Text>
@@ -978,6 +995,20 @@ function makeStyles(theme: Theme) {
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg },
     scroll: { flex: 1 },
     hint: { fontSize: 13, color: theme.textMuted, padding: 16, paddingBottom: 8 },
+    noticeBox: {
+      marginHorizontal: 16,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: theme.success,
+      backgroundColor: theme.successBg,
+      borderRadius: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    noticeTxt: { flex: 1, color: theme.success, fontSize: 12, fontWeight: '800', lineHeight: 16 },
     rulesBox: {
       marginHorizontal: 16,
       marginBottom: 12,
