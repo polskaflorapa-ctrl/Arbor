@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   RefreshControl,
   ScrollView,
@@ -348,6 +347,7 @@ export default function MisjaDniaScreen() {
   const [userId, setUserId] = useState('');
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [cacheNotice, setCacheNotice] = useState('');
+  const [actionNotice, setActionNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   type DayPreview = {
     cash_by_forma: { forma_platnosc?: string | null; sum_kwota?: string | number; cnt?: number }[];
     issues_count?: number;
@@ -359,6 +359,16 @@ export default function MisjaDniaScreen() {
   } | null>(null);
   const [teamDayLoading, setTeamDayLoading] = useState(false);
   const [teamDayBusy, setTeamDayBusy] = useState(false);
+
+  const showActionNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setActionNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!actionNotice) return;
+    const timer = setTimeout(() => setActionNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [actionNotice]);
 
   const refreshOfflineQueueCount = useCallback(async () => {
     const count = await getOfflineQueueSize().catch(() => 0);
@@ -505,14 +515,14 @@ export default function MisjaDniaScreen() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error || 'err');
-      Alert.alert('', t('misja.teamDay.ok'));
+      showActionNotice(t('misja.teamDay.ok'));
       await fetchTeamDayReport();
     } catch {
-      Alert.alert('', t('misja.teamDay.err'));
+      showActionNotice(t('misja.teamDay.err'), 'warning');
     } finally {
       setTeamDayBusy(false);
     }
-  }, [fetchTeamDayReport, t]);
+  }, [fetchTeamDayReport, showActionNotice, t]);
 
   const remainingToday = useMemo(
     () => sortedTodayTasks.filter((task) => !isTaskClosed(task.status)),
@@ -639,15 +649,15 @@ export default function MisjaDniaScreen() {
   const callClient = useCallback(async (task?: TaskItem | null) => {
     const phone = String(task?.klient_telefon || '').replace(/[^\d+]/g, '');
     if (!phone) {
-      Alert.alert('', 'Brak numeru telefonu klienta.');
+      showActionNotice('Brak numeru telefonu klienta.', 'warning');
       return;
     }
     try {
       await Linking.openURL(`tel:${phone}`);
     } catch {
-      Alert.alert('', 'Nie udalo sie uruchomic telefonu.');
+      showActionNotice('Nie udalo sie uruchomic telefonu.', 'warning');
     }
-  }, []);
+  }, [showActionNotice]);
 
   const crewRole = isCrewRole(userRole);
   const estimatorRole = isEstimatorRole(userRole);
@@ -729,6 +739,34 @@ export default function MisjaDniaScreen() {
             <Text style={S.kpiLabel}>{t('misja.kpi.dayProgress')}</Text>
           </View>
         </View>
+
+        {actionNotice ? (
+          <View
+            style={[
+              S.actionNotice,
+              {
+                backgroundColor: actionNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+                borderColor: actionNotice.tone === 'warning' ? theme.warning : theme.success,
+              },
+            ]}
+          >
+            <View style={[S.actionNoticeIcon, { borderColor: actionNotice.tone === 'warning' ? theme.warning + '44' : theme.success + '44' }]}>
+              <Ionicons
+                name={actionNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+                size={17}
+                color={actionNotice.tone === 'warning' ? theme.warning : theme.success}
+              />
+            </View>
+            <Text
+              style={[
+                S.actionNoticeText,
+                { color: actionNotice.tone === 'warning' ? theme.warning : theme.success },
+              ]}
+            >
+              {actionNotice.message}
+            </Text>
+          </View>
+        ) : null}
 
         {offlineQueueCount > 0 ? (
           <View style={S.offlineNotice}>
@@ -1331,6 +1369,26 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   offlineNoticeTitle: { color: t.text, fontSize: 13, fontWeight: '900' },
   offlineNoticeText: { color: t.textSub, fontSize: 11.5, lineHeight: 16, marginTop: 1 },
+  actionNotice: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  actionNoticeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.cardBg,
+    borderWidth: 1,
+  },
+  actionNoticeText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   progressTrack: {
     height: 10,
     borderRadius: 5,
