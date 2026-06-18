@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  buildProductionReadinessReport,
   deployHookGate,
   parseArgs,
   runCommandGate,
@@ -25,6 +26,8 @@ test("production readiness args accept live URLs, timeout, JSON, and local skip"
   assert.equal(options.timeoutMs, 1234);
   assert.equal(options.skipLocal, true);
   assert.equal(options.json, true);
+  assert.match(options.expectedBuild, /^[0-9a-f]{7,}$/);
+  assert.equal(parseArgs(["--any-build"]).expectedBuild, "");
 });
 
 test("production readiness summary blocks on failed gates", () => {
@@ -67,4 +70,33 @@ test("production readiness command gate captures command failures", () => {
   assert.equal(gate.status, "fail");
   assert.equal(gate.command, "npm run missing");
   assert.match(gate.detail, /missing script/);
+});
+
+test("production readiness report includes the expected web build marker", async () => {
+  const report = await buildProductionReadinessReport({
+    skipLocal: true,
+    expectedBuild: "abc1234",
+    env: { RENDER_WEB_DEPLOY_HOOK_URL: "https://api.render.com/deploy/srv-1" },
+    fetchImpl: async (url) => {
+      if (String(url).includes("/ready/")) {
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { status: "ready", database: "up" };
+          },
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return '<title>Polska Flora</title><meta name="arbor-web-build" content="abc1234">';
+        },
+      };
+    },
+  });
+
+  assert.equal(report.expectedBuild, "abc1234");
+  assert.equal(report.summary.status, "ready");
 });

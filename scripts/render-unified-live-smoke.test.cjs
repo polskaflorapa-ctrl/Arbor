@@ -6,6 +6,8 @@ const {
   assertWebLooksCurrent,
   assertApiReady,
   buildCacheBustedUrl,
+  parseArgs,
+  resolveCurrentGitBuild,
   extractWebBuildMetadata,
   DEFAULT_WEB_URL,
   DEFAULT_API_BASE_URL,
@@ -52,6 +54,22 @@ test("buildCacheBustedUrl preserves existing query params", () => {
   );
 });
 
+test("resolveCurrentGitBuild reads the current short git SHA", () => {
+  assert.equal(resolveCurrentGitBuild({ execImpl: () => "abc1234\n" }), "abc1234");
+});
+
+test("parseArgs expects the current git build unless any-build is requested", () => {
+  const original = process.argv;
+  process.argv = ["node", "script"];
+  try {
+    const options = parseArgs(["--web", "https://web.example.com"]);
+    assert.match(options.expectedBuild, /^[0-9a-f]{7,}$/);
+    assert.equal(parseArgs(["--any-build"]).expectedBuild, "");
+  } finally {
+    process.argv = original;
+  }
+});
+
 test("extractWebBuildMetadata reads deployment marker meta tags", () => {
   assert.deepEqual(
     extractWebBuildMetadata('<meta name="arbor-web-build" content="abc123"><meta name="arbor-web-api" content="/api">'),
@@ -68,6 +86,18 @@ test("assertWebLooksCurrent rejects mismatched build marker", async () => {
   await assert.rejects(
     () => assertWebLooksCurrent({ fetchImpl, expectedBuild: "new-build" }),
     /Web build marker mismatch: expected new-build, got old-build/,
+  );
+});
+
+test("assertWebLooksCurrent rejects missing build marker when expected build is known", async () => {
+  const fetchImpl = async () =>
+    makeResponse({
+      text: '<title>Polska Flora</title><meta name="description" content="Polska Flora">',
+    });
+
+  await assert.rejects(
+    () => assertWebLooksCurrent({ fetchImpl, expectedBuild: "new-build" }),
+    /Web build marker mismatch: expected new-build, got missing/,
   );
 });
 

@@ -57,3 +57,51 @@ test('keeps the landing form alive when API delivery fails and local backup is c
   expect(await screen.findByRole('alert')).toHaveTextContent(/Spr.*buj ponownie/i);
   expect(localStorage.getItem('arbor-landing-demo-requests')).toContain('Pilne Drzewa');
 });
+
+test('replays a locally saved failed demo request when the landing page opens again', async () => {
+  localStorage.setItem('arbor-landing-demo-requests', JSON.stringify([{
+    name: 'Anna Retry',
+    email: 'retry@example.test',
+    company: 'Odzyskany Lead',
+    phone: '+48 500 200 300',
+    message: 'API bylo chwilowo niedostepne.',
+    source: 'landing-page',
+    createdAt: '2026-06-18T08:00:00.000Z',
+    deliveryError: 'Demo request failed with 503',
+  }]));
+  global.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+  render(<LandingPage />);
+
+  await waitFor(() => {
+    expect(global.fetch).toHaveBeenCalledWith('/api/demo-requests', expect.objectContaining({
+      method: 'POST',
+      body: expect.stringContaining('Odzyskany Lead'),
+    }));
+  });
+  expect(await screen.findByText(/Wyslalismy zalegle zgloszenie demo \(1\)/i)).toBeInTheDocument();
+  const saved = JSON.parse(localStorage.getItem('arbor-landing-demo-requests'));
+  expect(saved[0].retrySyncedAt).toBeTruthy();
+  expect(saved[0]).not.toHaveProperty('deliveryError');
+});
+
+test('keeps a failed local demo request queued when replay still cannot reach the API', async () => {
+  localStorage.setItem('arbor-landing-demo-requests', JSON.stringify([{
+    name: 'Anna Retry',
+    email: 'retry@example.test',
+    company: 'Nadal Offline',
+    createdAt: '2026-06-18T08:00:00.000Z',
+    deliveryError: 'database down',
+  }]));
+  global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+
+  render(<LandingPage />);
+
+  await waitFor(() => {
+    expect(global.fetch).toHaveBeenCalled();
+  });
+  const saved = JSON.parse(localStorage.getItem('arbor-landing-demo-requests'));
+  expect(saved[0].deliveryError).toBe('database down');
+  expect(saved[0].retryError).toBe('Demo request failed with 503');
+  expect(saved[0].retrySyncedAt).toBeUndefined();
+});

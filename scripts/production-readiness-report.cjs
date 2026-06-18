@@ -86,6 +86,7 @@ async function buildProductionReadinessReport(options = {}) {
     generatedAt: new Date().toISOString(),
     webUrl: options.webUrl || DEFAULT_WEB_URL,
     apiBaseUrl: options.apiBaseUrl || DEFAULT_API_BASE_URL,
+    expectedBuild: options.expectedBuild || null,
     summary: summarizeReadiness(gates),
     gates,
   };
@@ -95,6 +96,7 @@ function printTextReport(report) {
   console.log(`[production-readiness] ${report.summary.status}`);
   console.log(`[production-readiness] Web: ${report.webUrl}`);
   console.log(`[production-readiness] API: ${report.apiBaseUrl}`);
+  if (report.expectedBuild) console.log(`[production-readiness] Expected web build: ${report.expectedBuild}`);
   for (const gate of report.gates) {
     console.log(`[production-readiness] ${gate.status.toUpperCase()} ${gate.name}: ${gate.detail}`);
   }

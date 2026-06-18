@@ -1,3 +1,5 @@
+const { execSync } = require("node:child_process");
+
 const DEFAULT_WEB_URL = "https://arbo-web.onrender.com";
 const DEFAULT_API_BASE_URL = "https://arbor-os-b7k6.onrender.com/api";
 
@@ -11,12 +13,22 @@ function buildCacheBustedUrl(url, cacheKey = Date.now()) {
   return target.toString();
 }
 
+function resolveCurrentGitBuild({ execImpl = execSync } = {}) {
+  try {
+    return execImpl("git rev-parse --short HEAD", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+}
+
 function parseArgs(argv = process.argv.slice(2)) {
+  const anyBuild = argv.includes("--any-build");
   const options = {
     webUrl: DEFAULT_WEB_URL,
     apiBaseUrl: DEFAULT_API_BASE_URL,
     timeoutMs: 45000,
-    expectedBuild: "",
+    expectedBuild: anyBuild ? "" : resolveCurrentGitBuild(),
+    anyBuild,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -33,6 +45,8 @@ function parseArgs(argv = process.argv.slice(2)) {
     } else if (arg === "--expected-build" && argv[i + 1]) {
       options.expectedBuild = argv[i + 1];
       i += 1;
+    } else if (arg === "--any-build") {
+      options.expectedBuild = "";
     }
   }
 
@@ -86,6 +100,9 @@ async function assertWebLooksCurrent(options = {}) {
     throw new Error("Web HTML does not contain Polska Flora markers from the current build.");
   }
   const metadata = extractWebBuildMetadata(html);
+  if (options.expectedBuild && !metadata.build) {
+    throw new Error(`Web build marker mismatch: expected ${options.expectedBuild}, got missing.`);
+  }
   if (options.expectedBuild && metadata.build !== options.expectedBuild) {
     throw new Error(`Web build marker mismatch: expected ${options.expectedBuild}, got ${metadata.build || "missing"}.`);
   }
@@ -142,6 +159,7 @@ if (require.main === module) {
 module.exports = {
   parseArgs,
   buildCacheBustedUrl,
+  resolveCurrentGitBuild,
   extractMetaContent,
   extractWebBuildMetadata,
   fetchWithTimeout,

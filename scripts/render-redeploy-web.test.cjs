@@ -26,21 +26,23 @@ test("resolveDeployHookUrl reads Render web deploy hook env", () => {
 });
 
 test("parseArgs supports wait smoke options", () => {
-  assert.deepEqual(
-    parseArgs(["--wait", "--timeout-ms", "1000", "--wait-attempts=3", "--wait-interval-ms", "250"]),
-    {
-      dryRun: false,
-      wait: true,
-      timeoutMs: 1000,
-      waitAttempts: 3,
-      waitIntervalMs: 250,
-      expectedBuild: "",
-    },
-  );
+  const options = parseArgs(["--wait", "--timeout-ms", "1000", "--wait-attempts=3", "--wait-interval-ms", "250"]);
+  assert.equal(options.dryRun, false);
+  assert.equal(options.wait, true);
+  assert.equal(options.timeoutMs, 1000);
+  assert.equal(options.waitAttempts, 3);
+  assert.equal(options.waitIntervalMs, 250);
+  assert.match(options.expectedBuild, /^[0-9a-f]{7,}$/);
+  assert.equal(options.anyBuild, false);
 });
 
 test("parseArgs supports expected build marker", () => {
   assert.equal(parseArgs(["--wait", "--expected-build", "abc123"]).expectedBuild, "abc123");
+});
+
+test("parseArgs can skip exact build matching", () => {
+  assert.equal(parseArgs(["--wait", "--any-build"]).expectedBuild, "");
+  assert.equal(parseArgs(["--wait", "--any-build"]).anyBuild, true);
 });
 
 test("resolveDeployHookUrl rejects missing deploy hook", () => {

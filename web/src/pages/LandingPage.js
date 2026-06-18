@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowForward,
   AssignmentTurnedIn,
@@ -63,6 +63,54 @@ const timeline = [
   { label: 'Raport podpisany', width: '88%' },
 ];
 
+function readLocalDemoRequests() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DEMO_REQUEST_STORAGE_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalDemoRequests(items) {
+  try {
+    localStorage.setItem(DEMO_REQUEST_STORAGE_KEY, JSON.stringify(items.slice(0, 20)));
+  } catch {
+    // Public lead capture must not fail because a browser blocks local backup.
+  }
+}
+
+function normalizeDemoPayload(payload) {
+  const {
+    deliveryError,
+    retryError,
+    retrySyncedAt,
+    ...cleanPayload
+  } = payload || {};
+
+  return {
+    name: cleanPayload.name || '',
+    email: cleanPayload.email || '',
+    company: cleanPayload.company || '',
+    phone: cleanPayload.phone || '',
+    message: cleanPayload.message || '',
+    source: cleanPayload.source || 'landing-page',
+    createdAt: cleanPayload.createdAt || new Date().toISOString(),
+  };
+}
+
+async function postDemoRequest(payload) {
+  const response = await fetch(`${getReactApiBase()}/demo-requests`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(normalizeDemoPayload(payload)),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Demo request failed with ${response.status}`);
+  }
+}
+
 export default function LandingPage() {
   const [demoForm, setDemoForm] = useState(initialDemoForm);
   const [demoStatus, setDemoStatus] = useState('');
@@ -77,17 +125,67 @@ export default function LandingPage() {
 
   const saveLocalDemoRequest = (payload) => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(DEMO_REQUEST_STORAGE_KEY) || '[]');
-      const saved = Array.isArray(parsed) ? parsed : [];
-      localStorage.setItem(DEMO_REQUEST_STORAGE_KEY, JSON.stringify([payload, ...saved].slice(0, 20)));
+      const saved = readLocalDemoRequests();
+      writeLocalDemoRequests([payload, ...saved]);
     } catch {
-      try {
-        localStorage.setItem(DEMO_REQUEST_STORAGE_KEY, JSON.stringify([payload].slice(0, 20)));
-      } catch {
-        // Public lead capture must not fail because a browser blocks local backup.
-      }
+      writeLocalDemoRequests([payload]);
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function replayPendingDemoRequests() {
+      const saved = readLocalDemoRequests();
+      const pending = saved
+        .filter((item) => item?.deliveryError && !item?.retrySyncedAt)
+        .slice(0, 3);
+
+      if (pending.length === 0) return;
+
+      let synced = 0;
+      const nextItems = [...saved];
+
+      for (const item of pending) {
+        const index = nextItems.findIndex((row) => (
+          row?.createdAt === item.createdAt
+          && row?.email === item.email
+          && row?.company === item.company
+        ));
+
+        try {
+          await postDemoRequest(item);
+          synced += 1;
+          if (index >= 0) {
+            nextItems[index] = {
+              ...nextItems[index],
+              deliveryError: undefined,
+              retryError: undefined,
+              retrySyncedAt: new Date().toISOString(),
+            };
+          }
+        } catch (error) {
+          if (index >= 0) {
+            nextItems[index] = {
+              ...nextItems[index],
+              retryError: error.message,
+            };
+          }
+        }
+      }
+
+      writeLocalDemoRequests(nextItems);
+      if (!cancelled && synced > 0) {
+        setDemoStatus(`Wyslalismy zalegle zgloszenie demo (${synced}).`);
+      }
+    }
+
+    replayPendingDemoRequests();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const submitDemoRequest = async (event) => {
     event.preventDefault();
@@ -102,16 +200,7 @@ export default function LandingPage() {
     };
 
     try {
-      const response = await fetch(`${getReactApiBase()}/demo-requests`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Demo request failed with ${response.status}`);
-      }
-
+      await postDemoRequest(payload);
       saveLocalDemoRequest(payload);
       setDemoForm(initialDemoForm);
       setDemoStatus('Dziękujemy. Zgłoszenie demo zostało wysłane. Oddzwonimy z konkretnym planem rozmowy.');

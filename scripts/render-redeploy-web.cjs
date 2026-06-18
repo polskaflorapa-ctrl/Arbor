@@ -1,4 +1,4 @@
-const { runRenderUnifiedLiveSmoke } = require("./render-unified-live-smoke.cjs");
+const { resolveCurrentGitBuild, runRenderUnifiedLiveSmoke } = require("./render-unified-live-smoke.cjs");
 
 function parseArgs(argv = process.argv.slice(2)) {
   const valueAfter = (flag, fallback) => {
@@ -14,7 +14,8 @@ function parseArgs(argv = process.argv.slice(2)) {
     timeoutMs: Number(valueAfter("--timeout-ms", 30000)),
     waitAttempts: Number(valueAfter("--wait-attempts", 12)),
     waitIntervalMs: Number(valueAfter("--wait-interval-ms", 10000)),
-    expectedBuild: valueAfter("--expected-build", ""),
+    expectedBuild: argv.includes("--any-build") ? "" : valueAfter("--expected-build", resolveCurrentGitBuild()),
+    anyBuild: argv.includes("--any-build"),
   };
 }
 

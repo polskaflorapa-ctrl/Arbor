@@ -69,6 +69,12 @@ npm run smoke:render-unified:live -- --expected-build abc1234
 npm run status:production
 ```
 
+`smoke:render-unified:live`, `deploy:render:web:wait` i `status:production`
+domyślnie oczekują markera builda równego aktualnemu krótkiemu SHA z Git.
+Dzięki temu stary, ale nadal działający statyczny web nie przejdzie kontroli
+po zmianach na `master`. Jeśli chcesz sprawdzić tylko ogólną dostępność web/API
+bez porównania wersji, użyj `-- --any-build`.
+
 ## Szybka kontrola w przegladarce
 
 Na `https://arbo-web.onrender.com` po redeployu powinny byc widoczne aktualne teksty Polska Flora, m.in. przeplyw:
