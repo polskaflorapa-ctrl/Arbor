@@ -3,37 +3,43 @@ import { Loader2 } from 'lucide-react';
 
 const buttonVariants = {
   primary: {
-    background: 'var(--accent-gradient)',
+    backgroundColor: 'var(--accent)',
+    backgroundImage: 'var(--accent-gradient)',
     borderColor: 'var(--border2)',
     color: 'var(--on-accent)',
     boxShadow: 'var(--shadow-sm)',
   },
   secondary: {
-    background: 'var(--surface-field)',
+    backgroundColor: 'var(--surface-field)',
+    backgroundImage: 'none',
     borderColor: 'var(--border)',
     color: 'var(--text)',
     boxShadow: 'none',
   },
   ghost: {
-    background: 'transparent',
+    backgroundColor: 'transparent',
+    backgroundImage: 'none',
     borderColor: 'transparent',
     color: 'var(--text-sub)',
     boxShadow: 'none',
   },
   outline: {
-    background: 'var(--glass-bg)',
+    backgroundColor: 'var(--glass-bg)',
+    backgroundImage: 'none',
     borderColor: 'var(--glass-border)',
     color: 'var(--text)',
     boxShadow: 'none',
   },
   danger: {
-    background: 'var(--danger-surface)',
+    backgroundColor: 'var(--danger-surface)',
+    backgroundImage: 'none',
     borderColor: 'rgba(220, 38, 38, 0.24)',
     color: 'var(--danger)',
     boxShadow: 'none',
   },
   warning: {
-    background: 'var(--warning-surface)',
+    backgroundColor: 'var(--warning-surface)',
+    backgroundImage: 'none',
     borderColor: 'rgba(183, 121, 31, 0.24)',
     color: 'var(--warning)',
     boxShadow: 'none',
@@ -81,20 +87,34 @@ export const Button = React.forwardRef(({
   ...props
 }, ref) => {
   const isDisabled = disabled || loading;
+  const hasBorderShorthand = style && Object.prototype.hasOwnProperty.call(style, 'border');
+  const hasBackgroundShorthand = style && Object.prototype.hasOwnProperty.call(style, 'background');
+  const mergedStyle = {
+    ...baseStyle,
+    ...buttonVariants[variant],
+    ...buttonSizes[size],
+    width: fullWidth ? '100%' : undefined,
+    opacity: isDisabled ? 0.58 : 1,
+    pointerEvents: isDisabled ? 'none' : undefined,
+    ...style,
+  };
+
+  if (hasBorderShorthand) {
+    delete mergedStyle.borderColor;
+    delete mergedStyle.borderStyle;
+    delete mergedStyle.borderWidth;
+  }
+
+  if (hasBackgroundShorthand) {
+    delete mergedStyle.backgroundColor;
+    delete mergedStyle.backgroundImage;
+  }
 
   return (
     <button
       ref={ref}
       className={className}
-      style={{
-        ...baseStyle,
-        ...buttonVariants[variant],
-        ...buttonSizes[size],
-        width: fullWidth ? '100%' : undefined,
-        opacity: isDisabled ? 0.58 : 1,
-        pointerEvents: isDisabled ? 'none' : undefined,
-        ...style,
-      }}
+      style={mergedStyle}
       disabled={isDisabled}
       type={type}
       {...props}
