@@ -7,6 +7,13 @@ on:
 
 env:
   NODE_VERSION: '22'
+  RENDER_STAGING_API_SERVICE_ID: ${{ secrets.RENDER_STAGING_API_SERVICE_ID }}
+  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+  STAGING_WEB_URL: ${{ secrets.STAGING_WEB_URL }}
 
 jobs:
   deploy-staging:
@@ -37,31 +44,39 @@ jobs:
 
       - name: Deploy API to Render (staging)
         uses: render-actions/deploy@v1
-        if: ${{ secrets.RENDER_STAGING_API_SERVICE_ID != '' }}
+        if: ${{ env.RENDER_STAGING_API_SERVICE_ID != '' && env.RENDER_API_KEY != '' }}
         with:
-          service-id: ${{ secrets.RENDER_STAGING_API_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}
+          service-id: ${{ env.RENDER_STAGING_API_SERVICE_ID }}
+          api-key: ${{ env.RENDER_API_KEY }}
 
       - name: Deploy Web to Vercel (staging)
         uses: amondnet/vercel-action@v25
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-token: ${{ env.VERCEL_TOKEN }}
+          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           working-directory: ./web
 
       - name: Health check staging API
         run: |
+          if [ -z "$STAGING_API_URL" ]; then
+            echo "STAGING_API_URL is not configured; skipping API health check."
+            exit 0
+          fi
           for i in {1..30}; do
-            curl -sf https://${{ secrets.STAGING_API_URL }}/api/ready/ && break
+            curl -sf https://$STAGING_API_URL/api/ready/ && break
             sleep 10
           done
 
       - name: Health check staging Web
         run: |
+          if [ -z "$STAGING_WEB_URL" ]; then
+            echo "STAGING_WEB_URL is not configured; skipping web health check."
+            exit 0
+          fi
           for i in {1..10}; do
-            curl -sf https://${{ secrets.STAGING_WEB_URL }} && break
+            curl -sf https://$STAGING_WEB_URL && break
             sleep 5
           done

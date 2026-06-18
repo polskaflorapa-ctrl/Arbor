@@ -10,6 +10,13 @@ on:
 
 env:
   NODE_VERSION: '22'
+  RENDER_PROD_API_SERVICE_ID: ${{ secrets.RENDER_PROD_API_SERVICE_ID }}
+  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  PROD_API_URL: ${{ secrets.PROD_API_URL }}
+  PROD_WEB_URL: ${{ secrets.PROD_WEB_URL }}
 
 jobs:
   deploy-prod:
@@ -42,18 +49,18 @@ jobs:
 
       - name: Deploy API to Render (production)
         uses: render-actions/deploy@v1
-        if: ${{ secrets.RENDER_PROD_API_SERVICE_ID != '' }}
+        if: ${{ env.RENDER_PROD_API_SERVICE_ID != '' && env.RENDER_API_KEY != '' }}
         with:
-          service-id: ${{ secrets.RENDER_PROD_API_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}
+          service-id: ${{ env.RENDER_PROD_API_SERVICE_ID }}
+          api-key: ${{ env.RENDER_API_KEY }}
 
       - name: Deploy Web to Vercel (production)
         uses: amondnet/vercel-action@v25
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-token: ${{ env.VERCEL_TOKEN }}
+          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           working-directory: ./web
 
@@ -70,15 +77,23 @@ jobs:
 
       - name: Health check production API
         run: |
+          if [ -z "$PROD_API_URL" ]; then
+            echo "PROD_API_URL is not configured; skipping API health check."
+            exit 0
+          fi
           for i in {1..60}; do
-            curl -sf https://${{ secrets.PROD_API_URL }}/api/ready/ && break
+            curl -sf https://$PROD_API_URL/api/ready/ && break
             sleep 10
           done
 
       - name: Health check production Web
         run: |
+          if [ -z "$PROD_WEB_URL" ]; then
+            echo "PROD_WEB_URL is not configured; skipping web health check."
+            exit 0
+          fi
           for i in {1..15}; do
-            curl -sf https://${{ secrets.PROD_WEB_URL }} && break
+            curl -sf https://$PROD_WEB_URL && break
             sleep 5
           done
 
