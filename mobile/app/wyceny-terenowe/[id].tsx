@@ -9,7 +9,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Share,
   StyleSheet,
@@ -58,6 +57,7 @@ type ItemRow = {
 };
 
 type NormRow = { gatunek_key: string; wysokosc_pas: string; typ_pracy_key: string };
+type DetailNoticeTone = 'success' | 'warning' | 'error';
 
 function isoDatePlusDays(days: number) {
   const d = new Date();
@@ -109,6 +109,17 @@ export default function WycenaTerenowaDetailScreen() {
   const [newGat, setNewGat] = useState('dąb');
   const [newWys, setNewWys] = useState('15-20');
   const [newTyp, setNewTyp] = useState('wycinka pełna');
+  const [detailNotice, setDetailNotice] = useState<{ message: string; tone: DetailNoticeTone } | null>(null);
+
+  const showDetailNotice = useCallback((message: string, tone: DetailNoticeTone = 'success') => {
+    setDetailNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!detailNotice) return;
+    const timer = setTimeout(() => setDetailNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [detailNotice]);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(id) || id <= 0) {
@@ -193,7 +204,7 @@ export default function WycenaTerenowaDetailScreen() {
   const visitStart = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Lokalizacja', 'Włącz uprawnienia GPS, aby rozpocząć oględziny.');
+      showDetailNotice('Włącz uprawnienia GPS, aby rozpocząć oględziny.', 'warning');
       return;
     }
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -204,7 +215,7 @@ export default function WycenaTerenowaDetailScreen() {
       const j = await res.json().catch(() => ({}));
       if (j?.code === 'GPS_FAR_FROM_SITE') {
         if (!gpsOverrideNote.trim()) {
-          Alert.alert('GPS', `${j.error || 'Jesteś daleko od adresu.'}\nUzupełnij notatkę poniżej i spróbuj ponownie.`);
+          showDetailNotice(`${j.error || 'Jesteś daleko od adresu.'} Uzupełnij notatkę poniżej i spróbuj ponownie.`, 'warning');
           return;
         }
         res = await postJson(`/quotations/${id}/visit/start`, {
@@ -217,18 +228,18 @@ export default function WycenaTerenowaDetailScreen() {
     }
     if (!res.ok) {
       const t = await res.text();
-      Alert.alert('Błąd', t.slice(0, 400));
+      showDetailNotice(t.slice(0, 400), 'error');
       return;
     }
     const row = await res.json();
     setQ(row);
-    Alert.alert('OK', 'Oględziny rozpoczęte.');
+    showDetailNotice('Oględziny rozpoczęte.');
   };
 
   const visitEnd = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Lokalizacja', 'Włącz GPS przed zakończeniem oględzin.');
+      showDetailNotice('Włącz GPS przed zakończeniem oględzin.', 'warning');
       return;
     }
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -250,13 +261,13 @@ export default function WycenaTerenowaDetailScreen() {
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
       const details = Array.isArray(j.details) ? j.details.join('\n') : j.error || (await res.text());
-      Alert.alert('Nie można zakończyć', String(details).slice(0, 900));
+      showDetailNotice(String(details).slice(0, 600), 'warning');
       return;
     }
     const row = await res.json();
     setQ(row);
     void load();
-    Alert.alert('OK', 'Oględziny zakończone — przekazane do zatwierdzenia.');
+    showDetailNotice('Oględziny zakończone — przekazane do zatwierdzenia.');
   };
 
   const addItem = async () => {
@@ -266,16 +277,17 @@ export default function WycenaTerenowaDetailScreen() {
       typ_pracy: newTyp,
     });
     if (!res.ok) {
-      Alert.alert('Błąd', await res.text());
+      showDetailNotice((await res.text()).slice(0, 400), 'error');
       return;
     }
     void load();
+    showDetailNotice('Obiekt dodany do oględzin.');
   };
 
   const uploadGeneral = async (itemId: number) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Zdjęcie', 'Potrzebny dostęp do galerii.');
+      showDetailNotice('Potrzebny dostęp do galerii.', 'warning');
       return;
     }
     const pick = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
@@ -290,8 +302,8 @@ export default function WycenaTerenowaDetailScreen() {
       headers: h as Record<string, string>,
       body: formData,
     }, 45_000);
-    if (!res.ok) Alert.alert('Upload', await res.text());
-    else Alert.alert('OK', 'Zdjęcie ogólne dodane.');
+    if (!res.ok) showDetailNotice((await res.text()).slice(0, 400), 'error');
+    else showDetailNotice('Zdjęcie ogólne dodane.');
   };
 
   const openAnnotate = (itemId: number, localUri: string) => {
@@ -351,6 +363,17 @@ export default function WycenaTerenowaDetailScreen() {
   const draftish = ['Draft', 'Zwrocona', 'Umowiana'].includes(String(q.status));
   const canVisit = draftish && !q.visit_ended_at;
   const visitActive = !!q.visit_started_at && !q.visit_ended_at;
+  const detailNoticeColor = detailNotice?.tone === 'error'
+    ? theme.danger
+    : detailNotice?.tone === 'warning'
+      ? theme.warning
+      : theme.success;
+  const detailNoticeBg = detailNotice?.tone === 'error'
+    ? theme.dangerBg
+    : detailNotice?.tone === 'warning'
+      ? theme.warningBg
+      : theme.successBg;
+  const detailNoticeIcon = detailNotice?.tone === 'success' ? 'checkmark-circle-outline' : 'warning-outline';
 
   return (
     <KeyboardSafeScreen style={s.screen}>
@@ -367,6 +390,12 @@ export default function WycenaTerenowaDetailScreen() {
         <Text style={s.status}>{q.status}</Text>
         <Text style={s.klient}>{q.klient_nazwa || '—'}</Text>
         <Text style={s.muted}>{[q.adres, q.miasto].filter(Boolean).join(', ')}</Text>
+        {detailNotice ? (
+          <View style={[s.notice, { backgroundColor: detailNoticeBg, borderColor: detailNoticeColor + '66' }]}>
+            <Ionicons name={detailNoticeIcon} size={16} color={detailNoticeColor} />
+            <Text style={[s.noticeText, { color: detailNoticeColor }]}>{detailNotice.message}</Text>
+          </View>
+        ) : null}
 
         <View style={s.heroImageBand}>
           <FieldOpsHeroImage variant="inspection" size={104} />
@@ -518,6 +547,17 @@ function makeStyles(theme: Theme) {
     status: { fontSize: 14, color: theme.accent, fontWeight: '600' },
     klient: { fontSize: 17, fontWeight: '700', color: theme.text, marginTop: 6 },
     muted: { color: theme.textMuted, marginTop: 6, fontSize: 13 },
+    notice: {
+      marginTop: 12,
+      borderWidth: 1,
+      borderRadius: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+    },
+    noticeText: { flex: 1, fontSize: 12, lineHeight: 17, fontWeight: '800' },
     heroImageBand: {
       marginTop: 14,
       minHeight: 86,
