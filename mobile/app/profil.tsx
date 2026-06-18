@@ -2,7 +2,7 @@ import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -54,7 +54,18 @@ export default function ProfilScreen() {
   const [liveGpsStatus, setLiveGpsStatus] = useState<LiveGpsStatusSnapshot | null>(null);
   const [syncingRemote, setSyncingRemote] = useState(false);
   const [devTapCount, setDevTapCount] = useState(0);
+  const [profileNotice, setProfileNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   const router = useRouter();
+
+  const showProfileNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setProfileNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!profileNotice) return;
+    const timer = setTimeout(() => setProfileNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [profileNotice]);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -209,6 +220,31 @@ export default function ProfilScreen() {
           ))}
         </View>
       </View>
+      {profileNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: profileNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: profileNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={profileNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={profileNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: profileNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {profileNotice.message}
+          </Text>
+        </View>
+      ) : null}
 
       <ScrollView style={S.scroll} showsVerticalScrollIndicator={false}>
 
@@ -442,15 +478,15 @@ export default function ProfilScreen() {
               try {
                 const { token } = await getStoredSession();
                 if (!token) {
-                  Alert.alert('', t('profile.syncRemote.fail'));
+                  showProfileNotice(t('profile.syncRemote.fail'), 'warning');
                   return;
                 }
                 const r = await fetchAndApplyMobileRemoteConfig(token);
-                if (!r.ok) Alert.alert('', t('profile.syncRemote.fail'));
-                else if (r.applied) Alert.alert('', t('profile.syncRemote.ok'));
-                else Alert.alert('', t('profile.syncRemote.partial'));
+                if (!r.ok) showProfileNotice(t('profile.syncRemote.fail'), 'warning');
+                else if (r.applied) showProfileNotice(t('profile.syncRemote.ok'));
+                else showProfileNotice(t('profile.syncRemote.partial'), 'warning');
               } catch {
-                Alert.alert('', t('profile.syncRemote.fail'));
+                showProfileNotice(t('profile.syncRemote.fail'), 'warning');
               } finally {
                 setSyncingRemote(false);
               }
@@ -495,6 +531,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
       elevation: t.cardElevation + 1,
     }),
   },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 18,
+    marginTop: 10,
+    marginBottom: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   backBtn: {
     position: 'absolute',
     top: 14,
