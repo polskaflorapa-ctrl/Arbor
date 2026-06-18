@@ -2,11 +2,6 @@ name: Deploy Production
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g., v1.2.3)'
-        required: true
-        type: string
 
 env:
   NODE_VERSION: '22'
@@ -86,12 +81,3 @@ jobs:
         run: npm run status:production -- --skip-local
         env:
           RENDER_WEB_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.event.inputs.version }}
-          name: Release ${{ github.event.inputs.version }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
