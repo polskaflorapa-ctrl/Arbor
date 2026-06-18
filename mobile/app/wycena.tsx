@@ -111,8 +111,19 @@ export default function WycenaScreen() {
   const [showDetail, setShowDetail] = useState(false);
   const [detailPhotos, setDetailPhotos] = useState<any[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [quoteNotice, setQuoteNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   const convertPulse = useRef(new Animated.Value(1)).current;
   const listOpacity = useRef(new Animated.Value(1)).current;
+
+  const showQuoteNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setQuoteNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!quoteNotice) return;
+    const timer = setTimeout(() => setQuoteNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [quoteNotice]);
 
   const getToken = useCallback(async () => {
     if (token) return token;
@@ -237,7 +248,7 @@ export default function WycenaScreen() {
         body: JSON.stringify({ status }),
       });
       setShowDetail(false); fetchWyceny();
-    } catch { Alert.alert(t('wyceny.alert.saveFail'), t('wyceny.alert.statusFail')); }
+    } catch { showQuoteNotice(t('wyceny.alert.statusFail'), 'warning'); }
   };
 
   const convertToZlecenie = async (w: any) => {
@@ -249,9 +260,9 @@ export default function WycenaScreen() {
         if (res.ok) {
           const data = await res.json();
           setShowDetail(false); fetchWyceny();
-          Alert.alert(t('wyceny.convertOkTitle'), t('wyceny.convertOkBody'));
+          showQuoteNotice(t('wyceny.convertOkBody'));
           if (data.task_id) router.push(`/zlecenie/${data.task_id}`);
-        } else Alert.alert(t('wyceny.alert.saveFail'), t('wyceny.convertFail'));
+        } else showQuoteNotice(t('wyceny.convertFail'), 'warning');
       }},
     ]);
   };
@@ -293,6 +304,32 @@ export default function WycenaScreen() {
           onPress={openUnifiedNewOrder}
         />
       </View>
+      {quoteNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: quoteNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: quoteNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <PlatinumIconBadge
+            icon={quoteNotice.tone === 'warning' ? 'warning-outline' : 'checkmark-circle-outline'}
+            color={quoteNotice.tone === 'warning' ? theme.warning : theme.success}
+            size={10}
+            style={S.noticeIcon}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: quoteNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {quoteNotice.message}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Filtry oddziałów */}
       {oddzialy.length > 0 && (
@@ -589,6 +626,20 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     minWidth: 120,
     borderRadius: 7,
   },
+  notice: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  noticeIcon: { width: 22, height: 22, borderRadius: 8 },
+  noticeText: { fontSize: 12, fontWeight: '800', lineHeight: 16, flex: 1 },
 
   // Oddziały
   oddzialyScroll: { backgroundColor: t.surface, borderBottomWidth: 1, borderBottomColor: t.border },
