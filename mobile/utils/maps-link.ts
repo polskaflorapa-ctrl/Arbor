@@ -1,4 +1,9 @@
-import { Alert, Linking, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
+
+export type MapsOpenResult = {
+  ok: boolean;
+  reason?: 'missing-address' | 'missing-stops' | 'open-failed';
+};
 
 function buildQuery(address: string, city?: string): string {
   const parts = [address?.trim(), city?.trim()].filter(Boolean);
@@ -6,11 +11,10 @@ function buildQuery(address: string, city?: string): string {
 }
 
 /** Otwiera adres w aplikacji map (Google Maps / Apple Maps). */
-export async function openAddressInMaps(address: string, city?: string): Promise<void> {
+export async function openAddressInMaps(address: string, city?: string): Promise<MapsOpenResult> {
   const q = buildQuery(address, city);
   if (!q || q === encodeURIComponent('')) {
-    Alert.alert('', 'Brak adresu do nawigacji.');
-    return;
+    return { ok: false, reason: 'missing-address' };
   }
   const urls =
     Platform.OS === 'ios'
@@ -21,7 +25,7 @@ export async function openAddressInMaps(address: string, city?: string): Promise
       const ok = await Linking.canOpenURL(url);
       if (ok) {
         await Linking.openURL(url);
-        return;
+        return { ok: true };
       }
     } catch {
       /* next */
@@ -29,8 +33,9 @@ export async function openAddressInMaps(address: string, city?: string): Promise
   }
   try {
     await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`);
+    return { ok: true };
   } catch {
-    Alert.alert('', 'Nie udało się otworzyć map.');
+    return { ok: false, reason: 'open-failed' };
   }
 }
 
@@ -39,15 +44,13 @@ function cleanStop(stop: unknown): string {
 }
 
 /** Otwiera trasę dnia w Google Maps. Dla jednego punktu działa jak zwykła nawigacja do adresu. */
-export async function openRouteInMaps(stops: unknown[]): Promise<void> {
+export async function openRouteInMaps(stops: unknown[]): Promise<MapsOpenResult> {
   const clean = stops.map(cleanStop).filter(Boolean);
   if (clean.length === 0) {
-    Alert.alert('', 'Brak adresów do trasy.');
-    return;
+    return { ok: false, reason: 'missing-stops' };
   }
   if (clean.length === 1) {
-    await openAddressInMaps(clean[0]);
-    return;
+    return openAddressInMaps(clean[0]);
   }
 
   const destination = clean[clean.length - 1];
@@ -55,7 +58,8 @@ export async function openRouteInMaps(stops: unknown[]): Promise<void> {
   const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&waypoints=${encodeURIComponent(waypoints)}&travelmode=driving`;
   try {
     await Linking.openURL(url);
+    return { ok: true };
   } catch {
-    Alert.alert('', 'Nie udało się otworzyć trasy w mapach.');
+    return { ok: false, reason: 'open-failed' };
   }
 }
