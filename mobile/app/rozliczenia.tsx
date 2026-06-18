@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -244,7 +243,7 @@ export default function RozliczeniaScreen() {
 
   const obliczRozliczenie = async () => {
     if (!task_id || !formKalkulator.wartosc_brutto) {
-      Alert.alert(t('wyceny.alert.saveFail'), t('settlements.alert.grossRequired'));
+      showMsg(t('settlements.alert.grossRequired'));
       return;
     }
     setSaving(true);
