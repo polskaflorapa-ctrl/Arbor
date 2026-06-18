@@ -67,6 +67,7 @@ export default function FlotaMobileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [showReservationsBtn, setShowReservationsBtn] = useState(false);
+  const [fleetNotice, setFleetNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
 
   const [modalPojazd, setModalPojazd] = useState(false);
   const [modalSprzet, setModalSprzet] = useState(false);
@@ -86,6 +87,16 @@ export default function FlotaMobileScreen() {
     koszt: '', opis_usterki: '', opis_naprawy: '', wykonawca: '',
   });
 
+  const showFleetNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setFleetNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!fleetNotice) return;
+    const timer = setTimeout(() => setFleetNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [fleetNotice]);
+
   const loadAll = useCallback(async (tokenOverride?: string | null) => {
     try {
       const authToken = tokenOverride ?? token;
@@ -99,12 +110,12 @@ export default function FlotaMobileScreen() {
       if (sRes.ok) setSprzet(await sRes.json());
       if (nRes.ok) setNaprawy(await nRes.json());
     } catch {
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.loadFail'));
+      showFleetNotice(t('fleet.alert.loadFail'), 'warning');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, t]);
+  }, [showFleetNotice, token, t]);
 
   const init = useCallback(async () => {
     const { user: storedUser, token: storedToken } = await getStoredSession();
@@ -128,7 +139,7 @@ export default function FlotaMobileScreen() {
         body: JSON.stringify({ status }),
       });
       await loadAll();
-    } catch { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.statusFail')); }
+    } catch { showFleetNotice(t('fleet.alert.statusFail'), 'warning'); }
   };
 
   const zmienStatusSprzetu = async (id: number, status: string) => {
@@ -140,7 +151,7 @@ export default function FlotaMobileScreen() {
         body: JSON.stringify({ status }),
       });
       await loadAll();
-    } catch { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.statusFail')); }
+    } catch { showFleetNotice(t('fleet.alert.statusFail'), 'warning'); }
   };
 
   const dodajPojazd = async () => {
@@ -159,7 +170,7 @@ export default function FlotaMobileScreen() {
         setModalPojazd(false);
         setFormPojazd({ marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '', typ: 'Samochód', data_przegladu: '', data_ubezpieczenia: '', przebieg: '', notatki: '' });
         await loadAll();
-        Alert.alert(t('wyceny.alert.savedTitle'), t('fleet.alert.vehicleAdded'));
+        showFleetNotice(t('fleet.alert.vehicleAdded'));
       } else {
         Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.vehicleFail')));
       }
@@ -179,7 +190,7 @@ export default function FlotaMobileScreen() {
         setModalSprzet(false);
         setFormSprzet({ nazwa: '', typ: 'Piła', nr_seryjny: '', rok_produkcji: '', data_przegladu: '', koszt_motogodziny: '', notatki: '' });
         await loadAll();
-        Alert.alert(t('wyceny.alert.savedTitle'), t('fleet.alert.equipmentAdded'));
+        showFleetNotice(t('fleet.alert.equipmentAdded'));
       } else {
         Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.equipmentFail')));
       }
@@ -202,7 +213,7 @@ export default function FlotaMobileScreen() {
         setModalNaprawa(false);
         setFormNaprawa({ typ_zasobu: 'vehicle', zasob_id: '', nr_faktury: '', data_naprawy: new Date().toISOString().split('T')[0], koszt: '', opis_usterki: '', opis_naprawy: '', wykonawca: '' });
         await loadAll();
-        Alert.alert(t('wyceny.alert.savedTitle'), t('fleet.alert.repairAdded'));
+        showFleetNotice(t('fleet.alert.repairAdded'));
       } else {
         Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.repairFail')));
       }
@@ -279,6 +290,32 @@ export default function FlotaMobileScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {fleetNotice ? (
+        <View
+          style={[
+            S.fleetNotice,
+            {
+              backgroundColor: fleetNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: fleetNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={fleetNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={fleetNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.fleetNoticeText,
+              { color: fleetNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {fleetNotice.message}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={S.fleetHeroStats}>
         {fleetHeroStats.map((stat) => (
@@ -696,6 +733,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accentDark,
   },
+  fleetNotice: {
+    marginHorizontal: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fleetNoticeText: { flex: 1, fontSize: 12, fontWeight: '800', lineHeight: 16 },
   fleetHeroStats: {
     flexDirection: 'row',
     flexWrap: 'wrap',
