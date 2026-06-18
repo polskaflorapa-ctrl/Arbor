@@ -17,6 +17,7 @@ import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -46,7 +47,7 @@ export default function RaportyMobilneScreen() {
     try {
       const { token } = await getStoredSession();
       if (!token) { router.replace('/login'); return; }
-      const response = await fetch(`${API_URL}/raporty/mobile`, {
+      const response = await fetchWithTimeout(`${API_URL}/raporty/mobile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

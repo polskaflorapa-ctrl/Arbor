@@ -24,6 +24,7 @@ import { openAddressInMaps, openRouteInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getOfflineQueueSize } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 import { formatTaskListCacheNotice, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
@@ -372,7 +373,7 @@ export default function MisjaDniaScreen() {
     const date = new Date().toISOString().split('T')[0];
     setTeamDayLoading(true);
     try {
-      const res = await fetch(`${API_URL}/mobile/me/team-day-report?date=${date}`, {
+      const res = await fetchWithTimeout(`${API_URL}/mobile/me/team-day-report?date=${date}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -412,7 +413,7 @@ export default function MisjaDniaScreen() {
         ? `${API_URL}/tasks/moje`
         : `${API_URL}/tasks/wszystkie`;
       try {
-        const res = await fetch(endpoint, {
+        const res = await fetchWithTimeout(endpoint, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -497,7 +498,7 @@ export default function MisjaDniaScreen() {
     const date = new Date().toISOString().split('T')[0];
     setTeamDayBusy(true);
     try {
-      const res = await fetch(`${API_URL}/mobile/me/team-day-close`, {
+      const res = await fetchWithTimeout(`${API_URL}/mobile/me/team-day-close`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ report_date: date }),

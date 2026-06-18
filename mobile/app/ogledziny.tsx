@@ -35,6 +35,7 @@ import { enqueueOfflineRequest, flushOfflineQueue } from '../utils/offline-queue
 import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute, currentNewOrderDateTime } from '../utils/new-order-route';
+import { fetchWithTimeout } from '../utils/api-client';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'] as const;
@@ -212,10 +213,10 @@ export default function OgledzinyScreen() {
       const userId = storedUser?.id != null ? String(storedUser.id) : '';
       const userOddzialId = storedUser?.oddzial_id != null ? String(storedUser.oddzial_id) : '';
       const params = filterStatus ? `?status=${filterStatus}` : '';
-      const res = await fetch(`${API_URL}/ogledziny${params}`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny${params}`, {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
-      const liveRes = await fetch(`${API_URL}/ekipy/live-locations`, {
+      const liveRes = await fetchWithTimeout(`${API_URL}/ekipy/live-locations`, {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const data = await res.json();
@@ -300,7 +301,7 @@ export default function OgledzinyScreen() {
     try {
       if (!token) { router.replace('/login'); return; }
       const payload = { status: newStatus, notatki_wyniki: notatki || null };
-      const res = await fetch(`${API_URL}/ogledziny/${selected.id}/status`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny/${selected.id}/status`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

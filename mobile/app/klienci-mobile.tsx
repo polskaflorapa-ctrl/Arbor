@@ -19,6 +19,7 @@ import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -110,7 +111,7 @@ export default function KlienciMobileScreen() {
       if (!authToken) return;
       setDetailLoading(true);
       try {
-        const res = await fetch(`${API_URL}/klienci/${id}`, {
+        const res = await fetchWithTimeout(`${API_URL}/klienci/${id}`, {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         const data = (await parseResponse(res)) as ClientDetail | { error?: string } | null;
@@ -140,7 +141,7 @@ export default function KlienciMobileScreen() {
       try {
         const searchTerm = (opts.searchTerm || '').trim();
         const query = searchTerm ? `?szukaj=${encodeURIComponent(searchTerm)}` : '';
-        const res = await fetch(`${API_URL}/klienci${query}`, {
+        const res = await fetchWithTimeout(`${API_URL}/klienci${query}`, {
           headers: { Authorization: `Bearer ${tokenToUse}` },
         });
         const data = await parseResponse(res);
@@ -257,7 +258,7 @@ export default function KlienciMobileScreen() {
       };
       const url = editMode && selectedId ? `${API_URL}/klienci/${selectedId}` : `${API_URL}/klienci`;
       const method = editMode && selectedId ? 'PUT' : 'POST';
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, {
         method,
         headers: {
           Authorization: `Bearer ${token}`,

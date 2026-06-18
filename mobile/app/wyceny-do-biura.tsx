@@ -28,6 +28,7 @@ import type { Theme } from '../constants/theme';
 import { TASK_STATUS } from '../constants/task-workflow';
 import { openAddressInMaps } from '../utils/maps-link';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -389,7 +390,7 @@ export default function WycenyDoBiuraScreen() {
   const loadTeams = useCallback(async (authToken: string) => {
     setTeamsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/ekipy?include_delegacje=1`, {
+      const res = await fetchWithTimeout(`${API_URL}/ekipy?include_delegacje=1`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await res.json().catch(() => []);
@@ -419,7 +420,7 @@ export default function WycenyDoBiuraScreen() {
         router.replace('/login');
         return;
       }
-      const res = await fetch(`${API_URL}/tasks/field-drafts`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/field-drafts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json().catch(() => ({}));
@@ -624,7 +625,7 @@ export default function WycenyDoBiuraScreen() {
         router.replace('/login');
         return;
       }
-      const res = await fetch(`${API_URL}/tasks/${planRow.id}/office-plan`, {
+      const res = await fetchWithTimeout(`${API_URL}/tasks/${planRow.id}/office-plan`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

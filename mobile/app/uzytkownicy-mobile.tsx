@@ -20,6 +20,7 @@ import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 
@@ -64,8 +65,8 @@ export default function UzytkownicyScreen() {
       if (!storedToken) { router.replace('/login'); return; }
       const h = { Authorization: `Bearer ${storedToken}` };
       const [uRes, oRes] = await Promise.all([
-        fetch(`${API_URL}/uzytkownicy`, { headers: h }),
-        fetch(`${API_URL}/oddzialy`, { headers: h }),
+        fetchWithTimeout(`${API_URL}/uzytkownicy`, { headers: h }),
+        fetchWithTimeout(`${API_URL}/oddzialy`, { headers: h }),
       ]);
       if (uRes.ok) setUzytkownicy(await uRes.json());
       if (oRes.ok) setOddzialy(await oRes.json());

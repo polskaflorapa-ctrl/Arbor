@@ -29,6 +29,7 @@ import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { type CalendarBlock, isYmdBlocked, loadCalendarBlocks } from '../utils/calendar-blocks';
+import { fetchWithTimeout } from '../utils/api-client';
 import { enqueueOfflineRequest } from '../utils/offline-queue';
 import { tryScheduleReservationDayEndReminder } from '../utils/reservation-end-reminder';
 import { getStoredSession } from '../utils/session';
@@ -173,8 +174,8 @@ export default function RezerwacjeSprzetuScreen() {
   const loadRefs = useCallback(async (auth: string) => {
     const h = { Authorization: `Bearer ${auth}` };
     const [sRes, eRes] = await Promise.all([
-      fetch(`${API_URL}/flota/sprzet`, { headers: h }),
-      fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers: h }),
+      fetchWithTimeout(`${API_URL}/flota/sprzet`, { headers: h }),
+      fetchWithTimeout(`${API_URL}/ekipy?include_delegacje=1`, { headers: h }),
     ]);
     if (sRes.ok) {
       const d = await sRes.json();

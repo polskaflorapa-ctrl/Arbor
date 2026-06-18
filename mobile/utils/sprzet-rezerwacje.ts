@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../constants/api';
+import { fetchWithTimeout } from './api-client';
 
 const LOCAL_KEY = 'sprzet_rezerwacje_local_v1';
 
@@ -110,7 +111,7 @@ export type FetchRezerwacjeResult = { ok: boolean; notImplemented: boolean; item
 
 export async function fetchRezerwacjeApi(token: string, from: string, to: string): Promise<FetchRezerwacjeResult> {
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${API_URL}/flota/rezerwacje?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
@@ -145,7 +146,7 @@ export async function postRezerwacjaApi(
   body: PostRezerwacjaBody,
 ): Promise<{ ok: boolean; notImplemented: boolean; id?: string; error?: string }> {
   try {
-    const res = await fetch(`${API_URL}/flota/rezerwacje`, {
+    const res = await fetchWithTimeout(`${API_URL}/flota/rezerwacje`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -169,7 +170,7 @@ export async function putRezerwacjaStatusApi(
   status: RezerwacjaStatus,
 ): Promise<{ ok: boolean; notImplemented: boolean; error?: string }> {
   try {
-    const res = await fetch(`${API_URL}/flota/rezerwacje/${id}/status`, {
+    const res = await fetchWithTimeout(`${API_URL}/flota/rezerwacje/${id}/status`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),

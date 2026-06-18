@@ -19,6 +19,7 @@ import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getOddzialFeatureConfig, isFeatureEnabledForOddzial } from '../utils/oddzial-features';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
@@ -113,7 +114,7 @@ export default function WyceniajacyHubScreen() {
         return;
       }
       setSessionUser(user);
-      const res = await fetch(`${API_URL}/ogledziny`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

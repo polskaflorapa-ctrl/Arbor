@@ -32,6 +32,7 @@ import {
   type RecentContextItem,
 } from '../utils/command-center-history';
 import { isFeatureEnabledForOddzial } from '../utils/oddzial-features';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
 import { buildNewOrderRoute } from '../utils/new-order-route';
@@ -134,7 +135,7 @@ export default function TaskCommandCenterScreen() {
 
       const headers = { Authorization: `Bearer ${token}` };
       if (userRole === 'Wyceniający') {
-        const res = await fetch(`${API_URL}/ogledziny`, { headers });
+        const res = await fetchWithTimeout(`${API_URL}/ogledziny`, { headers });
         if (res.ok) {
           const rows = await res.json().catch(() => []);
           const pendingInspections = Array.isArray(rows)
@@ -149,7 +150,7 @@ export default function TaskCommandCenterScreen() {
           isCrewRole(userRole)
             ? `${API_URL}/tasks/moje`
             : `${API_URL}/tasks/wszystkie`;
-        const res = await fetch(endpoint, { headers });
+        const res = await fetchWithTimeout(endpoint, { headers });
         const rows = res.ok ? await res.json().catch(() => []) : [];
         setMetrics(buildTaskMetrics(Array.isArray(rows) ? rows : []));
       }

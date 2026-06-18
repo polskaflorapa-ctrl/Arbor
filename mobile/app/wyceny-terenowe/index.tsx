@@ -26,6 +26,7 @@ import type { Theme } from '../../constants/theme';
 import { TASK_STATUS, isTaskClosed, normalizeTaskStatus } from '../../constants/task-workflow';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { buildNewOrderRoute, currentNewOrderDateTime } from '../../utils/new-order-route';
+import { fetchWithTimeout } from '../../utils/api-client';
 import { getStoredSession } from '../../utils/session';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -393,10 +394,10 @@ export default function WycenyTerenoweScreen() {
         return;
       }
       const headers = { Authorization: `Bearer ${token}` };
-      const res = await fetch(`${API_URL}/tasks/field-drafts?limit=100&offset=0`, { headers });
+      const res = await fetchWithTimeout(`${API_URL}/tasks/field-drafts?limit=100&offset=0`, { headers });
 
       if (res.status === 404) {
-        const legacyRes = await fetch(`${API_URL}/wyceny`, { headers });
+        const legacyRes = await fetchWithTimeout(`${API_URL}/wyceny`, { headers });
         if (!legacyRes.ok) {
           setMode('legacy');
           setFieldTasks([]);

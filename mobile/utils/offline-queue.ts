@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { fetchWithTimeout } from './api-client';
 import { emitOfflineFlushDone } from './offline-queue-sync-events';
 
 const OFFLINE_QUEUE_KEY = 'offline_queue_v1';
@@ -181,11 +182,11 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
         body = item.body ? JSON.stringify(item.body) : undefined;
       }
 
-      const res = await fetch(item.url, {
+      const res = await fetchWithTimeout(item.url, {
         method: item.method,
         headers,
         body,
-      });
+      }, item.multipart ? 60_000 : 20_000);
 
       if (res.ok) {
         flushed += 1;

@@ -23,6 +23,7 @@ import { createOfflineRequestId, enqueueOfflineRequest, queueTaskPhotoOffline } 
 import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
 import { safeBack } from '../utils/navigation';
+import { fetchWithTimeout } from '../utils/api-client';
 
 /** Stała paleta kreślarska (nie motyw UI — musi być czytelna na zdjęciu). */
 const KOLORY = [
@@ -180,11 +181,11 @@ export default function WycenaRysujScreen() {
         formData.append('zdjecie', { uri: capturedUri, name: `rysunek_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
         formData.append('photo_kind', photoKind === 'general' ? 'general' : 'annotated');
 
-        const res = await fetch(`${API_URL}/quotations/${quotationId}/items/${itemId}/zdjecia`, {
+        const res = await fetchWithTimeout(`${API_URL}/quotations/${quotationId}/items/${itemId}/zdjecia`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
-        });
+        }, 45_000);
 
         if (res.ok) {
           void triggerHaptic('success');
@@ -216,11 +217,11 @@ export default function WycenaRysujScreen() {
         formData.append('opis', 'Szkic zakresu prac z wyceny terenowej.');
         formData.append('tagi', 'wycena,szkic,teren');
 
-        const res = await fetch(`${API_URL}/tasks/${taskId}/zdjecia`, {
+        const res = await fetchWithTimeout(`${API_URL}/tasks/${taskId}/zdjecia`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': idempotencyKey },
           body: formData,
-        });
+        }, 45_000);
 
         if (res.ok) {
           void triggerHaptic('success');
@@ -256,11 +257,11 @@ export default function WycenaRysujScreen() {
         formData.append('opis', 'Szkic zakresu prac z oględzin terenowych.');
         formData.append('media', { uri: capturedUri, name: `ogledziny_szkic_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
 
-        const res = await fetch(`${API_URL}/ogledziny/${inspectionId}/media`, {
+        const res = await fetchWithTimeout(`${API_URL}/ogledziny/${inspectionId}/media`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': idempotencyKey },
           body: formData,
-        });
+        }, 45_000);
 
         if (res.ok) {
           void triggerHaptic('success');
@@ -285,11 +286,11 @@ export default function WycenaRysujScreen() {
         const formData = new FormData();
         formData.append('zdjecie', { uri: capturedUri, name: `rysunek_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
 
-        const res = await fetch(`${API_URL}/wyceny/${wycenaId}/zdjecia`, {
+        const res = await fetchWithTimeout(`${API_URL}/wyceny/${wycenaId}/zdjecia`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
-        });
+        }, 45_000);
 
         if (res.ok) {
           void triggerHaptic('success');

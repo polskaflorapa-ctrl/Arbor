@@ -51,6 +51,9 @@ function createHarness() {
     if (id === './offline-queue-sync-events') {
       return { emitOfflineFlushDone: (payload) => events.push(payload) };
     }
+    if (id === './api-client') {
+      return { fetchWithTimeout: (url, options) => global.fetch(url, options) };
+    }
     throw new Error(`Unexpected require: ${id}`);
   };
   const fn = new Function('require', 'exports', 'module', compiled);

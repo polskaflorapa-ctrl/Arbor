@@ -23,7 +23,7 @@ import { FieldOpsBackdrop, FieldOpsHeroImage } from '../../components/ui/field-o
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { useTheme } from '../../constants/ThemeContext';
 import type { Theme } from '../../constants/theme';
-import { apiFetch, apiJsonFetch, apiUrl, authHeaders } from '../../utils/api-client';
+import { apiFetch, apiJsonFetch, apiUrl, authHeaders, fetchWithTimeout } from '../../utils/api-client';
 import { supportsQuotationsModule } from '../../utils/api-capabilities';
 import { getStoredSession } from '../../utils/session';
 
@@ -285,11 +285,11 @@ export default function WycenaTerenowaDetailScreen() {
     const formData = new FormData();
     formData.append('zdjecie', { uri: asset.uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
     formData.append('photo_kind', 'general');
-    const res = await fetch(apiUrl(`/quotations/${id}/items/${itemId}/zdjecia`), {
+    const res = await fetchWithTimeout(apiUrl(`/quotations/${id}/items/${itemId}/zdjecia`), {
       method: 'POST',
       headers: h as Record<string, string>,
       body: formData,
-    });
+    }, 45_000);
     if (!res.ok) Alert.alert('Upload', await res.text());
     else Alert.alert('OK', 'Zdjęcie ogólne dodane.');
   };

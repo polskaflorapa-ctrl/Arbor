@@ -15,6 +15,7 @@ import { useLanguage } from '../../constants/LanguageContext';
 import { useTheme } from '../../constants/ThemeContext';
 import { API_URL } from '../../constants/api';
 import type { Theme } from '../../constants/theme';
+import { fetchWithTimeout } from '../../utils/api-client';
 import { triggerHaptic } from '../../utils/haptics';
 import { getStoredSession } from '../../utils/session';
 
@@ -64,7 +65,7 @@ export default function ExploreScreen() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/mobile/reports`, {
+      const response = await fetchWithTimeout(`${API_URL}/mobile/reports`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {

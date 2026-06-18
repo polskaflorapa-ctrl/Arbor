@@ -12,6 +12,7 @@ import {
 import { useTheme } from '../constants/ThemeContext';
 import { getApiUrl } from '../constants/api';
 import type { Theme } from '../constants/theme';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -28,7 +29,7 @@ export default function PomocnikScreen() {
     try {
       const { token } = await getStoredSession();
       if (!token) { router.replace('/login'); return; }
-      const response = await fetch(`${getApiUrl()}/auth/pomocnicy`, {
+      const response = await fetchWithTimeout(`${getApiUrl()}/auth/pomocnicy`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

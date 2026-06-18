@@ -43,6 +43,7 @@ import {
   saveFieldProtocolDraft,
 } from '../utils/field-protocol-draft';
 import { triggerHaptic } from '../utils/haptics';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -308,7 +309,7 @@ export default function OgledzinyDokumentacjaScreen() {
         router.replace('/login');
         return;
       }
-      const res = await fetch(`${API_URL}/ogledziny/${inspectionId}`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny/${inspectionId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -438,7 +439,7 @@ export default function OgledzinyDokumentacjaScreen() {
         router.replace('/login');
         return;
       }
-      const res = await fetch(`${API_URL}/ogledziny/${inspectionId}/status`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny/${inspectionId}/status`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -524,11 +525,11 @@ export default function OgledzinyDokumentacjaScreen() {
     );
 
     try {
-      const res = await fetch(`${API_URL}/ogledziny/${inspectionId}/media`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny/${inspectionId}/media`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
-      });
+      }, 45_000);
       if (res.ok) {
         addHistory({ kind: 'photo', label: source === 'camera' ? 'Zdjęcie zapisane do oględzin' : 'Zdjęcie z galerii zapisane do oględzin', state: 'done' });
         await loadDetail(true);
@@ -619,11 +620,11 @@ export default function OgledzinyDokumentacjaScreen() {
         { uri: asset.uri, name: `ogledziny_${Date.now()}.mp4`, type: asset.mimeType || 'video/mp4' } as any,
       );
 
-      const res = await fetch(`${API_URL}/ogledziny/${inspectionId}/media`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny/${inspectionId}/media`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
-      });
+      }, 60_000);
 
       if (res.ok) {
         void triggerHaptic('success');

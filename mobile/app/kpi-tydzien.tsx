@@ -16,6 +16,7 @@ import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { loadAutoplanHistory, type AutoplanHistoryItem } from '../utils/autoplan-history';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -96,7 +97,7 @@ export default function KpiTydzienScreen() {
       }
       const [historyData, rankingRes] = await Promise.all([
         loadAutoplanHistory(),
-        fetch(`${API_URL}/raporty/ranking-brygad`, {
+        fetchWithTimeout(`${API_URL}/raporty/ranking-brygad`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);

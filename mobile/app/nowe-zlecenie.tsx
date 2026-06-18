@@ -48,7 +48,7 @@ import {
 } from '../utils/field-protocol';
 import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
-import { apiFetch, apiJsonFetch, apiUrl, authHeaders } from '../utils/api-client';
+import { apiFetch, apiJsonFetch, apiUrl, authHeaders, fetchWithTimeout } from '../utils/api-client';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getStoredSession, type StoredUser } from '../utils/session';
 import { isPositiveNumber, isValidIsoDate, isValidPolishPhone, isValidTimeHHMM } from '../utils/validators';
@@ -1092,11 +1092,11 @@ export default function NoweZlecenieScreen() {
           type: 'image/jpeg',
         } as any);
 
-        const res = await fetch(apiUrl(`/tasks/${taskId}/zdjecia`), {
+        const res = await fetchWithTimeout(apiUrl(`/tasks/${taskId}/zdjecia`), {
           method: 'POST',
           headers: authHeaders(authToken, { 'Idempotency-Key': idempotencyKey }),
           body: formData,
-        });
+        }, 45_000);
 
         if (res.ok) {
           uploaded += 1;

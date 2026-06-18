@@ -24,6 +24,7 @@ import {
   type EstimatorQuoteRow,
 } from '../utils/estimator-compensation';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { fetchWithTimeout } from '../utils/api-client';
 import { getStoredSession, type StoredUser } from '../utils/session';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -67,7 +68,7 @@ export default function WyceniajacyFinanseScreen() {
       }
       const oid = u?.oddzial_id != null ? String(u.oddzial_id) : '';
       const q = oid ? `?oddzial_id=${encodeURIComponent(oid)}` : '';
-      const res = await fetch(`${API_URL}/wyceny${q}`, {
+      const res = await fetchWithTimeout(`${API_URL}/wyceny${q}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

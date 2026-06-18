@@ -20,6 +20,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
+import { fetchWithTimeout } from '../utils/api-client';
 import { isTaskInProgress, makeTaskStatusColorMap } from '../constants/task-workflow';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -66,7 +67,7 @@ export default function OddzialyScreen() {
     try {
       const { token: storedToken } = await getStoredSession();
       if (!storedToken) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/oddzialy`, {
+      const res = await fetchWithTimeout(`${API_URL}/oddzialy`, {
         headers: { Authorization: `Bearer ${storedToken}` }
       });
       if (res.ok) setOddzialy(await res.json());
@@ -87,8 +88,8 @@ export default function OddzialyScreen() {
       if (!storedToken) { router.replace('/login'); return; }
       const h = { Authorization: `Bearer ${storedToken}` };
       const [uRes, zRes] = await Promise.all([
-        fetch(`${API_URL}/uzytkownicy`, { headers: h }),
-        fetch(`${API_URL}/tasks/wszystkie`, { headers: h }),
+        fetchWithTimeout(`${API_URL}/uzytkownicy`, { headers: h }),
+        fetchWithTimeout(`${API_URL}/tasks/wszystkie`, { headers: h }),
       ]);
       const uzytkownicy = uRes.ok ? await uRes.json() : [];
       const zlecenia = zRes.ok ? await zRes.json() : [];

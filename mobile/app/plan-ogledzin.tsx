@@ -27,6 +27,7 @@ import { createOfflineRequestId, queueRequestWithOfflineFallback } from '../util
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getStoredSession } from '../utils/session';
 import { getRoleDisplayName } from '../utils/role-display';
+import { fetchWithTimeout } from '../utils/api-client';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
 function paramString(value: unknown) {
@@ -186,7 +187,7 @@ export default function PlanOgledzinScreen() {
       }
       setToken(storedToken);
       setUser(storedUser);
-      const res = await fetch(`${API_URL}/ogledziny`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny`, {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       if (!res.ok) {
@@ -391,7 +392,7 @@ export default function PlanOgledzinScreen() {
     };
     const requestId = createOfflineRequestId(`ogledziny-${item.id}-${eventType}`);
     try {
-      const res = await fetch(`${API_URL}/ogledziny/${item.id}/field-event`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny/${item.id}/field-event`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -443,7 +444,7 @@ export default function PlanOgledzinScreen() {
         void triggerHaptic(ok ? 'success' : 'warning');
         return ok;
       }
-      const res = await fetch(`${API_URL}/ogledziny/${item.id}/status`, {
+      const res = await fetchWithTimeout(`${API_URL}/ogledziny/${item.id}/status`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
