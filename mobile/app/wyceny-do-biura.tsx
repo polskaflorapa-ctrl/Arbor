@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -386,6 +385,13 @@ export default function WycenyDoBiuraScreen() {
   const [planForm, setPlanForm] = useState<OfficePlanForm>({ data: todayKey(), godzina: '08:00', czas: '2', ekipaId: '', note: '' });
   const [planBusy, setPlanBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState('');
+
+  useEffect(() => {
+    if (!successNotice) return;
+    const timer = setTimeout(() => setSuccessNotice(''), 6500);
+    return () => clearTimeout(timer);
+  }, [successNotice]);
 
   const loadTeams = useCallback(async (authToken: string) => {
     setTeamsLoading(true);
@@ -645,7 +651,7 @@ export default function WycenyDoBiuraScreen() {
       void triggerHaptic('success');
       setPlanRow(null);
       setItems((prev) => prev.filter((item) => item.id !== planRow.id));
-      Alert.alert('Zaplanowane', data?.message || `Zlecenie #${planRow.id} przekazane do harmonogramu ekipy.`);
+      setSuccessNotice(data?.message || `Zlecenie #${planRow.id} przekazane do harmonogramu ekipy.`);
       void load();
     } catch (err) {
       void triggerHaptic('error');
@@ -689,6 +695,12 @@ export default function WycenyDoBiuraScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} colors={[theme.accent]} />}
       >
         {error ? <ErrorBanner message={error} /> : null}
+        {successNotice ? (
+          <View style={S.successNotice}>
+            <Ionicons name="checkmark-circle-outline" size={16} color={theme.success} />
+            <Text style={S.successNoticeText}>{successNotice}</Text>
+          </View>
+        ) : null}
 
         <View style={S.commandPanel}>
           <View style={S.commandTop}>
@@ -1325,6 +1337,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   center: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   content: { padding: 12, paddingBottom: 44, gap: 12 },
+  successNotice: {
+    borderWidth: 1,
+    borderColor: t.success + '66',
+    backgroundColor: t.successBg,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  successNoticeText: { flex: 1, color: t.success, fontSize: 12, lineHeight: 17, fontWeight: '800' },
   commandPanel: {
     borderWidth: 1,
     borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
