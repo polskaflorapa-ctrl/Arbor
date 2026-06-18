@@ -1,4 +1,5 @@
 import { safeBack } from '../utils/navigation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -223,6 +224,7 @@ const FIELD_PHOTO_TYPES: { key: FieldPhotoType; label: string; icon: IoniconName
 const REQUIRED_FIELD_PHOTO_TYPES: FieldPhotoType[] = ['wycena', 'szkic', 'dojazd'];
 const DRAW_COLORS = ['#EF4444', '#F97316', '#FACC15', '#22C55E', '#3B82F6', '#111827', '#FFFFFF'];
 const DRAW_WIDTHS = [3, 6, 10];
+const NEW_ORDER_DRAFT_KEY = 'new_order_mobile_draft_v1';
 
 const buildFieldQuoteSummary = (field: FieldProtocolForm) =>
   buildFieldProtocolSummary(field, 'FORMULARZ WYCENY TERENOWEJ');
@@ -325,6 +327,17 @@ export default function NoweZlecenieScreen() {
     notatki?: string;
   }>();
   const startsInFieldQuoteMode = shouldStartInFieldMode(paramString(params.source), paramString(params.inspectionId));
+  const hasRoutePrefill = Boolean(
+    paramString(params.source) ||
+    paramString(params.inspectionId) ||
+    paramString(params.klient) ||
+    paramString(params.telefon) ||
+    paramString(params.adres) ||
+    paramString(params.miasto) ||
+    paramString(params.data) ||
+    paramString(params.godzina) ||
+    paramString(params.notatki)
+  );
   const [oddzialy, setOddzialy] = useState<any[]>([]);
   const [ekipy, setEkipy] = useState<any[]>([]);
   const [ekipyLoading, setEkipyLoading] = useState(false);
@@ -353,6 +366,8 @@ export default function NoweZlecenieScreen() {
     status: startsInFieldQuoteMode ? TASK_STATUS.WYCENA_TERENOWA : TASK_STATUS.NOWE,
     ankieta_uproszczona: startsInFieldQuoteMode,
   }));
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [draftNotice, setDraftNotice] = useState('');
   const switchIntakeMode = useCallback((nextFieldMode: boolean, haptic = true) => {
     setFieldQuoteMode(nextFieldMode);
     setForm((current) => ({
@@ -375,8 +390,7 @@ export default function NoweZlecenieScreen() {
     const notatki = paramString(params.notatki);
     const source = paramString(params.source);
     const sourceLabel = fieldDraftSourceCopy(source).note;
-    const hasPrefill = !!(klient || telefon || adres || miasto || inspectionId || data || godzina || source);
-    if (!hasPrefill) return;
+    if (!hasRoutePrefill) return;
 
     switchIntakeMode(shouldStartInFieldMode(source, inspectionId), false);
     setForm((current) => ({
@@ -395,7 +409,69 @@ export default function NoweZlecenieScreen() {
       ].filter(Boolean).join('\n'),
     }));
     setPrefillApplied(true);
-  }, [params, prefillApplied, switchIntakeMode]);
+  }, [hasRoutePrefill, params, prefillApplied, switchIntakeMode]);
+
+  useEffect(() => {
+    let active = true;
+    if (hasRoutePrefill) {
+      setDraftLoaded(true);
+      return () => {
+        active = false;
+      };
+    }
+    AsyncStorage.getItem(NEW_ORDER_DRAFT_KEY)
+      .then((raw) => {
+        if (!active) return;
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as {
+          form?: typeof form;
+          fieldQuoteMode?: boolean;
+          fieldQuote?: FieldProtocolForm;
+          fieldPhotos?: FieldPhotoDraft[];
+          savedAt?: string;
+        };
+        if (parsed?.form && typeof parsed.form === 'object') setForm((current) => ({ ...current, ...parsed.form }));
+        if (typeof parsed?.fieldQuoteMode === 'boolean') setFieldQuoteMode(parsed.fieldQuoteMode);
+        if (parsed?.fieldQuote && typeof parsed.fieldQuote === 'object') {
+          setFieldQuote((current) => ({ ...current, ...parsed.fieldQuote }));
+        }
+        if (Array.isArray(parsed?.fieldPhotos)) {
+          setFieldPhotos(parsed.fieldPhotos.filter((photo) => photo && typeof photo.uri === 'string').slice(0, 24));
+        }
+        const savedAt = parsed?.savedAt ? new Date(parsed.savedAt) : null;
+        const savedLabel = savedAt && !Number.isNaN(savedAt.getTime())
+          ? savedAt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+          : '';
+        setDraftNotice(`Przywrocono lokalny szkic formularza${savedLabel ? ` z ${savedLabel}` : ''}.`);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setDraftLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [hasRoutePrefill]);
+
+  useEffect(() => {
+    if (!draftLoaded || hasRoutePrefill) return;
+    const handle = setTimeout(() => {
+      const payload = {
+        savedAt: new Date().toISOString(),
+        form,
+        fieldQuoteMode,
+        fieldQuote,
+        fieldPhotos,
+      };
+      void AsyncStorage.setItem(NEW_ORDER_DRAFT_KEY, JSON.stringify(payload)).catch(() => undefined);
+    }, 600);
+    return () => clearTimeout(handle);
+  }, [draftLoaded, fieldPhotos, fieldQuote, fieldQuoteMode, form, hasRoutePrefill]);
+
+  const clearLocalDraft = useCallback(async () => {
+    await AsyncStorage.removeItem(NEW_ORDER_DRAFT_KEY).catch(() => undefined);
+    setDraftNotice('');
+  }, []);
 
   const loadBranchResources = useCallback(async (storedToken: string, oddzialId: string, dateValue?: string) => {
     if (!oddzialId) return;
@@ -1472,6 +1548,7 @@ export default function NoweZlecenieScreen() {
             : '';
         const nextInspection = fieldQuoteMode ? await loadNextInspectionCandidate(token) : null;
         void triggerHaptic('success');
+        await clearLocalDraft();
         if (fieldQuoteMode) {
           const message = fieldPhotos.length || (afterCreate === 'photos' && createdId)
             ? `Dokumentacja terenowa jest podpięta do zlecenia.${photoLine}${inspectionLine}`
@@ -1594,6 +1671,15 @@ export default function NoweZlecenieScreen() {
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         {error ? <ErrorBanner message={error} /> : null}
+        {draftNotice ? (
+          <View style={S.draftNotice}>
+            <Ionicons name="save-outline" size={16} color={theme.info} />
+            <Text style={S.draftNoticeText}>{draftNotice}</Text>
+            <TouchableOpacity onPress={() => void clearLocalDraft()} style={S.draftNoticeBtn}>
+              <Text style={S.draftNoticeBtnText}>Wyczyść</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <View style={S.header}>
           <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
             <Ionicons name="arrow-back" size={21} color={theme.accent} />
@@ -3147,6 +3233,29 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 8,
   },
   prefillText: { color: t.info, fontSize: 12, lineHeight: 17, fontWeight: '700', flex: 1 },
+  draftNotice: {
+    marginHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: t.info + '66',
+    backgroundColor: t.infoBg,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  draftNoticeText: { color: t.info, fontSize: 12, lineHeight: 17, fontWeight: '700', flex: 1 },
+  draftNoticeBtn: {
+    borderWidth: 1,
+    borderColor: t.info + '55',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  draftNoticeBtnText: { color: t.info, fontSize: 11, fontWeight: '900' },
   intakePanel: {
     marginHorizontal: 14,
     marginTop: 10,
