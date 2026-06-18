@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   RefreshControl,
   ScrollView,
@@ -102,9 +101,20 @@ export default function TelefoniaMobileScreen() {
   const [busyCall, setBusyCall] = useState(false);
   const [busySms, setBusySms] = useState(false);
   const [busyCallback, setBusyCallback] = useState(false);
+  const [telephonyNotice, setTelephonyNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   const S = makeStyles(theme);
 
   const smsChars = useMemo(() => smsText.trim().length, [smsText]);
+
+  const showTelephonyNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setTelephonyNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!telephonyNotice) return;
+    const timer = setTimeout(() => setTelephonyNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [telephonyNotice]);
 
   const loadData = useCallback(
     async (authToken?: string | null, branchId?: number | null) => {
@@ -147,13 +157,13 @@ export default function TelefoniaMobileScreen() {
         setSmsRows([]);
         setCallbacks([]);
         const msg = err instanceof Error ? err.message : 'Blad telefonii.';
-        Alert.alert('Telefonia', msg);
+        showTelephonyNotice(msg, 'warning');
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [token, oddzialId],
+    [showTelephonyNotice, token, oddzialId],
   );
 
   useEffect(() => {
@@ -171,7 +181,7 @@ export default function TelefoniaMobileScreen() {
   const callClient = async () => {
     if (!token) return;
     if (!callPhone.trim()) {
-      Alert.alert('Telefonia', 'Podaj numer klienta.');
+      showTelephonyNotice('Podaj numer klienta.', 'warning');
       return;
     }
     setBusyCall(true);
@@ -194,13 +204,13 @@ export default function TelefoniaMobileScreen() {
             : 'Nie udalo sie uruchomic polaczenia.';
         throw new Error(msg);
       }
-      Alert.alert('Telefonia', 'Polaczenie zostalo uruchomione.');
+      showTelephonyNotice('Polaczenie zostalo uruchomione.');
       setCallPhone('');
       setCallTaskId('');
       await loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad telefonu.';
-      Alert.alert('Telefonia', msg);
+      showTelephonyNotice(msg, 'warning');
     } finally {
       setBusyCall(false);
     }
@@ -209,7 +219,7 @@ export default function TelefoniaMobileScreen() {
   const sendManualSms = async () => {
     if (!token) return;
     if (!smsPhone.trim() || !smsText.trim()) {
-      Alert.alert('SMS', 'Podaj numer i tresc wiadomosci.');
+      showTelephonyNotice('Podaj numer i tresc wiadomosci.', 'warning');
       return;
     }
     setBusySms(true);
@@ -230,13 +240,13 @@ export default function TelefoniaMobileScreen() {
             : 'Nie udalo sie wyslac SMS.';
         throw new Error(msg);
       }
-      Alert.alert('SMS', 'Wiadomosc wyslana.');
+      showTelephonyNotice('Wiadomosc wyslana.');
       setSmsPhone('');
       setSmsText('');
       await loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad wysylki SMS.';
-      Alert.alert('SMS', msg);
+      showTelephonyNotice(msg, 'warning');
     } finally {
       setBusySms(false);
     }
@@ -245,16 +255,16 @@ export default function TelefoniaMobileScreen() {
   const createCallback = async () => {
     if (!token) return;
     if (!callbackPhone.trim()) {
-      Alert.alert('Telefonia', 'Podaj numer do oddzwonienia.');
+      showTelephonyNotice('Podaj numer do oddzwonienia.', 'warning');
       return;
     }
     if (!oddzialId) {
-      Alert.alert('Telefonia', 'Brak oddzialu w sesji. Zaloguj sie ponownie.');
+      showTelephonyNotice('Brak oddzialu w sesji. Zaloguj sie ponownie.', 'warning');
       return;
     }
     const dueAt = parseDueAtInput(callbackDueAt);
     if (callbackDueAt.trim() && !dueAt) {
-      Alert.alert('Telefonia', 'Nieprawidlowy termin. Uzyj formatu YYYY-MM-DD HH:mm.');
+      showTelephonyNotice('Nieprawidlowy termin. Uzyj formatu YYYY-MM-DD HH:mm.', 'warning');
       return;
     }
     setBusyCallback(true);
@@ -282,7 +292,7 @@ export default function TelefoniaMobileScreen() {
             : 'Nie udalo sie dodac oddzwonienia.';
         throw new Error(msg);
       }
-      Alert.alert('Telefonia', 'Oddzwonienie dodane do kolejki.');
+      showTelephonyNotice('Oddzwonienie dodane do kolejki.');
       setCallbackPhone('');
       setCallbackTaskId('');
       setCallbackLead('');
@@ -292,7 +302,7 @@ export default function TelefoniaMobileScreen() {
       await loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad callback.';
-      Alert.alert('Telefonia', msg);
+      showTelephonyNotice(msg, 'warning');
     } finally {
       setBusyCallback(false);
     }
@@ -317,7 +327,7 @@ export default function TelefoniaMobileScreen() {
       await loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Blad callback.';
-      Alert.alert('Telefonia', msg);
+      showTelephonyNotice(msg, 'warning');
     }
   };
 
@@ -351,6 +361,31 @@ export default function TelefoniaMobileScreen() {
     <View style={S.root}>
       <AppStatusBar />
       <ScreenHeader title="Telefonia i SMS" />
+      {telephonyNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: telephonyNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: telephonyNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={telephonyNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={telephonyNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: telephonyNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {telephonyNotice.message}
+          </Text>
+        </View>
+      ) : null}
       <View style={S.statsRow}>
         <View style={S.statPill}>
           <Text style={S.statValue}>{calls.length}</Text>
@@ -648,6 +683,19 @@ const makeStyles = (t: Theme) =>
     },
     statValue: { color: t.text, fontSize: 18, fontWeight: '900' },
     statLabel: { color: t.textSub, fontSize: 11, fontWeight: '800', marginTop: 1 },
+    notice: {
+      marginHorizontal: 12,
+      marginTop: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    noticeText: { flex: 1, fontSize: 12, fontWeight: '800', lineHeight: 16 },
     tabRow: {
       flexDirection: 'row',
       gap: 6,
