@@ -2,7 +2,7 @@ import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -53,9 +53,20 @@ export default function OddzialFunkcjeAdminScreen() {
   const [showImport, setShowImport] = useState(false);
   const [importPayload, setImportPayload] = useState('');
   const [auditList, setAuditList] = useState(getOddzialFeatureAuditSync());
+  const [adminNotice, setAdminNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
 
   const oddzialIds = useMemo(() => getOddzialIds(), []);
   const allFeatures = useMemo(() => getAllFeatureKeys(), []);
+
+  const showAdminNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setAdminNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!adminNotice) return;
+    const timer = setTimeout(() => setAdminNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [adminNotice]);
 
   const loadConfig = (oddzialId: string) => {
     const cfg = getOddzialFeatureConfig(oddzialId);
@@ -112,7 +123,7 @@ export default function OddzialFunkcjeAdminScreen() {
         priorityOrder: allowed,
       }, adminActor);
       setAuditList(getOddzialFeatureAuditSync());
-      Alert.alert(t('wyceny.alert.savedTitle'), t('branchAdmin.savedOverride', { id: selectedOddzial }));
+      showAdminNotice(t('branchAdmin.savedOverride', { id: selectedOddzial }));
     } finally {
       setSaving(false);
     }
@@ -124,7 +135,7 @@ export default function OddzialFunkcjeAdminScreen() {
       await clearOddzialFeatureOverride(selectedOddzial, adminActor);
       loadConfig(selectedOddzial);
       setAuditList(getOddzialFeatureAuditSync());
-      Alert.alert(t('branchAdmin.resetTitle'), t('branchAdmin.restored', { id: selectedOddzial }));
+      showAdminNotice(t('branchAdmin.restored', { id: selectedOddzial }), 'warning');
     } finally {
       setSaving(false);
     }
@@ -141,7 +152,7 @@ export default function OddzialFunkcjeAdminScreen() {
     } catch {
       // Ignorujemy anulowanie systemowego share sheet.
     }
-    Alert.alert(t('common.copy'), t('branchAdmin.exportCopied'));
+    showAdminNotice(t('branchAdmin.exportCopied'));
   };
 
   const handleImport = async () => {
@@ -153,9 +164,9 @@ export default function OddzialFunkcjeAdminScreen() {
       setAuditList(getOddzialFeatureAuditSync());
       setShowImport(false);
       setImportPayload('');
-      Alert.alert(t('branchAdmin.importDoneTitle'), t('branchAdmin.importOk'));
+      showAdminNotice(t('branchAdmin.importOk'));
     } catch {
-      Alert.alert(t('branchAdmin.importErrorTitle'), t('branchAdmin.importFail'));
+      showAdminNotice(t('branchAdmin.importFail'), 'warning');
     } finally {
       setSaving(false);
     }
@@ -184,6 +195,31 @@ export default function OddzialFunkcjeAdminScreen() {
         </TouchableOpacity>
         <Text style={S.title}>Funkcje oddziałów (Admin)</Text>
       </View>
+      {adminNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: adminNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: adminNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={adminNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={adminNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: adminNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {adminNotice.message}
+          </Text>
+        </View>
+      ) : null}
 
       <ScrollView
         style={S.scroll}
@@ -308,6 +344,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   backBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontWeight: '800', color: t.headerText },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   scroll: { flex: 1 },
   card: { borderWidth: 1, borderColor: t.border, borderRadius: 7, backgroundColor: t.surface, padding: 12 },
   label: { fontSize: 12, fontWeight: '700', color: t.textSub, marginBottom: 6, marginTop: 4 },
