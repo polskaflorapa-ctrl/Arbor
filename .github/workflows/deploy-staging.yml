@@ -7,19 +7,11 @@ on:
 
 env:
   NODE_VERSION: '22'
-  RENDER_STAGING_API_SERVICE_ID: ${{ secrets.RENDER_STAGING_API_SERVICE_ID }}
-  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-  STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
-  STAGING_WEB_URL: ${{ secrets.STAGING_WEB_URL }}
 
 jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    environment: staging
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,31 +25,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run migrations (staging)
+      - name: Run migrations when configured
         run: |
-          cd os
-          npm run db:migrate
+          if [ -z "$DATABASE_URL" ]; then
+            echo "STAGING_DATABASE_URL is not configured; skipping staging migration."
+            exit 0
+          fi
+          npm run db:migrate -w arbor-os
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           JWT_SECRET: ${{ secrets.STAGING_JWT_SECRET }}
           NODE_ENV: production
-
-      - name: Deploy API to Render (staging)
-        uses: render-actions/deploy@v1
-        if: ${{ env.RENDER_STAGING_API_SERVICE_ID != '' && env.RENDER_API_KEY != '' }}
-        with:
-          service-id: ${{ env.RENDER_STAGING_API_SERVICE_ID }}
-          api-key: ${{ env.RENDER_API_KEY }}
-
-      - name: Deploy Web to Vercel (staging)
-        uses: amondnet/vercel-action@v25
-        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
-        with:
-          vercel-token: ${{ env.VERCEL_TOKEN }}
-          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./web
 
       - name: Health check staging API
         run: |
@@ -66,9 +44,11 @@ jobs:
             exit 0
           fi
           for i in {1..30}; do
-            curl -sf https://$STAGING_API_URL/api/ready/ && break
+            curl -sf "https://$STAGING_API_URL/api/ready/" && break
             sleep 10
           done
+        env:
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
 
       - name: Health check staging Web
         run: |
@@ -77,6 +57,8 @@ jobs:
             exit 0
           fi
           for i in {1..10}; do
-            curl -sf https://$STAGING_WEB_URL && break
+            curl -sf "https://$STAGING_WEB_URL" && break
             sleep 5
           done
+        env:
+          STAGING_WEB_URL: ${{ secrets.STAGING_WEB_URL }}

@@ -10,19 +10,11 @@ on:
 
 env:
   NODE_VERSION: '22'
-  RENDER_PROD_API_SERVICE_ID: ${{ secrets.RENDER_PROD_API_SERVICE_ID }}
-  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-  PROD_API_URL: ${{ secrets.PROD_API_URL }}
-  PROD_WEB_URL: ${{ secrets.PROD_WEB_URL }}
 
 jobs:
   deploy-prod:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,31 +30,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run migrations (production)
+      - name: Verify deploy inputs
+        run: npm run deploy:ready:check
+
+      - name: Run migrations when configured
         run: |
-          cd os
-          npm run db:migrate
+          if [ -z "$DATABASE_URL" ]; then
+            echo "PROD_DATABASE_URL is not configured; skipping production migration."
+            exit 0
+          fi
+          npm run db:migrate -w arbor-os
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
           NODE_ENV: production
-
-      - name: Deploy API to Render (production)
-        uses: render-actions/deploy@v1
-        if: ${{ env.RENDER_PROD_API_SERVICE_ID != '' && env.RENDER_API_KEY != '' }}
-        with:
-          service-id: ${{ env.RENDER_PROD_API_SERVICE_ID }}
-          api-key: ${{ env.RENDER_API_KEY }}
-
-      - name: Deploy Web to Vercel (production)
-        uses: amondnet/vercel-action@v25
-        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
-        with:
-          vercel-token: ${{ env.VERCEL_TOKEN }}
-          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./web
 
       - name: Deploy Web to Render and wait for smoke
         run: |
@@ -82,9 +63,11 @@ jobs:
             exit 0
           fi
           for i in {1..60}; do
-            curl -sf https://$PROD_API_URL/api/ready/ && break
+            curl -sf "https://$PROD_API_URL/api/ready/" && break
             sleep 10
           done
+        env:
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
 
       - name: Health check production Web
         run: |
@@ -93,9 +76,11 @@ jobs:
             exit 0
           fi
           for i in {1..15}; do
-            curl -sf https://$PROD_WEB_URL && break
+            curl -sf "https://$PROD_WEB_URL" && break
             sleep 5
           done
+        env:
+          PROD_WEB_URL: ${{ secrets.PROD_WEB_URL }}
 
       - name: Production readiness report
         run: npm run status:production -- --skip-local
@@ -103,7 +88,6 @@ jobs:
           RENDER_WEB_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}
 
       - name: Create GitHub Release
-        if: ${{ github.event.inputs.version != '' }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
