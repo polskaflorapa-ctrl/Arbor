@@ -10,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../constants/ThemeContext';
@@ -29,6 +28,17 @@ export default function TestModeScreen() {
   const { theme } = useTheme();
   const [testModeEnabled, setTestModeEnabled] = useState(false);
   const [selectedRole, setSelectedRole] = useState<keyof typeof TEST_USERS_MOBILE>('dyrektor');
+  const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
+
+  const showNotice = (message: string, tone: 'success' | 'warning' = 'success') => {
+    setNotice({ message, tone });
+  };
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     void checkTestModeStatus();
@@ -49,7 +59,7 @@ export default function TestModeScreen() {
         if (result) {
           await toggleTestModeMobile(true);
           setTestModeEnabled(true);
-          Alert.alert('✓ Tryb testowy włączony', `Zalogowano jako: ${getRoleDisplayName(result.user.rola)}`);
+          showNotice(`Zalogowano jako: ${getRoleDisplayName(result.user.rola)}`);
           setTimeout(() => router.replace('/'), 1000);
         }
       } else {
@@ -57,12 +67,12 @@ export default function TestModeScreen() {
         await logoutTestUserMobile();
         await toggleTestModeMobile(false);
         setTestModeEnabled(false);
-        Alert.alert('✗ Tryb testowy wyłączony', 'Wylogowano testowego użytkownika');
+        showNotice('Wylogowano testowego użytkownika', 'warning');
         setTimeout(() => router.replace('/login'), 1000);
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      Alert.alert('Błąd', 'Nie udało się zmienić trybu testowego: ' + message);
+      showNotice('Nie udało się zmienić trybu testowego: ' + message, 'warning');
     }
   };
 
@@ -72,15 +82,12 @@ export default function TestModeScreen() {
       try {
         const result = await loginTestUserMobile(role);
         if (result) {
-          Alert.alert(
-            '✓ Zmieniono rolę',
-            `Teraz jesteś: ${getRoleDisplayName(result.user.rola)}`,
-            [{ text: 'OK', onPress: () => setTimeout(() => router.replace('/'), 500) }]
-          );
+          showNotice(`Teraz jesteś: ${getRoleDisplayName(result.user.rola)}`);
+          setTimeout(() => router.replace('/'), 500);
         }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        Alert.alert('Błąd', 'Nie udało się zmienić roli: ' + message);
+        showNotice('Nie udało się zmienić roli: ' + message, 'warning');
       }
     }
   };
@@ -93,6 +100,26 @@ export default function TestModeScreen() {
           Konfiguracja dla developmentu i testowania
         </Text>
       </View>
+      {notice ? (
+        <View
+          style={[
+            styles.notice,
+            {
+              backgroundColor: notice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: notice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.noticeText,
+              { color: notice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {notice.message}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={[styles.section, { backgroundColor: theme.cardBg }]}>
         <View style={styles.sectionHeader}>
@@ -199,6 +226,18 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  notice: {
+    borderRadius: 7,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  noticeText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   section: {
     paddingHorizontal: 16,
