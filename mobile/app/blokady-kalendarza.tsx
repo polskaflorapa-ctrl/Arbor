@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -35,6 +34,7 @@ export default function BlokadyKalendarzaScreen() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [label, setLabel] = useState('');
+  const [modalError, setModalError] = useState('');
 
   const refresh = useCallback(async () => {
     setBlocks(await loadCalendarBlocks());
@@ -52,16 +52,19 @@ export default function BlokadyKalendarzaScreen() {
     setFrom(d);
     setTo(d);
     setLabel('');
+    setModalError('');
     setModal(true);
   };
 
   const saveNew = async () => {
     if (!isYmd(from) || !isYmd(to)) {
-      Alert.alert(t('common.error'), t('calendarBlocks.badRange'));
+      setModalError(t('calendarBlocks.badRange'));
+      void triggerHaptic('warning');
       return;
     }
     if (from > to) {
-      Alert.alert(t('common.error'), t('calendarBlocks.rangeOrder'));
+      setModalError(t('calendarBlocks.rangeOrder'));
+      void triggerHaptic('warning');
       return;
     }
     const next: CalendarBlock = {
@@ -128,7 +131,7 @@ export default function BlokadyKalendarzaScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={S.cardSub}>
-                {b.from} → {b.to}
+                {b.from} {'->'} {b.to}
               </Text>
             </View>
           ))
@@ -139,10 +142,21 @@ export default function BlokadyKalendarzaScreen() {
         <View style={S.modalBackdrop}>
           <View style={S.modalBox}>
             <Text style={S.modalTitle}>{t('calendarBlocks.addTitle')}</Text>
+            {modalError ? <Text style={S.modalError}>{modalError}</Text> : null}
             <Text style={S.lbl}>{t('calendarBlocks.from')}</Text>
-            <TextInput style={S.inp} value={from} onChangeText={setFrom} placeholder="2026-04-21" />
+            <TextInput
+              style={S.inp}
+              value={from}
+              onChangeText={(value) => { setFrom(value); setModalError(''); }}
+              placeholder="2026-04-21"
+            />
             <Text style={S.lbl}>{t('calendarBlocks.to')}</Text>
-            <TextInput style={S.inp} value={to} onChangeText={setTo} placeholder="2026-04-25" />
+            <TextInput
+              style={S.inp}
+              value={to}
+              onChangeText={(value) => { setTo(value); setModalError(''); }}
+              placeholder="2026-04-25"
+            />
             <Text style={S.lbl}>{t('calendarBlocks.label')}</Text>
             <TextInput style={S.inp} value={label} onChangeText={setLabel} placeholder={t('calendarBlocks.labelPh')} />
             <View style={S.modalRow}>
@@ -198,6 +212,17 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
     },
     modalTitle: { fontSize: 16, fontWeight: '800', color: theme.text, marginBottom: 12 },
+    modalError: {
+      color: theme.warning,
+      backgroundColor: theme.warningBg,
+      borderColor: theme.warning,
+      borderWidth: 1,
+      borderRadius: 7,
+      padding: 10,
+      fontSize: 12,
+      fontWeight: '800',
+      marginBottom: 10,
+    },
     lbl: { fontSize: 12, color: theme.textMuted, marginBottom: 4 },
     inp: {
       borderWidth: 1,

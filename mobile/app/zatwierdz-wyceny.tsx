@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   RefreshControl,
   ScrollView,
@@ -124,12 +123,15 @@ export default function ZatwierdzWycenyScreen() {
     setToken(storedToken);
     const role = typeof u?.rola === 'string' ? u.rola : '';
     if (!u || !APPROVE_ROLES.includes(role)) {
-      Alert.alert(t('approve.accessDeniedTitle'), t('approve.accessDeniedBody'));
-      safeBack();
+      void triggerHaptic('warning');
+      showApproveNotice(t('approve.accessDeniedBody'), 'warning');
+      setRuntimeError(t('approve.accessDeniedTitle'));
+      setLoading(false);
+      setTimeout(() => safeBack(), 900);
       return;
     }
     await loadAll(storedToken);
-  }, [loadAll, t]);
+  }, [loadAll, showApproveNotice, t]);
 
   useEffect(() => { void init(); }, [init]);
 
