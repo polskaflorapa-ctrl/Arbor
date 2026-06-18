@@ -6,7 +6,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   KeyboardAvoidingView,
   Modal,
@@ -412,24 +411,24 @@ export default function RezerwacjeSprzetuScreen() {
     if (!token) return;
     if (!isValidYmdDate(formDate)) {
       void triggerHaptic('warning');
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.badDate'));
+      showReservationNotice(t('fleetReserve.alert.badDate'), 'warning');
       return;
     }
     const blocks = await loadCalendarBlocks();
     setCalendarBlocks(blocks);
     if (isYmdBlocked(formDate, blocks)) {
       void triggerHaptic('warning');
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.calendarBlocked'));
+      showReservationNotice(t('fleetReserve.alert.calendarBlocked'), 'warning');
       return;
     }
     if (isPastYmdDate(formDate)) {
       void triggerHaptic('warning');
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.pastDate'));
+      showReservationNotice(t('fleetReserve.alert.pastDate'), 'warning');
       return;
     }
     if (!formSprzetId || !formEkipaId) {
       void triggerHaptic('warning');
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.pickEquipmentTeam'));
+      showReservationNotice(t('fleetReserve.alert.pickEquipmentTeam'), 'warning');
       return;
     }
     const hasVisibleConflict = rows.some((r) =>
@@ -440,7 +439,7 @@ export default function RezerwacjeSprzetuScreen() {
     );
     if (hasVisibleConflict) {
       void triggerHaptic('warning');
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.conflictOnList'));
+      showReservationNotice(t('fleetReserve.alert.conflictOnList'), 'warning');
       return;
     }
     const sprzet = sprzetList.find((x) => x.id === formSprzetId);
@@ -470,13 +469,13 @@ export default function RezerwacjeSprzetuScreen() {
     const canFallbackOffline = res.notImplemented || res.error === 'network';
     if (!canFallbackOffline) {
       void triggerHaptic('error');
-      Alert.alert(t('wyceny.alert.saveFail'), res.error || t('fleetReserve.alert.serverValidationError'));
+      showReservationNotice(res.error || t('fleetReserve.alert.serverValidationError'), 'warning');
       return;
     }
     const hasLocalConflict = await hasLocalReservationConflict(formSprzetId, formDate);
     if (hasLocalConflict) {
       void triggerHaptic('error');
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.localConflict'));
+      showReservationNotice(t('fleetReserve.alert.localConflict'), 'warning');
       return;
     }
     await addLocalRezerwacja({
@@ -508,7 +507,7 @@ export default function RezerwacjeSprzetuScreen() {
 
   const exportMonthCsv = async () => {
     if (!rows.length) {
-      Alert.alert(t('fleetReserve.exportMonthTitle'), t('fleetReserve.exportMonthEmpty'));
+      showReservationNotice(t('fleetReserve.exportMonthEmpty'), 'warning');
       return;
     }
     setExportingMonth(true);
