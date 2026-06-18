@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -156,7 +155,7 @@ export default function FlotaMobileScreen() {
 
   const dodajPojazd = async () => {
     if (!formPojazd.marka || !formPojazd.model || !formPojazd.nr_rejestracyjny) {
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.vehicleFields'));
+      showFleetNotice(t('fleet.alert.vehicleFields'), 'warning');
       return;
     }
     try {
@@ -172,13 +171,13 @@ export default function FlotaMobileScreen() {
         await loadAll();
         showFleetNotice(t('fleet.alert.vehicleAdded'));
       } else {
-        Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.vehicleFail')));
+        showFleetNotice(await readApiError(res, t('fleet.alert.vehicleFail')), 'warning');
       }
-    } catch { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.connection')); }
+    } catch { showFleetNotice(t('fleet.alert.connection'), 'warning'); }
   };
 
   const dodajSprzet = async () => {
-    if (!formSprzet.nazwa) { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.equipmentName')); return; }
+    if (!formSprzet.nazwa) { showFleetNotice(t('fleet.alert.equipmentName'), 'warning'); return; }
     try {
       if (!token) { router.replace('/login'); return; }
       const res = await apiJsonFetch('/flota/sprzet', {
@@ -192,14 +191,14 @@ export default function FlotaMobileScreen() {
         await loadAll();
         showFleetNotice(t('fleet.alert.equipmentAdded'));
       } else {
-        Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.equipmentFail')));
+        showFleetNotice(await readApiError(res, t('fleet.alert.equipmentFail')), 'warning');
       }
-    } catch { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.connection')); }
+    } catch { showFleetNotice(t('fleet.alert.connection'), 'warning'); }
   };
 
   const dodajNaprawe = async () => {
     if (!formNaprawa.zasob_id || !formNaprawa.data_naprawy) {
-      Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.repairFields'));
+      showFleetNotice(t('fleet.alert.repairFields'), 'warning');
       return;
     }
     try {
@@ -215,9 +214,9 @@ export default function FlotaMobileScreen() {
         await loadAll();
         showFleetNotice(t('fleet.alert.repairAdded'));
       } else {
-        Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.repairFail')));
+        showFleetNotice(await readApiError(res, t('fleet.alert.repairFail')), 'warning');
       }
-    } catch { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.connection')); }
+    } catch { showFleetNotice(t('fleet.alert.connection'), 'warning'); }
   };
 
   const isDyrektor = user?.rola === 'Dyrektor' || user?.rola === 'Administrator';
