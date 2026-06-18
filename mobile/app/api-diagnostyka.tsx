@@ -6,7 +6,6 @@ import Constants from 'expo-constants';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Share,
@@ -169,6 +168,7 @@ export default function ApiDiagnostykaScreen() {
   const [lastAppError, setLastAppError] = useState<AppErrorReport | null>(null);
   const [liveGpsEnabled, setLiveGpsEnabledState] = useState(true);
   const [liveGpsStatus, setLiveGpsStatus] = useState<LiveGpsStatusSnapshot | null>(null);
+  const [diagNotice, setDiagNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   const [results, setResults] = useState<DiagnosticResult[]>([
     makeInitialProbe('apiDiag.probe.backend'),
     makeInitialProbe('apiDiag.probe.auth'),
@@ -190,6 +190,16 @@ export default function ApiDiagnostykaScreen() {
   const globalLatency = useMemo(() => evaluateLatency(averageLatency, t), [averageLatency, t]);
   const latencySparkline = useMemo(() => buildLatencySparkline(history, t), [history, t]);
   const errorMonitoringConfig = useMemo(() => getErrorMonitoringConfig(), []);
+
+  const showDiagNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setDiagNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!diagNotice) return;
+    const timer = setTimeout(() => setDiagNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [diagNotice]);
 
   const runSingle = useCallback(async (
     nameKey: string,
@@ -329,20 +339,20 @@ export default function ApiDiagnostykaScreen() {
     if (!lastAppError) return;
     await Clipboard.setStringAsync(formatAppErrorReport(lastAppError));
     void triggerHaptic('success');
-    Alert.alert('Skopiowano raport', 'Raport bledu aplikacji jest w schowku.');
+    showDiagNotice('Raport bledu aplikacji jest w schowku.');
   };
 
   const copyReleaseQaReport = async (items: ReleaseQaItem[]) => {
     await Clipboard.setStringAsync(formatReleaseQaReport(items));
     void triggerHaptic('success');
-    Alert.alert('Skopiowano QA status', 'Status release QA jest w schowku.');
+    showDiagNotice('Status release QA jest w schowku.');
   };
 
   const clearLastAppError = async () => {
     await clearLastAppErrorReport();
     setLastAppError(null);
     void triggerHaptic('warning');
-    Alert.alert('Wyczyszczono raport', 'Lokalny raport bledu zostal usuniety.');
+    showDiagNotice('Lokalny raport bledu zostal usuniety.', 'warning');
   };
 
   const createTestAppErrorReport = async () => {
@@ -359,7 +369,7 @@ export default function ApiDiagnostykaScreen() {
     });
     setLastAppError(report);
     void triggerHaptic('success');
-    Alert.alert('Zapisano test', 'Testowy raport bledu jest widoczny w diagnostyce.');
+    showDiagNotice('Testowy raport bledu jest widoczny w diagnostyce.');
   };
 
   useEffect(() => {
@@ -453,7 +463,7 @@ export default function ApiDiagnostykaScreen() {
   const copyReport = async () => {
     await Clipboard.setStringAsync(buildReport());
     void triggerHaptic('success');
-    Alert.alert(t('apiDiag.alert.copiedTitle'), t('apiDiag.alert.copiedBody'));
+    showDiagNotice(t('apiDiag.alert.copiedBody'));
   };
 
   const shareReport = async () => {
@@ -468,7 +478,7 @@ export default function ApiDiagnostykaScreen() {
     await AsyncStorage.removeItem(DIAGNOSTIC_HISTORY_KEY);
     setHistory([]);
     void triggerHaptic('warning');
-    Alert.alert(t('apiDiag.alert.clearedTitle'), t('apiDiag.alert.clearedBody'));
+    showDiagNotice(t('apiDiag.alert.clearedBody'), 'warning');
   };
 
   const syncOfflineQueueNow = async () => {
@@ -476,7 +486,7 @@ export default function ApiDiagnostykaScreen() {
     try {
       const { token } = await getStoredSession();
       if (!token) {
-        Alert.alert(t('apiDiag.alert.noTokenTitle'), t('apiDiag.alert.noTokenBody'));
+        showDiagNotice(t('apiDiag.alert.noTokenBody'), 'warning');
         setOfflineQueueSize(await getOfflineQueueSize());
         return;
       }
@@ -484,7 +494,7 @@ export default function ApiDiagnostykaScreen() {
       setOfflineQueueSize(result.left);
       setLastQueueSyncInfo(result);
       void triggerHaptic('success');
-      Alert.alert(t('apiDiag.alert.syncTitle'), t('apiDiag.alert.syncBody', { flushed: result.flushed, left: result.left }));
+      showDiagNotice(t('apiDiag.alert.syncBody', { flushed: result.flushed, left: result.left }));
     } finally {
       setSyncingQueue(false);
     }
@@ -657,6 +667,32 @@ export default function ApiDiagnostykaScreen() {
           {running ? <ActivityIndicator size="small" color={theme.accent} /> : <Ionicons name="refresh" size={20} color={theme.accent} />}
         </TouchableOpacity>
       </View>
+
+      {diagNotice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: diagNotice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: diagNotice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={diagNotice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={diagNotice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: diagNotice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {diagNotice.message}
+          </Text>
+        </View>
+      ) : null}
 
       <ScrollView
         style={S.scroll}
@@ -1038,6 +1074,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: { flex: 1, color: t.headerText, fontSize: 20, fontWeight: '900', letterSpacing: 0 },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   scroll: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
   heroCard: {
     backgroundColor: t.cardBg,
