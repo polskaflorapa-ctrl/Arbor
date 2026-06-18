@@ -7,7 +7,6 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   RefreshControl,
   ScrollView,
@@ -116,6 +115,7 @@ export default function Powiadomienia() {
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
+  const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
 
   const notifColors = useMemo(() => notifTypeColors(theme), [theme]);
   const unreadCount = useMemo(
@@ -167,18 +167,28 @@ export default function Powiadomienia() {
     },
   ]), [approvalQueue.length, offlineQueueCount, theme, unreadCount, zlecenia.length]);
 
+  const showNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
+    setNotice({ message, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 6500);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   const registerPush = useCallback(async () => {
     setPushBusy(true);
     try {
       if (!Device.isDevice) {
         void triggerHaptic('warning');
-        Alert.alert('', 'Push: wymagane fizyczne urządzenie.');
+        showNotice('Push: wymagane fizyczne urządzenie.', 'warning');
         return;
       }
       const perm = await Notifications.requestPermissionsAsync();
       if (perm.status !== 'granted') {
         void triggerHaptic('warning');
-        Alert.alert('', 'Brak zgody na powiadomienia.');
+        showNotice('Brak zgody na powiadomienia.', 'warning');
         return;
       }
       const projectId =
@@ -193,11 +203,11 @@ export default function Powiadomienia() {
     } catch (e: unknown) {
       void triggerHaptic('error');
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('', msg || 'Nie udało się pobrać tokena (EAS projectId?).');
+      showNotice(msg || 'Nie udało się pobrać tokena (EAS projectId?).', 'warning');
     } finally {
       setPushBusy(false);
     }
-  }, []);
+  }, [showNotice]);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -334,8 +344,8 @@ export default function Powiadomienia() {
           : n,
       ),
     );
-    Alert.alert(t('notif.alert.offlineTitle'), t('notif.alert.offlineReadQueued'));
-  }, [token, unreadCount, t]);
+    showNotice(t('notif.alert.offlineReadQueued'), 'warning');
+  }, [showNotice, token, unreadCount, t]);
 
   const decideApproval = useCallback(
     async (row: any, decyzja: 'Approved' | 'Returned') => {
@@ -361,12 +371,12 @@ export default function Powiadomienia() {
         if (res.ok) {
           setApprovalQueue((prev) => prev.filter((it) => Number(it.approval_id) !== approvalId));
           void triggerHaptic('success');
-          Alert.alert('', decyzja === 'Approved' ? 'Oględziny zatwierdzone.' : 'Oględziny zostały zwrócone.');
+          showNotice(decyzja === 'Approved' ? 'Oględziny zatwierdzone.' : 'Oględziny zostały zwrócone.');
         } else if (res.status === 404) {
           void triggerHaptic('warning');
-          Alert.alert(
-            'Moduł zatwierdzania wycen',
-            'Backend produkcyjny czeka jeszcze na wdrożenie nowego modułu wycen terenowych. Decyzja nie została wysłana.'
+          showNotice(
+            'Backend produkcyjny czeka jeszcze na wdrożenie nowego modułu wycen terenowych. Decyzja nie została wysłana.',
+            'warning',
           );
         } else if (res.status >= 500) {
           const queued = await queueRequestWithOfflineFallback({
@@ -378,11 +388,11 @@ export default function Powiadomienia() {
           setOfflineQueueCount(queued);
           setApprovalQueue((prev) => prev.filter((it) => Number(it.approval_id) !== approvalId));
           void triggerHaptic('warning');
-          Alert.alert(t('notif.alert.offlineTitle'), 'Decyzja została zapisana i wyśle się po odzyskaniu połączenia.');
+          showNotice('Decyzja została zapisana i wyśle się po odzyskaniu połączenia.', 'warning');
         } else {
           const msg = await res.text().catch(() => '');
           void triggerHaptic('warning');
-          Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
+          showNotice(msg.slice(0, 200) || `HTTP ${res.status}`, 'warning');
         }
       } catch {
         const queued = await queueRequestWithOfflineFallback({
@@ -394,17 +404,17 @@ export default function Powiadomienia() {
         setOfflineQueueCount(queued);
         setApprovalQueue((prev) => prev.filter((it) => Number(it.approval_id) !== approvalId));
         void triggerHaptic('warning');
-        Alert.alert(t('notif.alert.offlineTitle'), 'Decyzja została zapisana i wyśle się po odzyskaniu połączenia.');
+        showNotice('Decyzja została zapisana i wyśle się po odzyskaniu połączenia.', 'warning');
       } finally {
         setApprovalBusyId(null);
       }
     },
-    [token, t],
+    [showNotice, token],
   );
 
   const wyslij = async () => {
     if (!selectedKierownik) {
-      Alert.alert(t('notif.alert.errorTitle'), t('notif.alert.pickRecipient'));
+      showNotice(t('notif.alert.pickRecipient'), 'warning');
       return;
     }
     setSending(true);
@@ -420,7 +430,7 @@ export default function Powiadomienia() {
       });
       if (res.ok) {
         void triggerHaptic('success');
-        Alert.alert(t('notif.alert.sentTitle'), t('notif.alert.sentBody'));
+        showNotice(t('notif.alert.sentBody'));
         setShowForm(false); setTresc(''); setSelectedTask('');
         loadData();
       } else {
@@ -431,7 +441,7 @@ export default function Powiadomienia() {
         });
         setOfflineQueueCount(queued);
         void triggerHaptic('warning');
-        Alert.alert(t('notif.alert.noConnectionTitle'), t('notif.alert.noConnectionBody'));
+        showNotice(t('notif.alert.noConnectionBody'), 'warning');
       }
     } catch {
       const queued = await queueRequestWithOfflineFallback({
@@ -441,7 +451,7 @@ export default function Powiadomienia() {
       });
       setOfflineQueueCount(queued);
       void triggerHaptic('warning');
-      Alert.alert(t('notif.alert.offlineTitle'), t('notif.alert.offlineBody'));
+      showNotice(t('notif.alert.offlineBody'), 'warning');
     }
     finally { setSending(false); }
   };
@@ -487,6 +497,31 @@ export default function Powiadomienia() {
           </TouchableOpacity>
         }
       />
+      {notice ? (
+        <View
+          style={[
+            S.notice,
+            {
+              backgroundColor: notice.tone === 'warning' ? theme.warningBg : theme.successBg,
+              borderColor: notice.tone === 'warning' ? theme.warning : theme.success,
+            },
+          ]}
+        >
+          <Ionicons
+            name={notice.tone === 'warning' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+            size={16}
+            color={notice.tone === 'warning' ? theme.warning : theme.success}
+          />
+          <Text
+            style={[
+              S.noticeText,
+              { color: notice.tone === 'warning' ? theme.warning : theme.success },
+            ]}
+          >
+            {notice.message}
+          </Text>
+        </View>
+      ) : null}
       {offlineQueueCount > 0 ? (
         <View style={S.offlineInfo}>
           <Ionicons name="cloud-offline-outline" size={14} color={theme.warning} />
@@ -576,7 +611,7 @@ export default function Powiadomienia() {
               <TouchableOpacity
                 onPress={() => {
                   void Clipboard.setStringAsync(pushToken);
-                  Alert.alert('', t('common.copy'));
+                  showNotice(t('common.copy'));
                 }}
               >
                 <Text style={S.pushCopy}>{t('notifications.push.copy')}</Text>
@@ -765,6 +800,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderColor: t.cardBorder,
     backgroundColor: t.surface2,
   },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   offlineInfo: {
     flexDirection: 'row',
     alignItems: 'center',
