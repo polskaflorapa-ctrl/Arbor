@@ -85,6 +85,7 @@
     "verify:ops-alert-ownership": "node ./scripts/ops-alert-ownership-check.cjs",
     "verify:ops-alert-owner-ui": "node ./scripts/ops-alert-owner-ui-check.cjs",
     "verify:ops-owner-control": "node ./scripts/ops-owner-control-check.cjs",
+    "verify:money-flow": "node ./scripts/money-flow-readiness-check.cjs",
     "verify:polska-flora-ready": "node ./scripts/polska-flora-readiness-check.cjs",
     "verify:render-unified": "node ./scripts/render-unified-check.cjs",
     "smoke:render-unified:live": "node ./scripts/render-unified-live-smoke.cjs",
