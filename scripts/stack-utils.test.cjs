@@ -4,7 +4,14 @@ const http = require("node:http");
 const https = require("node:https");
 const { EventEmitter } = require("node:events");
 
-const { httpGet, httpPostJson, checkApiHealth, formatPortListeners, getProxyPort } = require("./lib/stack-utils.cjs");
+const {
+  httpGet,
+  httpPostJson,
+  checkApiHealth,
+  formatPortListeners,
+  getProxyPort,
+  isLocalProxyTarget,
+} = require("./lib/stack-utils.cjs");
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -188,4 +195,11 @@ test("getProxyPort reads explicit and default ports from proxy targets", () => {
   assert.equal(getProxyPort("http://example.test"), 80);
   assert.equal(getProxyPort("https://example.test"), 443);
   assert.equal(getProxyPort("not a url"), 3001);
+});
+
+test("isLocalProxyTarget separates local dev APIs from remote Render targets", () => {
+  assert.equal(isLocalProxyTarget("http://localhost:3006"), true);
+  assert.equal(isLocalProxyTarget("http://127.0.0.1:3001"), true);
+  assert.equal(isLocalProxyTarget("https://arbor-os-b7k6.onrender.com"), false);
+  assert.equal(isLocalProxyTarget("not a url"), true);
 });

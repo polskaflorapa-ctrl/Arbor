@@ -1,12 +1,22 @@
-const { getProxyTarget, getProxyPort, isPortOpen, checkApiHealth, formatPortListeners, getPortListeners } = require("./lib/stack-utils.cjs");
+const {
+  getProxyTarget,
+  getProxyPort,
+  isLocalProxyTarget,
+  isPortOpen,
+  checkApiHealth,
+  formatPortListeners,
+  getPortListeners,
+} = require("./lib/stack-utils.cjs");
 
 function yesNo(flag) {
   return flag ? "YES" : "NO";
 }
 
-function computeSuggestions({ apiOpen, apiPort, healthOk, webRunning, apiPortListeners = [] }) {
+function computeSuggestions({ apiOpen, apiPort, healthOk, webRunning, apiPortListeners = [], localProxy = true }) {
   const suggestions = [];
-  if (!apiOpen) {
+  if (!localProxy && !healthOk) {
+    suggestions.push("check remote ARBOR_API_PROXY_TARGET or switch web/.env.local back to a local API");
+  } else if (!apiOpen) {
     suggestions.push(`start Arbor API on port ${apiPort} or update web/.env.local ARBOR_API_PROXY_TARGET`);
   } else if (!healthOk && apiPortListeners.length > 0) {
     suggestions.push(`free port ${apiPort} or set web/.env.local ARBOR_API_PROXY_TARGET to the running Arbor API`);
@@ -25,8 +35,9 @@ async function main() {
 
   const proxyTarget = getProxyTarget();
   const apiPort = getProxyPort(proxyTarget);
+  const localProxy = isLocalProxyTarget(proxyTarget);
   const webOpen = await isPortOpen(3000);
-  const apiOpen = await isPortOpen(apiPort);
+  const apiOpen = localProxy ? await isPortOpen(apiPort) : true;
   const altWebOpen = await isPortOpen(3002);
   const webRunning = webOpen || altWebOpen;
 
@@ -34,13 +45,14 @@ async function main() {
   const healthOk = health.ok;
   const healthNote = health.note;
   const healthy = webRunning && apiOpen && healthOk;
-  const apiPortListeners = apiOpen && !healthOk ? getPortListeners(apiPort) : [];
-  const suggestions = computeSuggestions({ apiOpen, apiPort, healthOk, webRunning, apiPortListeners });
+  const apiPortListeners = localProxy && apiOpen && !healthOk ? getPortListeners(apiPort) : [];
+  const suggestions = computeSuggestions({ apiOpen, apiPort, healthOk, webRunning, apiPortListeners, localProxy });
 
   if (jsonMode) {
     const payload = {
       healthy,
       proxyTarget,
+      proxyIsLocal: localProxy,
       ports: {
         web3000: webOpen,
         web3002: altWebOpen,
@@ -78,7 +90,13 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error("[status] FAILED:", error.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("[status] FAILED:", error.message);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  computeSuggestions,
+};

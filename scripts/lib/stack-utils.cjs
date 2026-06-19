@@ -39,6 +39,15 @@ function getProxyPort(proxyTarget) {
   }
 }
 
+function isLocalProxyTarget(proxyTarget) {
+  try {
+    const host = new URL(proxyTarget).hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    return true;
+  }
+}
+
 function isPortOpen(port, host = "127.0.0.1", timeoutMs = 700) {
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -241,6 +250,7 @@ function killPortListeners(ports, tag = "stack") {
 module.exports = {
   getProxyTarget,
   getProxyPort,
+  isLocalProxyTarget,
   isPortOpen,
   httpRequest,
   httpGet,
