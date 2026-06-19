@@ -51,6 +51,14 @@ function isCashCollectionNoteMissing(payment, grossVal, notatkiZBody) {
   return !note;
 }
 
+function isNoPaymentReasonMissing(payment, grossVal, notatkiZBody) {
+  if (!payment || payment.forma_platnosc !== 'Brak') return false;
+  const gross = Number(grossVal);
+  if (!Number.isFinite(gross) || gross <= 0) return false;
+  const note = String(payment.notatki || notatkiZBody || '').trim();
+  return !note;
+}
+
 function grossForTask(task, payment) {
   const wr = Number(task.wartosc_rzeczywista);
   const wp = Number(task.wartosc_planowana);
@@ -150,4 +158,5 @@ module.exports = {
   settlementCalcDetail,
   countTaskFinishPhotos,
   isCashCollectionNoteMissing,
+  isNoPaymentReasonMissing,
 };

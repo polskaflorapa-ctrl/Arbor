@@ -32,6 +32,7 @@ const {
   FINISH_PHOTO_MIN,
   CASH_COLLECTION_NOTE_PCT,
   isCashCollectionNoteMissing,
+  isNoPaymentReasonMissing,
 } = require('../services/taskSettlement');
 const { tryAutoTeamDayCloseAfterTaskFinish } = require('../services/payrollTeamDay');
 const { sendSmsOptional } = require('../services/twilioSms');
@@ -5180,6 +5181,14 @@ router.post(
           return res.status(400).json({
             error: req.tv('errors.tasks.paymentNoteRequiredOverPct', { pct: CASH_COLLECTION_NOTE_PCT }),
             code: 'PAYMENT_NOTE_REQUIRED_OVER_5_PCT',
+            requestId: req.requestId,
+          });
+        }
+        if (isNoPaymentReasonMissing(payment, grossVal, notatki)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: 'Podaj powod braku platnosci przy platnym zleceniu.',
+            code: 'PAYMENT_MISSING_REASON_REQUIRED',
             requestId: req.requestId,
           });
         }

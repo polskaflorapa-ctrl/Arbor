@@ -1,6 +1,7 @@
 const {
   grossForTask,
   isCashCollectionNoteMissing,
+  isNoPaymentReasonMissing,
   CASH_COLLECTION_NOTE_PCT,
 } = require('../src/services/taskSettlement');
 
@@ -45,6 +46,20 @@ describe('taskSettlement', () => {
       expect(isCashCollectionNoteMissing({ forma_platnosc: 'Gotowka', kwota_odebrana: 200 }, 100, 'uzasadnienie')).toBe(
         false
       );
+    });
+  });
+
+  describe('isNoPaymentReasonMissing', () => {
+    it('true dla platnego zlecenia bez platnosci i bez notatki', () => {
+      expect(isNoPaymentReasonMissing({ forma_platnosc: 'Brak' }, 250, '')).toBe(true);
+    });
+
+    it('false gdy brak platnosci ma uzasadnienie', () => {
+      expect(isNoPaymentReasonMissing({ forma_platnosc: 'Brak', notatki: 'klient placi jutro' }, 250, '')).toBe(false);
+    });
+
+    it('false gdy zlecenie ma zerowa wartosc', () => {
+      expect(isNoPaymentReasonMissing({ forma_platnosc: 'Brak' }, 0, '')).toBe(false);
     });
   });
 });
