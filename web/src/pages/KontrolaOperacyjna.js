@@ -84,6 +84,7 @@ export default function KontrolaOperacyjna() {
   const [loading, setLoading] = useState(false);
   const [ownerAlertsLoading, setOwnerAlertsLoading] = useState(false);
   const [ownerBulkAction, setOwnerBulkAction] = useState('');
+  const [ownerResolveAction, setOwnerResolveAction] = useState('');
   const [digestLoading, setDigestLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -333,6 +334,35 @@ export default function KontrolaOperacyjna() {
     }
   };
 
+  const runOwnerResolveAction = async (item, source = 'control') => {
+    const riskId = item?.risk_id || item?.id;
+    const riskType = item?.risk_type || item?.type;
+    if (!riskId || !riskType) return;
+    const actionKey = `${source}:${riskId}`;
+    setOwnerResolveAction(actionKey);
+    setError('');
+    try {
+      const token = getStoredToken();
+      await api.post('/ops/owner-alerts/resolve', {
+        risk_id: riskId,
+        risk_type: riskType,
+        task_id: item.task_id || null,
+        source,
+        note: source === 'digest'
+          ? 'Oznaczono jako rozwiazane z digestu dyrektora'
+          : 'Oznaczono jako rozwiazane z kontroli operacyjnej',
+      }, { headers: authHeaders(token) });
+      await Promise.all([loadOpenOwnerAlerts(), loadOwnerRemediationReport(), loadHistory()]);
+      if (source === 'digest') {
+        await loadDigest();
+      }
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Nie udalo sie oznaczyc alertu ownera jako rozwiazanego.'));
+    } finally {
+      setOwnerResolveAction('');
+    }
+  };
+
   const items = history.items || [];
   const actionSummary = history.summary?.actions || [];
   const issueSummary = history.summary?.issues || [];
@@ -348,6 +378,7 @@ export default function KontrolaOperacyjna() {
   const openOwnerSummary = openOwnerAlerts.summary || {};
   const ownerRemediationSummary = ownerRemediationReport.summary || {};
   const ownerRemediationItems = ownerRemediationReport.items || [];
+  const digestUnresolvedAfterRemediation = digest?.details?.owner_unresolved_after_remediation || [];
   const kommoSmsAckCount = ownerAckRows.filter((item) => ['kommo_sync', 'sms_delivery'].includes(item.risk_type)).length;
   const zadarmaCount = actionSummary
     .filter((item) => ['risk_queue_call', 'risk_resend_sms'].includes(item.action_type))
@@ -530,6 +561,14 @@ export default function KontrolaOperacyjna() {
                 <div style={s.ownerAckMeta}>
                   <span>{item.numer || '-'}</span>
                   <span>{item.klient_nazwa || '-'}</span>
+                  <button
+                    type="button"
+                    style={s.secondaryBtn}
+                    onClick={() => runOwnerResolveAction(item, 'control')}
+                    disabled={ownerResolveAction === `control:${item.risk_id || item.id}`}
+                  >
+                    {ownerResolveAction === `control:${item.risk_id || item.id}` ? 'Zapisywanie...' : 'Oznacz rozwiazane'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -636,6 +675,30 @@ export default function KontrolaOperacyjna() {
               ))}
               {!(digest.alerts || []).length ? <div style={s.emptyLine}>Brak krytycznych alertow w digestcie.</div> : null}
             </div>
+            {digestUnresolvedAfterRemediation.length ? (
+              <div style={s.ownerAckList}>
+                {digestUnresolvedAfterRemediation.slice(0, 5).map((item) => (
+                  <div key={`digest-owner-${item.risk_id || item.id}`} style={s.ownerAckItem}>
+                    <div>
+                      <strong>{item.escalation_level || 'P2'} / {item.risk_type || item.type || 'alert'} / po remediacji</strong>
+                      <div style={s.subLine}>{item.owner_label || 'Owner: operacje'} / {item.risk_id || '-'} / {formatDateTime(item.last_remediation_at)}</div>
+                    </div>
+                    <div style={s.ownerAckMeta}>
+                      <span>{item.numer || '-'}</span>
+                      <span>{item.klient_nazwa || '-'}</span>
+                      <button
+                        type="button"
+                        style={s.secondaryBtn}
+                        onClick={() => runOwnerResolveAction(item, 'digest')}
+                        disabled={ownerResolveAction === `digest:${item.risk_id || item.id}`}
+                      >
+                        {ownerResolveAction === `digest:${item.risk_id || item.id}` ? 'Zapisywanie...' : 'Oznacz rozwiazane'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : null}
 

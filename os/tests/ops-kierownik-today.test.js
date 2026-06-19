@@ -1239,6 +1239,20 @@ describe('GET /api/ops/owner-alerts/open', () => {
         });
         return { rows: [{ id: 904, task_id: 77, action_type: 'risk_owner_resolve', issue_key: 'kommo_sync' }] };
       }
+      if (text.includes('INSERT INTO audit_log')) {
+        expect(params[5]).toBe('ops.owner_alert.resolve');
+        expect(params[6]).toBe('ops_owner_alert');
+        expect(params[7]).toBe('kommo_sync:501');
+        expect(JSON.parse(params[8])).toMatchObject({
+          risk_id: 'kommo_sync:501',
+          risk_type: 'kommo_sync',
+          task_id: 77,
+          source: 'digest',
+          event_id: 904,
+          resolution_status: 'resolved',
+        });
+        return { rows: [] };
+      }
       return { rows: [] };
     });
 

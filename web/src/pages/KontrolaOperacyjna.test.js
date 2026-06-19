@@ -246,6 +246,20 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
     );
   });
 
+  await userEvent.click(screen.getAllByRole('button', { name: 'Oznacz rozwiazane' })[1]);
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/owner-alerts/resolve',
+      expect.objectContaining({
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+        source: 'control',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
   await userEvent.click(screen.getByRole('button', { name: 'Eskaluj widoczne' }));
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
@@ -276,7 +290,7 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
     );
   });
 
-  await userEvent.click(screen.getByRole('button', { name: 'Oznacz rozwiazane' }));
+  await userEvent.click(screen.getAllByRole('button', { name: 'Oznacz rozwiazane' })[0]);
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
       '/ops/owner-alerts/actions',
@@ -344,16 +358,12 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
   await userEvent.click(resolveButtons[resolveButtons.length - 1]);
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
-      '/ops/owner-alerts/actions',
+      '/ops/owner-alerts/resolve',
       expect.objectContaining({
-        action: 'bulk_resolve',
-        items: expect.arrayContaining([
-          expect.objectContaining({
-            risk_id: 'kommo_sync:501',
-            risk_type: 'kommo_sync',
-            task_id: 77,
-          }),
-        ]),
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+        source: 'digest',
       }),
       expect.objectContaining({ headers: expect.any(Object) })
     );

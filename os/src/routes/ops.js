@@ -2401,6 +2401,19 @@ router.post('/owner-alerts/resolve', authMiddleware, requireRole(...MANAGER_ROLE
         resolved_at: new Date().toISOString(),
       },
     });
+    await req.auditLog?.({
+      action: 'ops.owner_alert.resolve',
+      entityType: 'ops_owner_alert',
+      entityId: riskId,
+      metadata: {
+        risk_id: riskId,
+        risk_type: riskType,
+        task_id: Number.isInteger(taskId) && taskId > 0 ? taskId : null,
+        source,
+        event_id: event?.id || null,
+        resolution_status: 'resolved',
+      },
+    });
     return res.json({
       message: 'Alert ownera oznaczony jako rozwiazany',
       resolved: {

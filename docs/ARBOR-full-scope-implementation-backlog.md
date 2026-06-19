@@ -108,7 +108,7 @@
 - [x] **P0 ops owner auto-remediation playbook**: `/api/ops/owner-alerts/remediation` pozwala uruchomic `retry_kommo` albo `resend_sms` dopiero po jawnej eskalacji `risk_owner_escalate`, pilnuje dziennego limitu `OPS_OWNER_REMEDIATION_DAILY_LIMIT` i zapisuje audyt `risk_owner_auto_remediate`.
 - [x] **P0 ops owner remediation effectiveness**: `/api/ops/owner-alerts/remediation-report` zwraca retry Kommo, ponowienia SMS, sukcesy, bledy i blokady limitu; Kontrola operacyjna pokazuje skutecznosc remediacji ownerow obok nierozwiazanych P1/P2.
 - [x] **P0 ops owner unresolved remediation digest alert**: Dzienny digest wykrywa nierozwiazane P1/P2 Kommo/SMS po `risk_owner_auto_remediate`, dodaje alert `owner_unresolved_after_remediation` i pokazuje ownerow oraz ostatnie decyzje.
-- [x] **EPIC 9.14**: zamykanie petli remediacji ownerow: szybki przycisk `oznacz rozwiazane` w Kontroli operacyjnej, audyt `risk_owner_resolve`, licznik `owner_resolutions` w digestcie i wygaszenie `owner_unresolved_after_remediation` po domknieciu.
+- [x] **EPIC 9.14 ops owner remediation closure**: zamykanie petli remediacji ownerow: szybki przycisk `oznacz rozwiazane` w Kontroli operacyjnej, audyt `risk_owner_resolve`, licznik `owner_resolutions` w digestcie i wygaszenie `owner_unresolved_after_remediation` po domknieciu.
 
 ---
 
