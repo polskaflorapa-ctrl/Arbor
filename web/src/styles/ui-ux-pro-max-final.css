@@ -98,6 +98,53 @@ body.theme-light #root .explore-shell.explore-command-shell {
   color: var(--ux-text) !important;
 }
 
+/* Polska Flora final cascade lock: teams and manager command. */
+#root .app-shell.ekipy-shell,
+#root .app-shell.kierownik-shell {
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, #f8f6ee 0%, #fbfaf6 50%, #eee8d6 100%) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+}
+
+#root .app-main.ekipy-main,
+#root .app-main.kierownik-main {
+  background: transparent !important;
+}
+
+#root .app-main.ekipy-main > .module-page-header-hero,
+#root .app-main.kierownik-main > .module-page-header-hero {
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
+    linear-gradient(90deg, #3b2a18, #4a351f) !important;
+}
+
+#root .app-main.ekipy-main .ekipy-command-lead,
+#root .app-main.ekipy-main .ekipy-command-card,
+#root .app-main.kierownik-main .kierownik-cockpit-panel > div:first-child {
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.14), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #3b2a18, #2f2114) !important;
+}
+
+#root .app-main.ekipy-main .ekipy-summary-card,
+#root .app-main.ekipy-main .ekipy-form-panel,
+#root .app-main.ekipy-main .ekipy-list-panel,
+#root .app-main.ekipy-main .ekipy-detail-panel,
+#root .app-main.ekipy-main .ekipy-empty-panel,
+#root .app-main.ekipy-main .ekipy-team-card,
+#root .app-main.kierownik-main .kierownik-cockpit-panel,
+#root .app-main.kierownik-main .kierownik-filters,
+#root .app-main.kierownik-main .kierownik-cards-wrap,
+#root .app-main.kierownik-main .kierownik-task-card,
+#root .app-main.kierownik-main .kierownik-branch-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
+  border-color: rgba(59, 42, 24, 0.14) !important;
+  box-shadow: 0 16px 38px rgba(59, 42, 24, 0.08) !important;
+}
+
 #root .app-shell:has(> .command-native-sidebar) {
   display: flex !important;
   align-items: stretch !important;
@@ -4767,5 +4814,456 @@ body.theme-dark #root .arbor-sidebar {
 
   #root .harmonogram-slot-board {
     max-width: 100% !important;
+  }
+}
+
+/* Polska Flora active brand layer: operational management surfaces. */
+#root .ekipy-shell,
+#root .integrations-shell,
+#root .kontrola-shell,
+#root .operator-tasks-shell {
+  --pf-brown: #3b2a18;
+  --pf-brown-soft: #5b472c;
+  --pf-olive: #a0af14;
+  --pf-olive-soft: #b4c232;
+  --pf-orange: #bd701e;
+  --pf-paper: #fbfaf6;
+  --pf-line: rgba(59, 42, 24, 0.14);
+  --pf-shadow: rgba(59, 42, 24, 0.12);
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, #f8f6ee 0%, #fbfaf6 48%, #eee8d6 100%) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+}
+
+#root .ekipy-main,
+#root .integrations-main,
+#root .kontrola-main,
+#root .operator-tasks-main {
+  color: #2f2418 !important;
+  max-width: 1540px !important;
+  margin: 0 auto !important;
+  padding: 18px clamp(16px, 2.4vw, 30px) 46px !important;
+}
+
+#root .ekipy-main > .module-page-header-hero,
+#root .integrations-main > .module-page-header-hero,
+#root .kontrola-main > .module-page-header-hero,
+#root .ekipy-main > .module-page-header-plain,
+#root .integrations-main > .module-page-header-plain,
+#root .kontrola-main > .module-page-header-plain,
+#root .operator-tasks-header {
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(59, 42, 24, 0.18) !important;
+  border-left: 6px solid var(--pf-olive) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
+    linear-gradient(90deg, var(--pf-brown), #4a351f) !important;
+  box-shadow: 0 24px 54px rgba(59, 42, 24, 0.18) !important;
+}
+
+#root .ekipy-main > .module-page-header-hero::after,
+#root .integrations-main > .module-page-header-hero::after,
+#root .kontrola-main > .module-page-header-hero::after,
+#root .operator-tasks-header::after {
+  content: "PF" !important;
+  position: absolute !important;
+  right: clamp(18px, 5vw, 72px) !important;
+  top: 50% !important;
+  transform: translateY(-50%) skewX(-14deg) !important;
+  color: rgba(180, 194, 50, 0.17) !important;
+  font-size: clamp(76px, 11vw, 156px) !important;
+  font-weight: 950 !important;
+  line-height: 0.8 !important;
+  pointer-events: none !important;
+}
+
+#root .ekipy-main > .module-page-header-hero > *,
+#root .integrations-main > .module-page-header-hero > *,
+#root .kontrola-main > .module-page-header-hero > *,
+#root .operator-tasks-header > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+#root .ekipy-main > .module-page-header-hero h1,
+#root .integrations-main > .module-page-header-hero h1,
+#root .kontrola-main > .module-page-header-hero h1,
+#root .operator-tasks-header h1,
+#root .ekipy-main > .module-page-header-hero [style*='font-size'],
+#root .integrations-main > .module-page-header-hero [style*='font-size'],
+#root .kontrola-main > .module-page-header-hero [style*='font-size'] {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  letter-spacing: 0 !important;
+}
+
+#root .ekipy-main > .module-page-header-hero p,
+#root .integrations-main > .module-page-header-hero p,
+#root .kontrola-main > .module-page-header-hero p,
+#root .operator-tasks-header p,
+#root .operator-tasks-header div:first-child > div:first-child {
+  color: rgba(255, 255, 255, 0.76) !important;
+}
+
+#root .ekipy-command-radar,
+#root .clients-command-strip,
+#root .integrations-metrics,
+#root .operator-tasks-stats {
+  gap: 10px !important;
+}
+
+#root .ekipy-command-radar,
+#root .operator-tasks-stats {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 1.12fr) repeat(4, minmax(150px, 1fr)) !important;
+  margin: 0 0 14px !important;
+}
+
+#root .ekipy-command-lead,
+#root .ekipy-command-card,
+#root .ekipy-command-actions,
+#root .operator-tasks-stats > div {
+  min-height: 98px !important;
+  display: grid !important;
+  align-content: center !important;
+  gap: 5px !important;
+  padding: 13px !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.14), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #3b2a18, #2f2114) !important;
+  color: #ffffff !important;
+  box-shadow: 0 18px 42px rgba(59, 42, 24, 0.2) !important;
+}
+
+#root .ekipy-command-lead strong,
+#root .operator-tasks-stats > div strong {
+  color: var(--pf-olive-soft) !important;
+  font-size: clamp(32px, 3.4vw, 50px) !important;
+  line-height: 0.98 !important;
+}
+
+#root .ekipy-command-card strong {
+  color: #ffffff !important;
+  font-size: 22px !important;
+  line-height: 1.08 !important;
+}
+
+#root .ekipy-command-lead span,
+#root .ekipy-command-card span,
+#root .operator-tasks-stats > div span,
+#root .operator-tasks-stats > div small,
+#root .ekipy-command-lead small,
+#root .ekipy-command-card small {
+  color: rgba(255, 255, 255, 0.68) !important;
+  font-weight: 850 !important;
+  letter-spacing: 0 !important;
+}
+
+#root .ekipy-command-card.is-good {
+  border-color: rgba(180, 194, 50, 0.32) !important;
+}
+
+#root .ekipy-command-card.is-warning {
+  border-color: rgba(189, 112, 30, 0.44) !important;
+}
+
+#root .ekipy-command-card.is-danger {
+  border-color: rgba(226, 68, 92, 0.44) !important;
+}
+
+#root .ekipy-command-actions button {
+  width: 100% !important;
+}
+
+#root .ekipy-summary-card,
+#root .ekipy-form-panel,
+#root .ekipy-team-card,
+#root .ekipy-detail-panel,
+#root .ekipy-member-form,
+#root .ekipy-salary-calculator,
+#root .integrations-metric-card,
+#root .integrations-main > div[style*='box-shadow'],
+#root .integrations-filters,
+#root .kontrola-filters,
+#root .kontrola-kpis > div,
+#root .kontrola-panel,
+#root .operator-tasks-panel,
+#root .operator-tasks-toolbar,
+#root .operator-tasks-list .modern-data-row,
+#root .operator-tasks-list .modern-data-empty {
+  border: 1px solid var(--pf-line) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
+  box-shadow: 0 16px 38px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .ekipy-form-panel,
+#root .ekipy-detail-panel,
+#root .kontrola-panel,
+#root .operator-tasks-panel,
+#root .integrations-main > div[style*='box-shadow'] {
+  border-left: 5px solid var(--pf-olive) !important;
+}
+
+#root .ekipy-action-card,
+#root .operator-tasks-create,
+#root .kontrola-owner-open-alerts,
+#root .integrations-filters {
+  border-left: 5px solid var(--pf-orange) !important;
+}
+
+#root .ekipy-workspace-grid,
+#root .operator-tasks-grid {
+  gap: 14px !important;
+}
+
+#root .ekipy-team-card {
+  background: rgba(255, 255, 255, 0.88) !important;
+}
+
+#root .ekipy-team-card:hover,
+#root .ekipy-detail-panel:hover,
+#root .ekipy-summary-card:hover,
+#root .integrations-main > div[style*='box-shadow']:hover,
+#root .kontrola-panel:hover,
+#root .operator-tasks-panel:hover {
+  border-color: rgba(160, 175, 20, 0.34) !important;
+  box-shadow: 0 20px 44px rgba(59, 42, 24, 0.12) !important;
+}
+
+#root .ekipy-team-readiness,
+#root .ekipy-detail-radar,
+#root .kontrola-kpis,
+#root .kontrola-panel [style*='grid-template-columns'],
+#root .integrations-metrics {
+  gap: 10px !important;
+}
+
+#root .ekipy-team-readiness > div,
+#root .ekipy-detail-radar > div,
+#root .kontrola-kpis > div,
+#root .kontrola-panel [style*='display: grid'] > div,
+#root .integrations-metric-card {
+  border-color: rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+}
+
+#root .ekipy-detail-radar,
+#root .ekipy-team-readiness {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
+  margin-top: 12px !important;
+}
+
+#root .ekipy-member-row,
+#root .kontrola-panel [style*='ownerAckItem'],
+#root .kontrola-panel [style*='runItem'],
+#root .integrations-main .modern-data-row,
+#root .operator-tasks-list .modern-data-row {
+  border-color: rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.74) !important;
+}
+
+#root .ekipy-member-row:hover,
+#root .integrations-main .modern-data-row:hover,
+#root .operator-tasks-list .modern-data-row:hover {
+  background: rgba(180, 194, 50, 0.12) !important;
+}
+
+#root .integrations-main > .module-page-header,
+#root .integrations-main > .module-page-header-plain,
+#root .integrations-main > .module-page-header-hero,
+#root .kontrola-main > .module-page-header,
+#root .kontrola-main > .module-page-header-plain,
+#root .kontrola-main > .module-page-header-hero {
+  margin-bottom: 14px !important;
+}
+
+#root .integrations-main input,
+#root .integrations-main select,
+#root .integrations-main textarea,
+#root .kontrola-main input,
+#root .kontrola-main select,
+#root .kontrola-main textarea,
+#root .operator-tasks-main input,
+#root .operator-tasks-main select,
+#root .operator-tasks-main textarea,
+#root .ekipy-main input,
+#root .ekipy-main select,
+#root .ekipy-main textarea {
+  border: 1px solid rgba(59, 42, 24, 0.16) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #2f2418 !important;
+  box-shadow: none !important;
+}
+
+#root .integrations-main input:focus,
+#root .integrations-main select:focus,
+#root .integrations-main textarea:focus,
+#root .kontrola-main input:focus,
+#root .kontrola-main select:focus,
+#root .kontrola-main textarea:focus,
+#root .operator-tasks-main input:focus,
+#root .operator-tasks-main select:focus,
+#root .operator-tasks-main textarea:focus,
+#root .ekipy-main input:focus,
+#root .ekipy-main select:focus,
+#root .ekipy-main textarea:focus {
+  border-color: rgba(160, 175, 20, 0.72) !important;
+  box-shadow: 0 0 0 3px rgba(180, 194, 50, 0.2) !important;
+  outline: none !important;
+}
+
+#root .integrations-main button,
+#root .kontrola-main button,
+#root .operator-tasks-main button,
+#root .ekipy-main button {
+  border-radius: 8px !important;
+  font-weight: 850 !important;
+}
+
+#root .integrations-main button[type='submit'],
+#root .kontrola-main button[type='submit'],
+#root .operator-tasks-main button[type='submit'],
+#root .ekipy-main button[type='submit'],
+#root .operator-tasks-main button[style*='accent-gradient'],
+#root .kontrola-main button[style*='accent-gradient'],
+#root .ekipy-main button[style*='accent-gradient'] {
+  border-color: rgba(160, 175, 20, 0.72) !important;
+  background: linear-gradient(135deg, var(--pf-olive), var(--pf-olive-soft)) !important;
+  color: #24190f !important;
+  box-shadow: 0 12px 24px rgba(160, 175, 20, 0.2) !important;
+}
+
+#root .integrations-main button:hover:not(:disabled),
+#root .kontrola-main button:hover:not(:disabled),
+#root .operator-tasks-main button:hover:not(:disabled),
+#root .ekipy-main button:hover:not(:disabled) {
+  border-color: rgba(160, 175, 20, 0.36) !important;
+  background-color: rgba(180, 194, 50, 0.14) !important;
+}
+
+#root .kontrola-main table {
+  border-collapse: separate !important;
+  border-spacing: 0 7px !important;
+}
+
+#root .kontrola-main th {
+  color: #5b4b34 !important;
+  background: rgba(180, 194, 50, 0.1) !important;
+}
+
+#root .kontrola-main tbody tr {
+  background: rgba(255, 255, 255, 0.78) !important;
+}
+
+#root .kontrola-main tbody td {
+  border-top: 1px solid rgba(59, 42, 24, 0.1) !important;
+  border-bottom: 1px solid rgba(59, 42, 24, 0.1) !important;
+}
+
+#root .operator-tasks-toolbar {
+  padding: 10px !important;
+}
+
+#root .operator-tasks-list .modern-data-stack {
+  gap: 10px !important;
+}
+
+@media (max-width: 1180px) {
+  #root .ekipy-command-radar,
+  #root .operator-tasks-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  #root .ekipy-command-lead {
+    grid-column: 1 / -1 !important;
+  }
+
+  #root .ekipy-command-actions {
+    grid-column: auto !important;
+  }
+
+  #root .ekipy-summary-grid,
+  #root .ekipy-workspace-grid,
+  #root .operator-tasks-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #root .ekipy-main,
+  #root .integrations-main,
+  #root .kontrola-main,
+  #root .operator-tasks-main {
+    width: calc(100vw - 60px) !important;
+    max-width: none !important;
+    margin-left: 60px !important;
+    padding: 12px !important;
+  }
+
+  #root .ekipy-main > .module-page-header-hero,
+  #root .integrations-main > .module-page-header-hero,
+  #root .kontrola-main > .module-page-header-hero,
+  #root .operator-tasks-header {
+    padding: 14px !important;
+  }
+
+  #root .ekipy-main > .module-page-header-hero::after,
+  #root .integrations-main > .module-page-header-hero::after,
+  #root .kontrola-main > .module-page-header-hero::after,
+  #root .operator-tasks-header::after {
+    right: 12px !important;
+    font-size: 76px !important;
+  }
+
+  #root .ekipy-command-radar,
+  #root .operator-tasks-stats,
+  #root .ekipy-summary-grid,
+  #root .ekipy-workspace-grid,
+  #root .operator-tasks-grid,
+  #root .operator-tasks-toolbar,
+  #root .kontrola-filters,
+  #root .kontrola-kpis,
+  #root .integrations-metrics,
+  #root .integrations-filters,
+  #root .integrations-main > div[style*='grid-template-columns'],
+  #root .kontrola-panel [style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .operator-tasks-header,
+  #root .kontrola-main > .module-page-header-hero [style*='display: flex'],
+  #root .ekipy-main > .module-page-header-hero [style*='display: flex'],
+  #root .integrations-main > .module-page-header-hero [style*='display: flex'] {
+    align-items: stretch !important;
+  }
+
+  #root .ekipy-main button,
+  #root .ekipy-main select,
+  #root .integrations-main button,
+  #root .integrations-main input,
+  #root .integrations-main select,
+  #root .kontrola-main button,
+  #root .kontrola-main input,
+  #root .kontrola-main select,
+  #root .operator-tasks-main button,
+  #root .operator-tasks-main input,
+  #root .operator-tasks-main select,
+  #root .operator-tasks-main textarea {
+    width: 100% !important;
+  }
+
+  #root .kontrola-main [style*='overflow'] {
+    overflow-x: auto !important;
   }
 }
