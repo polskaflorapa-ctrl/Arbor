@@ -4298,3 +4298,474 @@ body.theme-dark #root .arbor-sidebar {
     display: block !important;
   }
 }
+
+/* Polska Flora active brand layer: schedule and AI dispatch cockpit. */
+#root .harmonogram-shell,
+#root .autodispatch-shell {
+  --pf-brown: #3b2a18;
+  --pf-brown-soft: #5b472c;
+  --pf-olive: #a0af14;
+  --pf-olive-soft: #b4c232;
+  --pf-orange: #bd701e;
+  --pf-paper: #fbfaf6;
+  --pf-line: rgba(59, 42, 24, 0.14);
+  --pf-shadow: rgba(59, 42, 24, 0.12);
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, #f8f6ee 0%, #fbfaf6 48%, #eee8d6 100%) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+}
+
+#root .harmonogram-main,
+#root .autodispatch-main {
+  color: #2f2418 !important;
+  max-width: 1760px !important;
+  margin: 0 auto !important;
+  padding: 18px clamp(16px, 2.4vw, 30px) 46px !important;
+}
+
+#root .harmonogram-header,
+#root .autodispatch-topbar {
+  position: relative !important;
+  min-height: 156px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(59, 42, 24, 0.18) !important;
+  border-left: 6px solid var(--pf-olive) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
+    linear-gradient(90deg, var(--pf-brown), #4a351f) !important;
+  box-shadow: 0 24px 54px rgba(59, 42, 24, 0.18) !important;
+}
+
+#root .harmonogram-header::after,
+#root .autodispatch-topbar::after {
+  content: "PF" !important;
+  position: absolute !important;
+  right: clamp(18px, 5vw, 76px) !important;
+  top: 50% !important;
+  width: auto !important;
+  height: auto !important;
+  transform: translateY(-50%) skewX(-14deg) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: rgba(180, 194, 50, 0.17) !important;
+  font-size: clamp(76px, 11vw, 160px) !important;
+  font-weight: 950 !important;
+  line-height: 0.8 !important;
+  pointer-events: none !important;
+}
+
+#root .harmonogram-header > *,
+#root .autodispatch-topbar > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+#root .harmonogram-header h2,
+#root .autodispatch-topbar h1 {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-size: clamp(32px, 4vw, 54px) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-shadow: none !important;
+}
+
+#root .autodispatch-topbar p,
+#root .harmonogram-header span,
+#root .harmonogram-header label {
+  color: rgba(255, 255, 255, 0.76) !important;
+  letter-spacing: 0 !important;
+}
+
+#root .harmonogram-header button,
+#root .harmonogram-header select,
+#root .autodispatch-topbar button,
+#root .autodispatch-controls button,
+#root .autodispatch-controls input,
+#root .harmonogram-dispatch-panel button,
+#root .harmonogram-quick-panel button,
+#root .autodispatch-advisor-panel button,
+#root .autodispatch-handoff-panel button,
+#root .autodispatch-content button {
+  min-height: 38px !important;
+  border-radius: 8px !important;
+}
+
+#root .harmonogram-header button,
+#root .autodispatch-topbar button {
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+#root .harmonogram-header select,
+#root .autodispatch-controls input {
+  border: 1px solid rgba(59, 42, 24, 0.16) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #2f2418 !important;
+  box-shadow: none !important;
+}
+
+#root .harmonogram-main > div[style*='font-size: 12'],
+#root .harmonogram-main > div[style*='marginBottom: 8'],
+#root .harmonogram-dispatch-panel,
+#root .harmonogram-quick-panel,
+#root .harmonogram-calendar-wrap,
+#root .harmonogram-legend,
+#root .autodispatch-controls,
+#root .autodispatch-workflow,
+#root .autodispatch-advisor-panel,
+#root .autodispatch-availability-panel,
+#root .autodispatch-handoff-panel,
+#root .autodispatch-competency-block,
+#root .autodispatch-content > div,
+#root .autodispatch-main > div[style*='text-align: center'] {
+  border: 1px solid var(--pf-line) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
+  box-shadow: 0 16px 38px rgba(59, 42, 24, 0.08) !important;
+  backdrop-filter: none !important;
+}
+
+#root .harmonogram-dispatch-panel,
+#root .harmonogram-quick-panel,
+#root .autodispatch-advisor-panel,
+#root .autodispatch-handoff-panel {
+  border-left: 5px solid var(--pf-olive) !important;
+}
+
+#root .autodispatch-competency-block,
+#root .autodispatch-availability-panel {
+  border-left: 5px solid var(--pf-orange) !important;
+}
+
+#root .harmonogram-dispatch-panel h3,
+#root .harmonogram-quick-panel h3,
+#root .autodispatch-advisor-panel h2,
+#root .autodispatch-content h2,
+#root .autodispatch-content h3 {
+  color: var(--pf-brown) !important;
+  letter-spacing: 0 !important;
+}
+
+#root .harmonogram-dispatch-panel p,
+#root .harmonogram-quick-panel p,
+#root .autodispatch-advisor-panel p,
+#root .autodispatch-handoff-panel span,
+#root .autodispatch-content span {
+  letter-spacing: 0 !important;
+}
+
+#root .harmonogram-radar,
+#root .autodispatch-command-strip {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 1.12fr) repeat(4, minmax(150px, 1fr)) !important;
+  gap: 10px !important;
+  margin: 0 0 14px !important;
+}
+
+#root .harmonogram-radar > div:first-child,
+#root .harmonogram-radar > button,
+#root .autodispatch-command-lead,
+#root .autodispatch-command-card {
+  min-height: 98px !important;
+  display: grid !important;
+  align-content: center !important;
+  gap: 5px !important;
+  padding: 13px !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.14), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #3b2a18, #2f2114) !important;
+  color: #ffffff !important;
+  box-shadow: 0 18px 42px rgba(59, 42, 24, 0.2) !important;
+}
+
+#root .harmonogram-radar strong,
+#root .autodispatch-command-lead strong,
+#root .autodispatch-command-card strong {
+  color: #ffffff !important;
+  font-size: 22px !important;
+  line-height: 1.08 !important;
+}
+
+#root .harmonogram-radar > div:first-child strong,
+#root .autodispatch-command-lead strong {
+  color: var(--pf-olive-soft) !important;
+  font-size: clamp(28px, 3vw, 44px) !important;
+}
+
+#root .harmonogram-radar span,
+#root .harmonogram-radar small,
+#root .autodispatch-command-lead span,
+#root .autodispatch-command-card span,
+#root .autodispatch-command-lead small,
+#root .autodispatch-command-card small {
+  color: rgba(255, 255, 255, 0.68) !important;
+  font-weight: 850 !important;
+  letter-spacing: 0 !important;
+}
+
+#root .autodispatch-command-card.is-good {
+  border-color: rgba(180, 194, 50, 0.32) !important;
+}
+
+#root .autodispatch-command-card.is-warning {
+  border-color: rgba(189, 112, 30, 0.44) !important;
+}
+
+#root .autodispatch-command-card.is-danger {
+  border-color: rgba(226, 68, 92, 0.44) !important;
+}
+
+#root .harmonogram-slot-board {
+  overflow: auto !important;
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 16px 38px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .harmonogram-slot-board > div:first-child {
+  min-width: 920px !important;
+  border-color: rgba(59, 42, 24, 0.12) !important;
+  background:
+    linear-gradient(180deg, rgba(251, 250, 246, 0.98), rgba(243, 241, 232, 0.98)) !important;
+}
+
+#root .harmonogram-slot-board [data-testid='harmonogram-dispatch-slot-row'] {
+  min-width: 920px !important;
+  border-color: rgba(59, 42, 24, 0.12) !important;
+}
+
+#root .harmonogram-slot-board [data-testid='harmonogram-dispatch-slot'] {
+  border-color: rgba(59, 42, 24, 0.1) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+#root .harmonogram-slot-board [data-testid='harmonogram-dispatch-slot']:hover {
+  background: rgba(180, 194, 50, 0.12) !important;
+}
+
+#root .harmonogram-dispatch-grid {
+  gap: 12px !important;
+}
+
+#root .harmonogram-dispatch-grid button,
+#root .harmonogram-dispatch-grid aside,
+#root .harmonogram-quick-panel [style*='border: 1px solid'],
+#root .autodispatch-advisor-grid > div,
+#root .autodispatch-content [style*='overflow: hidden'],
+#root .autodispatch-content [style*='borderLeft'],
+#root .autodispatch-content [style*='border-left'] {
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  box-shadow: 0 14px 30px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .harmonogram-dispatch-grid button:hover,
+#root .autodispatch-content button:hover,
+#root .autodispatch-advisor-panel button:hover,
+#root .autodispatch-handoff-panel button:hover,
+#root .autodispatch-controls button:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(160, 175, 20, 0.36) !important;
+}
+
+#root .harmonogram-dispatch-grid [data-testid='harmonogram-dispatch-queue'] {
+  border-left: 5px solid var(--pf-orange) !important;
+}
+
+#root .autodispatch-controls {
+  display: flex !important;
+  align-items: end !important;
+  gap: 12px !important;
+}
+
+#root .autodispatch-controls label {
+  color: #51432f !important;
+  font-weight: 900 !important;
+}
+
+#root .autodispatch-controls button,
+#root .autodispatch-handoff-panel button,
+#root .autodispatch-advisor-panel button,
+#root .autodispatch-content button,
+#root .harmonogram-dispatch-panel button,
+#root .harmonogram-quick-panel button {
+  border: 1px solid rgba(59, 42, 24, 0.14) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #2f2418 !important;
+  box-shadow: none !important;
+  font-weight: 850 !important;
+}
+
+#root .autodispatch-controls button:nth-of-type(2),
+#root .autodispatch-controls button:nth-of-type(3),
+#root .autodispatch-handoff-panel button:last-child,
+#root .harmonogram-dispatch-panel button:first-of-type {
+  border-color: rgba(160, 175, 20, 0.68) !important;
+  background: linear-gradient(135deg, var(--pf-olive), var(--pf-olive-soft)) !important;
+  color: #24190f !important;
+  box-shadow: 0 12px 24px rgba(160, 175, 20, 0.2) !important;
+}
+
+#root .autodispatch-metrics,
+#root .autodispatch-statsbar {
+  gap: 10px !important;
+}
+
+#root .autodispatch-metrics > div,
+#root .autodispatch-statsbar > div {
+  min-height: 84px !important;
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-left: 4px solid rgba(160, 175, 20, 0.75) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  box-shadow: 0 14px 30px rgba(59, 42, 24, 0.07) !important;
+}
+
+#root .autodispatch-workflow > div {
+  min-height: 70px !important;
+  border-radius: 8px !important;
+  border-color: rgba(59, 42, 24, 0.12) !important;
+}
+
+#root .autodispatch-advisor-panel textarea,
+#root .autodispatch-handoff-panel textarea,
+#root .autodispatch-main input,
+#root .harmonogram-main input,
+#root .harmonogram-main select,
+#root .harmonogram-main textarea {
+  border: 1px solid rgba(59, 42, 24, 0.16) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #2f2418 !important;
+  box-shadow: none !important;
+}
+
+#root .autodispatch-advisor-panel textarea:focus,
+#root .autodispatch-handoff-panel textarea:focus,
+#root .autodispatch-main input:focus,
+#root .harmonogram-main input:focus,
+#root .harmonogram-main select:focus,
+#root .harmonogram-main textarea:focus {
+  border-color: rgba(160, 175, 20, 0.72) !important;
+  box-shadow: 0 0 0 3px rgba(180, 194, 50, 0.2) !important;
+  outline: none !important;
+}
+
+#root .autodispatch-content {
+  gap: 14px !important;
+}
+
+#root .autodispatch-content > div:first-child {
+  gap: 12px !important;
+}
+
+#root .autodispatch-content [style*='borderLeft'],
+#root .autodispatch-content [style*='border-left'] {
+  border-left-width: 5px !important;
+}
+
+#root .autodispatch-content [style*='borderTop'],
+#root .autodispatch-content [style*='border-top'],
+#root .autodispatch-advisor-panel [style*='borderTop'],
+#root .autodispatch-advisor-panel [style*='border-top'] {
+  border-top-color: rgba(59, 42, 24, 0.12) !important;
+}
+
+#root .autodispatch-content [style*='borderRadius: 8'],
+#root .autodispatch-content [style*='border-radius: 8'],
+#root .autodispatch-advisor-panel [style*='borderRadius: 8'],
+#root .autodispatch-advisor-panel [style*='border-radius: 8'] {
+  border-radius: 8px !important;
+}
+
+@media (max-width: 1180px) {
+  #root .harmonogram-radar,
+  #root .autodispatch-command-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  #root .harmonogram-radar > div:first-child,
+  #root .autodispatch-command-lead {
+    grid-column: 1 / -1 !important;
+  }
+
+  #root .autodispatch-content,
+  #root .harmonogram-dispatch-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #root .harmonogram-main,
+  #root .autodispatch-main {
+    width: calc(100vw - 60px) !important;
+    max-width: none !important;
+    margin-left: 60px !important;
+    padding: 12px !important;
+  }
+
+  #root .harmonogram-header,
+  #root .autodispatch-topbar {
+    min-height: auto !important;
+    padding: 14px !important;
+  }
+
+  #root .harmonogram-header h2,
+  #root .autodispatch-topbar h1 {
+    font-size: 31px !important;
+  }
+
+  #root .harmonogram-header::after,
+  #root .autodispatch-topbar::after {
+    right: 12px !important;
+    font-size: 76px !important;
+  }
+
+  #root .harmonogram-header [style*='display: flex'],
+  #root .autodispatch-topbar,
+  #root .autodispatch-controls,
+  #root .autodispatch-controls [style*='display: flex'] {
+    align-items: stretch !important;
+  }
+
+  #root .harmonogram-radar,
+  #root .autodispatch-command-strip,
+  #root .autodispatch-workflow,
+  #root .autodispatch-metrics,
+  #root .autodispatch-statsbar,
+  #root .autodispatch-advisor-grid,
+  #root .autodispatch-content,
+  #root .harmonogram-dispatch-grid,
+  #root .harmonogram-quick-panel [style*='grid-template-columns'],
+  #root .autodispatch-controls [style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .harmonogram-header button,
+  #root .harmonogram-header select,
+  #root .harmonogram-dispatch-panel button,
+  #root .harmonogram-quick-panel button,
+  #root .autodispatch-topbar button,
+  #root .autodispatch-controls button,
+  #root .autodispatch-controls input,
+  #root .autodispatch-advisor-panel button,
+  #root .autodispatch-handoff-panel button,
+  #root .autodispatch-content button {
+    width: 100% !important;
+  }
+
+  #root .harmonogram-slot-board {
+    max-width: 100% !important;
+  }
+}
