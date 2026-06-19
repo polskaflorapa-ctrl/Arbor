@@ -5,6 +5,7 @@ const {
   buildRecommendedActions,
   buildProductionReadinessReport,
   deployHookGate,
+  extractLiveSmokeArgs,
   parseArgs,
   runCommandGate,
   summarizeReadiness,
@@ -29,6 +30,44 @@ test("production readiness args accept live URLs, timeout, JSON, and local skip"
   assert.equal(options.json, true);
   assert.match(options.expectedBuild, /^[0-9a-f]{7,}$/);
   assert.equal(parseArgs(["--any-build"]).expectedBuild, "");
+});
+
+test("production readiness args accept equals-style live smoke flags", () => {
+  const options = parseArgs([
+    "--web=https://web.example.com/app",
+    "--api=https://api.example.com/api/",
+    "--timeout-ms=2345",
+    "--expected-build=build-888",
+    "--skip-remote",
+  ]);
+
+  assert.equal(options.webUrl, "https://web.example.com/app");
+  assert.equal(options.apiBaseUrl, "https://api.example.com/api");
+  assert.equal(options.timeoutMs, 2345);
+  assert.equal(options.expectedBuild, "build-888");
+  assert.equal(options.skipRemote, true);
+});
+
+test("production readiness forwards only live smoke flags to live parser", () => {
+  assert.deepEqual(
+    extractLiveSmokeArgs([
+      "--web=https://web.example.com/app",
+      "--skip-remote",
+      "--api",
+      "https://api.example.com/api/",
+      "--skip-local",
+      "--timeout-ms=2345",
+      "--json",
+      "--any-build",
+    ]),
+    [
+      "--web=https://web.example.com/app",
+      "--api",
+      "https://api.example.com/api/",
+      "--timeout-ms=2345",
+      "--any-build",
+    ],
+  );
 });
 
 test("production readiness args accept remote and slow-local skip aliases", () => {

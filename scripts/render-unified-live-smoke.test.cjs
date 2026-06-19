@@ -70,6 +70,31 @@ test("parseArgs expects the current git build unless any-build is requested", ()
   }
 });
 
+test("parseArgs accepts equals-style value flags", () => {
+  const options = parseArgs([
+    "--web=https://web.example.com/app",
+    "--api=https://api.example.com/api/",
+    "--timeout-ms=1234",
+    "--expected-build=build-777",
+  ]);
+
+  assert.equal(options.webUrl, "https://web.example.com/app");
+  assert.equal(options.apiBaseUrl, "https://api.example.com/api");
+  assert.equal(options.timeoutMs, 1234);
+  assert.equal(options.expectedBuild, "build-777");
+});
+
+test("parseArgs rejects unknown flags and missing values", () => {
+  assert.throws(() => parseArgs(["--wat"]), /Unknown argument: --wat/);
+  assert.throws(() => parseArgs(["--web"]), /Missing value for --web/);
+  assert.throws(() => parseArgs(["--api", "--any-build"]), /Missing value for --api/);
+});
+
+test("parseArgs accepts help mode", () => {
+  assert.equal(parseArgs(["--help"]).help, true);
+  assert.equal(parseArgs(["-h"]).help, true);
+});
+
 test("extractWebBuildMetadata reads deployment marker meta tags", () => {
   assert.deepEqual(
     extractWebBuildMetadata('<meta name="arbor-web-build" content="abc123"><meta name="arbor-web-api" content="/api">'),

@@ -43,9 +43,26 @@ function validateArgs(argv = []) {
   }
 }
 
+function extractLiveSmokeArgs(argv = []) {
+  const liveArgs = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (VALUE_ARGS.has(arg)) {
+      liveArgs.push(arg, argv[index + 1]);
+      index += 1;
+      continue;
+    }
+    const eqIndex = String(arg).indexOf("=");
+    if ((eqIndex > 0 && VALUE_ARGS.has(String(arg).slice(0, eqIndex))) || arg === "--any-build") {
+      liveArgs.push(arg);
+    }
+  }
+  return liveArgs;
+}
+
 function parseArgs(argv = process.argv.slice(2)) {
   validateArgs(argv);
-  const liveOptions = parseLiveSmokeArgs(argv);
+  const liveOptions = parseLiveSmokeArgs(extractLiveSmokeArgs(argv));
   return {
     ...liveOptions,
     skipLocal: argv.includes("--skip-local") || argv.includes("--skip-slow-local"),
@@ -215,6 +232,7 @@ if (require.main === module) {
 module.exports = {
   LOCAL_GATES,
   parseArgs,
+  extractLiveSmokeArgs,
   summarizeReadiness,
   buildRecommendedActions,
   runCommandGate,

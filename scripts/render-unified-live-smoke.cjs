@@ -21,7 +21,30 @@ function resolveCurrentGitBuild({ execImpl = execSync } = {}) {
   }
 }
 
+const VALUE_ARGS = new Set(["--web", "--api", "--timeout-ms", "--expected-build"]);
+const BOOLEAN_ARGS = new Set(["--any-build", "--help", "-h"]);
+
+function validateArgs(argv = []) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (!String(arg).startsWith("-")) continue;
+    if (VALUE_ARGS.has(arg)) {
+      const value = argv[index + 1];
+      if (!value || String(value).startsWith("-")) {
+        throw new Error(`Missing value for ${arg}`);
+      }
+      index += 1;
+      continue;
+    }
+    const eqIndex = String(arg).indexOf("=");
+    if (eqIndex > 0 && VALUE_ARGS.has(String(arg).slice(0, eqIndex))) continue;
+    if (BOOLEAN_ARGS.has(arg)) continue;
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+}
+
 function parseArgs(argv = process.argv.slice(2)) {
+  validateArgs(argv);
   const anyBuild = argv.includes("--any-build");
   const options = {
     webUrl: DEFAULT_WEB_URL,
@@ -29,19 +52,28 @@ function parseArgs(argv = process.argv.slice(2)) {
     timeoutMs: 45000,
     expectedBuild: anyBuild ? "" : resolveCurrentGitBuild(),
     anyBuild,
+    help: argv.includes("--help") || argv.includes("-h"),
   };
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === "--web" && argv[i + 1]) {
+    if (arg.startsWith("--web=")) {
+      options.webUrl = arg.slice("--web=".length);
+    } else if (arg === "--web" && argv[i + 1]) {
       options.webUrl = argv[i + 1];
       i += 1;
+    } else if (arg.startsWith("--api=")) {
+      options.apiBaseUrl = normalizeBaseUrl(arg.slice("--api=".length));
     } else if (arg === "--api" && argv[i + 1]) {
       options.apiBaseUrl = normalizeBaseUrl(argv[i + 1]);
       i += 1;
+    } else if (arg.startsWith("--timeout-ms=")) {
+      options.timeoutMs = Number(arg.slice("--timeout-ms=".length));
     } else if (arg === "--timeout-ms" && argv[i + 1]) {
       options.timeoutMs = Number(argv[i + 1]);
       i += 1;
+    } else if (arg.startsWith("--expected-build=")) {
+      options.expectedBuild = arg.slice("--expected-build=".length);
     } else if (arg === "--expected-build" && argv[i + 1]) {
       options.expectedBuild = argv[i + 1];
       i += 1;
@@ -52,6 +84,19 @@ function parseArgs(argv = process.argv.slice(2)) {
 
   options.apiBaseUrl = normalizeBaseUrl(options.apiBaseUrl);
   return options;
+}
+
+function printHelp() {
+  console.log(`Usage: node scripts/render-unified-live-smoke.cjs [options]
+
+Options:
+  --web <url>              Public web URL to check
+  --api <url>              Public API base URL to check
+  --expected-build <sha>   Require the live web build marker to match this value
+  --any-build              Skip exact live web build marker matching
+  --timeout-ms <ms>        HTTP timeout for live smoke checks
+  --help, -h               Print this help
+`);
 }
 
 function extractMetaContent(html, name) {
@@ -143,7 +188,18 @@ async function runRenderUnifiedLiveSmoke(options = {}) {
 }
 
 if (require.main === module) {
-  const options = parseArgs();
+  let options;
+  try {
+    options = parseArgs();
+  } catch (error) {
+    console.error(`[render-unified-live-smoke] FAILED: ${error.message}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (options.help) {
+    printHelp();
+    return;
+  }
   runRenderUnifiedLiveSmoke(options)
     .then((result) => {
       console.log("[render-unified-live-smoke] OK");
@@ -158,6 +214,8 @@ if (require.main === module) {
 
 module.exports = {
   parseArgs,
+  validateArgs,
+  printHelp,
   buildCacheBustedUrl,
   resolveCurrentGitBuild,
   extractMetaContent,
