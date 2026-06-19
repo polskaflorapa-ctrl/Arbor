@@ -330,8 +330,8 @@ describe('Integracje (integration-style)', () => {
     renderIntegracje();
 
     expect(await screen.findByText(/Panel admina denylisty/i)).toBeInTheDocument();
-    await userEvent.click(screen.getByLabelText(/SMS/i));
-    await userEvent.click(screen.getByRole('button', { name: /Zapisz denylist/i }));
+    await click(screen.getByLabelText(/SMS/i));
+    await click(screen.getByRole('button', { name: /Zapisz denylist/i }));
 
     await waitFor(() => {
       expect(api.patch).toHaveBeenCalledWith(
@@ -341,7 +341,7 @@ describe('Integracje (integration-style)', () => {
       );
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /blokuj SMS globalnie/i }));
+    await click(screen.getByRole('button', { name: /blokuj SMS globalnie/i }));
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         '/integrations/security/denylist/preset',
@@ -353,9 +353,9 @@ describe('Integracje (integration-style)', () => {
     expect(await screen.findByText('manual_update')).toBeInTheDocument();
     expect(screen.getByText(/niedost.pny \(14d\+\)/i)).toBeInTheDocument();
 
-    await userEvent.click(screen.getAllByRole('button', { name: /Cofnij do tego/i })[0]);
+    await click(screen.getAllByRole('button', { name: /Cofnij do tego/i })[0]);
     expect(await screen.findByText(/Kliknij ponownie/i)).toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole('button', { name: /Cofnij do tego/i })[0]);
+    await click(screen.getAllByRole('button', { name: /Cofnij do tego/i })[0]);
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
@@ -365,7 +365,7 @@ describe('Integracje (integration-style)', () => {
       );
     });
 
-    await userEvent.click(screen.getAllByRole('button', { name: /Eksport CSV/i }).at(-1));
+    await click(screen.getAllByRole('button', { name: /Eksport CSV/i }).at(-1));
     expect(window.URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect(appendSpy).toHaveBeenCalledWith(expect.objectContaining({
       download: expect.stringMatching(/^denylist-history-/),
