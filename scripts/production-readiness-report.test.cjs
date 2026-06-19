@@ -31,6 +31,23 @@ test("production readiness args accept live URLs, timeout, JSON, and local skip"
   assert.equal(parseArgs(["--any-build"]).expectedBuild, "");
 });
 
+test("production readiness args accept remote and slow-local skip aliases", () => {
+  const options = parseArgs(["--skip-remote", "--skip-slow-local"]);
+
+  assert.equal(options.skipRemote, true);
+  assert.equal(options.skipLocal, true);
+});
+
+test("production readiness args expose help mode", () => {
+  assert.equal(parseArgs(["--help"]).help, true);
+  assert.equal(parseArgs(["-h"]).help, true);
+});
+
+test("production readiness args reject unknown flags and missing values", () => {
+  assert.throws(() => parseArgs(["--wat"]), /Unknown argument: --wat/);
+  assert.throws(() => parseArgs(["--web"]), /Missing value for --web/);
+});
+
 test("production readiness summary blocks on failed gates", () => {
   assert.deepEqual(
     summarizeReadiness([
@@ -100,6 +117,20 @@ test("production readiness report includes the expected web build marker", async
 
   assert.equal(report.expectedBuild, "abc1234");
   assert.equal(report.summary.status, "ready");
+});
+
+test("production readiness report can skip all remote gates", async () => {
+  const report = await buildProductionReadinessReport({
+    skipLocal: true,
+    skipRemote: true,
+    env: {},
+    fetchImpl: async () => {
+      throw new Error("remote smoke should not run");
+    },
+  });
+
+  assert.equal(report.summary.status, "ready");
+  assert.deepEqual(report.gates, []);
 });
 
 test("production readiness actions explain missing hook and stale live build", () => {

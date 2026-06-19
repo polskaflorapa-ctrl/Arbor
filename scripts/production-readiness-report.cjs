@@ -11,13 +11,67 @@ const LOCAL_GATES = [
   { name: "polska-flora-contract", command: "npm", args: ["run", "verify:polska-flora-ready"] },
 ];
 
+const VALUE_ARGS = new Set(["--web", "--api", "--timeout-ms", "--expected-build"]);
+const BOOLEAN_ARGS = new Set([
+  "--any-build",
+  "--skip-local",
+  "--skip-slow-local",
+  "--skip-remote",
+  "--skip-live",
+  "--skip-remote-smoke",
+  "--json",
+  "--help",
+  "-h",
+]);
+
+function validateArgs(argv = []) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (!String(arg).startsWith("-")) continue;
+    if (VALUE_ARGS.has(arg)) {
+      const value = argv[index + 1];
+      if (!value || String(value).startsWith("-")) {
+        throw new Error(`Missing value for ${arg}`);
+      }
+      index += 1;
+      continue;
+    }
+    const eqIndex = String(arg).indexOf("=");
+    if (eqIndex > 0 && VALUE_ARGS.has(String(arg).slice(0, eqIndex))) continue;
+    if (BOOLEAN_ARGS.has(arg)) continue;
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+}
+
 function parseArgs(argv = process.argv.slice(2)) {
+  validateArgs(argv);
   const liveOptions = parseLiveSmokeArgs(argv);
   return {
     ...liveOptions,
-    skipLocal: argv.includes("--skip-local"),
+    skipLocal: argv.includes("--skip-local") || argv.includes("--skip-slow-local"),
+    skipRemote: argv.includes("--skip-remote") || argv.includes("--skip-live") || argv.includes("--skip-remote-smoke"),
     json: argv.includes("--json"),
+    help: argv.includes("--help") || argv.includes("-h"),
   };
+}
+
+function printHelp() {
+  console.log(`Usage: node scripts/production-readiness-report.cjs [options]
+
+Options:
+  --web <url>              Public web URL to check
+  --api <url>              Public API base URL to check
+  --expected-build <sha>   Require the live web build marker to match this value
+  --any-build              Skip exact live web build marker matching
+  --timeout-ms <ms>        HTTP timeout for live smoke checks
+  --skip-local             Skip local contract gates
+  --skip-slow-local        Alias for --skip-local
+  --skip-remote            Skip Render deploy hook and live web/API smoke gates
+  --skip-live              Alias for --skip-remote
+  --skip-remote-smoke      Alias for --skip-remote
+  --json                   Print JSON report
+  --help, -h               Print this help
+`);
 }
 
 function summarizeReadiness(gates) {
@@ -103,8 +157,10 @@ async function buildProductionReadinessReport(options = {}) {
       gates.push(runCommandGate(gate, options));
     }
   }
-  gates.push(deployHookGate(options.env || process.env));
-  gates.push(await liveRenderGate(options));
+  if (!options.skipRemote) {
+    gates.push(deployHookGate(options.env || process.env));
+    gates.push(await liveRenderGate(options));
+  }
 
   const report = {
     generatedAt: new Date().toISOString(),
@@ -133,6 +189,10 @@ function printTextReport(report) {
 
 if (require.main === module) {
   const options = parseArgs();
+  if (options.help) {
+    printHelp();
+    return;
+  }
   buildProductionReadinessReport(options)
     .then((report) => {
       if (options.json) console.log(JSON.stringify(report, null, 2));
@@ -154,4 +214,5 @@ module.exports = {
   deployHookGate,
   liveRenderGate,
   buildProductionReadinessReport,
+  printHelp,
 };

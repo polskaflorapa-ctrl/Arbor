@@ -59,6 +59,14 @@ npm run status:production -- --skip-local
 publicznego weba/API. Status `blocked` oznacza, ze publiczny web nie jest jeszcze
 aktualna wersja, nawet kiedy lokalny build i lokalne kontrakty przechodza.
 
+Do szybkiej lokalnej diagnostyki bez dotykania publicznego Rendera uzyj:
+
+```bash
+npm run status:production -- --skip-remote --skip-slow-local
+```
+
+`--skip-local` pomija lokalne kontrakty, a `--skip-remote` pomija deploy hook i live smoke.
+
 Po redeployu:
 
 ```bash
