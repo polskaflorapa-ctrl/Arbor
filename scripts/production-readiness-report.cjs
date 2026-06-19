@@ -188,7 +188,14 @@ function printTextReport(report) {
 }
 
 if (require.main === module) {
-  const options = parseArgs();
+  let options;
+  try {
+    options = parseArgs();
+  } catch (error) {
+    console.error(`[production-readiness] FAILED: ${error.message}`);
+    process.exitCode = 1;
+    return;
+  }
   if (options.help) {
     printHelp();
     return;
