@@ -41,29 +41,29 @@ export default function KadryDokumentyPolskaFlora({
   formatDateTime,
 }) {
   return (
-    <div style={ui.shell}>
+    <div className="app-shell hr-docs-shell hr-docs-pf-shell" style={ui.shell}>
       <Sidebar />
-      <main style={ui.main}>
-        <header style={ui.header}>
+      <main className="app-main hr-docs-main hr-docs-pf-main" style={ui.main}>
+        <header className="hr-docs-header hr-docs-pf-header" style={ui.header}>
           <div>
             <h1 style={ui.title}>Kadry / Dokumenty</h1>
             <p style={ui.subtitle}>Kontrola pracownikow, kart stanowiskowych, podpisow, BHP i uprawnien • {filteredCards.length} wynikow</p>
           </div>
-          <div style={ui.headerActions}>
+          <div className="hr-docs-actions" style={ui.headerActions}>
             <button type="button" style={ui.secondaryButton} onClick={loadCards}><RefreshOutlined fontSize="small" /> Odswiez</button>
             <button type="button" style={ui.primaryButton} onClick={() => navigate('/profil')}>Edytuj karte</button>
           </div>
         </header>
 
         {!allowed ? (
-          <section style={ui.empty}>
+          <section className="hr-docs-panel hr-docs-empty" style={ui.empty}>
             <WarningAmberOutlined style={{ fontSize: 44, color: '#d1d5db' }} />
             <strong>Brak dostepu</strong>
             <span>Ten widok jest dostepny dla Administratora, Dyrektora i Kierownika.</span>
           </section>
         ) : (
           <>
-            <section style={ui.stats}>
+            <section className="hr-docs-stats" style={ui.stats}>
               <Stat icon={<DescriptionOutlined fontSize="small" />} label="Zapisane karty" value={summary.saved.length} hint={`${cards.length} pracownikow w rejestrze`} />
               <Stat icon={<WarningAmberOutlined fontSize="small" />} label="Do podpisu" value={summary.pending.length} hint="wymagaja reakcji" tone="warn" />
               <Stat icon={<AssignmentTurnedInOutlined fontSize="small" />} label="Podpisane" value={summary.confirmed.length} hint="wersje potwierdzone" tone="ok" />
@@ -73,8 +73,8 @@ export default function KadryDokumentyPolskaFlora({
               <Stat icon={<WarningAmberOutlined fontSize="small" />} label="Do odnowienia" value={summary.expiringCompetencies || competencyAlerts.filter((item) => item.status === 'expiring').length} hint="alert 30/90 dni" tone="warn" />
             </section>
 
-            <section style={ui.panel}>
-              <div style={ui.toolbar}>
+            <section className="hr-docs-panel" style={ui.panel}>
+              <div className="hr-docs-toolbar" style={ui.toolbar}>
                 <label style={ui.search}>
                   <SearchOutlined style={{ color: '#9ca3af', fontSize: 20 }} />
                   <input
@@ -106,12 +106,12 @@ export default function KadryDokumentyPolskaFlora({
               ) : null}
 
               {!loading && filteredCards.length > 0 ? (
-                <div style={ui.list}>
+                <div className="hr-docs-list" style={ui.list}>
                   {filteredCards.map((card) => {
                     const meta = statusMeta(card);
                     const competency = competencyMeta(card, alertsByUser.get(Number(card.user_id)) || []);
                     return (
-                      <article key={card.user_id} style={ui.card}>
+                      <article className="hr-docs-card" key={card.user_id} style={ui.card}>
                         <div style={ui.cardTop}>
                           <div style={ui.person}>
                             <div style={ui.avatar}>{String(fullName(card)).slice(0, 1).toUpperCase()}</div>

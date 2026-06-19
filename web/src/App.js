@@ -5,10 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
 import AiChat from './components/AiChat';
-
-const DevPanel = import.meta.env.DEV
-  ? lazy(() => import('./components/DevPanel').then((module) => ({ default: module.DevPanel })))
-  : null;
+import { DevPanel } from './components/DevPanel';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Zlecenia = lazy(() => import('./pages/Zlecenia'));
@@ -123,11 +120,7 @@ function App() {
     <ThemeProvider>
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AppChrome />
-        {DevPanel && (
-          <Suspense fallback={null}>
-            <DevPanel />
-          </Suspense>
-        )}
+        {import.meta.env.DEV && <DevPanel />}
         <Suspense fallback={<RouteLoadingFallback />}>
         <Routes>
           {/* Public */}

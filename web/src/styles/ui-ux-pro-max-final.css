@@ -400,6 +400,444 @@
   }
 }
 
+/* Final order override: Polska Flora finance, administration and planning control surfaces. */
+#root .accounting-shell,
+#root .estimator-pay-shell,
+#root .field-settlements-shell,
+#root .payroll-m11-shell,
+#root .users-shell,
+#root .branches-shell,
+#root .branch-detail-shell,
+#root .roles-admin-shell,
+#root .hr-docs-shell,
+#root .quote-calendar-shell,
+#root .calendar-blocks-shell {
+  --pf-brown: #3b2a18;
+  --pf-green: #a0af14;
+  --pf-soft: #b4c232;
+  --pf-ink: #261a0f;
+  --pf-muted: rgba(38, 26, 15, 0.66);
+  --pf-line: rgba(59, 42, 24, 0.14);
+  --pf-card: rgba(255, 255, 255, 0.94);
+  --pf-shadow: 0 18px 44px rgba(59, 42, 24, 0.11);
+  background:
+    linear-gradient(130deg, rgba(160, 175, 20, 0.09), transparent 42%),
+    linear-gradient(180deg, #f8f6ef 0%, #ede9dd 100%) !important;
+  color: var(--pf-ink) !important;
+}
+
+#root .accounting-main,
+#root .estimator-pay-main,
+#root .field-settlements-main,
+#root .payroll-m11-main,
+#root .users-main,
+#root .branches-main,
+#root .branch-detail-main,
+#root .hr-docs-main,
+#root .quote-calendar-main,
+#root .calendar-blocks-main {
+  width: min(1480px, calc(100vw - 128px)) !important;
+  max-width: none !important;
+  margin: 0 auto !important;
+  padding: 24px clamp(18px, 2.6vw, 34px) 44px !important;
+  min-width: 0 !important;
+  background: transparent !important;
+}
+
+#root .roles-admin-shell {
+  min-height: 100vh !important;
+  padding: 24px clamp(18px, 2.6vw, 34px) 44px !important;
+}
+
+#root .accounting-main > .module-page-header,
+#root .estimator-pay-main > .module-page-header,
+#root .payroll-m11-main > .module-page-header,
+#root .users-header-panel,
+#root .branches-main > .module-page-header-hero,
+#root .branch-detail-hero,
+#root .roles-admin-shell > .module-page-header,
+#root .roles-admin-shell > .module-page-header-plain,
+#root .roles-admin-shell > .module-page-header-hero,
+#root .hr-docs-header,
+#root .wycena-calendar-hero,
+#root .calendar-blocks-header,
+#root .field-settlements-header {
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-left: 8px solid var(--pf-green) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
+  color: #fffaf0 !important;
+  box-shadow: var(--pf-shadow) !important;
+  padding: clamp(18px, 2.4vw, 28px) !important;
+  margin-bottom: 18px !important;
+}
+
+#root .field-settlements-header {
+  min-height: 112px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+#root .accounting-main > .module-page-header::after,
+#root .estimator-pay-main > .module-page-header::after,
+#root .payroll-m11-main > .module-page-header::after,
+#root .users-header-panel::after,
+#root .branches-main > .module-page-header-hero::after,
+#root .branch-detail-hero::after,
+#root .roles-admin-shell > .module-page-header::after,
+#root .roles-admin-shell > .module-page-header-plain::after,
+#root .roles-admin-shell > .module-page-header-hero::after,
+#root .hr-docs-header::after,
+#root .wycena-calendar-hero::after,
+#root .calendar-blocks-header::after,
+#root .field-settlements-header::after {
+  content: 'PF';
+  position: absolute;
+  right: clamp(18px, 4vw, 58px);
+  bottom: -28px;
+  color: rgba(160, 175, 20, 0.17);
+  font-size: clamp(92px, 14vw, 190px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+#root .accounting-main > .module-page-header *,
+#root .estimator-pay-main > .module-page-header *,
+#root .payroll-m11-main > .module-page-header *,
+#root .users-header-panel *,
+#root .branches-main > .module-page-header-hero *,
+#root .branch-detail-hero *,
+#root .roles-admin-shell > .module-page-header *,
+#root .roles-admin-shell > .module-page-header-plain *,
+#root .roles-admin-shell > .module-page-header-hero *,
+#root .hr-docs-header *,
+#root .wycena-calendar-hero *,
+#root .calendar-blocks-header *,
+#root .field-settlements-header * {
+  position: relative !important;
+  z-index: 1 !important;
+  color: inherit !important;
+}
+
+#root .accounting-command-strip,
+#root .users-command-strip,
+#root .quote-calendar-command-strip,
+#root .calendar-blocks-command-strip {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1.25fr) repeat(3, minmax(170px, 0.75fr)) !important;
+  gap: 14px !important;
+  margin: 0 0 18px !important;
+}
+
+#root .accounting-command-lead,
+#root .users-command-lead,
+#root .quote-calendar-command-lead,
+#root .calendar-blocks-command-lead,
+#root .accounting-command-card,
+#root .users-command-card,
+#root .quote-calendar-command-card,
+#root .calendar-blocks-command-card {
+  border: 1px solid rgba(160, 175, 20, 0.28) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)) !important;
+  color: #fffaf0 !important;
+  box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
+  padding: 16px !important;
+}
+
+#root .accounting-kpi-card,
+#root .accounting-card,
+#root .accounting-tabs,
+#root .users-card,
+#root .users-list-card,
+#root .users-filters,
+#root .branches-form-panel,
+#root .branches-card,
+#root .branches-delegation-card,
+#root .branches-empty,
+#root .branches-tabs,
+#root .branch-detail-kpi,
+#root .branch-detail-summary-card,
+#root .branch-detail-panel,
+#root .branch-detail-tabs,
+#root .branch-detail-team-card,
+#root .branch-detail-form-panel,
+#root .roles-admin-sidebar,
+#root .roles-admin-editor,
+#root .roles-admin-empty,
+#root .roles-admin-summary,
+#root .roles-admin-perm-group,
+#root .hr-docs-stats > *,
+#root .hr-docs-panel,
+#root .hr-docs-card,
+#root .field-settlements-taskbar,
+#root .field-settlements-tabs,
+#root .field-settlements-panel,
+#root .field-settlements-worker-card,
+#root .estimator-pay-card,
+#root .payroll-m11-card,
+#root .payroll-m11-report-card,
+#root .quote-calendar-command-card,
+#root .calendar-blocks-card,
+#root .calendar-blocks-empty,
+#root .wycena-calendar-hero-stats > * {
+  border: 1px solid var(--pf-line) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(251, 250, 246, 0.92)) !important;
+  color: var(--pf-ink) !important;
+  box-shadow: var(--pf-shadow) !important;
+}
+
+#root .accounting-kpi-card,
+#root .branch-detail-kpi,
+#root .hr-docs-stats > *,
+#root .wycena-calendar-hero-stats > * {
+  border-top: 4px solid var(--pf-green) !important;
+}
+
+#root .accounting-card,
+#root .users-card,
+#root .users-list-card,
+#root .branches-form-panel,
+#root .branches-card,
+#root .branch-detail-panel,
+#root .roles-admin-editor,
+#root .roles-admin-sidebar,
+#root .hr-docs-panel,
+#root .field-settlements-panel,
+#root .estimator-pay-card,
+#root .payroll-m11-card,
+#root .calendar-blocks-card {
+  padding: clamp(14px, 1.7vw, 20px) !important;
+}
+
+#root .branches-card:hover,
+#root .users-list-card:hover,
+#root .branch-detail-team-card:hover,
+#root .roles-admin-role-row:hover,
+#root .roles-admin-perm-group:hover,
+#root .hr-docs-card:hover,
+#root .calendar-blocks-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(160, 175, 20, 0.48) !important;
+  box-shadow: 0 18px 40px rgba(59, 42, 24, 0.15) !important;
+}
+
+#root .accounting-filters,
+#root .users-filters,
+#root .hr-docs-toolbar,
+#root .field-settlements-taskbar,
+#root .estimator-pay-actions,
+#root .branches-tabs,
+#root .branch-detail-tabs,
+#root .roles-admin-actions {
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+#root .accounting-tabs button,
+#root .branches-tabs button,
+#root .branch-detail-tabs button,
+#root .field-settlements-tabs button,
+#root .roles-admin-role-row,
+#root .roles-admin-toggle {
+  border-radius: 8px !important;
+  min-height: 38px !important;
+}
+
+#root .accounting-main button,
+#root .estimator-pay-main button,
+#root .field-settlements-main button,
+#root .payroll-m11-main button,
+#root .users-main button,
+#root .branches-main button,
+#root .branch-detail-main button,
+#root .roles-admin-shell button,
+#root .hr-docs-main button,
+#root .quote-calendar-main button,
+#root .calendar-blocks-main button {
+  border-radius: 8px !important;
+  font-weight: 800 !important;
+}
+
+#root .accounting-main input,
+#root .accounting-main select,
+#root .accounting-main textarea,
+#root .estimator-pay-main input,
+#root .estimator-pay-main select,
+#root .field-settlements-main input,
+#root .field-settlements-main select,
+#root .field-settlements-main textarea,
+#root .payroll-m11-main input,
+#root .payroll-m11-main select,
+#root .users-main input,
+#root .users-main select,
+#root .users-main textarea,
+#root .branches-main input,
+#root .branches-main select,
+#root .branches-main textarea,
+#root .branch-detail-main input,
+#root .branch-detail-main select,
+#root .branch-detail-main textarea,
+#root .roles-admin-shell input,
+#root .roles-admin-shell select,
+#root .roles-admin-shell textarea,
+#root .hr-docs-main input,
+#root .hr-docs-main select,
+#root .quote-calendar-main input,
+#root .quote-calendar-main select,
+#root .calendar-blocks-main input,
+#root .calendar-blocks-main select,
+#root .calendar-blocks-main textarea {
+  border: 1px solid rgba(59, 42, 24, 0.16) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: var(--pf-ink) !important;
+}
+
+#root .accounting-main input:focus,
+#root .accounting-main select:focus,
+#root .accounting-main textarea:focus,
+#root .estimator-pay-main input:focus,
+#root .estimator-pay-main select:focus,
+#root .field-settlements-main input:focus,
+#root .field-settlements-main select:focus,
+#root .field-settlements-main textarea:focus,
+#root .payroll-m11-main input:focus,
+#root .payroll-m11-main select:focus,
+#root .users-main input:focus,
+#root .users-main select:focus,
+#root .users-main textarea:focus,
+#root .branches-main input:focus,
+#root .branches-main select:focus,
+#root .branches-main textarea:focus,
+#root .branch-detail-main input:focus,
+#root .branch-detail-main select:focus,
+#root .branch-detail-main textarea:focus,
+#root .roles-admin-shell input:focus,
+#root .roles-admin-shell select:focus,
+#root .roles-admin-shell textarea:focus,
+#root .hr-docs-main input:focus,
+#root .hr-docs-main select:focus,
+#root .quote-calendar-main input:focus,
+#root .quote-calendar-main select:focus,
+#root .calendar-blocks-main input:focus,
+#root .calendar-blocks-main select:focus,
+#root .calendar-blocks-main textarea:focus {
+  border-color: var(--pf-green) !important;
+  box-shadow: 0 0 0 4px rgba(160, 175, 20, 0.16) !important;
+  outline: none !important;
+}
+
+#root .roles-admin-layout,
+#root .users-detail-grid,
+#root .branch-detail-summary-grid,
+#root .branch-detail-team-grid {
+  gap: 16px !important;
+}
+
+#root .hr-docs-list,
+#root .payroll-m11-day-reports,
+#root .payroll-m11-corrections,
+#root .payroll-m11-estimators {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+@media (max-width: 900px) {
+  #root .accounting-main,
+  #root .estimator-pay-main,
+  #root .field-settlements-main,
+  #root .payroll-m11-main,
+  #root .users-main,
+  #root .branches-main,
+  #root .branch-detail-main,
+  #root .hr-docs-main,
+  #root .quote-calendar-main,
+  #root .calendar-blocks-main {
+    width: calc(100vw - 60px) !important;
+    margin-left: 60px !important;
+    margin-right: 0 !important;
+    padding: 18px 12px 32px !important;
+  }
+
+  #root .roles-admin-shell {
+    width: calc(100vw - 60px) !important;
+    margin-left: 60px !important;
+    padding: 18px 12px 32px !important;
+  }
+
+  #root .accounting-command-strip,
+  #root .users-command-strip,
+  #root .quote-calendar-command-strip,
+  #root .calendar-blocks-command-strip,
+  #root .accounting-kpis,
+  #root .users-list-grid,
+  #root .users-detail-grid,
+  #root .branches-grid,
+  #root .branches-delegations-grid,
+  #root .branch-detail-summary-grid,
+  #root .branch-detail-team-grid,
+  #root .roles-admin-layout,
+  #root .roles-admin-perms-grid,
+  #root .hr-docs-stats,
+  #root .hr-docs-toolbar,
+  #root .field-settlements-taskbar,
+  #root .estimator-pay-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .accounting-filters,
+  #root .users-filters,
+  #root .hr-docs-toolbar,
+  #root .field-settlements-taskbar,
+  #root .estimator-pay-actions,
+  #root .roles-admin-actions,
+  #root .hr-docs-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+  }
+
+  #root .accounting-main button,
+  #root .accounting-main input,
+  #root .accounting-main select,
+  #root .estimator-pay-main button,
+  #root .estimator-pay-main input,
+  #root .estimator-pay-main select,
+  #root .field-settlements-main button,
+  #root .field-settlements-main input,
+  #root .field-settlements-main select,
+  #root .payroll-m11-main button,
+  #root .users-main button,
+  #root .users-main input,
+  #root .users-main select,
+  #root .branches-main button,
+  #root .branches-main input,
+  #root .branches-main select,
+  #root .branch-detail-main button,
+  #root .branch-detail-main input,
+  #root .branch-detail-main select,
+  #root .roles-admin-shell button,
+  #root .roles-admin-shell input,
+  #root .hr-docs-main button,
+  #root .hr-docs-main input,
+  #root .hr-docs-main select,
+  #root .quote-calendar-main button,
+  #root .calendar-blocks-main button,
+  #root .calendar-blocks-main input,
+  #root .calendar-blocks-main select {
+    width: 100% !important;
+  }
+}
+
 html {
   font-size: 16px;
 }
@@ -5898,5 +6336,901 @@ body.theme-dark #root .arbor-sidebar {
   #root .inspection-doc-grid,
   #root .field-quote-detail-grid {
     grid-template-columns: 1fr !important;
+  }
+}
+
+/* Final order override: Polska Flora admin, HR, finance, and equipment surfaces. */
+#root .hr-panel-shell,
+#root .hr-docs-shell,
+#root .payroll-m11-shell,
+#root .estimator-pay-shell,
+#root .field-settlements-shell,
+#root .accounting-shell,
+#root .warehouse-shell,
+#root .equipment-res-shell,
+#root .notifications-shell,
+#root .roles-admin-shell {
+  --pf-admin-brown: #3b2a18;
+  --pf-admin-brown-2: #4b351f;
+  --pf-admin-green: #a0af14;
+  --pf-admin-soft: #b4c232;
+  --pf-admin-olive: #766440;
+  --pf-admin-orange: #bd701e;
+  --pf-admin-ink: #261a0f;
+  --pf-admin-muted: #756953;
+  --pf-admin-line: rgba(59, 42, 24, 0.14);
+  --pf-admin-shadow: 0 22px 54px rgba(59, 42, 24, 0.12);
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.08), transparent 40%),
+    linear-gradient(180deg, #f8f6ee 0%, #eee9dc 100%) !important;
+  color: var(--pf-admin-ink) !important;
+}
+
+#root .hr-panel-main,
+#root .hr-docs-main,
+#root .payroll-m11-main,
+#root .estimator-pay-main,
+#root .field-settlements-main,
+#root .accounting-main,
+#root .warehouse-main,
+#root .equipment-res-main,
+#root .notifications-main,
+#root .roles-admin-shell > .roles-admin-layout,
+#root .roles-admin-shell > div:not(.roles-admin-layout) {
+  width: min(1480px, calc(100vw - 128px)) !important;
+  max-width: min(1480px, calc(100vw - 128px)) !important;
+  margin: 0 auto !important;
+  padding: 24px clamp(18px, 2.5vw, 34px) 44px !important;
+}
+
+#root .field-settlements-main {
+  max-width: min(980px, calc(100vw - 128px)) !important;
+}
+
+#root .hr-panel-topbar,
+#root .hr-docs-header,
+#root .payroll-m11-main > .module-page-header-hero,
+#root .estimator-pay-main > .module-page-header-hero,
+#root .field-settlements-header,
+#root .accounting-main > .module-page-header-hero,
+#root .warehouse-main > .module-page-header-hero,
+#root .equipment-res-main > .module-page-header-hero,
+#root .notifications-main > h1,
+#root .roles-admin-shell > h1 {
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-left: 8px solid var(--pf-admin-green) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
+  color: #fffaf0 !important;
+  box-shadow: var(--pf-admin-shadow) !important;
+}
+
+#root .notifications-main > h1,
+#root .roles-admin-shell > h1 {
+  padding: 20px 24px !important;
+  margin: 0 auto 18px !important;
+  width: min(1480px, calc(100vw - 128px)) !important;
+  max-width: min(1480px, calc(100vw - 128px)) !important;
+}
+
+#root .hr-panel-topbar::after,
+#root .hr-docs-header::after,
+#root .payroll-m11-main > .module-page-header-hero::after,
+#root .estimator-pay-main > .module-page-header-hero::after,
+#root .field-settlements-header::after,
+#root .accounting-main > .module-page-header-hero::after,
+#root .warehouse-main > .module-page-header-hero::after,
+#root .equipment-res-main > .module-page-header-hero::after,
+#root .notifications-main > h1::after,
+#root .roles-admin-shell > h1::after {
+  content: 'PF';
+  position: absolute;
+  right: clamp(16px, 4vw, 58px);
+  bottom: -26px;
+  color: rgba(160, 175, 20, 0.17);
+  font-size: clamp(88px, 13vw, 184px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+#root .hr-panel-topbar *,
+#root .hr-docs-header *,
+#root .payroll-m11-main > .module-page-header-hero *,
+#root .estimator-pay-main > .module-page-header-hero *,
+#root .field-settlements-header *,
+#root .accounting-main > .module-page-header-hero *,
+#root .warehouse-main > .module-page-header-hero *,
+#root .equipment-res-main > .module-page-header-hero * {
+  color: inherit !important;
+}
+
+#root .accounting-command-strip,
+#root .warehouse-command-strip,
+#root .equipment-res-command-strip {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1.35fr) repeat(4, minmax(150px, 0.75fr)) !important;
+  gap: 14px !important;
+  margin: 18px 0 !important;
+}
+
+#root .accounting-command-lead,
+#root .warehouse-command-lead,
+#root .equipment-res-command-lead,
+#root .accounting-command-card,
+#root .warehouse-command-card,
+#root .equipment-res-command-card,
+#root .accounting-command-actions {
+  border: 1px solid rgba(160, 175, 20, 0.28) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)) !important;
+  color: #fffaf0 !important;
+  box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
+}
+
+#root .accounting-command-card strong,
+#root .warehouse-command-card strong,
+#root .equipment-res-command-card strong {
+  color: var(--pf-admin-soft) !important;
+}
+
+#root .hr-panel-tabs,
+#root .hr-docs-panel,
+#root .hr-docs-stats > *,
+#root .payroll-m11-card,
+#root .payroll-m11-report-card,
+#root .estimator-pay-card,
+#root .field-settlements-taskbar,
+#root .field-settlements-tabs,
+#root .field-settlements-panel,
+#root .field-settlements-worker-card,
+#root .accounting-kpi-card,
+#root .accounting-tabs,
+#root .accounting-card,
+#root .warehouse-state-panel,
+#root .warehouse-card,
+#root .equipment-res-monthbar,
+#root .equipment-res-kpi-card,
+#root .equipment-res-filters,
+#root .notifications-form,
+#root .notifications-route-brief-notice,
+#root .notifications-card,
+#root .notifications-item,
+#root .roles-admin-sidebar,
+#root .roles-admin-editor,
+#root .roles-admin-empty,
+#root .roles-admin-summary,
+#root .roles-admin-perm-group {
+  border: 1px solid var(--pf-admin-line) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(251, 250, 246, 0.93)),
+    linear-gradient(90deg, rgba(160, 175, 20, 0.06), transparent) !important;
+  box-shadow: 0 14px 32px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .hr-panel-card,
+#root .hr-panel-branch,
+#root .hr-docs-toolbar,
+#root .roles-admin-role-row,
+#root .roles-admin-perm-row,
+#root .roles-admin-form-row {
+  border-color: var(--pf-admin-line) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+}
+
+#root .warehouse-list .warehouse-card,
+#root .equipment-res-table,
+#root .modern-data-row {
+  border-radius: 8px !important;
+}
+
+#root .hr-panel-card:hover,
+#root .hr-docs-panel:hover,
+#root .payroll-m11-report-card:hover,
+#root .estimator-pay-card:hover,
+#root .field-settlements-worker-card:hover,
+#root .accounting-card:hover,
+#root .warehouse-card:hover,
+#root .equipment-res-kpi-card:hover,
+#root .notifications-item:hover,
+#root .roles-admin-role-row:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(160, 175, 20, 0.5) !important;
+  box-shadow: 0 18px 38px rgba(59, 42, 24, 0.14) !important;
+}
+
+#root .hr-panel-shell button,
+#root .hr-docs-shell button,
+#root .payroll-m11-shell button,
+#root .estimator-pay-shell button,
+#root .field-settlements-shell button,
+#root .accounting-shell button,
+#root .warehouse-shell button,
+#root .equipment-res-shell button,
+#root .notifications-shell button,
+#root .roles-admin-shell button,
+#root .roles-admin-toggle {
+  border-radius: 8px !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease !important;
+}
+
+#root .hr-panel-shell button:not(:disabled):hover,
+#root .hr-docs-shell button:not(:disabled):hover,
+#root .payroll-m11-shell button:not(:disabled):hover,
+#root .estimator-pay-shell button:not(:disabled):hover,
+#root .field-settlements-shell button:not(:disabled):hover,
+#root .accounting-shell button:not(:disabled):hover,
+#root .warehouse-shell button:not(:disabled):hover,
+#root .equipment-res-shell button:not(:disabled):hover,
+#root .notifications-shell button:not(:disabled):hover,
+#root .roles-admin-shell button:not(:disabled):hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 12px 24px rgba(59, 42, 24, 0.13) !important;
+}
+
+#root .hr-panel-shell input,
+#root .hr-panel-shell select,
+#root .hr-panel-shell textarea,
+#root .hr-docs-shell input,
+#root .hr-docs-shell select,
+#root .hr-docs-shell textarea,
+#root .payroll-m11-shell input,
+#root .payroll-m11-shell select,
+#root .payroll-m11-shell textarea,
+#root .estimator-pay-shell input,
+#root .estimator-pay-shell select,
+#root .estimator-pay-shell textarea,
+#root .field-settlements-shell input,
+#root .field-settlements-shell select,
+#root .field-settlements-shell textarea,
+#root .accounting-shell input,
+#root .accounting-shell select,
+#root .accounting-shell textarea,
+#root .warehouse-shell input,
+#root .warehouse-shell select,
+#root .warehouse-shell textarea,
+#root .equipment-res-shell input,
+#root .equipment-res-shell select,
+#root .equipment-res-shell textarea,
+#root .notifications-shell input,
+#root .notifications-shell select,
+#root .notifications-shell textarea,
+#root .roles-admin-shell input,
+#root .roles-admin-shell select,
+#root .roles-admin-shell textarea {
+  border: 1px solid rgba(59, 42, 24, 0.18) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: var(--pf-admin-ink) !important;
+}
+
+#root .hr-panel-shell input:focus,
+#root .hr-panel-shell select:focus,
+#root .hr-panel-shell textarea:focus,
+#root .hr-docs-shell input:focus,
+#root .hr-docs-shell select:focus,
+#root .hr-docs-shell textarea:focus,
+#root .payroll-m11-shell input:focus,
+#root .payroll-m11-shell select:focus,
+#root .payroll-m11-shell textarea:focus,
+#root .estimator-pay-shell input:focus,
+#root .estimator-pay-shell select:focus,
+#root .estimator-pay-shell textarea:focus,
+#root .field-settlements-shell input:focus,
+#root .field-settlements-shell select:focus,
+#root .field-settlements-shell textarea:focus,
+#root .accounting-shell input:focus,
+#root .accounting-shell select:focus,
+#root .accounting-shell textarea:focus,
+#root .warehouse-shell input:focus,
+#root .warehouse-shell select:focus,
+#root .warehouse-shell textarea:focus,
+#root .equipment-res-shell input:focus,
+#root .equipment-res-shell select:focus,
+#root .equipment-res-shell textarea:focus,
+#root .notifications-shell input:focus,
+#root .notifications-shell select:focus,
+#root .notifications-shell textarea:focus,
+#root .roles-admin-shell input:focus,
+#root .roles-admin-shell select:focus,
+#root .roles-admin-shell textarea:focus {
+  border-color: var(--pf-admin-green) !important;
+  box-shadow: 0 0 0 4px rgba(160, 175, 20, 0.16) !important;
+  outline: none !important;
+}
+
+@media (max-width: 900px) {
+  #root .hr-panel-main,
+  #root .hr-docs-main,
+  #root .payroll-m11-main,
+  #root .estimator-pay-main,
+  #root .field-settlements-main,
+  #root .accounting-main,
+  #root .warehouse-main,
+  #root .equipment-res-main,
+  #root .notifications-main,
+  #root .roles-admin-shell > .roles-admin-layout,
+  #root .roles-admin-shell > div:not(.roles-admin-layout),
+  #root .notifications-main > h1,
+  #root .roles-admin-shell > h1 {
+    width: calc(100vw - 60px) !important;
+    max-width: calc(100vw - 60px) !important;
+    margin-left: 60px !important;
+    margin-right: 0 !important;
+    padding: 18px 12px 32px !important;
+  }
+
+  #root .accounting-command-strip,
+  #root .warehouse-command-strip,
+  #root .equipment-res-command-strip,
+  #root .hr-docs-stats,
+  #root .estimator-pay-grid,
+  #root .accounting-kpis,
+  #root .equipment-res-kpis,
+  #root .roles-admin-layout,
+  #root .roles-admin-perms-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .hr-panel-topbar,
+  #root .hr-docs-header,
+  #root .field-settlements-taskbar,
+  #root .equipment-res-monthbar,
+  #root .notifications-type-grid,
+  #root .roles-admin-actions {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  #root .hr-panel-shell button,
+  #root .hr-panel-shell input,
+  #root .hr-panel-shell select,
+  #root .hr-docs-shell button,
+  #root .hr-docs-shell input,
+  #root .hr-docs-shell select,
+  #root .payroll-m11-shell button,
+  #root .payroll-m11-shell input,
+  #root .payroll-m11-shell select,
+  #root .estimator-pay-shell button,
+  #root .estimator-pay-shell input,
+  #root .estimator-pay-shell select,
+  #root .field-settlements-shell button,
+  #root .field-settlements-shell input,
+  #root .field-settlements-shell select,
+  #root .accounting-shell button,
+  #root .accounting-shell input,
+  #root .accounting-shell select,
+  #root .warehouse-shell button,
+  #root .warehouse-shell input,
+  #root .warehouse-shell select,
+  #root .equipment-res-shell button,
+  #root .equipment-res-shell input,
+  #root .equipment-res-shell select,
+  #root .notifications-shell button,
+  #root .notifications-shell input,
+  #root .notifications-shell select,
+  #root .roles-admin-shell button,
+  #root .roles-admin-shell input,
+  #root .roles-admin-shell select {
+    width: 100% !important;
+  }
+}
+
+/* Final order override: Polska Flora organization, leadership, BI, and execution surfaces. */
+#root .branches-shell,
+#root .branch-detail-shell,
+#root .users-shell,
+#root .profile-shell,
+#root .kierownik-shell,
+#root .bi-dashboard-shell,
+#root .mission-day-shell,
+#root .autoplan-shell,
+#root .crm-today-shell,
+#root .estimator-hub-shell,
+#root .quote-approval-shell,
+#root .quote-calendar-shell,
+#root .quote-draw-shell,
+#root .raport-dzienny-shell,
+#root .kpi-week-shell,
+#root .calendar-blocks-shell {
+  --pf-org-brown: #3b2a18;
+  --pf-org-brown-2: #4b351f;
+  --pf-org-green: #a0af14;
+  --pf-org-soft: #b4c232;
+  --pf-org-olive: #766440;
+  --pf-org-orange: #bd701e;
+  --pf-org-ink: #261a0f;
+  --pf-org-line: rgba(59, 42, 24, 0.14);
+  --pf-org-shadow: 0 22px 54px rgba(59, 42, 24, 0.12);
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.08), transparent 40%),
+    linear-gradient(180deg, #f8f6ee 0%, #eee9dc 100%) !important;
+  color: var(--pf-org-ink) !important;
+}
+
+#root .branches-main,
+#root .branch-detail-main,
+#root .users-main,
+#root .profile-main,
+#root .kierownik-main,
+#root .bi-dashboard-main,
+#root .mission-day-main,
+#root .autoplan-main,
+#root .crm-today-main,
+#root .estimator-hub-main,
+#root .quote-approval-main,
+#root .quote-calendar-main,
+#root .quote-draw-main,
+#root .raport-dzienny-main,
+#root .kpi-week-main,
+#root .calendar-blocks-main {
+  width: min(1480px, calc(100vw - 128px)) !important;
+  max-width: min(1480px, calc(100vw - 128px)) !important;
+  margin: 0 auto !important;
+  padding: 24px clamp(18px, 2.5vw, 34px) 44px !important;
+}
+
+#root .mission-day-main,
+#root .autoplan-main,
+#root .quote-draw-workbench,
+#root .raport-dzienny-main {
+  max-width: min(1120px, calc(100vw - 128px)) !important;
+}
+
+#root .branches-main > .module-page-header-hero,
+#root .branch-detail-hero,
+#root .users-header-panel,
+#root .profile-header,
+#root .kierownik-main > .module-page-header-hero,
+#root .bi-dashboard-topbar,
+#root .mission-day-header-row,
+#root .autoplan-main > .module-page-header-hero,
+#root .crm-today-content > .ios-inset:first-child,
+#root .estimator-hub-hero,
+#root .quote-approval-header,
+#root .wycena-calendar-hero,
+#root .quote-draw-topbar,
+#root .raport-dzienny-toolbar,
+#root .kpi-week-main > .module-page-header-hero,
+#root .calendar-blocks-header {
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-left: 8px solid var(--pf-org-green) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
+  color: #fffaf0 !important;
+  box-shadow: var(--pf-org-shadow) !important;
+}
+
+#root .branches-main > .module-page-header-hero::after,
+#root .branch-detail-hero::after,
+#root .users-header-panel::after,
+#root .profile-header::after,
+#root .kierownik-main > .module-page-header-hero::after,
+#root .bi-dashboard-topbar::after,
+#root .mission-day-header-row::after,
+#root .autoplan-main > .module-page-header-hero::after,
+#root .crm-today-content > .ios-inset:first-child::after,
+#root .estimator-hub-hero::after,
+#root .quote-approval-header::after,
+#root .wycena-calendar-hero::after,
+#root .quote-draw-topbar::after,
+#root .raport-dzienny-toolbar::after,
+#root .kpi-week-main > .module-page-header-hero::after,
+#root .calendar-blocks-header::after {
+  content: 'PF';
+  position: absolute;
+  right: clamp(16px, 4vw, 58px);
+  bottom: -26px;
+  color: rgba(160, 175, 20, 0.17);
+  font-size: clamp(88px, 13vw, 184px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+#root .branches-main > .module-page-header-hero *,
+#root .branch-detail-hero *,
+#root .users-header-panel *,
+#root .profile-header *,
+#root .kierownik-main > .module-page-header-hero *,
+#root .bi-dashboard-topbar *,
+#root .mission-day-header-row *,
+#root .autoplan-main > .module-page-header-hero *,
+#root .crm-today-content > .ios-inset:first-child *,
+#root .estimator-hub-hero *,
+#root .quote-approval-header *,
+#root .wycena-calendar-hero *,
+#root .quote-draw-topbar *,
+#root .raport-dzienny-toolbar *,
+#root .kpi-week-main > .module-page-header-hero *,
+#root .calendar-blocks-header * {
+  color: inherit !important;
+}
+
+#root .users-command-strip,
+#root .bi-command-strip,
+#root .estimator-hub-command-strip,
+#root .quote-approval-command-strip,
+#root .quote-calendar-command-strip,
+#root .quote-draw-command-strip,
+#root .calendar-blocks-command-strip {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1.35fr) repeat(4, minmax(150px, 0.75fr)) !important;
+  gap: 14px !important;
+  margin: 18px 0 !important;
+}
+
+#root .users-command-lead,
+#root .bi-command-lead,
+#root .estimator-hub-command-lead,
+#root .quote-approval-command-lead,
+#root .quote-calendar-command-lead,
+#root .quote-draw-command-lead,
+#root .calendar-blocks-command-lead,
+#root .users-command-card,
+#root .bi-command-card,
+#root .estimator-hub-command-card,
+#root .quote-approval-command-card,
+#root .quote-calendar-command-card,
+#root .quote-draw-command-card,
+#root .calendar-blocks-command-card {
+  border: 1px solid rgba(160, 175, 20, 0.28) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)) !important;
+  color: #fffaf0 !important;
+  box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
+}
+
+#root .users-command-card strong,
+#root .bi-command-card strong,
+#root .estimator-hub-command-card strong,
+#root .quote-approval-command-card strong,
+#root .quote-calendar-command-card strong,
+#root .quote-draw-command-card strong,
+#root .calendar-blocks-command-card strong {
+  color: var(--pf-org-soft) !important;
+}
+
+#root .branches-tabs,
+#root .branches-form-panel,
+#root .branches-card,
+#root .branches-empty,
+#root .branches-delegations-wrap,
+#root .branches-delegation-card,
+#root .branch-detail-breadcrumb,
+#root .branch-detail-kpi,
+#root .branch-detail-summary-card,
+#root .branch-detail-tabs,
+#root .branch-detail-panel,
+#root .branch-detail-form-panel,
+#root .branch-detail-team-card,
+#root .branch-detail-inline-form,
+#root .branch-detail-member-row,
+#root .branch-detail-feature-row,
+#root .branch-detail-salary-calculator,
+#root .users-filters,
+#root .users-card,
+#root .users-list-card,
+#root .users-inline-form,
+#root .profile-stat,
+#root .profile-panel,
+#root .kierownik-cockpit-panel,
+#root .kierownik-branch-card,
+#root .kierownik-filters,
+#root .kierownik-empty-state,
+#root .kierownik-task-card,
+#root .bi-dashboard-tabs,
+#root .bi-kpi-card,
+#root .bi-card,
+#root .mission-day-kpi-card,
+#root .mission-day-eta-card,
+#root .mission-day-team-card,
+#root .mission-day-task-card,
+#root .autoplan-rules-card,
+#root .autoplan-tabs,
+#root .autoplan-risk-card,
+#root .autoplan-compare-card,
+#root .autoplan-table-wrap,
+#root .autoplan-history,
+#root .crm-today-content .ios-inset,
+#root .crm-today-content .ios-inset-row,
+#root .estimator-hub-kpi-card,
+#root .estimator-hub-hint,
+#root .estimator-hub-section,
+#root .estimator-hub-tile,
+#root .quote-approval-tabs,
+#root .quote-approval-card,
+#root .quote-approval-empty,
+#root .quote-approval-modal,
+#root .quote-draw-toolbar,
+#root .quote-draw-canvas-frame,
+#root .raport-dzienny-panel,
+#root .raport-dzienny-table,
+#root .raport-dzienny-materials > *,
+#root .kpi-week-period-card,
+#root .kpi-week-winner,
+#root .kpi-week-history-card,
+#root .kpi-week-history-log,
+#root .calendar-blocks-card,
+#root .calendar-blocks-empty,
+#root .calendar-blocks-modal {
+  border: 1px solid var(--pf-org-line) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(251, 250, 246, 0.93)),
+    linear-gradient(90deg, rgba(160, 175, 20, 0.06), transparent) !important;
+  box-shadow: 0 14px 32px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .branches-card:hover,
+#root .branches-delegation-card:hover,
+#root .branch-detail-team-card:hover,
+#root .branch-detail-member-row:hover,
+#root .users-list-card:hover,
+#root .profile-panel:hover,
+#root .kierownik-task-card:hover,
+#root .bi-card:hover,
+#root .mission-day-task-card:hover,
+#root .autoplan-compare-card:hover,
+#root .estimator-hub-tile:hover,
+#root .quote-approval-card:hover,
+#root .calendar-blocks-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(160, 175, 20, 0.5) !important;
+  box-shadow: 0 18px 38px rgba(59, 42, 24, 0.14) !important;
+}
+
+#root .mission-day-progress,
+#root .wycena-calendar-hero-stats,
+#root .estimator-hub-platinum {
+  border-radius: 8px !important;
+  background: linear-gradient(90deg, rgba(160, 175, 20, 0.22), rgba(189, 112, 30, 0.14)) !important;
+}
+
+#root .branches-shell button,
+#root .branch-detail-shell button,
+#root .users-shell button,
+#root .profile-shell button,
+#root .kierownik-shell button,
+#root .bi-dashboard-shell button,
+#root .mission-day-shell button,
+#root .autoplan-shell button,
+#root .crm-today-shell button,
+#root .estimator-hub-shell button,
+#root .quote-approval-shell button,
+#root .quote-calendar-shell button,
+#root .quote-draw-shell button,
+#root .raport-dzienny-shell button,
+#root .kpi-week-shell button,
+#root .calendar-blocks-shell button {
+  border-radius: 8px !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease !important;
+}
+
+#root .branches-shell button:not(:disabled):hover,
+#root .branch-detail-shell button:not(:disabled):hover,
+#root .users-shell button:not(:disabled):hover,
+#root .profile-shell button:not(:disabled):hover,
+#root .kierownik-shell button:not(:disabled):hover,
+#root .bi-dashboard-shell button:not(:disabled):hover,
+#root .mission-day-shell button:not(:disabled):hover,
+#root .autoplan-shell button:not(:disabled):hover,
+#root .crm-today-shell button:not(:disabled):hover,
+#root .estimator-hub-shell button:not(:disabled):hover,
+#root .quote-approval-shell button:not(:disabled):hover,
+#root .quote-calendar-shell button:not(:disabled):hover,
+#root .quote-draw-shell button:not(:disabled):hover,
+#root .raport-dzienny-shell button:not(:disabled):hover,
+#root .kpi-week-shell button:not(:disabled):hover,
+#root .calendar-blocks-shell button:not(:disabled):hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 12px 24px rgba(59, 42, 24, 0.13) !important;
+}
+
+#root .branches-shell input,
+#root .branches-shell select,
+#root .branches-shell textarea,
+#root .branch-detail-shell input,
+#root .branch-detail-shell select,
+#root .branch-detail-shell textarea,
+#root .users-shell input,
+#root .users-shell select,
+#root .users-shell textarea,
+#root .profile-shell input,
+#root .profile-shell select,
+#root .profile-shell textarea,
+#root .kierownik-shell input,
+#root .kierownik-shell select,
+#root .kierownik-shell textarea,
+#root .bi-dashboard-shell input,
+#root .bi-dashboard-shell select,
+#root .bi-dashboard-shell textarea,
+#root .mission-day-shell input,
+#root .mission-day-shell select,
+#root .mission-day-shell textarea,
+#root .autoplan-shell input,
+#root .autoplan-shell select,
+#root .autoplan-shell textarea,
+#root .crm-today-shell input,
+#root .crm-today-shell select,
+#root .crm-today-shell textarea,
+#root .estimator-hub-shell input,
+#root .estimator-hub-shell select,
+#root .estimator-hub-shell textarea,
+#root .quote-approval-shell input,
+#root .quote-approval-shell select,
+#root .quote-approval-shell textarea,
+#root .quote-calendar-shell input,
+#root .quote-calendar-shell select,
+#root .quote-calendar-shell textarea,
+#root .quote-draw-shell input,
+#root .quote-draw-shell select,
+#root .quote-draw-shell textarea,
+#root .raport-dzienny-shell input,
+#root .raport-dzienny-shell select,
+#root .raport-dzienny-shell textarea,
+#root .kpi-week-shell input,
+#root .kpi-week-shell select,
+#root .kpi-week-shell textarea,
+#root .calendar-blocks-shell input,
+#root .calendar-blocks-shell select,
+#root .calendar-blocks-shell textarea {
+  border: 1px solid rgba(59, 42, 24, 0.18) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: var(--pf-org-ink) !important;
+}
+
+#root .branches-shell input:focus,
+#root .branches-shell select:focus,
+#root .branches-shell textarea:focus,
+#root .branch-detail-shell input:focus,
+#root .branch-detail-shell select:focus,
+#root .branch-detail-shell textarea:focus,
+#root .users-shell input:focus,
+#root .users-shell select:focus,
+#root .users-shell textarea:focus,
+#root .profile-shell input:focus,
+#root .profile-shell select:focus,
+#root .profile-shell textarea:focus,
+#root .kierownik-shell input:focus,
+#root .kierownik-shell select:focus,
+#root .kierownik-shell textarea:focus,
+#root .bi-dashboard-shell input:focus,
+#root .bi-dashboard-shell select:focus,
+#root .bi-dashboard-shell textarea:focus,
+#root .mission-day-shell input:focus,
+#root .mission-day-shell select:focus,
+#root .mission-day-shell textarea:focus,
+#root .autoplan-shell input:focus,
+#root .autoplan-shell select:focus,
+#root .autoplan-shell textarea:focus,
+#root .crm-today-shell input:focus,
+#root .crm-today-shell select:focus,
+#root .crm-today-shell textarea:focus,
+#root .estimator-hub-shell input:focus,
+#root .estimator-hub-shell select:focus,
+#root .estimator-hub-shell textarea:focus,
+#root .quote-approval-shell input:focus,
+#root .quote-approval-shell select:focus,
+#root .quote-approval-shell textarea:focus,
+#root .quote-calendar-shell input:focus,
+#root .quote-calendar-shell select:focus,
+#root .quote-calendar-shell textarea:focus,
+#root .quote-draw-shell input:focus,
+#root .quote-draw-shell select:focus,
+#root .quote-draw-shell textarea:focus,
+#root .raport-dzienny-shell input:focus,
+#root .raport-dzienny-shell select:focus,
+#root .raport-dzienny-shell textarea:focus,
+#root .kpi-week-shell input:focus,
+#root .kpi-week-shell select:focus,
+#root .kpi-week-shell textarea:focus,
+#root .calendar-blocks-shell input:focus,
+#root .calendar-blocks-shell select:focus,
+#root .calendar-blocks-shell textarea:focus {
+  border-color: var(--pf-org-green) !important;
+  box-shadow: 0 0 0 4px rgba(160, 175, 20, 0.16) !important;
+  outline: none !important;
+}
+
+@media (max-width: 900px) {
+  #root .branches-main,
+  #root .branch-detail-main,
+  #root .users-main,
+  #root .profile-main,
+  #root .kierownik-main,
+  #root .bi-dashboard-main,
+  #root .mission-day-main,
+  #root .autoplan-main,
+  #root .crm-today-main,
+  #root .estimator-hub-main,
+  #root .quote-approval-main,
+  #root .quote-calendar-main,
+  #root .quote-draw-main,
+  #root .raport-dzienny-main,
+  #root .kpi-week-main,
+  #root .calendar-blocks-main {
+    width: calc(100vw - 60px) !important;
+    max-width: calc(100vw - 60px) !important;
+    margin-left: 60px !important;
+    margin-right: 0 !important;
+    padding: 18px 12px 32px !important;
+  }
+
+  #root .users-command-strip,
+  #root .bi-command-strip,
+  #root .estimator-hub-command-strip,
+  #root .quote-approval-command-strip,
+  #root .quote-calendar-command-strip,
+  #root .quote-draw-command-strip,
+  #root .calendar-blocks-command-strip,
+  #root .branches-grid,
+  #root .branches-delegations-grid,
+  #root .branch-detail-summary-grid,
+  #root .branch-detail-team-grid,
+  #root .users-list-grid,
+  #root .users-detail-grid,
+  #root .profile-stat-grid,
+  #root .profile-grid,
+  #root .kierownik-branches,
+  #root .kierownik-cards-grid,
+  #root .bi-dashboard-kpis,
+  #root .bi-dashboard-two-col,
+  #root .crm-today-grid,
+  #root .estimator-hub-kpis,
+  #root .estimator-hub-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .bi-dashboard-topbar,
+  #root .mission-day-header-row,
+  #root .autoplan-actions,
+  #root .autoplan-compare,
+  #root .quote-draw-toolbar,
+  #root .raport-dzienny-actions,
+  #root .kpi-week-periods {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  #root .branches-shell button,
+  #root .branches-shell input,
+  #root .branches-shell select,
+  #root .branch-detail-shell button,
+  #root .branch-detail-shell input,
+  #root .branch-detail-shell select,
+  #root .users-shell button,
+  #root .users-shell input,
+  #root .users-shell select,
+  #root .profile-shell button,
+  #root .profile-shell input,
+  #root .profile-shell select,
+  #root .kierownik-shell button,
+  #root .kierownik-shell input,
+  #root .kierownik-shell select,
+  #root .bi-dashboard-shell button,
+  #root .bi-dashboard-shell input,
+  #root .bi-dashboard-shell select,
+  #root .mission-day-shell button,
+  #root .autoplan-shell button,
+  #root .quote-approval-shell button,
+  #root .quote-calendar-shell button,
+  #root .quote-draw-shell button,
+  #root .raport-dzienny-shell button,
+  #root .calendar-blocks-shell button {
+    width: 100% !important;
   }
 }
