@@ -1,17 +1,7 @@
-const { getProxyTarget, isPortOpen, checkApiHealth, formatPortListeners, getPortListeners } = require("./lib/stack-utils.cjs");
+const { getProxyTarget, getProxyPort, isPortOpen, checkApiHealth, formatPortListeners, getPortListeners } = require("./lib/stack-utils.cjs");
 
 function yesNo(flag) {
   return flag ? "YES" : "NO";
-}
-
-function getProxyPort(proxyTarget) {
-  try {
-    const url = new URL(proxyTarget);
-    if (url.port) return Number(url.port);
-    return url.protocol === "https:" ? 443 : 80;
-  } catch {
-    return 3001;
-  }
 }
 
 function computeSuggestions({ apiOpen, apiPort, healthOk, webRunning, apiPortListeners = [] }) {
@@ -75,7 +65,7 @@ async function main() {
   console.info("[status] -------------------------------");
   console.info(`[status] WEB port 3000 open : ${yesNo(webOpen)}`);
   console.info(`[status] WEB port 3002 open : ${yesNo(altWebOpen)} (Vite dev fallback)`);
-  console.info(`[status] API port 3001 open : ${yesNo(apiOpen)}`);
+  console.info(`[status] API port ${apiPort} open : ${yesNo(apiOpen)}`);
   if (apiPortListeners.length > 0) {
     console.info(`[status] API port listener : ${formatPortListeners(apiPortListeners)}`);
   }

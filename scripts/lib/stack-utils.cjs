@@ -29,6 +29,16 @@ function getProxyTarget() {
   return "http://localhost:3001";
 }
 
+function getProxyPort(proxyTarget) {
+  try {
+    const url = new URL(proxyTarget);
+    if (url.port) return Number(url.port);
+    return url.protocol === "https:" ? 443 : 80;
+  } catch {
+    return 3001;
+  }
+}
+
 function isPortOpen(port, host = "127.0.0.1", timeoutMs = 700) {
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -230,6 +240,7 @@ function killPortListeners(ports, tag = "stack") {
 
 module.exports = {
   getProxyTarget,
+  getProxyPort,
   isPortOpen,
   httpRequest,
   httpGet,

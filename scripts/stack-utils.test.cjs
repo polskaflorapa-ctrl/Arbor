@@ -4,7 +4,7 @@ const http = require("node:http");
 const https = require("node:https");
 const { EventEmitter } = require("node:events");
 
-const { httpGet, httpPostJson, checkApiHealth, formatPortListeners } = require("./lib/stack-utils.cjs");
+const { httpGet, httpPostJson, checkApiHealth, formatPortListeners, getProxyPort } = require("./lib/stack-utils.cjs");
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -181,4 +181,11 @@ test("formatPortListeners includes process names, pids, and paths", () => {
     "node.exe pid=123 path=C:\\repo\\node.exe"
   );
   assert.equal(formatPortListeners([]), "unknown listener");
+});
+
+test("getProxyPort reads explicit and default ports from proxy targets", () => {
+  assert.equal(getProxyPort("http://localhost:3006"), 3006);
+  assert.equal(getProxyPort("http://example.test"), 80);
+  assert.equal(getProxyPort("https://example.test"), 443);
+  assert.equal(getProxyPort("not a url"), 3001);
 });
