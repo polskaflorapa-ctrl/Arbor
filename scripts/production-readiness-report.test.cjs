@@ -45,7 +45,9 @@ test("production readiness args expose help mode", () => {
 
 test("production readiness args reject unknown flags and missing values", () => {
   assert.throws(() => parseArgs(["--wat"]), /Unknown argument: --wat/);
+  assert.throws(() => parseArgs(["--skip-remtoe"]), /Unknown argument: --skip-remtoe/);
   assert.throws(() => parseArgs(["--web"]), /Missing value for --web/);
+  assert.throws(() => parseArgs(["--api", "--skip-local"]), /Missing value for --api/);
 });
 
 test("production readiness summary blocks on failed gates", () => {
