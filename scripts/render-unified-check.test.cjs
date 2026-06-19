@@ -46,7 +46,7 @@ test("Render unified check validates one live web plus backend configuration", (
     writeFixtureFile(root, "deploy/render-arbor-os.env.example", `CORS_ORIGINS=${LIVE_WEB_URL}\nPUBLIC_BASE_URL=https://arbor-os-b7k6.onrender.com\n`);
     writeFixtureFile(root, "web/.env.production.example", `VITE_API_URL=${LIVE_BACKEND_API_URL}\n`);
     writeFixtureFile(root, "docs/render-deploy.md", `${LIVE_WEB_URL}\n${LIVE_BACKEND_API_URL}\nverify:render-unified\n`);
-    writeFixtureFile(root, "docs/POLSKA_FLORA_RENDER_UNIFIED.md", `${LIVE_WEB_URL}\n${LIVE_BACKEND_API_URL}\nredeploy\nstatus:production\n--expected-build\nsmoke:p95\n`);
+    writeFixtureFile(root, "docs/POLSKA_FLORA_RENDER_UNIFIED.md", `${LIVE_WEB_URL}\n${LIVE_BACKEND_API_URL}\nredeploy\nstatus:production\n--expected-build\n--expected-build=abc1234\n--help\n--skip-remote\n--web=https://\nsmoke:p95\n`);
     writeFixtureFile(root, "web/vite.config.js", "arbor-web-build arbor-web-api VITE_APP_VERSION");
     writeFixtureFile(root, "web/src/pages/DashboardPolskaFlora.js", "Polska Flora Telefon / Ania CRM Ogledziny Wycena Ekipa Przyjmij telefon CRM dzisiaj");
     writeFixtureFile(

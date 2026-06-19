@@ -44,6 +44,7 @@ Mozesz wymusic konkretny marker builda, jesli znasz release tag albo krotki SHA:
 
 ```powershell
 npm run deploy:render:web:wait -- --expected-build abc1234
+npm run deploy:render:web:wait -- --expected-build=abc1234 --wait-attempts=30 --wait-interval-ms=10000
 ```
 
 Przed redeployem:
@@ -66,6 +67,9 @@ npm run status:production -- --skip-remote --skip-slow-local
 ```
 
 `--skip-local` pomija lokalne kontrakty, a `--skip-remote` pomija deploy hook i live smoke.
+Komendy produkcyjne `deploy:render:web`, smoke/status maja `--help`, odrzucaja
+nieznane flagi i akceptuja wartosci zarowno jako `--web https://...`, jak i
+`--web=https://...`.
 
 Po redeployu:
 
@@ -74,6 +78,7 @@ npm run deploy:free:check -- https://arbor-os-b7k6.onrender.com
 npm run smoke:p95 -- https://arbor-os-b7k6.onrender.com --threshold 500 --samples 5
 npm run smoke:render-unified:live
 npm run smoke:render-unified:live -- --expected-build abc1234
+npm run smoke:render-unified:live -- --web=https://arbo-web.onrender.com --api=https://arbor-os-b7k6.onrender.com/api --any-build
 npm run status:production
 ```
 

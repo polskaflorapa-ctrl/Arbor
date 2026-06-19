@@ -40,9 +40,36 @@ test("parseArgs supports expected build marker", () => {
   assert.equal(parseArgs(["--wait", "--expected-build", "abc123"]).expectedBuild, "abc123");
 });
 
+test("parseArgs supports equals-style expected build marker", () => {
+  const options = parseArgs([
+    "--wait",
+    "--timeout-ms=45000",
+    "--wait-attempts=30",
+    "--wait-interval-ms=10000",
+    "--expected-build=abc123",
+  ]);
+
+  assert.equal(options.wait, true);
+  assert.equal(options.timeoutMs, 45000);
+  assert.equal(options.waitAttempts, 30);
+  assert.equal(options.waitIntervalMs, 10000);
+  assert.equal(options.expectedBuild, "abc123");
+});
+
 test("parseArgs can skip exact build matching", () => {
   assert.equal(parseArgs(["--wait", "--any-build"]).expectedBuild, "");
   assert.equal(parseArgs(["--wait", "--any-build"]).anyBuild, true);
+});
+
+test("parseArgs exposes help mode", () => {
+  const options = parseArgs(["--help"]);
+
+  assert.equal(options.help, true);
+});
+
+test("parseArgs rejects unknown flags and missing values", () => {
+  assert.throws(() => parseArgs(["--wait-atempt"]), /Unknown argument: --wait-atempt/);
+  assert.throws(() => parseArgs(["--expected-build"]), /Missing value for --expected-build/);
 });
 
 test("resolveDeployHookUrl rejects missing deploy hook", () => {

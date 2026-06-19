@@ -50,6 +50,10 @@ const unifiedNeedles = {
     "redeploy",
     "status:production",
     "--expected-build",
+    "--expected-build=abc1234",
+    "--help",
+    "--skip-remote",
+    "--web=https://",
     "smoke:p95",
   ],
   "web/src/pages/DashboardPolskaFlora.js": [
