@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  buildRecommendedActions,
   buildProductionReadinessReport,
   deployHookGate,
   parseArgs,
@@ -99,4 +100,27 @@ test("production readiness report includes the expected web build marker", async
 
   assert.equal(report.expectedBuild, "abc1234");
   assert.equal(report.summary.status, "ready");
+});
+
+test("production readiness actions explain missing hook and stale live build", () => {
+  const actions = buildRecommendedActions({
+    expectedBuild: "abc1234",
+    gates: [
+      {
+        name: "render-web-deploy-hook",
+        status: "warn",
+        detail: "RENDER_WEB_DEPLOY_HOOK_URL is missing",
+      },
+      {
+        name: "render-live-smoke",
+        status: "fail",
+        detail: "Web build marker mismatch: expected abc1234, got old1234.",
+      },
+    ],
+  });
+
+  assert.equal(actions.length, 3);
+  assert.match(actions[0], /RENDER_WEB_DEPLOY_HOOK_URL/);
+  assert.match(actions[1], /deploy:render:web:wait -- --expected-build abc1234/);
+  assert.match(actions[2], /status:production/);
 });

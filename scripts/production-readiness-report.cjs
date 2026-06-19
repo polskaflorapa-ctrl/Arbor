@@ -28,6 +28,30 @@ function summarizeReadiness(gates) {
   return { status: "ready", failed: 0, warnings: 0 };
 }
 
+function buildRecommendedActions(reportLike) {
+  const gates = reportLike.gates || [];
+  const actions = [];
+  const hookGate = gates.find((gate) => gate.name === "render-web-deploy-hook");
+  const liveGate = gates.find((gate) => gate.name === "render-live-smoke");
+  const expectedBuild = reportLike.expectedBuild;
+
+  if (hookGate?.status === "warn") {
+    actions.push(
+      "Set GitHub secret RENDER_WEB_DEPLOY_HOOK_URL from Render arbo-web Settings -> Deploy Hook, or export it locally before redeploy.",
+    );
+  }
+
+  if (liveGate?.status === "fail") {
+    if (/build marker mismatch/i.test(liveGate.detail || "")) {
+      const expectedFlag = expectedBuild ? ` -- --expected-build ${expectedBuild}` : "";
+      actions.push(`Trigger latest web redeploy: npm run deploy:render:web:wait${expectedFlag}`);
+    }
+    actions.push("After Render finishes, rerun: npm run status:production -- --skip-local");
+  }
+
+  return actions;
+}
+
 function runCommandGate(gate, { spawnImpl = spawnSync, cwd = process.cwd() } = {}) {
   const executable = process.platform === "win32" && gate.command === "npm" ? "cmd.exe" : gate.command;
   const args =
@@ -82,7 +106,7 @@ async function buildProductionReadinessReport(options = {}) {
   gates.push(deployHookGate(options.env || process.env));
   gates.push(await liveRenderGate(options));
 
-  return {
+  const report = {
     generatedAt: new Date().toISOString(),
     webUrl: options.webUrl || DEFAULT_WEB_URL,
     apiBaseUrl: options.apiBaseUrl || DEFAULT_API_BASE_URL,
@@ -90,6 +114,8 @@ async function buildProductionReadinessReport(options = {}) {
     summary: summarizeReadiness(gates),
     gates,
   };
+  report.actions = buildRecommendedActions(report);
+  return report;
 }
 
 function printTextReport(report) {
@@ -99,6 +125,9 @@ function printTextReport(report) {
   if (report.expectedBuild) console.log(`[production-readiness] Expected web build: ${report.expectedBuild}`);
   for (const gate of report.gates) {
     console.log(`[production-readiness] ${gate.status.toUpperCase()} ${gate.name}: ${gate.detail}`);
+  }
+  for (const action of report.actions || []) {
+    console.log(`[production-readiness] NEXT ${action}`);
   }
 }
 
@@ -120,6 +149,7 @@ module.exports = {
   LOCAL_GATES,
   parseArgs,
   summarizeReadiness,
+  buildRecommendedActions,
   runCommandGate,
   deployHookGate,
   liveRenderGate,
