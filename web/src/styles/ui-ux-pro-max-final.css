@@ -2685,6 +2685,626 @@ body.theme-dark #root .arbor-sidebar {
   }
 }
 
+/* Polska Flora active brand layer: live map dispatch. */
+#root .mapa-live-shell {
+  --pf-brown: #3b2a18;
+  --pf-brown-soft: #5b472c;
+  --pf-olive: #a0af14;
+  --pf-olive-soft: #b4c232;
+  --pf-orange: #bd701e;
+  --pf-paper: #fbfaf6;
+  --pf-line: rgba(59, 42, 24, 0.14);
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(160, 175, 20, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, #fbfaf6, #f3f1e8) !important;
+  background-size: 36px 36px, 36px 36px, auto !important;
+}
+
+#root .mapa-live-main {
+  gap: 14px !important;
+  background:
+    radial-gradient(circle at 98% 0%, rgba(180, 194, 50, 0.2), transparent 30%),
+    radial-gradient(circle at 0% 16%, rgba(189, 112, 30, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(251, 250, 246, 0.98), rgba(246, 244, 237, 0.98)) !important;
+}
+
+#root .mapa-live-hero {
+  min-height: 150px !important;
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-left: 6px solid var(--pf-olive) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(59, 42, 24, 0.97), rgba(59, 42, 24, 0.88) 54%, rgba(118, 100, 64, 0.78)) !important;
+  box-shadow: 0 24px 56px rgba(59, 42, 24, 0.18) !important;
+}
+
+#root .mapa-live-hero::after {
+  width: 42% !important;
+  background:
+    linear-gradient(135deg, transparent 0%, rgba(180, 194, 50, 0.18) 55%, rgba(255, 255, 255, 0.1) 100%) !important;
+}
+
+#root .mapa-live-hero h1,
+#root .mapa-live-hero p,
+#root .mapa-live-hero div,
+#root .mapa-live-hero span {
+  letter-spacing: 0 !important;
+}
+
+#root .mapa-live-hero h1 {
+  color: #fff !important;
+  font-size: clamp(30px, 3vw, 42px) !important;
+}
+
+#root .mapa-live-hero p,
+#root .mapa-live-hero span {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+#root .mapa-live-hero svg {
+  color: var(--pf-olive-soft) !important;
+}
+
+#root .mapa-live-hero button,
+#root .mapa-live-toolbar button,
+#root .mapa-live-command-center button,
+#root .mapa-live-command-center a,
+#root .mapa-live-office-panel button,
+#root .mapa-live-dispatch-panel button,
+#root .mapa-live-history-panel button,
+#root .mapa-live-history-panel a {
+  border-radius: 8px !important;
+}
+
+#root .mapa-live-hero button {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+#root .mapa-live-source-status,
+#root .mapa-live-toolbar,
+#root .mapa-live-office-panel,
+#root .mapa-live-dispatch-panel,
+#root .mapa-live-history-panel,
+#root .mapa-live-kpis > * {
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
+  box-shadow: 0 16px 38px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .mapa-live-source-status {
+  border-left: 5px solid var(--pf-olive) !important;
+}
+
+#root .mapa-live-toolbar {
+  padding: 12px !important;
+}
+
+#root .mapa-live-toolbar select,
+#root .mapa-live-dispatch-panel input,
+#root .mapa-live-dispatch-panel select,
+#root .mapa-live-dispatch-panel textarea {
+  border: 1px solid rgba(59, 42, 24, 0.16) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #2f2418 !important;
+  box-shadow: none !important;
+}
+
+#root .mapa-live-toolbar select:focus,
+#root .mapa-live-dispatch-panel input:focus,
+#root .mapa-live-dispatch-panel select:focus,
+#root .mapa-live-dispatch-panel textarea:focus {
+  border-color: rgba(160, 175, 20, 0.72) !important;
+  box-shadow: 0 0 0 3px rgba(180, 194, 50, 0.2) !important;
+  outline: none !important;
+}
+
+#root .mapa-live-kpis {
+  gap: 10px !important;
+}
+
+#root .mapa-live-kpis > * {
+  min-height: 94px !important;
+  align-content: center !important;
+  border-left: 4px solid rgba(160, 175, 20, 0.72) !important;
+}
+
+#root .mapa-live-command-center {
+  border: 1px solid rgba(180, 194, 50, 0.22) !important;
+  border-radius: 8px !important;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(180, 194, 50, 0.14), transparent 24%),
+    radial-gradient(circle at 90% 10%, rgba(189, 112, 30, 0.14), transparent 22%),
+    linear-gradient(135deg, rgba(43, 31, 18, 0.98), rgba(24, 18, 11, 0.96)) !important;
+  box-shadow: 0 24px 58px rgba(59, 42, 24, 0.2) !important;
+}
+
+#root .mapa-live-command-center,
+#root .mapa-live-command-center h2,
+#root .mapa-live-command-center strong {
+  color: #fff !important;
+}
+
+#root .mapa-live-command-center p,
+#root .mapa-live-command-center span,
+#root .mapa-live-command-center small {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+#root .mapa-live-command-kpis > div,
+#root .mapa-live-command-map-panel,
+#root .mapa-live-command-queue,
+#root .mapa-live-command-selected,
+#root .mapa-live-command-timeline {
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+}
+
+#root .mapa-live-command-map {
+  min-height: 460px !important;
+  border: 1px solid rgba(180, 194, 50, 0.22) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(90deg, rgba(180, 194, 50, 0.1) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(180, 194, 50, 0.1) 1px, transparent 1px),
+    radial-gradient(circle at 50% 45%, rgba(180, 194, 50, 0.18), transparent 32%),
+    rgba(24, 18, 11, 0.72) !important;
+  background-size: 34px 34px, 34px 34px, auto, auto !important;
+}
+
+#root .mapa-live-command-tabs {
+  gap: 6px !important;
+}
+
+#root .mapa-live-command-tabs button {
+  min-height: 44px !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+#root .mapa-live-command-tabs button[aria-selected='true'] {
+  border-color: rgba(180, 194, 50, 0.55) !important;
+  background: rgba(180, 194, 50, 0.2) !important;
+}
+
+#root .mapa-live-command-center button,
+#root .mapa-live-command-center a {
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+#root .mapa-live-command-center button:hover,
+#root .mapa-live-command-center a:hover {
+  border-color: rgba(180, 194, 50, 0.42) !important;
+  background: rgba(180, 194, 50, 0.16) !important;
+}
+
+#root .mapa-live-office-panel,
+#root .mapa-live-dispatch-panel,
+#root .mapa-live-history-panel {
+  padding: clamp(14px, 2vw, 22px) !important;
+}
+
+#root .mapa-live-office-panel article,
+#root .mapa-live-dispatch-panel article,
+#root .mapa-live-dispatch-panel [style*='border'],
+#root .mapa-live-history-panel [style*='border'] {
+  border-radius: 8px !important;
+}
+
+#root .mapa-live-office-panel article,
+#root .mapa-live-dispatch-panel article {
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+#root .mapa-live-dispatch-panel button,
+#root .mapa-live-dispatch-panel a,
+#root .mapa-live-history-panel button,
+#root .mapa-live-history-panel a,
+#root .mapa-live-office-panel button {
+  border: 1px solid rgba(59, 42, 24, 0.14) !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  color: #3b2a18 !important;
+  font-weight: 800 !important;
+}
+
+#root .mapa-live-dispatch-panel button:hover,
+#root .mapa-live-dispatch-panel a:hover,
+#root .mapa-live-history-panel button:hover,
+#root .mapa-live-history-panel a:hover,
+#root .mapa-live-office-panel button:hover,
+#root .mapa-live-toolbar button:hover {
+  border-color: rgba(160, 175, 20, 0.38) !important;
+  background: rgba(180, 194, 50, 0.14) !important;
+}
+
+@media (max-width: 1100px) {
+  #root .mapa-live-kpis,
+  #root .mapa-live-command-body,
+  #root .mapa-live-office-panel [style*='grid-template-columns'],
+  #root .mapa-live-dispatch-panel [style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .mapa-live-command-map {
+    min-height: 360px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #root .mapa-live-main {
+    width: calc(100vw - 60px) !important;
+    max-width: none !important;
+    margin-left: 60px !important;
+    padding: 12px !important;
+  }
+
+  #root .mapa-live-hero,
+  #root .mapa-live-toolbar,
+  #root .mapa-live-office-panel,
+  #root .mapa-live-dispatch-panel,
+  #root .mapa-live-history-panel,
+  #root .mapa-live-command-center {
+    padding: 12px !important;
+  }
+
+  #root .mapa-live-command-tabs,
+  #root .mapa-live-command-kpis,
+  #root .mapa-live-toolbar {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .mapa-live-command-map {
+    min-height: 320px !important;
+  }
+}
+
+/* Polska Flora active brand layer: fleet and equipment control. */
+#root .fleet-shell {
+  --pf-brown: #3b2a18;
+  --pf-brown-soft: #5b472c;
+  --pf-olive: #a0af14;
+  --pf-olive-soft: #b4c232;
+  --pf-orange: #bd701e;
+  --pf-paper: #fbfaf6;
+  --pf-line: rgba(59, 42, 24, 0.14);
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(160, 175, 20, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, #fbfaf6, #f3f1e8) !important;
+  background-size: 36px 36px, 36px 36px, auto !important;
+}
+
+#root .fleet-main {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  background:
+    radial-gradient(circle at 96% 0%, rgba(180, 194, 50, 0.2), transparent 30%),
+    radial-gradient(circle at 0% 18%, rgba(189, 112, 30, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(251, 250, 246, 0.98), rgba(246, 244, 237, 0.98)) !important;
+}
+
+#root .fleet-main > .module-page-header-hero,
+#root .fleet-main > .module-page-header-plain {
+  min-height: 146px !important;
+  align-items: center !important;
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-left: 6px solid var(--pf-olive) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(59, 42, 24, 0.97), rgba(59, 42, 24, 0.88) 54%, rgba(118, 100, 64, 0.78)) !important;
+  box-shadow: 0 24px 56px rgba(59, 42, 24, 0.18) !important;
+}
+
+#root .fleet-main > .module-page-header-hero *,
+#root .fleet-main > .module-page-header-plain * {
+  letter-spacing: 0 !important;
+}
+
+#root .fleet-main > .module-page-header-hero h1,
+#root .fleet-main > .module-page-header-plain h1 {
+  color: #fff !important;
+  font-size: clamp(30px, 3vw, 42px) !important;
+}
+
+#root .fleet-main > .module-page-header-hero p,
+#root .fleet-main > .module-page-header-plain p,
+#root .fleet-main > .module-page-header-hero span,
+#root .fleet-main > .module-page-header-plain span {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+#root .fleet-main > .module-page-header-hero svg,
+#root .fleet-main > .module-page-header-plain svg {
+  color: var(--pf-olive-soft) !important;
+}
+
+#root .fleet-main > .module-page-header-hero button,
+#root .fleet-main > .module-page-header-plain button,
+#root .fleet-main > .module-page-header-hero select,
+#root .fleet-main > .module-page-header-plain select {
+  border-radius: 8px !important;
+}
+
+#root .fleet-main > .module-page-header-hero button,
+#root .fleet-main > .module-page-header-plain button {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+#root .fleet-command-radar {
+  display: grid !important;
+  grid-template-columns: minmax(190px, 0.95fr) repeat(4, minmax(130px, 1fr)) minmax(180px, 0.95fr) !important;
+  gap: 10px !important;
+  margin: 0 0 16px !important;
+  padding: 14px !important;
+  border: 1px solid rgba(180, 194, 50, 0.22) !important;
+  border-radius: 8px !important;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(180, 194, 50, 0.14), transparent 24%),
+    radial-gradient(circle at 90% 10%, rgba(189, 112, 30, 0.14), transparent 22%),
+    linear-gradient(135deg, rgba(43, 31, 18, 0.98), rgba(24, 18, 11, 0.96)) !important;
+  box-shadow: 0 24px 58px rgba(59, 42, 24, 0.2) !important;
+}
+
+#root .fleet-command-lead,
+#root .fleet-command-card,
+#root .fleet-command-actions {
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+}
+
+#root .fleet-command-lead {
+  grid-row: span 2;
+  display: grid !important;
+  align-content: center !important;
+  gap: 7px !important;
+  padding: 16px !important;
+}
+
+#root .fleet-command-lead span,
+#root .fleet-command-card span {
+  color: rgba(255, 255, 255, 0.68) !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  text-transform: uppercase !important;
+}
+
+#root .fleet-command-lead strong {
+  color: var(--pf-olive-soft) !important;
+  font-size: clamp(36px, 4vw, 58px) !important;
+  line-height: 0.95 !important;
+}
+
+#root .fleet-command-lead small,
+#root .fleet-command-card small {
+  color: rgba(255, 255, 255, 0.66) !important;
+}
+
+#root .fleet-command-card {
+  min-height: 98px !important;
+  display: grid !important;
+  align-content: center !important;
+  gap: 5px !important;
+  padding: 13px !important;
+}
+
+#root .fleet-command-card strong {
+  color: #fff !important;
+  font-size: 22px !important;
+  line-height: 1.08 !important;
+}
+
+#root .fleet-command-card.is-good {
+  border-color: rgba(180, 194, 50, 0.28) !important;
+}
+
+#root .fleet-command-card.is-warning {
+  border-color: rgba(189, 112, 30, 0.4) !important;
+}
+
+#root .fleet-command-card.is-danger {
+  border-color: rgba(226, 68, 92, 0.42) !important;
+}
+
+#root .fleet-command-actions {
+  display: grid !important;
+  gap: 8px !important;
+  padding: 12px !important;
+  align-content: center !important;
+}
+
+#root .fleet-command-actions button,
+#root .fleet-command-radar button {
+  border-radius: 8px !important;
+}
+
+#root .fleet-command-actions button {
+  width: 100% !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+#root .fleet-kpi-grid,
+#root .fleet-tabs,
+#root .fleet-form-panel,
+#root .fleet-list-panel,
+#root .fleet-state-panel,
+#root .fleet-resource-cards-panel,
+#root .fleet-repairs-header,
+#root .fleet-repair-card {
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
+  box-shadow: 0 16px 38px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .fleet-kpi-grid {
+  gap: 0 !important;
+}
+
+#root .fleet-kpi-card {
+  min-height: 94px !important;
+  display: grid !important;
+  align-content: center !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+#root .fleet-tabs {
+  padding: 6px !important;
+  gap: 6px !important;
+  border-bottom: 1px solid rgba(59, 42, 24, 0.12) !important;
+}
+
+#root .fleet-tabs button {
+  min-height: 42px !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  color: #4f412f !important;
+  font-weight: 850 !important;
+}
+
+#root .fleet-tabs button[style*='var(--accent)'],
+#root .fleet-tabs button[style*='20, 131, 79'] {
+  border-color: rgba(160, 175, 20, 0.36) !important;
+  background: rgba(180, 194, 50, 0.13) !important;
+}
+
+#root .fleet-resource-cards-panel {
+  padding: 16px !important;
+  margin-bottom: 16px !important;
+}
+
+#root .fleet-resource-cards-panel article,
+#root .fleet-resource-row,
+#root .fleet-repair-card,
+#root .fleet-form-panel,
+#root .fleet-state-panel {
+  border-radius: 8px !important;
+}
+
+#root .fleet-resource-cards-panel article,
+#root .fleet-resource-row {
+  background: rgba(255, 255, 255, 0.76) !important;
+}
+
+#root .fleet-resource-row {
+  border-left-width: 5px !important;
+}
+
+#root .fleet-repairs-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)) !important;
+  gap: 12px !important;
+}
+
+#root .fleet-main input,
+#root .fleet-main select,
+#root .fleet-main textarea {
+  border: 1px solid rgba(59, 42, 24, 0.16) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #2f2418 !important;
+  box-shadow: none !important;
+}
+
+#root .fleet-main input:focus,
+#root .fleet-main select:focus,
+#root .fleet-main textarea:focus {
+  border-color: rgba(160, 175, 20, 0.72) !important;
+  box-shadow: 0 0 0 3px rgba(180, 194, 50, 0.2) !important;
+  outline: none !important;
+}
+
+#root .fleet-main button,
+#root .fleet-main a[style],
+#root .fleet-main label[style*='cursor'] {
+  border-radius: 8px !important;
+}
+
+#root .fleet-main button:not([class*='Mui']):hover,
+#root .fleet-main a[style]:hover,
+#root .fleet-main label[style*='cursor']:hover {
+  border-color: rgba(160, 175, 20, 0.38) !important;
+  background-color: rgba(180, 194, 50, 0.14) !important;
+}
+
+#root .fleet-form-panel {
+  padding: clamp(14px, 2vw, 22px) !important;
+  border-left: 5px solid var(--pf-olive) !important;
+}
+
+#root .fleet-repair-card {
+  border-left: 5px solid rgba(189, 112, 30, 0.72) !important;
+}
+
+#root .fleet-repair-card button,
+#root .fleet-list-panel button,
+#root .fleet-resource-cards-panel button {
+  font-weight: 850 !important;
+}
+
+@media (max-width: 1280px) {
+  #root .fleet-command-radar {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  #root .fleet-command-lead,
+  #root .fleet-command-actions {
+    grid-row: auto !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #root .fleet-main {
+    width: calc(100vw - 60px) !important;
+    max-width: none !important;
+    margin-left: 60px !important;
+    padding: 12px !important;
+  }
+
+  #root .fleet-main > .module-page-header-hero,
+  #root .fleet-main > .module-page-header-plain,
+  #root .fleet-command-radar,
+  #root .fleet-form-panel,
+  #root .fleet-resource-cards-panel {
+    padding: 12px !important;
+  }
+
+  #root .fleet-command-radar,
+  #root .fleet-kpi-grid,
+  #root .fleet-tabs,
+  #root .fleet-resource-cards-panel [style*='grid-template-columns'],
+  #root .fleet-list-panel [style*='grid-template-columns'],
+  #root .fleet-form-panel [style*='grid-template-columns'],
+  #root .fleet-repairs-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .fleet-tabs {
+    display: grid !important;
+  }
+
+  #root .fleet-resource-row,
+  #root .fleet-resource-row > div,
+  #root .fleet-repair-card {
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
 @media (max-width: 760px) {
   #root .telefonia-main {
     width: calc(100vw - 60px) !important;

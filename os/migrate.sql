@@ -692,7 +692,7 @@ CREATE TABLE IF NOT EXISTS voice_agent_intakes (
   external_id VARCHAR(120),
   call_sid VARCHAR(120),
   oddzial_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
-  crm_lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+  crm_lead_id INTEGER,
   ogledziny_id INTEGER REFERENCES ogledziny(id) ON DELETE SET NULL,
   caller_phone VARCHAR(64),
   customer_name VARCHAR(255),
@@ -1093,6 +1093,24 @@ ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS closed_by INTEGER REFERENCES user
 CREATE INDEX IF NOT EXISTS idx_crm_leads_oddzial ON crm_leads(oddzial_id);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_stage ON crm_leads(stage);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_close_bucket ON crm_leads(close_bucket);
+
+DO $$
+BEGIN
+  UPDATE voice_agent_intakes v
+     SET crm_lead_id = NULL
+   WHERE crm_lead_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+         FROM crm_leads l
+        WHERE l.id = v.crm_lead_id
+     );
+
+  ALTER TABLE voice_agent_intakes
+    ADD CONSTRAINT fk_voice_agent_intakes_crm_lead
+    FOREIGN KEY (crm_lead_id) REFERENCES crm_leads(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS crm_lead_activities (
   id                 SERIAL PRIMARY KEY,
