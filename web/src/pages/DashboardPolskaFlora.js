@@ -184,7 +184,14 @@ export default function DashboardPolskaFlora({
         <StatusMessage message={error || ''} tone={error ? 'error' : undefined} style={error ? s.error : { display: 'none' }} />
 
         <header className="pf-command-header" style={s.header}>
-          <div>
+          <div style={s.headerCopy}>
+            <span className="pf-brand-lockup" style={s.brandLockup}>
+              <img src="/brand/polska-flora-logo.svg" alt="" style={s.brandLogo} />
+              <span style={s.brandText}>
+                <strong>Polska Flora</strong>
+                <small>Nature integrator</small>
+              </span>
+            </span>
             <span style={s.eyebrow}>Centrum operacyjne</span>
             <h1 style={s.title}>Witaj, {user?.imie || 'Ania'}.</h1>
             <p style={s.subtitle}>Panel główny systemu Polska Flora</p>
@@ -334,7 +341,7 @@ export default function DashboardPolskaFlora({
             </div>
             <button type="button" style={s.linkBtn} onClick={() => navigate('/raporty')}>Raport marży</button>
           </div>
-          <div style={s.moneyGrid}>
+          <div className="pf-money-grid" style={s.moneyGrid}>
             {moneyBlockers.map((item) => (
               <button key={item.label} type="button" style={s.moneyCard} onClick={() => navigate(item.path)}>
                 <span style={s.moneyLabel}>{item.label}</span>
@@ -477,6 +484,10 @@ const s = {
   },
   main: { flex: 1, minWidth: 0, marginLeft: 256, padding: '20px 24px 32px', color: '#f8fafc' },
   error: { marginBottom: 16 },
+  headerCopy: { display: 'grid', gap: 6, minWidth: 0 },
+  brandLockup: { display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 6 },
+  brandLogo: { width: 118, height: 'auto', display: 'block' },
+  brandText: { display: 'grid', gap: 1, color: '#f8fafc', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
   header: {
     minHeight: 86,
     display: 'flex',

@@ -98,6 +98,19 @@ body.theme-light #root .explore-shell.explore-command-shell {
   color: var(--ux-text) !important;
 }
 
+#root .app-shell:has(> .command-native-sidebar) {
+  display: flex !important;
+  align-items: stretch !important;
+}
+
+#root .app-shell:has(> .command-native-sidebar) > .app-main {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
 #root .arbor-sidebar,
 #root .ios-glass-panel.arbor-sidebar,
 body.theme-light #root .arbor-sidebar,
@@ -1807,9 +1820,9 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .zlecenia-shell .zlecenia-main {
-  width: calc(100vw - 256px) !important;
-  max-width: calc(100vw - 256px) !important;
-  margin: 0 0 0 256px !important;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
 }
 
 #root .zlecenia-shell .zlecenia-surface {
@@ -2082,9 +2095,9 @@ body.theme-dark #root .arbor-sidebar {
   }
 
   #root .zlecenia-shell .zlecenia-main {
-    width: calc(100vw - 60px) !important;
-    max-width: calc(100vw - 60px) !important;
-    margin-left: 60px !important;
+    width: auto !important;
+    max-width: none !important;
+    margin-left: 0 !important;
   }
 
   #root .zlecenia-surface {
@@ -2175,5 +2188,528 @@ body.theme-dark #root .arbor-sidebar {
     animation: none !important;
     transition: none !important;
     transform: none !important;
+  }
+}
+
+/* Polska Flora active brand layer: dashboard and orders. */
+#root .pf-shell,
+#root .zlecenia-shell {
+  --pf-brown: #3b2a18;
+  --pf-brown-soft: #5b472c;
+  --pf-olive: #a0af14;
+  --pf-olive-soft: #b4c232;
+  --pf-orange: #bd701e;
+  --pf-paper: #fbfaf6;
+  --pf-line: rgba(59, 42, 24, 0.14);
+}
+
+#root .pf-shell {
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(160, 175, 20, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, #2a1e12, #3b2a18 52%, #1c150d) !important;
+  background-size: 36px 36px, 36px 36px, auto !important;
+}
+
+#root .pf-main {
+  max-width: 1640px !important;
+}
+
+#root .pf-command-header {
+  min-height: 132px !important;
+  align-items: center !important;
+  border: 1px solid rgba(180, 194, 50, 0.24) !important;
+  border-left: 6px solid var(--pf-olive) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(59, 42, 24, 0.96), rgba(59, 42, 24, 0.88) 54%, rgba(118, 100, 64, 0.78)) !important;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.28) !important;
+}
+
+#root .pf-brand-lockup {
+  max-width: 100%;
+}
+
+#root .pf-brand-lockup img {
+  width: clamp(96px, 12vw, 132px) !important;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.25));
+}
+
+#root .pf-brand-lockup strong,
+#root .pf-brand-lockup small {
+  color: #ffffff !important;
+  letter-spacing: 0 !important;
+  text-shadow: none !important;
+}
+
+#root .pf-brand-lockup small {
+  color: rgba(255, 255, 255, 0.68) !important;
+}
+
+#root .pf-command-header h1 {
+  font-size: clamp(30px, 3vw, 46px) !important;
+  letter-spacing: 0 !important;
+}
+
+#root .pf-command-header > div:last-child {
+  min-width: 178px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+#root .pf-live-cockpit,
+#root .pf-today-command,
+#root .pf-readiness-panel,
+#root .pf-money-panel,
+#root .pf-branch-panel,
+#root .pf-grid-two > div {
+  border-radius: 8px !important;
+}
+
+#root .pf-live-cockpit {
+  border-color: rgba(180, 194, 50, 0.28) !important;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(180, 194, 50, 0.16), transparent 28%),
+    radial-gradient(circle at 86% 6%, rgba(189, 112, 30, 0.16), transparent 22%),
+    linear-gradient(135deg, rgba(43, 31, 18, 0.98), rgba(24, 18, 11, 0.96)) !important;
+}
+
+#root .pf-radar-pane {
+  border-radius: 8px !important;
+  border-color: rgba(180, 194, 50, 0.24) !important;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(180, 194, 50, 0.18), transparent 10%),
+    radial-gradient(circle at 50% 50%, rgba(118, 100, 64, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(59, 42, 24, 0.84), rgba(24, 18, 11, 0.94)) !important;
+}
+
+#root .pf-radar-core,
+#root .pf-radar-node,
+#root .pf-kpi-dock > button,
+#root .pf-decision-pane button,
+#root .pf-flow-strip button,
+#root .pf-today-command button,
+#root .pf-readiness-panel button,
+#root .pf-money-panel button,
+#root .pf-grid-two button,
+#root .pf-branch-panel [style*='border'] {
+  border-radius: 8px !important;
+}
+
+#root .pf-kpi-dock > button,
+#root .pf-decision-pane button,
+#root .pf-flow-strip button {
+  border-color: rgba(180, 194, 50, 0.2) !important;
+  background:
+    linear-gradient(145deg, rgba(59, 42, 24, 0.95), rgba(36, 27, 16, 0.95)) !important;
+}
+
+#root .pf-flow-strip button {
+  min-height: 82px !important;
+}
+
+#root .pf-today-command,
+#root .pf-readiness-panel,
+#root .pf-money-panel,
+#root .pf-branch-panel,
+#root .pf-grid-two > div {
+  border: 1px solid rgba(180, 194, 50, 0.18) !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.86), rgba(31, 24, 15, 0.92)) !important;
+}
+
+#root .pf-main [style*='#5eead4'],
+#root .pf-main [style*='rgb(94, 234, 212)'] {
+  color: var(--pf-olive-soft) !important;
+}
+
+#root .zlecenia-shell {
+  --command-accent: var(--pf-olive);
+  --command-amber: var(--pf-orange);
+  --command-text: #261b10;
+  --command-sub: #665a48;
+  --command-muted: #877c6b;
+  --command-line: var(--pf-line);
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(160, 175, 20, 0.04) 1px, transparent 1px),
+    var(--pf-paper) !important;
+  background-size: 36px 36px !important;
+}
+
+#root .zlecenia-main {
+  background:
+    radial-gradient(circle at 95% 0%, rgba(180, 194, 50, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(251, 250, 246, 0.98), rgba(246, 244, 237, 0.98)) !important;
+}
+
+#root .zlecenia-surface .command-surface-hero {
+  min-height: 164px !important;
+  border: 0 !important;
+  border-left: 6px solid var(--pf-olive) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(59, 42, 24, 0.96), rgba(59, 42, 24, 0.86) 52%, rgba(118, 100, 64, 0.84)) !important;
+  box-shadow: 0 24px 60px rgba(59, 42, 24, 0.16) !important;
+}
+
+#root .zlecenia-v2-cockpit {
+  border-radius: 8px !important;
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(247, 246, 240, 0.94)) !important;
+  box-shadow: 0 18px 46px rgba(59, 42, 24, 0.1) !important;
+}
+
+#root .zlecenia-data-card,
+#root .zlecenia-kanban-card {
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-left: 5px solid var(--pf-olive) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
+  box-shadow: 0 14px 34px rgba(59, 42, 24, 0.08) !important;
+}
+
+@media (max-width: 1180px) {
+  #root .pf-command-header,
+  #root .pf-grid-two,
+  #root .pf-ops-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .pf-kpi-dock,
+  #root .pf-money-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #root .pf-command-header {
+    min-height: 0 !important;
+    padding: 14px !important;
+  }
+
+  #root .pf-command-header > div:last-child {
+    width: 100%;
+    min-width: 0;
+    justify-items: start !important;
+  }
+
+  #root .pf-brand-lockup img {
+    width: 104px !important;
+  }
+
+  #root .pf-flow-strip,
+  #root .pf-kpi-dock,
+  #root .pf-money-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Polska Flora active brand layer: telephony command center. */
+#root .telefonia-shell {
+  --pf-brown: #3b2a18;
+  --pf-brown-soft: #5b472c;
+  --pf-olive: #a0af14;
+  --pf-olive-soft: #b4c232;
+  --pf-orange: #bd701e;
+  --pf-paper: #fbfaf6;
+  --pf-line: rgba(59, 42, 24, 0.14);
+  --pf-shadow: rgba(59, 42, 24, 0.12);
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(160, 175, 20, 0.038) 1px, transparent 1px),
+    linear-gradient(180deg, #fbfaf6, #f4f2ea) !important;
+  background-size: 36px 36px, 36px 36px, auto !important;
+}
+
+#root .telefonia-main {
+  gap: 14px !important;
+  width: calc(100vw - 256px) !important;
+  max-width: none !important;
+  margin: 0 0 0 256px !important;
+  background:
+    radial-gradient(circle at 96% 0%, rgba(180, 194, 50, 0.18), transparent 28%),
+    radial-gradient(circle at 0% 18%, rgba(189, 112, 30, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(251, 250, 246, 0.98), rgba(246, 244, 237, 0.98)) !important;
+}
+
+#root .telefonia-main > .module-page-header-hero,
+#root .telefonia-main > .module-page-header-plain {
+  min-height: 142px !important;
+  align-items: center !important;
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-left: 6px solid var(--pf-olive) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(59, 42, 24, 0.97), rgba(59, 42, 24, 0.88) 55%, rgba(118, 100, 64, 0.78)) !important;
+  box-shadow: 0 24px 56px rgba(59, 42, 24, 0.18) !important;
+}
+
+#root .telefonia-main > .module-page-header-hero *,
+#root .telefonia-main > .module-page-header-plain * {
+  letter-spacing: 0 !important;
+}
+
+#root .telefonia-main > .module-page-header-hero h1,
+#root .telefonia-main > .module-page-header-plain h1 {
+  color: #fff !important;
+  font-size: clamp(30px, 3vw, 42px) !important;
+}
+
+#root .telefonia-main > .module-page-header-hero p,
+#root .telefonia-main > .module-page-header-plain p,
+#root .telefonia-main > .module-page-header-hero span,
+#root .telefonia-main > .module-page-header-plain span {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+#root .telefonia-main > .module-page-header-hero svg,
+#root .telefonia-main > .module-page-header-plain svg {
+  color: var(--pf-olive-soft) !important;
+}
+
+#root .telefonia-main > .module-page-header-hero button,
+#root .telefonia-main > .module-page-header-plain button,
+#root .telefonia-tabs button,
+#root .telefonia-panel button,
+#root .telefonia-manual-box button,
+#root .telefonia-filters button,
+#root .telefonia-panel a[style] {
+  border-radius: 8px !important;
+}
+
+#root .telefonia-main > .module-page-header-hero button,
+#root .telefonia-main > .module-page-header-plain button {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+#root .telefonia-tabs {
+  width: 100% !important;
+  padding: 6px !important;
+  gap: 6px !important;
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.74) !important;
+  box-shadow: 0 12px 28px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .telefonia-tabs button {
+  min-height: 42px !important;
+  border: 1px solid transparent !important;
+  color: #4f412f !important;
+  font-weight: 800 !important;
+}
+
+#root .telefonia-tabs button[style*='3b82f6'],
+#root .telefonia-tabs button[style*='59, 130, 246'],
+#root .telefonia-tabs button[style*='background'] {
+  border-color: rgba(160, 175, 20, 0.34) !important;
+}
+
+#root .telefonia-tabs button:hover {
+  border-color: rgba(160, 175, 20, 0.28) !important;
+  background: rgba(180, 194, 50, 0.12) !important;
+}
+
+#root .telefonia-panel,
+#root .telefonia-manual-box,
+#root .telefonia-filters,
+#root .telefonia-kpis > * {
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
+  box-shadow: 0 16px 38px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .telefonia-panel {
+  padding: clamp(14px, 2vw, 22px) !important;
+}
+
+#root .telefonia-agent-panel,
+#root .telefonia-calls-panel,
+#root .telefonia-sms-panel {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+#root .telefonia-agent-panel::before,
+#root .telefonia-calls-panel::before,
+#root .telefonia-sms-panel::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 auto 0 0 !important;
+  width: 5px !important;
+  background: linear-gradient(180deg, var(--pf-olive), var(--pf-orange)) !important;
+  pointer-events: none !important;
+}
+
+#root .telefonia-manual-box {
+  padding: 16px !important;
+  border-left: 5px solid var(--pf-olive) !important;
+}
+
+#root .telefonia-kpis {
+  gap: 10px !important;
+}
+
+#root .telefonia-kpis > * {
+  min-height: 96px !important;
+  display: grid !important;
+  align-content: center !important;
+  border-left: 4px solid rgba(160, 175, 20, 0.72) !important;
+}
+
+#root .telefonia-filters {
+  padding: 12px !important;
+  align-items: center !important;
+}
+
+#root .telefonia-panel input,
+#root .telefonia-panel select,
+#root .telefonia-panel textarea,
+#root .telefonia-manual-box input,
+#root .telefonia-manual-box textarea,
+#root .telefonia-filters input,
+#root .telefonia-filters select {
+  border: 1px solid rgba(59, 42, 24, 0.16) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #2f2418 !important;
+  box-shadow: none !important;
+}
+
+#root .telefonia-panel input:focus,
+#root .telefonia-panel select:focus,
+#root .telefonia-panel textarea:focus,
+#root .telefonia-manual-box input:focus,
+#root .telefonia-manual-box textarea:focus,
+#root .telefonia-filters input:focus,
+#root .telefonia-filters select:focus {
+  border-color: rgba(160, 175, 20, 0.72) !important;
+  box-shadow: 0 0 0 3px rgba(180, 194, 50, 0.2) !important;
+  outline: none !important;
+}
+
+#root .telefonia-panel button,
+#root .telefonia-manual-box button,
+#root .telefonia-filters button,
+#root .telefonia-panel a[style] {
+  border: 1px solid rgba(59, 42, 24, 0.14) !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  color: #3b2a18 !important;
+  font-weight: 800 !important;
+}
+
+#root .telefonia-panel button:hover,
+#root .telefonia-manual-box button:hover,
+#root .telefonia-filters button:hover,
+#root .telefonia-panel a[style]:hover {
+  border-color: rgba(160, 175, 20, 0.38) !important;
+  background: rgba(180, 194, 50, 0.14) !important;
+}
+
+#root .telefonia-panel button[style*='3b82f6'],
+#root .telefonia-panel button[style*='16, 185, 129'],
+#root .telefonia-panel button[style*='34, 197, 94'],
+#root .telefonia-manual-box button[type='submit'] {
+  border-color: rgba(160, 175, 20, 0.62) !important;
+  background: linear-gradient(135deg, var(--pf-olive), var(--pf-olive-soft)) !important;
+  color: #23190f !important;
+}
+
+#root .telefonia-command-strip {
+  border: 1px solid rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(59, 42, 24, 0.96), rgba(59, 42, 24, 0.86)) !important;
+  box-shadow: 0 18px 40px rgba(59, 42, 24, 0.14) !important;
+}
+
+#root .telefonia-command-strip,
+#root .telefonia-command-strip * {
+  color: #fff !important;
+}
+
+#root .telefonia-command-card {
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+#root .telefonia-command-lead {
+  color: rgba(255, 255, 255, 0.74) !important;
+}
+
+#root .telefonia-calls-panel form,
+#root .telefonia-agent-panel form,
+#root .telefonia-agent-panel [style*='border'],
+#root .telefonia-calls-panel [style*='border'] {
+  border-radius: 8px !important;
+}
+
+#root .telefonia-calls-panel form,
+#root .telefonia-agent-panel form {
+  border: 1px solid rgba(59, 42, 24, 0.1) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+
+#root .telefonia-panel .modern-data-panel-title {
+  color: #3b2a18 !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+}
+
+#root .telefonia-panel .modern-data-stack {
+  gap: 10px !important;
+}
+
+#root .telefonia-panel .modern-data-row,
+#root .telefonia-panel [class*='modern-data-row'] {
+  border-color: rgba(59, 42, 24, 0.12) !important;
+  border-radius: 8px !important;
+}
+
+@media (max-width: 1100px) {
+  #root .telefonia-main > .module-page-header-hero,
+  #root .telefonia-main > .module-page-header-plain,
+  #root .telefonia-kpis,
+  #root .telefonia-panel [style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #root .telefonia-main {
+    width: calc(100vw - 60px) !important;
+    max-width: none !important;
+    margin-left: 60px !important;
+    padding: 12px !important;
+  }
+
+  #root .telefonia-main > .module-page-header-hero,
+  #root .telefonia-main > .module-page-header-plain,
+  #root .telefonia-panel,
+  #root .telefonia-manual-box,
+  #root .telefonia-filters {
+    padding: 12px !important;
+  }
+
+  #root .telefonia-tabs {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    overflow: visible !important;
+  }
+
+  #root .telefonia-filters,
+  #root .telefonia-manual-box [style*='grid-template-columns'],
+  #root .telefonia-panel [style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
   }
 }

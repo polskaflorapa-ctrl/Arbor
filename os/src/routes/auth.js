@@ -17,10 +17,15 @@ const {
 
 const router = express.Router();
 
-const loginSchema = z.object({
+const loginSchema = z.preprocess((value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const body = { ...value };
+  if (body.haslo == null && body.password != null) body.haslo = body.password;
+  return body;
+}, z.object({
   login: z.string().trim().min(1, 'Login jest wymagany'),
   haslo: z.string().min(1, 'Haslo jest wymagane'),
-});
+}));
 
 const changePasswordSchema = z.object({
   stare_haslo: z.string().min(1, 'Stare haslo jest wymagane'),

@@ -70,7 +70,7 @@ export default function Login() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const res = await api.post('/auth/login', { login, password: haslo });
+      const res = await api.post('/auth/login', { login, haslo });
       const tok = res.data?.token || res.data?.accessToken;
       const user = res.data?.user ? normalizeUserForFrontend(res.data.user) : null;
       const hasToken = tok != null && tok !== '';

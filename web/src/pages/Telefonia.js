@@ -3826,7 +3826,7 @@ export default function Telefonia() {
         )}
 
         {tab === 'sms' && (
-        <div style={{ ...s.panel, ...(isNarrow ? s.panelNarrow : null) }}>
+        <div className="telefonia-panel telefonia-sms-panel" style={{ ...s.panel, ...(isNarrow ? s.panelNarrow : null) }}>
           <form className="telefonia-manual-box" style={s.manualBox} onSubmit={sendManualSms}>
             <div style={s.manualTitle}>Szybki SMS (reczny)</div>
             <div style={s.manualGrid}>

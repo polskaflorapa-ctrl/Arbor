@@ -156,6 +156,34 @@ describe('Auth routes', () => {
     expect(typeof blocked.body.requestId).toBe('string');
     expect(blocked.headers['retry-after']).toBeDefined();
   });
+
+  it('accepts legacy password field for web clients', async () => {
+    const hash = await bcrypt.hash('secret123', 10);
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 11,
+          login: 'legacy-web',
+          haslo_hash: hash,
+          imie: 'Legacy',
+          nazwisko: 'Web',
+          rola: 'Administrator',
+          oddzial_id: null,
+          ekipa_id: null,
+        },
+      ],
+    });
+
+    const res = await request(app).post('/api/auth/login').send({
+      login: 'legacy-web',
+      password: 'secret123',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeTruthy();
+    expect(res.body.user.login).toBeUndefined();
+    expect(res.body.user.rola).toBe('Administrator');
+  });
   });
 
   describe('POST /api/auth/forgot-password', () => {

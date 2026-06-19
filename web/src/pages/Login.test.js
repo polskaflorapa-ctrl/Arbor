@@ -85,7 +85,7 @@ test('fills a demo account and stores session data after login', async () => {
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith('/auth/login', {
       login: 'dyrektor',
-      password: 'ArborDemo2026!',
+      haslo: 'ArborDemo2026!',
     });
   });
   expect(localStorage.getItem('token')).toBe('demo-token');
@@ -141,7 +141,7 @@ test('clears stale auth entries when login response is missing token or user', a
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith('/auth/login', {
       login: 'demo_dyrektor',
-      password: 'Demo123!ARBOR',
+      haslo: 'Demo123!ARBOR',
     });
   });
 

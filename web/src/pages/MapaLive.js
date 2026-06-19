@@ -2179,7 +2179,7 @@ function CommandCenter({
     { id: 'timeline', label: 'Plan dnia', value: timelineTasks.length, icon: CalendarMonthOutlined },
   ];
   const kpiMarkup = (
-    <div style={{ ...S.commandKpis, ...(isNarrow ? S.commandKpisNarrow : null) }}>
+    <div className="mapa-live-command-kpis" style={{ ...S.commandKpis, ...(isNarrow ? S.commandKpisNarrow : null) }}>
       {commandKpis.map((item) => (
         <div key={item.label} style={S.commandKpi}>
           <span style={S.commandKpiLabel}>{item.label}</span>
@@ -2189,7 +2189,7 @@ function CommandCenter({
     </div>
   );
   const selectedCard = selected && (!isNarrow || selectedTaskId) ? (
-    <div style={{ ...S.commandSelected, ...(isNarrow ? S.commandMobileSheet : {}) }}>
+    <div className="mapa-live-command-selected" style={{ ...S.commandSelected, ...(isNarrow ? S.commandMobileSheet : {}) }}>
       <div style={S.commandSelectedTop}>
         <div>
           <div style={S.commandSelectedLabel}>{isNarrow ? 'Panel akcji' : 'Wybrany temat'}</div>
@@ -2248,7 +2248,7 @@ function CommandCenter({
   ) : null;
 
   return (
-    <section style={{ ...S.command, ...(isNarrow ? S.commandNarrow : null) }}>
+    <section className="mapa-live-command-center" style={{ ...S.command, ...(isNarrow ? S.commandNarrow : null) }}>
       <div style={{ ...S.commandHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
         <div>
           <div style={S.commandEyebrow}>Dyspozytornia operacyjna</div>
@@ -2265,7 +2265,7 @@ function CommandCenter({
       </div>
 
       {isNarrow ? (
-        <div style={S.commandTabs} role="tablist" aria-label="Tryb widoku dyspozytorni">
+        <div className="mapa-live-command-tabs" style={S.commandTabs} role="tablist" aria-label="Tryb widoku dyspozytorni">
           {mobileTabs.map((tab) => {
             const active = mobileView === tab.id;
             const TabIcon = tab.icon;
@@ -2294,9 +2294,9 @@ function CommandCenter({
       {!isNarrow ? kpiMarkup : null}
 
       {(!isNarrow || mobileView !== 'timeline') ? (
-      <div style={{ ...S.commandBody, ...(isNarrow ? S.commandBodyNarrow : null) }}>
+      <div className="mapa-live-command-body" style={{ ...S.commandBody, ...(isNarrow ? S.commandBodyNarrow : null) }}>
         {(!isNarrow || mobileView === 'map') ? (
-        <div style={S.commandMapPanel}>
+        <div className="mapa-live-command-map-panel" style={S.commandMapPanel}>
           <div style={S.commandMapTop}>
             <div>
               <strong style={S.commandMapTitle}>Warstwa terenowa</strong>
@@ -2307,7 +2307,7 @@ function CommandCenter({
               Kalendarz zasobow
             </button>
           </div>
-          <div style={{ ...S.commandMap, ...(isNarrow ? S.commandMapNarrow : null) }}>
+          <div className="mapa-live-command-map" style={{ ...S.commandMap, ...(isNarrow ? S.commandMapNarrow : null) }}>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={S.commandRouteLayer} aria-hidden="true">
               {routeLines.map((line) => (
                 <line
@@ -2395,7 +2395,7 @@ function CommandCenter({
         ) : null}
 
         {(!isNarrow || mobileView === 'decisions') ? (
-        <aside style={S.commandQueue}>
+        <aside className="mapa-live-command-queue" style={S.commandQueue}>
           <div style={S.commandQueueHead}>
             <strong>Następne decyzje</strong>
             <span>{critical.length || 0} tematów</span>
@@ -2437,7 +2437,7 @@ function CommandCenter({
       {isNarrow ? selectedCard : null}
 
       {(!isNarrow || mobileView === 'timeline') ? (
-      <div style={{ ...S.commandTimeline, ...(isNarrow ? S.commandTimelineNarrow : {}) }}>
+      <div className="mapa-live-command-timeline" style={{ ...S.commandTimeline, ...(isNarrow ? S.commandTimelineNarrow : {}) }}>
         <div style={S.commandTimelineHead}>
           <strong>Plan dnia ekip</strong>
           <span>{PLANNING_DAY_LABEL}</span>

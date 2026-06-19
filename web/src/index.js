@@ -6,6 +6,7 @@ import { initSentry, getSentryConfig } from './config/sentry';
 import './i18n';
 import './index.css';
 import './styles/canopy-command.css';
+import './arbor-command-redesign.css';
 import App from './App';
 import './animations.css';
 import './styles/ui-ux-pro-max-final.css';
