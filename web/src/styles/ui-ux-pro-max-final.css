@@ -24,6 +24,382 @@
   --font-mono: 'Fira Code', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Polska Flora active brand layer: clients, documentation, and reporting. */
+#root .clients-shell,
+#root .ogledziny-shell,
+#root .raporty-shell,
+#root .mobile-reports-shell,
+#root .crew-att-shell,
+#root .field-quotes-shell,
+#root .field-quote-detail-shell,
+#root .inspection-doc-shell {
+  --pf-brown: #3b2a18;
+  --pf-brown-2: #4b351f;
+  --pf-green: #a0af14;
+  --pf-green-soft: #b4c232;
+  --pf-olive: #766440;
+  --pf-orange: #bd701e;
+  --pf-ink: #261a0f;
+  --pf-muted: #776b59;
+  --pf-paper: #fbfaf6;
+  --pf-line: rgba(59, 42, 24, 0.14);
+  --pf-shadow: 0 22px 52px rgba(59, 42, 24, 0.12);
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.08), transparent 38%),
+    linear-gradient(180deg, #f7f6ef 0%, #eeeadf 100%) !important;
+  color: var(--pf-ink) !important;
+}
+
+#root .clients-main,
+#root .raporty-main,
+#root .mobile-reports-main,
+#root .crew-att-main,
+#root .field-quotes-main,
+#root .field-quote-detail-main,
+#root .inspection-doc-main {
+  width: min(1480px, calc(100vw - 128px)) !important;
+  margin: 0 auto !important;
+  padding: 24px clamp(18px, 2.6vw, 34px) 44px !important;
+}
+
+#root .ogledziny-workspace {
+  width: min(1480px, calc(100vw - 128px)) !important;
+  margin: 0 auto !important;
+  padding: 24px clamp(18px, 2.6vw, 34px) 44px !important;
+  gap: 18px !important;
+}
+
+#root .clients-main::before,
+#root .raporty-main::before,
+#root .mobile-reports-main::before,
+#root .crew-att-main::before,
+#root .field-quotes-main::before,
+#root .field-quote-detail-main::before,
+#root .inspection-doc-main::before,
+#root .ogledziny-workspace::before {
+  content: '';
+  position: fixed;
+  inset: auto -120px -160px auto;
+  width: min(44vw, 560px);
+  height: min(44vw, 560px);
+  pointer-events: none;
+  opacity: 0.06;
+  background:
+    linear-gradient(45deg, transparent 43%, var(--pf-brown) 44% 52%, transparent 53%),
+    linear-gradient(135deg, transparent 43%, var(--pf-brown) 44% 52%, transparent 53%);
+  transform: rotate(8deg);
+  z-index: 0;
+}
+
+#root .clients-main > *,
+#root .raporty-main > *,
+#root .mobile-reports-main > *,
+#root .crew-att-main > *,
+#root .field-quotes-main > *,
+#root .field-quote-detail-main > *,
+#root .inspection-doc-main > *,
+#root .ogledziny-workspace > * {
+  position: relative;
+  z-index: 1;
+}
+
+#root .raporty-main > .module-page-header-hero,
+#root .mobile-reports-main > .module-page-header-hero,
+#root .crew-att-main > .module-page-header-hero,
+#root .field-quotes-main > .module-page-header-hero,
+#root .field-quote-detail-main > .module-page-header-hero,
+#root .inspection-doc-hero,
+#root .clients-client-hero,
+#root .ogledziny-detail-hero {
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-left: 8px solid var(--pf-green) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
+  color: #fffaf0 !important;
+  box-shadow: var(--pf-shadow) !important;
+  overflow: hidden !important;
+}
+
+#root .raporty-main > .module-page-header-hero::after,
+#root .mobile-reports-main > .module-page-header-hero::after,
+#root .crew-att-main > .module-page-header-hero::after,
+#root .field-quotes-main > .module-page-header-hero::after,
+#root .field-quote-detail-main > .module-page-header-hero::after,
+#root .inspection-doc-hero::after,
+#root .clients-client-hero::after,
+#root .ogledziny-detail-hero::after {
+  content: 'PF';
+  position: absolute;
+  right: clamp(18px, 4vw, 58px);
+  bottom: -26px;
+  color: rgba(160, 175, 20, 0.17);
+  font-size: clamp(96px, 14vw, 196px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+#root .raporty-main > .module-page-header-hero *,
+#root .mobile-reports-main > .module-page-header-hero *,
+#root .crew-att-main > .module-page-header-hero *,
+#root .field-quotes-main > .module-page-header-hero *,
+#root .field-quote-detail-main > .module-page-header-hero *,
+#root .inspection-doc-hero *,
+#root .clients-client-hero *,
+#root .ogledziny-detail-hero * {
+  color: inherit !important;
+}
+
+#root .clients-command-strip,
+#root .crew-att-command-strip,
+#root .field-quotes-command-strip,
+#root .field-quote-detail-command-strip,
+#root .inspection-doc-command-strip {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1.25fr) repeat(3, minmax(170px, 0.75fr)) !important;
+  gap: 14px !important;
+  margin: 18px 0 !important;
+}
+
+#root .clients-command-lead,
+#root .crew-att-command-lead,
+#root .field-quotes-command-lead,
+#root .field-quote-detail-command-lead,
+#root .inspection-doc-command-lead,
+#root .clients-command-card,
+#root .crew-att-command-card,
+#root .field-quotes-command-card,
+#root .field-quote-detail-command-card,
+#root .inspection-doc-command-card {
+  border: 1px solid rgba(160, 175, 20, 0.28) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)),
+    linear-gradient(45deg, rgba(160, 175, 20, 0.14), transparent) !important;
+  color: #fffaf0 !important;
+  box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
+}
+
+#root .clients-command-card strong,
+#root .crew-att-command-card strong,
+#root .field-quotes-command-card strong,
+#root .field-quote-detail-command-card strong,
+#root .inspection-doc-command-card strong {
+  color: var(--pf-green-soft) !important;
+}
+
+#root .clients-workspace,
+#root .ogledziny-workspace {
+  align-items: stretch !important;
+}
+
+#root .clients-list-panel,
+#root .ogledziny-list-panel,
+#root .clients-detail-panel,
+#root .ogledziny-detail-panel,
+#root .ogledziny-command-panel,
+#root .raporty-filters,
+#root .raporty-tabs,
+#root .mobile-reports-summary,
+#root .crew-att-controls,
+#root .field-quotes-tabs,
+#root .field-quote-detail-card {
+  border: 1px solid var(--pf-line) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(251, 250, 246, 0.88)) !important;
+  box-shadow: var(--pf-shadow) !important;
+}
+
+#root .clients-list-header,
+#root .ogledziny-command-panel {
+  border-bottom: 1px solid var(--pf-line) !important;
+  background: linear-gradient(90deg, rgba(160, 175, 20, 0.16), rgba(255, 255, 255, 0.72)) !important;
+}
+
+#root .clients-list-row,
+#root .ogledziny-list-row,
+#root .crew-att-card,
+#root .field-quotes-card,
+#root .inspection-doc-card,
+#root .raporty-main [style*='box-shadow'],
+#root .mobile-reports-kpi-card,
+#root .field-quote-detail-summary,
+#root .field-quote-detail-grid > *,
+#root .field-quote-detail-sketch,
+#root .field-quote-detail-item-row,
+#root .field-quote-detail-offer,
+#root .field-quote-detail-empty,
+#root .clients-detail-content > section,
+#root .clients-detail-content > div:not(.clients-client-hero) > div,
+#root .ogledziny-detail-content > section,
+#root .ogledziny-detail-content > div:not(.ogledziny-detail-hero) > div {
+  border: 1px solid var(--pf-line) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(251, 250, 246, 0.94)),
+    linear-gradient(90deg, rgba(160, 175, 20, 0.06), transparent) !important;
+  box-shadow: 0 14px 32px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .clients-list-row,
+#root .ogledziny-list-row {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease !important;
+}
+
+#root .clients-list-row:hover,
+#root .ogledziny-list-row:hover,
+#root .crew-att-card:hover,
+#root .field-quotes-card:hover,
+#root .inspection-doc-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(160, 175, 20, 0.5) !important;
+  box-shadow: 0 18px 38px rgba(59, 42, 24, 0.14) !important;
+}
+
+#root .raporty-kpis,
+#root .mobile-reports-kpis,
+#root .crew-att-stats,
+#root .field-quotes-grid,
+#root .inspection-doc-grid,
+#root .field-quote-detail-grid {
+  gap: 14px !important;
+}
+
+#root .raporty-kpis > *,
+#root .crew-att-stats > * {
+  border: 1px solid rgba(160, 175, 20, 0.24) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(244, 240, 226, 0.94)) !important;
+  box-shadow: 0 14px 30px rgba(59, 42, 24, 0.1) !important;
+}
+
+#root .inspection-doc-card-icon {
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, var(--pf-green), var(--pf-green-soft)) !important;
+  color: var(--pf-brown) !important;
+}
+
+#root .raporty-tabs button,
+#root .field-quotes-tabs button,
+#root .clients-main button,
+#root .ogledziny-shell button,
+#root .mobile-reports-main button,
+#root .crew-att-main button,
+#root .field-quote-detail-main button,
+#root .inspection-doc-main button {
+  border-radius: 8px !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease !important;
+}
+
+#root .clients-main button:not(:disabled):hover,
+#root .ogledziny-shell button:not(:disabled):hover,
+#root .mobile-reports-main button:not(:disabled):hover,
+#root .crew-att-main button:not(:disabled):hover,
+#root .field-quotes-main button:not(:disabled):hover,
+#root .field-quote-detail-main button:not(:disabled):hover,
+#root .inspection-doc-main button:not(:disabled):hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 12px 24px rgba(59, 42, 24, 0.13) !important;
+}
+
+#root .clients-main input,
+#root .clients-main select,
+#root .clients-main textarea,
+#root .ogledziny-shell input,
+#root .ogledziny-shell select,
+#root .ogledziny-shell textarea,
+#root .raporty-main input,
+#root .raporty-main select,
+#root .mobile-reports-main input,
+#root .mobile-reports-main select,
+#root .crew-att-main input,
+#root .crew-att-main select,
+#root .field-quotes-main input,
+#root .field-quotes-main select,
+#root .field-quote-detail-main input,
+#root .field-quote-detail-main select,
+#root .inspection-doc-main input,
+#root .inspection-doc-main select {
+  border: 1px solid rgba(59, 42, 24, 0.18) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: var(--pf-ink) !important;
+}
+
+#root .clients-main input:focus,
+#root .clients-main select:focus,
+#root .clients-main textarea:focus,
+#root .ogledziny-shell input:focus,
+#root .ogledziny-shell select:focus,
+#root .ogledziny-shell textarea:focus,
+#root .raporty-main input:focus,
+#root .raporty-main select:focus,
+#root .mobile-reports-main input:focus,
+#root .mobile-reports-main select:focus,
+#root .crew-att-main input:focus,
+#root .crew-att-main select:focus,
+#root .field-quotes-main input:focus,
+#root .field-quotes-main select:focus,
+#root .field-quote-detail-main input:focus,
+#root .field-quote-detail-main select:focus,
+#root .inspection-doc-main input:focus,
+#root .inspection-doc-main select:focus {
+  border-color: var(--pf-green) !important;
+  box-shadow: 0 0 0 4px rgba(160, 175, 20, 0.16) !important;
+  outline: none !important;
+}
+
+@media (max-width: 900px) {
+  #root .clients-main,
+  #root .raporty-main,
+  #root .mobile-reports-main,
+  #root .crew-att-main,
+  #root .field-quotes-main,
+  #root .field-quote-detail-main,
+  #root .inspection-doc-main,
+  #root .ogledziny-workspace {
+    width: calc(100vw - 60px) !important;
+    margin-left: 60px !important;
+    margin-right: 0 !important;
+    padding: 18px 12px 32px !important;
+  }
+
+  #root .clients-command-strip,
+  #root .crew-att-command-strip,
+  #root .field-quotes-command-strip,
+  #root .field-quote-detail-command-strip,
+  #root .inspection-doc-command-strip,
+  #root .raporty-kpis,
+  #root .mobile-reports-kpis,
+  #root .crew-att-stats,
+  #root .field-quotes-grid,
+  #root .inspection-doc-grid,
+  #root .field-quote-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .clients-workspace,
+  #root .ogledziny-workspace {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  #root .clients-list-panel,
+  #root .ogledziny-list-panel {
+    width: 100% !important;
+    max-height: none !important;
+  }
+
+  #root .clients-detail-panel,
+  #root .ogledziny-detail-panel {
+    overflow: visible !important;
+  }
+}
+
 html {
   font-size: 16px;
 }
@@ -139,6 +515,70 @@ body.theme-light #root .explore-shell.explore-command-shell {
 #root .app-main.kierownik-main .kierownik-cards-wrap,
 #root .app-main.kierownik-main .kierownik-task-card,
 #root .app-main.kierownik-main .kierownik-branch-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
+  border-color: rgba(59, 42, 24, 0.14) !important;
+  box-shadow: 0 16px 38px rgba(59, 42, 24, 0.08) !important;
+}
+
+/* Polska Flora final cascade lock: clients, inspections, and reporting. */
+#root .app-shell.clients-shell,
+#root .app-shell.ogledziny-shell,
+#root .app-shell.raporty-shell,
+#root .mobile-reports-shell,
+#root .app-shell.crew-att-shell,
+#root .field-quotes-shell,
+#root .field-quote-detail-shell,
+#root .inspection-doc-shell {
+  background:
+    linear-gradient(90deg, rgba(59, 42, 24, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, #f8f6ee 0%, #fbfaf6 50%, #eee8d6 100%) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+}
+
+#root .app-main.clients-main,
+#root .app-main.raporty-main,
+#root .mobile-reports-main,
+#root .crew-att-main,
+#root .field-quotes-main,
+#root .field-quote-detail-main,
+#root .inspection-doc-main,
+#root .ogledziny-workspace {
+  background: transparent !important;
+}
+
+#root .app-main.raporty-main > .module-page-header-hero,
+#root .mobile-reports-main > .module-page-header-hero,
+#root .crew-att-main > .module-page-header-hero,
+#root .field-quotes-main > .module-page-header-hero,
+#root .field-quote-detail-main > .module-page-header-hero,
+#root .inspection-doc-hero,
+#root .clients-client-hero,
+#root .ogledziny-detail-hero {
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
+    linear-gradient(90deg, #3b2a18, #4a351f) !important;
+  color: #fffaf0 !important;
+  border-left-color: #a0af14 !important;
+}
+
+#root .clients-command-strip,
+#root .field-quotes-command-strip,
+#root .inspection-doc-command-strip,
+#root .crew-att-command-strip,
+#root .mobile-reports-kpi-card,
+#root .mobile-reports-summary,
+#root .raporty-filters,
+#root .raporty-tabs,
+#root .raporty-kpis > *,
+#root .clients-list-panel,
+#root .clients-detail-panel,
+#root .ogledziny-list-panel,
+#root .ogledziny-detail-panel,
+#root .field-quotes-card,
+#root .inspection-doc-card,
+#root .crew-att-card {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 248, 242, 0.96)) !important;
   border-color: rgba(59, 42, 24, 0.14) !important;
@@ -5265,5 +5705,198 @@ body.theme-dark #root .arbor-sidebar {
 
   #root .kontrola-main [style*='overflow'] {
     overflow-x: auto !important;
+  }
+}
+
+/* Final order override: Polska Flora client/documentation/reporting surfaces. */
+#root .clients-shell,
+#root .ogledziny-shell,
+#root .raporty-shell,
+#root .mobile-reports-shell,
+#root .crew-att-shell,
+#root .field-quotes-shell,
+#root .field-quote-detail-shell,
+#root .inspection-doc-shell {
+  --pf-brown: #3b2a18;
+  --pf-green: #a0af14;
+  --pf-soft: #b4c232;
+  --pf-line: rgba(59, 42, 24, 0.14);
+  --pf-shadow: 0 22px 52px rgba(59, 42, 24, 0.12);
+  background:
+    linear-gradient(135deg, rgba(160, 175, 20, 0.08), transparent 38%),
+    linear-gradient(180deg, #f7f6ef 0%, #eeeadf 100%) !important;
+  color: #261a0f !important;
+}
+
+#root .clients-main,
+#root .raporty-main,
+#root .mobile-reports-main,
+#root .crew-att-main,
+#root .field-quotes-main,
+#root .field-quote-detail-main,
+#root .inspection-doc-main,
+#root .ogledziny-workspace {
+  width: min(1480px, calc(100vw - 128px)) !important;
+  margin: 0 auto !important;
+  padding: 24px clamp(18px, 2.6vw, 34px) 44px !important;
+}
+
+#root .raporty-main > .module-page-header-hero,
+#root .mobile-reports-main > .module-page-header-hero,
+#root .crew-att-main > .module-page-header-hero,
+#root .field-quotes-main > .module-page-header-hero,
+#root .field-quote-detail-main > .module-page-header-hero,
+#root .inspection-doc-hero,
+#root .clients-client-hero,
+#root .ogledziny-detail-hero {
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-left: 8px solid var(--pf-green) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
+  color: #fffaf0 !important;
+  box-shadow: var(--pf-shadow) !important;
+}
+
+#root .raporty-main > .module-page-header-hero::after,
+#root .mobile-reports-main > .module-page-header-hero::after,
+#root .crew-att-main > .module-page-header-hero::after,
+#root .field-quotes-main > .module-page-header-hero::after,
+#root .field-quote-detail-main > .module-page-header-hero::after,
+#root .inspection-doc-hero::after,
+#root .clients-client-hero::after,
+#root .ogledziny-detail-hero::after {
+  content: 'PF';
+  position: absolute;
+  right: clamp(18px, 4vw, 58px);
+  bottom: -26px;
+  color: rgba(160, 175, 20, 0.17);
+  font-size: clamp(96px, 14vw, 196px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+#root .clients-command-strip,
+#root .crew-att-command-strip,
+#root .field-quotes-command-strip,
+#root .field-quote-detail-command-strip,
+#root .inspection-doc-command-strip {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1.25fr) repeat(3, minmax(170px, 0.75fr)) !important;
+  gap: 14px !important;
+}
+
+#root .clients-command-lead,
+#root .crew-att-command-lead,
+#root .field-quotes-command-lead,
+#root .field-quote-detail-command-lead,
+#root .inspection-doc-command-lead,
+#root .clients-command-card,
+#root .crew-att-command-card,
+#root .field-quotes-command-card,
+#root .field-quote-detail-command-card,
+#root .inspection-doc-command-card {
+  border: 1px solid rgba(160, 175, 20, 0.28) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)) !important;
+  color: #fffaf0 !important;
+  box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
+}
+
+#root .clients-list-panel,
+#root .ogledziny-list-panel,
+#root .clients-detail-panel,
+#root .ogledziny-detail-panel,
+#root .ogledziny-command-panel,
+#root .raporty-filters,
+#root .raporty-tabs,
+#root .mobile-reports-summary,
+#root .crew-att-controls,
+#root .field-quotes-tabs,
+#root .field-quote-detail-card,
+#root .clients-list-row,
+#root .ogledziny-list-row,
+#root .crew-att-card,
+#root .field-quotes-card,
+#root .inspection-doc-card,
+#root .raporty-kpis > *,
+#root .mobile-reports-kpi-card,
+#root .field-quote-detail-summary,
+#root .field-quote-detail-grid > *,
+#root .field-quote-detail-sketch,
+#root .field-quote-detail-item-row,
+#root .field-quote-detail-offer,
+#root .field-quote-detail-empty {
+  border: 1px solid var(--pf-line) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(251, 250, 246, 0.92)) !important;
+  box-shadow: 0 14px 32px rgba(59, 42, 24, 0.08) !important;
+}
+
+#root .clients-list-row:hover,
+#root .ogledziny-list-row:hover,
+#root .crew-att-card:hover,
+#root .field-quotes-card:hover,
+#root .inspection-doc-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(160, 175, 20, 0.5) !important;
+  box-shadow: 0 18px 38px rgba(59, 42, 24, 0.14) !important;
+}
+
+#root .clients-main input:focus,
+#root .clients-main select:focus,
+#root .clients-main textarea:focus,
+#root .ogledziny-shell input:focus,
+#root .ogledziny-shell select:focus,
+#root .ogledziny-shell textarea:focus,
+#root .raporty-main input:focus,
+#root .raporty-main select:focus,
+#root .mobile-reports-main input:focus,
+#root .mobile-reports-main select:focus,
+#root .crew-att-main input:focus,
+#root .crew-att-main select:focus,
+#root .field-quotes-main input:focus,
+#root .field-quotes-main select:focus,
+#root .field-quote-detail-main input:focus,
+#root .field-quote-detail-main select:focus,
+#root .inspection-doc-main input:focus,
+#root .inspection-doc-main select:focus {
+  border-color: var(--pf-green) !important;
+  box-shadow: 0 0 0 4px rgba(160, 175, 20, 0.16) !important;
+  outline: none !important;
+}
+
+@media (max-width: 900px) {
+  #root .clients-main,
+  #root .raporty-main,
+  #root .mobile-reports-main,
+  #root .crew-att-main,
+  #root .field-quotes-main,
+  #root .field-quote-detail-main,
+  #root .inspection-doc-main,
+  #root .ogledziny-workspace {
+    width: calc(100vw - 60px) !important;
+    margin-left: 60px !important;
+    margin-right: 0 !important;
+    padding: 18px 12px 32px !important;
+  }
+
+  #root .clients-command-strip,
+  #root .crew-att-command-strip,
+  #root .field-quotes-command-strip,
+  #root .field-quote-detail-command-strip,
+  #root .inspection-doc-command-strip,
+  #root .raporty-kpis,
+  #root .mobile-reports-kpis,
+  #root .crew-att-stats,
+  #root .field-quotes-grid,
+  #root .inspection-doc-grid,
+  #root .field-quote-detail-grid {
+    grid-template-columns: 1fr !important;
   }
 }
