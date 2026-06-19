@@ -94,6 +94,7 @@
     "verify:render-unified": "node ./scripts/render-unified-check.cjs",
     "smoke:render-unified:live": "node ./scripts/render-unified-live-smoke.cjs",
     "status:production": "node ./scripts/production-readiness-report.cjs",
+    "prod:ready": "node ./scripts/production-readiness.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
