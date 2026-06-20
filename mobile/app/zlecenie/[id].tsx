@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { OfflineQueueBanner } from '../../components/ui/app-state';
 import { InfoRow } from '../../components/task-info-row';
 import { TaskClientSignatureModal } from '../../components/task-client-signature-modal';
+import { TaskPhotoAddModal } from '../../components/task-photo-add-modal';
 import { TaskPhotoFilterStrip } from '../../components/task-photo-filter-strip';
 import { TaskPhotoHeroPreview } from '../../components/task-photo-hero-preview';
 import { TaskPhotoPreviewModal } from '../../components/task-photo-preview-modal';
@@ -6952,75 +6953,31 @@ export default function ZlecenieDetailScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={zdjecieModal} animationType="slide" transparent>
-        <View style={S.overlay}>
-          <View style={[S.modalBox, { backgroundColor: theme.surface }]}>
-            <View style={S.modalHeader}>
-              <Text style={[S.modalTitle, { color: theme.text }]}>{t('order.choosePhotoType')}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setPhotoOpisDraft('');
-                  setPhotoTagiDraft('');
-                  setZdjecieModal(false);
-                }}
-              >
-                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
-              </TouchableOpacity>
-            </View>
-            <Text style={[S.modalLbl, { color: theme.textSub }]}>{t('order.photoOpisLabel')}</Text>
-            <TextInput
-              style={[S.modalInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.surface2, minHeight: 72, marginBottom: 12 }]}
-              placeholder={t('order.photoOpisPlaceholder')}
-              placeholderTextColor={theme.textMuted}
-              value={photoOpisDraft}
-              onChangeText={setPhotoOpisDraft}
-              maxLength={2000}
-              multiline
-              editable={!uploadingPhoto}
-            />
-            <Text style={[S.modalLbl, { color: theme.textSub }]}>{t('order.photoTagiLabel')}</Text>
-            <TextInput
-              style={[S.modalInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.surface2, minHeight: 44, marginBottom: 12 }]}
-              placeholder={t('order.photoTagiPlaceholder')}
-              placeholderTextColor={theme.textMuted}
-              value={photoTagiDraft}
-              onChangeText={setPhotoTagiDraft}
-              maxLength={2000}
-              editable={!uploadingPhoto}
-            />
-            {TYP_ZDJECIA_KEYS.map((key) => {
-              const typ = { key, ...photoTypeMeta[key], label: PHOTO_TYPE_LABELS[key] || t(`order.photoType.${key}`) };
-              const evidence = evidenceQuickCards.find((card) => card.type === typ.key);
-              const count = evidence?.count ?? zdjecia.filter((z: any) => z.typ === typ.key || (!z.typ && typ.key === 'inne')).length;
-              return (
-              <TouchableOpacity
-                key={typ.key}
-                style={[S.zdjecieTypBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
-                onPress={() => void zrobZdjecie(typ.key, photoOpisDraft, photoTagiDraft)}
-                disabled={uploadingPhoto}
-              >
-                <View style={[S.zdjecieTypIcon, { backgroundColor: typ.color + '22' }]}>
-                  <PlatinumIconBadge icon={typ.icon} color={typ.color} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[S.zdjecieTypLabel, { color: theme.text }]}>{typ.label}</Text>
-                  {evidence?.hint ? (
-                    <Text style={[S.zdjecieTypHint, { color: theme.textMuted }]} numberOfLines={1}>{evidence.hint}</Text>
-                  ) : null}
-                </View>
-                <Text style={[S.zdjecieTypCount, { color: count > 0 ? theme.success : theme.textMuted }]}>{count}</Text>
-                <PlatinumIconBadge icon="chevron-forward" color={theme.textMuted} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
-              </TouchableOpacity>
-            );})}
-            {uploadingPhoto && (
-              <View style={S.uploadingRow}>
-                <ActivityIndicator color={theme.accent} />
-                <Text style={[S.uploadingTxt, { color: theme.textMuted }]}>{t('order.savingPhoto')}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+      <TaskPhotoAddModal
+        visible={zdjecieModal}
+        theme={theme}
+        title={t('order.choosePhotoType')}
+        opisLabel={t('order.photoOpisLabel')}
+        opisPlaceholder={t('order.photoOpisPlaceholder')}
+        tagiLabel={t('order.photoTagiLabel')}
+        tagiPlaceholder={t('order.photoTagiPlaceholder')}
+        savingLabel={t('order.savingPhoto')}
+        photoOpisDraft={photoOpisDraft}
+        photoTagiDraft={photoTagiDraft}
+        uploadingPhoto={uploadingPhoto}
+        photoTypeMeta={photoTypeMeta}
+        evidenceQuickCards={evidenceQuickCards}
+        photos={zdjecia}
+        resolvePhotoTypeLabel={(key) => t(`order.photoType.${key}`)}
+        onChangeOpis={setPhotoOpisDraft}
+        onChangeTagi={setPhotoTagiDraft}
+        onClose={() => {
+          setPhotoOpisDraft('');
+          setPhotoTagiDraft('');
+          setZdjecieModal(false);
+        }}
+        onSelectType={(key, opis, tagi) => { void zrobZdjecie(key, opis, tagi); }}
+      />
 
       <TaskPhotoPreviewModal
         visible={!!photoPreview}
@@ -10003,27 +9960,4 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cancelBtn: { flex: 1, padding: 14, borderRadius: 6, alignItems: 'center', borderWidth: 1 },
   cancelTxt: { fontWeight: '600' },
   submitBtn: { flex: 1, padding: 14, borderRadius: 6, alignItems: 'center' },
-  // Modal zdjęcia
-  zdjecieTypBtn: {
-    minHeight: 68,
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  zdjecieTypIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zdjecieTypLabel: { fontSize: 15, fontWeight: '700' },
-  zdjecieTypHint: { fontSize: 11, marginTop: 2 },
-  zdjecieTypCount: { fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'center', marginTop: 8 },
-  uploadingTxt: { fontSize: 13 },
 });
