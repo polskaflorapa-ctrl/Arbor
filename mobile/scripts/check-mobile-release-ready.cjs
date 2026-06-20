@@ -144,6 +144,59 @@ function assertReleaseEnvironmentCatalog(releaseEnvironments) {
   }
 }
 
+function assertIncludesValue(label, values, expectedValue) {
+  if (Array.isArray(values) && values.includes(expectedValue)) {
+    pass(`${label} includes ${expectedValue}`);
+  } else {
+    fail(`${label} must include ${expectedValue}`);
+  }
+}
+
+function assertStoreMetadata(metadata, appConfig) {
+  assertValue('store app name is set', metadata?.appName);
+
+  if (metadata?.bundleIdentifier === appConfig?.expo?.ios?.bundleIdentifier) {
+    pass('store bundleIdentifier matches app.json');
+  } else {
+    fail('store bundleIdentifier must match app.json ios.bundleIdentifier');
+  }
+
+  if (metadata?.androidPackage === appConfig?.expo?.android?.package) {
+    pass('store androidPackage matches app.json');
+  } else {
+    fail('store androidPackage must match app.json android.package');
+  }
+
+  assertUrl('store marketing URL', metadata?.marketingUrl);
+  assertUrl('store support URL', metadata?.supportUrl);
+  assertUrl('store privacy policy URL', metadata?.privacyPolicyUrl);
+
+  assertValue('store review login instructions are set', metadata?.reviewNotes?.loginInstructions);
+  assertValue('store review backend availability is set', metadata?.reviewNotes?.backendAvailability);
+  assertValue('store review permission summary is set', metadata?.reviewNotes?.permissionSummary);
+
+  for (const key of ['location', 'photos', 'userIdentifiers', 'diagnostics']) {
+    assertValue(`store privacy label ${key} is documented`, metadata?.privacyLabels?.[key]);
+  }
+
+  for (const gate of [
+    'legal-review',
+    'reviewer-test-account',
+    'store-screenshots',
+    'real-device-qa',
+    'privacy-label-owner-approval',
+    'production-crash-monitoring-confirmed',
+  ]) {
+    assertIncludesValue('manual store gates', metadata?.manualGates, gate);
+  }
+
+  if (metadata?.legalReviewRequired === true) {
+    pass('store legal review gate remains explicit');
+  } else {
+    fail('store legal review gate must remain explicit until owner approval is recorded');
+  }
+}
+
 function assertBuildProfile(easConfig, releaseEnvironments, name) {
   const profile = easConfig?.build?.[name];
   if (profile) {
@@ -262,6 +315,7 @@ console.log('Checking mobile release readiness...\n');
 const appConfig = readJson('app.json');
 const easConfig = readJson('eas.json');
 const releaseEnvironments = readJson('config/release-environments.json');
+const storeMetadata = readJson('config/store-metadata.json');
 const apiSource = readText('constants/api.js');
 
 assertValue('ios.bundleIdentifier is set', appConfig?.expo?.ios?.bundleIdentifier);
@@ -304,6 +358,7 @@ assertFile('docs/mobile-release-runbook.md');
 assertFile('docs/mobile-release-risks.md');
 assertFile('docs/mobile-preview-release-template.md');
 assertFile('docs/mobile-store-readiness-checklist.md');
+assertStoreMetadata(storeMetadata, appConfig);
 
 if (process.exitCode) {
   console.error('\nRelease readiness check failed before smoke tests.');

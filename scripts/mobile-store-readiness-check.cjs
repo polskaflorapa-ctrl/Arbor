@@ -98,8 +98,34 @@ assertIncludes('mobile/docs/mobile-release-runbook.md', [
   'store metadata',
 ]);
 
+assertIncludes('mobile/scripts/check-mobile-release-ready.cjs', [
+  'config/store-metadata.json',
+  'assertStoreMetadata',
+  'store support URL',
+  'manual store gates',
+  'legal-review',
+]);
+
+assertIncludes('mobile/scripts/mobile-release-status.cjs', [
+  'Store metadata',
+  'Store manual gates need owner evidence',
+  'npm run release:store-check',
+]);
+
+assertIncludes('mobile/scripts/test-release-status.cjs', [
+  'Store metadata',
+  'Manual store gates\\s+6',
+  'Store manual gates need owner evidence',
+]);
+
+assertIncludes('mobile/scripts/smoke-mobile-release.cjs', [
+  'release status tests',
+  'test:release-status',
+]);
+
 assertIncludes('mobile/package.json', [
   'release:store-check',
+  'test:release-status',
   '../scripts/mobile-store-readiness-check.cjs',
 ]);
 
