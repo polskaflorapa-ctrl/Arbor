@@ -220,6 +220,7 @@ npm run bootstrap:admin
 npm run deploy:prod:dry-run
 npm run verify:scale-readiness
 npm run verify:observability
+npm run release:check:quick -w arbor-mobile
 npm run deploy:ready:check
 npm run test:critical-path -w arbor-os
 npm run smoke:kommo:crm -w arbor-web

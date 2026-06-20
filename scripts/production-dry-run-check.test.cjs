@@ -40,12 +40,12 @@ test("production dry-run check validates files, scripts, and runbook commands", 
     writeFixtureFile(
       root,
       "docs/PRODUCTION-DEPLOY-DRY-RUN.md",
-      "deploy:prod:dry-run prod:ready deploy:ready:check deploy:env:print deploy:prod:doctor db:migrate bootstrap:admin backup:db:check backup:db restore:db:check smoke:render smoke:p95 PUBLIC_BASE_URL CORS_ORIGINS VITE_API_URL EXPO_PUBLIC_API_URL UPLOAD_STORAGE=s3 GO NO-GO PRODUCTION-READINESS-CHECKLIST.md",
+      "deploy:prod:dry-run prod:ready deploy:ready:check deploy:env:print deploy:prod:doctor db:migrate bootstrap:admin backup:db:check backup:db restore:db:check release:check:quick smoke:render smoke:p95 PUBLIC_BASE_URL CORS_ORIGINS VITE_API_URL EXPO_PUBLIC_API_URL UPLOAD_STORAGE=s3 GO NO-GO PRODUCTION-READINESS-CHECKLIST.md",
     );
     writeFixtureFile(
       root,
       "docs/ENVIRONMENT-RUNBOOK.md",
-      "npm run deploy:prod:dry-run npm run backup:db npm run restore:db:check npm run smoke:render -- https://<arbor-os-url> npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5",
+      "npm run deploy:prod:dry-run npm run backup:db npm run restore:db:check npm run release:check:quick -w arbor-mobile npm run smoke:render -- https://<arbor-os-url> npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5",
     );
     writeFixtureFile(
       root,

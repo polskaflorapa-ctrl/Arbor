@@ -17,7 +17,7 @@ Po deployu publicznym dodaj smoke po URL:
 npm run prod:ready -- --base-url https://<arbor-os-url> --web-url https://<arbor-web-url>
 ```
 
-`prod:ready` obejmuje: env/runbook checks, produkcyjny dry-run, web TTI contract, scale/observability/backup checks, lokalny build web, deploy-ready static checks oraz opcjonalne publiczne API/TTI smoke.
+`prod:ready` obejmuje: env/runbook checks, produkcyjny dry-run, web TTI contract, scale/observability/backup checks, kontrakty produktu, mobilny `release:check:quick`, lokalny build web, deploy-ready static checks oraz opcjonalne publiczne API/TTI smoke.
 
 ## 1. Env
 
@@ -42,6 +42,7 @@ npm run deploy:env:print
 - `npm run verify:web:test` przechodzi dla krytycznych testow frontu.
 - `npm run verify:os` przechodzi dla backendu.
 - `npm run verify:mobile` przechodzi przed buildem Expo.
+- `npm run release:check:quick -w arbor-mobile` przechodzi przed buildem Expo/TestFlight/Google Play.
 
 Minimalna lokalna bramka:
 
@@ -113,6 +114,7 @@ npm run smoke:render -- https://<arbor-os-url>
 - `CORS_ORIGINS` zawiera dokladny publiczny URL panelu web.
 - Web zbudowany po ustawieniu finalnego `VITE_API_URL`.
 - Mobile build Expo wykonany po ustawieniu finalnych `EXPO_PUBLIC_*`.
+- Mobile store metadata, support URL, privacy URL i review notes przechodza przez `release:check:quick`.
 - Zadarma webhooki wskazuja `https://<arbor-os-url>/api/sms/webhooks/zadarma`.
 - Kommo inbound wskazuje publiczne endpointy `arbor-os`.
 - Crony produkcyjne maja `OPS_CRON_SECRET` i nie sa zdublowane na wielu instancjach.
@@ -122,6 +124,7 @@ npm run smoke:render -- https://<arbor-os-url>
 - `npm run prod:ready -- --base-url https://<arbor-os-url> --web-url https://<arbor-web-url>` przechodzi.
 - Migracje, bootstrap admina, backup i restore dry-run sa zielone.
 - Publiczny smoke API i web TTI sa zielone.
+- Mobilny `release:check:quick` jest zielony dla docelowej konfiguracji API.
 - Storage smoke przechodzi przy `UPLOAD_STORAGE=s3`.
 - Monitoring i runbook incydentowy sa gotowe.
 
@@ -131,4 +134,5 @@ npm run smoke:render -- https://<arbor-os-url>
 - Produkcyjne zdjecia uzywaja tylko lokalnego storage na efemerycznym hostingu.
 - Backup nie powstal lub restore dry-run nie czyta dumpa.
 - `smoke:render`, `smoke:p95` albo `smoke:web:tti` nie przechodzi.
+- Mobilny `release:check:quick` nie przechodzi albo store metadata/review notes nie sa aktualne.
 - Publiczne linki klienta, SMS lub webhooki wskazuja localhost, domeny stagingowe albo panel web zamiast API.

@@ -17,6 +17,7 @@ npm run verify:incident-runbook
 npm run verify:backup-rpo
 npm run verify:rbac-scope
 npm run verify:scale-readiness
+npm run release:check:quick -w arbor-mobile
 npm run deploy:prod:dry-run
 npm run deploy:ready:check
 npm run prod:ready
@@ -136,6 +137,7 @@ GO:
 - Admin produkcyjny loguje sie tylko znanym, silnym haslem.
 - `backup:db`, `restore:db:check` i publiczny `smoke:render` sa zielone.
 - `smoke:p95` przechodzi pod progiem 500 ms dla krytycznych GET endpointow.
+- `npm run release:check:quick -w arbor-mobile` przechodzi, lacznie z mobile smoke, store metadata i audytem produkcyjnych zaleznosci.
 - `PUBLIC_BASE_URL`, `CORS_ORIGINS`, `VITE_API_URL`, `EXPO_PUBLIC_API_URL` wskazuja publiczne HTTPS hosty.
 
 NO-GO:
@@ -147,3 +149,4 @@ NO-GO:
 - Backup nie powstal albo `restore:db:check` nie czyta najnowszego dumpa.
 - `smoke:render` nie przechodzi po publicznym URL.
 - `ops/storage-smoke` nie przechodzi przy storage S3/R2.
+- Mobilne `release:check:quick` nie przechodzi albo store metadata nie ma aktualnych support/privacy/review notes.

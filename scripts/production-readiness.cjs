@@ -98,6 +98,7 @@ function buildSteps(options) {
     npmCommand(["run", "verify:observability"]),
     npmCommand(["run", "verify:backup-rpo"]),
     npmCommand(["run", "verify:contracts"]),
+    npmCommand(["run", "release:check:quick", "-w", "arbor-mobile"]),
   ];
 
   if (!options.skipBuild) {

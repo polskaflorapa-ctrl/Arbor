@@ -22,6 +22,7 @@ const requiredFiles = [
   "scripts/run-production-bootstrap.cjs",
   "scripts/deploy-ready-check.cjs",
   "scripts/production-readiness.cjs",
+  "mobile/scripts/check-mobile-release-ready.cjs",
 ];
 
 const requiredScripts = {
@@ -40,6 +41,11 @@ const requiredScripts = {
     "restore:db:check",
     "smoke:render",
     "smoke:p95",
+  ],
+  "mobile/package.json": [
+    "release:check:quick",
+    "release:store-check",
+    "smoke:mobile",
   ],
   "os/package.json": [
     "db:migrate",
@@ -64,6 +70,7 @@ const dryRunNeedles = [
   "backup:db:check",
   "backup:db",
   "restore:db:check",
+  "release:check:quick",
   "smoke:render",
   "smoke:p95",
   "PUBLIC_BASE_URL",
@@ -80,6 +87,7 @@ const runbookNeedles = [
   "npm run deploy:prod:dry-run",
   "npm run backup:db",
   "npm run restore:db:check",
+  "npm run release:check:quick -w arbor-mobile",
   "npm run smoke:render -- https://<arbor-os-url>",
   "npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5",
 ];
