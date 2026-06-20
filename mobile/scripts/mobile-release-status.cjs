@@ -14,6 +14,8 @@ const storeMetadata = JSON.parse(
 );
 
 const androidPreviewUrl = getAndroidPreviewUrl();
+const sentryDsnConfigured = isEnvSet("EXPO_PUBLIC_SENTRY_DSN");
+const sentrySourcemapEnvComplete = hasSentrySourcemapCredentials();
 
 function hasSentryAutoUploadDisabled() {
   return (appConfig.plugins || []).some((plugin) => {
@@ -24,6 +26,14 @@ function hasSentryAutoUploadDisabled() {
       plugin[1].disableAutoUpload === true
     );
   });
+}
+
+function isEnvSet(name) {
+  return Boolean(String(process.env[name] || "").trim());
+}
+
+function hasSentrySourcemapCredentials() {
+  return ["SENTRY_AUTH_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT"].every(isEnvSet);
 }
 
 function printLine(label, value) {
@@ -44,6 +54,13 @@ printLine("Expected API version", environments.preview?.expectedApiVersion || "m
 printLine("Sentry sourcemap upload", hasSentryAutoUploadDisabled() ? "disabled for preview" : "enabled/config-dependent");
 console.log("");
 
+console.log("Production monitoring");
+console.log("---------------------");
+printLine("Sentry DSN configured", sentryDsnConfigured ? "yes" : "no");
+printLine("Sentry sourcemap env", sentrySourcemapEnvComplete ? "complete" : "missing");
+printLine("Production monitoring gate", sentryDsnConfigured ? "ready to verify on device" : "blocked for production");
+console.log("");
+
 console.log("Store metadata");
 console.log("--------------");
 printLine("Marketing URL", storeMetadata.marketingUrl || "missing");
@@ -60,6 +77,11 @@ console.log("[ok] Android preview ready for device QA");
 console.log("[ok] Store metadata check is available: npm run release:store-check");
 console.log("[ok] EAS iOS preflight command is available: npm run release:ios:preflight");
 console.log("[blocked] iOS preview build needs interactive Apple/EAS credentials setup");
+console.log(
+  sentryDsnConfigured
+    ? "[pending] Production crash/error monitoring must be verified on device"
+    : "[blocked] Production crash/error monitoring needs Sentry DSN or an approved external destination"
+);
 console.log("[pending] Store manual gates need owner evidence before public submission");
 console.log("[pending] Manual device smoke checklist must be completed before production promotion");
 console.log("");

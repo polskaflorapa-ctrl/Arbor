@@ -108,12 +108,17 @@ assertIncludes('mobile/scripts/check-mobile-release-ready.cjs', [
 
 assertIncludes('mobile/scripts/mobile-release-status.cjs', [
   'Store metadata',
+  'Production monitoring',
+  'Production monitoring gate',
+  'EXPO_PUBLIC_SENTRY_DSN',
   'Store manual gates need owner evidence',
   'npm run release:store-check',
 ]);
 
 assertIncludes('mobile/scripts/test-release-status.cjs', [
   'Store metadata',
+  'Production monitoring',
+  'Production monitoring gate',
   'Manual store gates\\s+6',
   'Store manual gates need owner evidence',
 ]);

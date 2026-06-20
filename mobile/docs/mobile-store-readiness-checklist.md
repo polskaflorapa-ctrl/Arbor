@@ -40,6 +40,7 @@ Use this before TestFlight, App Store review, or Google Play internal testing.
 - [ ] User identifiers/account data are declared.
 - [ ] Diagnostics/crash data are declared if crash reporting is enabled.
 - [ ] Sentry or another crash destination is named in review/release notes if enabled.
+- [ ] `npm run release:status` shows production crash/error monitoring as ready, or the owner has explicitly approved another external destination.
 - [ ] Data linked to user is reviewed with backend/API owner.
 - [ ] Data retention and deletion process is documented.
 
