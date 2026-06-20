@@ -1,33 +1,65 @@
 # Backend Handoff: Rezerwacje Sprzetu + Mobile Config
 
-Ten dokument jest gotowym handoffem dla backendu i QA, aby domknac bledy "server not found" i aktywowac pelny flow mobile.
+Ten dokument jest handoffem dla backendu i QA, aby utrzymac pelny flow mobile bez fallbacku
+"server not found".
+
+Automatyczne bramki kontraktu:
+
+```bash
+npm run verify:mobile-config
+npm run verify:mobile-reservations-api
+```
 
 ## 1) Endpointy wymagane przez mobile
 
-### A. Mobile config (opcjonalnie, ale zalecane)
-- `GET /api/mobile-config`
-- Aktualnie appka traktuje `404` jako "brak wdrozenia" (dziala fallback), ale endpoint powinien docelowo zwracac konfiguracje.
+### A. Mobile config
 
-### B. Rezerwacje sprzetu (wymagane)
+- `GET /api/mobile-config`
+- `GET /api/config/mobile`
+- Oba aliasy musza zwracac `200`.
+- Naglowek: `X-Api-Version`.
+- Body:
+
+```json
+{
+  "version": "2.2.0-quotations",
+  "apiVersion": "2.2.0-quotations",
+  "appFlags": {
+    "quotations": true,
+    "quotationPanels": true,
+    "quotationApprovals": true,
+    "quotationPublicAcceptance": true
+  },
+  "oddzialFeatureOverrides": {},
+  "generatedAt": "2026-06-20T00:00:00.000Z"
+}
+```
+
+Mobile zapisuje `X-Api-Version` do diagnostyki, scala `appFlags` przez
+`mergeAppRemoteFlags` i opcjonalne `oddzialFeatureOverrides` przez
+`mergeRemoteOddzialFeatureOverrides`.
+
+### B. Rezerwacje sprzetu
+
 - `GET /api/flota/rezerwacje?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - `POST /api/flota/rezerwacje`
 - `PUT /api/flota/rezerwacje/:id/status`
 
-Kontrakt przykladowy: `config/flota-rezerwacje-api.example.json`
-
-## 2) Kontrakt request/response (minimum)
+## 2) Kontrakt request/response rezerwacji
 
 ### GET /flota/rezerwacje
+
 - Query:
   - `from` (YYYY-MM-DD)
   - `to` (YYYY-MM-DD)
-- Odpowiedz:
-  - tablica `[]` albo obiekt `{ "rezerwacje": [] }`
+- Sukces: `200` + tablica `[]`.
 - Element:
-  - `id`, `sprzet_id`, `sprzet_nazwa`, `ekipa_id`, `ekipa_nazwa`, `data_od`, `data_do`, `caly_dzien`, `status`
+  - `id`, `sprzet_id`, `sprzet_nazwa`, `ekipa_id`, `ekipa_nazwa`, `data_od`, `data_do`, `caly_dzien`, `status`.
 
 ### POST /flota/rezerwacje
-- Body:
+
+Body:
+
 ```json
 {
   "sprzet_id": 12,
@@ -38,19 +70,25 @@ Kontrakt przykladowy: `config/flota-rezerwacje-api.example.json`
   "status": "Zarezerwowane"
 }
 ```
-- Sukces: `201` + `{ "id": 101 }`
-- Walidacja/konflikt: `400`/`409` + `{ "error": "..." }`
+
+- Sukces: `201` + `{ "id": 101 }`.
+- Brak `status`: `400`.
+- Walidacja/konflikt: `400`/`409` + `{ "error": "..." }`.
 
 ### PUT /flota/rezerwacje/:id/status
-- Body:
+
+Body:
+
 ```json
 { "status": "Wydane" }
 ```
-- Sukces: `200`
-- Brak rekordu/uprawnien: `404`
-- Walidacja statusu: `400`
+
+- Sukces: `200`.
+- Brak rekordu/uprawnien: `404`.
+- Walidacja statusu: `400`.
 
 ### Dozwolone statusy
+
 - `Zarezerwowane`
 - `Wydane`
 - `Zwrócone`
@@ -58,29 +96,28 @@ Kontrakt przykladowy: `config/flota-rezerwacje-api.example.json`
 
 ## 3) Oczekiwane zachowanie auth
 
-- Bez tokenu:
-  - endpointy chronione powinny dawac `401` lub `403`
+- Bez tokenu chronione endpointy rezerwacji daja `401` lub `403`.
 - Z tokenem:
   - `auth/me` i `tasks/wszystkie` -> `200`
-  - `flota/rezerwacje` -> `200` po wdrozeniu
+  - `mobile-config` -> `200`
+  - `flota/rezerwacje` -> `200`
 
-## 4) Szybki smoke test (automatyczny)
+## 4) Szybki smoke test
 
-Dodany skrypt:
-- `scripts/smoke-api-rezerwacje.cjs`
-- npm script: `npm run smoke:api`
-
-Przyklady:
+Skrypt mobilny:
 
 ```bash
-npm run smoke:api
+npm run smoke:api -w arbor-mobile
 ```
 
+Z publicznym API:
+
 ```bash
-API_URL=https://your-host/api AUTH_TOKEN=YOUR_TOKEN npm run smoke:api
+API_URL=https://your-host/api AUTH_TOKEN=YOUR_TOKEN npm run smoke:api -w arbor-mobile
 ```
 
 Skrypt raportuje statusy i latency dla:
+
 - `auth/me`
 - `tasks/wszystkie`
 - `flota/rezerwacje` (GET)
@@ -89,16 +126,15 @@ Skrypt raportuje statusy i latency dla:
 
 ## 5) QA checklist
 
-- Login dziala, brak crashy
+- Login dziala, brak crashy.
 - `api-diagnostyka`:
-  - `auth/me` -> 200 (z tokenem)
-  - `tasks/wszystkie` -> 200 (z tokenem)
-  - `mobile-config` -> 200 (po wdrozeniu) lub 404 (przed wdrozeniem)
-  - `flota/rezerwacje` -> 200 (po wdrozeniu)
+  - `auth/me` -> `200` z tokenem
+  - `tasks/wszystkie` -> `200` z tokenem
+  - `mobile-config` -> `200` i pokazuje `X-Api-Version`
+  - `flota/rezerwacje` -> `200`
 - `rezerwacje-sprzetu`:
   - tworzenie rezerwacji
   - zmiana statusu
   - konflikt na ten sam sprzet i dzien
   - filtrowanie konfliktow
   - skok do pierwszego konfliktu
-

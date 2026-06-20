@@ -167,6 +167,7 @@ describe('Flota rezerwacje sprzetu', () => {
         ekipa_id: 1,
         data_od: '2026-06-10',
         data_do: '2026-06-10',
+        status: 'Zarezerwowane',
       });
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('sprzet_nieznaleziony');
@@ -181,9 +182,24 @@ describe('Flota rezerwacje sprzetu', () => {
         ekipa_id: 1,
         data_od: '2026-06-12',
         data_do: '2026-06-10',
+        status: 'Zarezerwowane',
       });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('data_do_przed_data_od');
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it('POST requires explicit reservation status for mobile contract', async () => {
+    const res = await request(app)
+      .post('/api/flota/rezerwacje')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        sprzet_id: 1,
+        ekipa_id: 1,
+        data_od: '2026-06-10',
+        data_do: '2026-06-10',
+      });
+    expect(res.status).toBe(400);
     expect(pool.query).not.toHaveBeenCalled();
   });
 
@@ -199,6 +215,7 @@ describe('Flota rezerwacje sprzetu', () => {
         ekipa_id: 2,
         data_od: '2026-06-10',
         data_do: '2026-06-10',
+        status: 'Zarezerwowane',
       });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('sprzet_ekipa_oddzial');
@@ -216,6 +233,7 @@ describe('Flota rezerwacje sprzetu', () => {
         ekipa_id: 3,
         data_od: '2026-06-10',
         data_do: '2026-06-10',
+        status: 'Zarezerwowane',
       });
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('brak_dostepu_oddzial');
@@ -233,6 +251,7 @@ describe('Flota rezerwacje sprzetu', () => {
         ekipa_id: 3,
         data_od: '2026-06-10',
         data_do: '2026-06-11',
+        status: 'Zarezerwowane',
       });
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('sprzet_przeglad_po_terminie');
@@ -257,6 +276,7 @@ describe('Flota rezerwacje sprzetu', () => {
         ekipa_id: 3,
         data_od: '2026-06-10',
         data_do: '2026-06-11',
+        status: 'Zarezerwowane',
       });
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('sprzet_niedostepny');
@@ -282,6 +302,7 @@ describe('Flota rezerwacje sprzetu', () => {
         ekipa_id: 3,
         data_od: '2026-06-10',
         data_do: '2026-06-11',
+        status: 'Zarezerwowane',
       });
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('rezerwacja_kolizja_sprzet');
@@ -304,7 +325,7 @@ describe('Flota rezerwacje sprzetu', () => {
         caly_dzien: true,
         status: 'Zarezerwowane',
       });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     expect(res.body).toEqual({ id: 42 });
     const insertSql = pool.query.mock.calls[3][0];
     expect(insertSql).toContain('INSERT INTO equipment_reservations');
@@ -332,7 +353,7 @@ describe('Flota rezerwacje sprzetu', () => {
         task_id: 55,
         notatki: 'Plan zlecenia #55',
       });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     expect(res.body).toEqual({ id: 77 });
     expect(pool.query).toHaveBeenCalledWith('SELECT id, oddzial_id FROM tasks WHERE id = $1', [55]);
     const insertCall = pool.query.mock.calls.find(([sql]) =>
@@ -356,6 +377,7 @@ describe('Flota rezerwacje sprzetu', () => {
         ekipa_id: 3,
         data_od: '2026-06-10',
         data_do: '2026-06-10',
+        status: 'Zarezerwowane',
       });
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('rezerwacje_not_migrated');

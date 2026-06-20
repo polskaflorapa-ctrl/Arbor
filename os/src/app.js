@@ -64,6 +64,14 @@ const trackRoutes = require('./routes/track');
 const demoRequestsRoutes = require('./routes/demoRequests');
 const magazynRoutes = require('./routes/magazyn');
 
+const buildMobileConfigPayload = () => ({
+  version: API_VERSION,
+  apiVersion: API_VERSION,
+  appFlags: { ...API_FEATURES },
+  oddzialFeatureOverrides: {},
+  generatedAt: new Date().toISOString(),
+});
+
 const createApp = () => {
   assertProductionSecurityConfig(env);
 
@@ -237,11 +245,11 @@ const createApp = () => {
   // Accepts optional Bearer auth; returns empty config if none configured yet.
   app.get('/api/mobile-config', (req, res) => {
     res.setHeader('X-Api-Version', API_VERSION);
-    res.json({});
+    res.json(buildMobileConfigPayload());
   });
   app.get('/api/config/mobile', (req, res) => {
     res.setHeader('X-Api-Version', API_VERSION);
-    res.json({});
+    res.json(buildMobileConfigPayload());
   });
 
   app.get('/', (req, res) => {
@@ -353,4 +361,4 @@ const createApp = () => {
   return app;
 };
 
-module.exports = { createApp };
+module.exports = { createApp, buildMobileConfigPayload };

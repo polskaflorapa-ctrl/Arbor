@@ -9,14 +9,20 @@ Use this before TestFlight, App Store review, or Google Play internal testing.
 - [ ] Android package is final: `com.arbor.mobile`.
 - [ ] App icon and adaptive Android icon render correctly.
 - [ ] Splash screen matches the current brand and is readable in light/dark mode.
-- [ ] Support URL, marketing URL, and privacy policy URL are ready.
+- [x] Store metadata source exists: `mobile/config/store-metadata.json`.
+- [x] Support URL is ready: `https://arbo-os.com/support.html`.
+- [x] Marketing URL is ready: `https://arbo-os.com`.
+- [x] Privacy policy URL is ready: `https://arbo-os.com/privacy.html`.
+- [ ] Product owner and legal/privacy owner reviewed the privacy notice before public submission.
 
 ## Review Access
 
 - [ ] Reviewer test account exists.
 - [ ] Reviewer account has field worker permissions.
 - [ ] Reviewer account has safe demo/test data.
-- [ ] Login instructions are written in the review notes.
+- [x] Login instructions template is written in `mobile/config/store-metadata.json`.
+- [ ] Reviewer-specific username/password are added to the store review notes at submission time.
+- [x] Backend environment used for review is documented in `mobile/config/store-metadata.json`.
 - [ ] Backend environment used for review will stay available during review.
 
 ## Permission Review Notes
@@ -47,6 +53,7 @@ Use this before TestFlight, App Store review, or Google Play internal testing.
 
 ## Submission Gates
 
+- [ ] `npm run release:store-check` passed.
 - [ ] `npm run release:check` passed.
 - [ ] `npm run release:eas-doctor` passed.
 - [ ] Preview build completed and was installed on a real iPhone.

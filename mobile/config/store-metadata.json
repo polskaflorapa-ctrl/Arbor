@@ -1,0 +1,28 @@
+{
+  "appName": "Arbor Mobile",
+  "bundleIdentifier": "com.arbor.mobile",
+  "androidPackage": "com.arbor.mobile",
+  "marketingUrl": "https://arbo-os.com",
+  "supportUrl": "https://arbo-os.com/support.html",
+  "privacyPolicyUrl": "https://arbo-os.com/privacy.html",
+  "reviewNotes": {
+    "loginInstructions": "Use the reviewer field-worker account prepared by the release owner. The account must contain safe demo data and field-worker permissions before submission.",
+    "backendAvailability": "The production API at https://arbor-os-b7k6.onrender.com/api must stay available for the full review window.",
+    "permissionSummary": "Camera and photo access document jobs and inspections. Location supports crew scheduling and field operations. Push notifications deliver operational job updates. Face ID protects the app when privacy lock is enabled."
+  },
+  "privacyLabels": {
+    "location": "Used for crew and estimator positions in scheduling and field operations.",
+    "photos": "Used for job evidence, inspections, protocols, sketches, and materials.",
+    "userIdentifiers": "Used for authenticated field-worker accounts and operational audit trails.",
+    "diagnostics": "Used for crash and error investigation when production monitoring is enabled."
+  },
+  "manualGates": [
+    "legal-review",
+    "reviewer-test-account",
+    "store-screenshots",
+    "real-device-qa",
+    "privacy-label-owner-approval",
+    "production-crash-monitoring-confirmed"
+  ],
+  "legalReviewRequired": true
+}

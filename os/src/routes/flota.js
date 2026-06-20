@@ -627,7 +627,7 @@ const rezerwacjaPostBodySchema = z.object({
   caly_dzien: z.boolean().optional().default(true),
   task_id: z.coerce.number().int().positive().optional().nullable(),
   notatki: z.string().max(1000).optional().nullable(),
-  status: z.enum(['Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane']).optional().default('Zarezerwowane'),
+  status: z.enum(['Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane']),
 });
 
 const rezerwacjaStatusBodySchema = z.object({
@@ -769,7 +769,7 @@ router.post('/rezerwacje', authMiddleware, validateBody(rezerwacjaPostBodySchema
       insertParams = [...insertParams, taskId, note];
     }
     const ins = await pool.query(insertSql, insertParams);
-    res.json({ id: ins.rows[0].id });
+    res.status(201).json({ id: ins.rows[0].id });
   } catch (err) {
     if (err.code === '42P01') {
       return res.status(404).json({ error: 'rezerwacje_not_migrated' });

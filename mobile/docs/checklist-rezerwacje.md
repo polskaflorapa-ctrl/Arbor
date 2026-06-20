@@ -1,69 +1,81 @@
-# Checklist: rezerwacje sprzętu (backend + mobile)
+# Checklist: rezerwacje sprzetu (backend + mobile)
 
-Repozytorium zawiera aplikację **Expo/React Native**; backend jest osobną usługą (np. Render — `arbor-os`). Kontrakt żądań jest spójny z `config/flota-rezerwacje-api.example.json` oraz z kodem w `utils/sprzet-rezerwacje.ts` i ekranie `app/rezerwacje-sprzetu.tsx`.
+Repozytorium zawiera aplikacje Expo/React Native oraz produkcyjny backend `arbor-os`.
+Kontrakt zadan jest spiety z kodem w `mobile/utils/sprzet-rezerwacje.ts`,
+ekranem `mobile/app/rezerwacje-sprzetu.tsx` oraz backendiem `os/src/routes/flota.js`.
+
+Automatyczna bramka kontraktu:
+
+```bash
+npm run verify:mobile-reservations-api
+```
 
 ---
 
-## A. Backend — endpointy pod `API_URL` (prefix `/api`)
+## A. Backend - endpointy pod `API_URL` (prefix `/api`)
 
 ### 1. Model i baza
 
-- [ ] Tabela (lub kolekcja) z polami zgodnymi z mobile: `sprzet_id`, `ekipa_id`, `data_od`, `data_do`, `caly_dzien`, `status`, ewentualnie `oddzial_id` (jeśli izolacja jak przy `/flota/sprzet`), znaczniki czasu, `id`.
-- [ ] Statusy dokładnie jak w aplikacji: `Zarezerwowane` | `Wydane` | `Zwrócone` | `Anulowane` (albo enum z mapowaniem — jedna strona prawdy w kontrakcie).
+- [x] Tabela (lub kolekcja) z polami zgodnymi z mobile: `sprzet_id`, `ekipa_id`, `data_od`, `data_do`, `caly_dzien`, `status`, `oddzial_id`, znaczniki czasu, `id`.
+- [x] Statusy dokladnie jak w aplikacji: `Zarezerwowane` | `Wydane` | `Zwrócone` | `Anulowane`.
 
 ### 2. `GET /flota/rezerwacje`
 
-- [ ] Query: `from`, `to` w formacie `YYYY-MM-DD` (zgodnie z wywołaniami z mobile i sondą w diagnostyce API).
-- [ ] Odpowiedź: **tablica** JSON **lub** obiekt `{ "rezerwacje": [...] }` — mobile obsługuje oba warianty.
-- [ ] Filtrowanie po oddziale / uprawnieniach użytkownika z tokenu (spójnie z `/flota/sprzet` i `/ekipy`).
-- [ ] `401` / `403` gdy brak tokenu lub brak uprawnień.
+- [x] Query: `from`, `to` w formacie `YYYY-MM-DD`.
+- [x] Odpowiedz: **tablica** JSON, zgodna z elastycznym parserem mobile.
+- [x] Filtrowanie po oddziale / uprawnieniach uzytkownika z tokenu, spojnie z `/flota/sprzet`.
+- [x] `401` / `403` gdy brak tokenu lub brak uprawnien.
 
 ### 3. `POST /flota/rezerwacje`
 
-- [ ] Body: `{ "sprzet_id", "ekipa_id", "data_od", "data_do", "caly_dzien", "status" }` — pole **status** obowiązkowe (przy braku: `400` z czytelnym polem `error` lub podobnym).
-- [ ] Odpowiedź sukcesu: `201` + JSON z **`id`** utworzonego rekordu (mobile odczytuje `id`).
-- [ ] Opcjonalnie: reguła antykonfliktowa (ten sam sprzęt, nakładające się daty) → `409` lub `400` z komunikatem.
+- [x] Body: `{ "sprzet_id", "ekipa_id", "data_od", "data_do", "caly_dzien", "status" }`; pole `status` jest obowiazkowe.
+- [x] Odpowiedz sukcesu: `201` + JSON z `id` utworzonego rekordu.
+- [x] Regula antykonfliktowa: ten sam sprzet i nakladajace sie aktywne daty zwracaja `409`.
+- [x] Backend blokuje sprzet po terminie przegladu albo w naprawie/serwisie.
 
 ### 4. `PUT /flota/rezerwacje/:id/status`
 
-- [ ] Body: `{ "status" }` z jednym z dozwolonych statusów.
-- [ ] `404` gdy brak rekordu lub rekord poza zakresem oddziału/użytkownika.
-- [ ] `200` po udanej zmianie.
+- [x] Body: `{ "status" }` z jednym z dozwolonych statusow.
+- [x] `404` gdy brak rekordu lub rekord poza zakresem oddzialu/uzytkownika.
+- [x] `200` po udanej zmianie.
 
 ### 5. Deploy i weryfikacja
 
-- [ ] Wdrożenie na środowisko testowe → w aplikacji: **Diagnostyka API** — sonda `GET /flota/rezerwacje` powinna zwracać **200** (nie wyłącznie `404`).
-- [ ] Jeśli używacie wersjonowania API (`/mobile-config`, nagłówki itd.) — podbić wersję i ewentualnie `EXPO_PUBLIC_EXPECTED_API_VERSION` w buildach mobilnych.
+- [x] Kod i testy potwierdzaja, ze sonda `GET /flota/rezerwacje` nie jest tylko fallbackiem `404`.
+- [x] Kontrakt jest objety `npm run verify:mobile-reservations-api` oraz `npm run verify:contracts`.
+- [ ] Staging/live: w aplikacji **Diagnostyka API** sonda `GET /flota/rezerwacje` powinna zwracac `200` dla konta z wlaczonym modulem.
 
-### 6. Zgodność z kolejką offline (mobile)
+### 6. Zgodnosc z kolejka offline (mobile)
 
-- [ ] `POST /flota/rezerwacje` oraz `PUT /flota/rezerwacje/:id/status` akceptują ten sam kształt JSON, jaki trafia z `utils/offline-queue.ts` (bez dodatkowych pól wymaganych tylko z innych klientów).
-- [ ] Opcjonalnie: idempotencja powtórzonego `POST` po reconnect (unikalny klucz biznesowy lub świadome dopuszczenie duplikatów).
-
----
-
-## B. Mobile — po wdrożeniu API
-
-- [ ] **Staging:** konto z oddziałem mającym w macierzy `/rezerwacje-sprzetu` → utworzenie rezerwacji → zmiana statusu → zmiana miesiąca i powrót — dane muszą pochodzić z serwera (nie tylko z pamięci lokalnej).
-- [ ] **Obsługa błędów:** rozróżnienie „endpoint nie istnieje (`404`)" od „walidacja / konflikt (`400`/`409`)" — użytkownik powinien widzieć sensowny komunikat zamiast zawsze wpadać w tryb wyłącznie lokalny.
-- [ ] **Kolejka offline:** scenariusz bez sieci → zapis rezerwacji → przywrócenie sieci i synchronizacja (np. z profilu / diagnostyki) → rekord pojawia się po stronie API.
+- [x] `POST /flota/rezerwacje` oraz `PUT /flota/rezerwacje/:id/status` akceptuja ksztalt JSON wysylany przez `mobile/utils/sprzet-rezerwacje.ts`.
+- [x] Mobile rozroznia `404 notImplemented` od bledow walidacji/konfliktu i nie myli braku endpointu z konfliktem danych.
+- [ ] Staging/live: scenariusz bez sieci -> zapis rezerwacji -> przywrocenie sieci -> synchronizacja po stronie API.
 
 ---
 
-## C. Kolejne pomysły produktowe (priorytet wg potrzeb)
+## B. Mobile - po wdrozeniu API
 
-- [ ] Filtr „tylko moja ekipa” dla ról terenowych.
-- [ ] Skrót z **Misji dnia** lub **Harmonogramu**: rezerwacje na wybrany dzień (np. jutro).
-- [ ] Opcjonalne powiązanie ze **zleceniem** (`zlecenie_id`) — po ustaleniu procesu i migracji API.
+- [ ] Staging: konto z oddzialem majacym w macierzy `/rezerwacje-sprzetu` -> utworzenie rezerwacji -> zmiana statusu -> zmiana miesiaca i powrot; dane musza pochodzic z serwera.
+- [ ] Obsluga bledow: walidacja/konflikt `400`/`409` pokazuje sensowny komunikat, zamiast zawsze przechodzic w tryb tylko lokalny.
+- [ ] Kolejka offline: rekord zapisany offline pojawia sie po stronie API po synchronizacji.
 
 ---
 
-## Powiązane pliki w tym repo
+## C. Kolejne pomysly produktowe
+
+- [ ] Filtr "tylko moja ekipa" dla rol terenowych.
+- [x] Skrot z **Misji dnia** lub **Harmonogramu**: rezerwacje na wybrany dzien.
+- [x] Opcjonalne powiazanie ze **zleceniem** (`task_id`) w API i UI.
+
+---
+
+## Powiazane pliki w tym repo
 
 | Plik | Rola |
 |------|------|
-| `config/flota-rezerwacje-api.example.json` | Przykładowy kontrakt REST |
-| `utils/sprzet-rezerwacje.ts` | Klient API + magazyn lokalny |
-| `app/rezerwacje-sprzetu.tsx` | Ekran użytkownika |
-| `app/api-diagnostyka.tsx` | Sonda `GET /flota/rezerwacje` (bieżący miesiąc) |
-| `config/oddzial-feature-matrix.json` | Dostęp do modułu po oddziale (`/rezerwacje-sprzetu`) |
+| `os/src/routes/flota.js` | Produkcyjne endpointy `GET/POST/PUT/PATCH /flota/rezerwacje` |
+| `os/tests/flota-rezerwacje.test.js` | Testy auth, scope, walidacji, konfliktow, `201` i statusow |
+| `mobile/utils/sprzet-rezerwacje.ts` | Klient API + magazyn lokalny |
+| `mobile/app/rezerwacje-sprzetu.tsx` | Ekran uzytkownika |
+| `mobile/app/api-diagnostyka.tsx` | Sonda `GET /flota/rezerwacje` |
+| `mobile/config/oddzial-feature-matrix.json` | Dostep do modulu po oddziale (`/rezerwacje-sprzetu`) |

@@ -16,6 +16,12 @@ For a faster local sanity check while iterating, use:
 npm run release:check:quick
 ```
 
+Check store metadata, public support/privacy pages, review notes, and manual store gates:
+
+```bash
+npm run release:store-check
+```
+
 To print the current Android/iOS preview status and next operator actions:
 
 ```bash
@@ -40,7 +46,7 @@ Optional backend smoke:
 SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 ```
 
-`release:check` verifies release metadata, EAS profiles, release docs, Expo public config generation, typecheck, lint, offline queue tests, Metro iOS/Android bundle resolution, and high/critical production dependency advisories. `release:check:quick` runs the same gate but skips the slow Metro export. `release:eas-doctor` verifies that the current shell can run EAS, is logged in, and can access the Expo project.
+`release:check` verifies release metadata, EAS profiles, release docs, Expo public config generation, typecheck, lint, offline queue tests, Metro iOS/Android bundle resolution, and high/critical production dependency advisories. `release:check:quick` runs the same gate but skips the slow Metro export. `release:store-check` verifies store metadata, public support/privacy pages, review-note scaffolding, and manual gate tracking. `release:eas-doctor` verifies that the current shell can run EAS, is logged in, and can access the Expo project.
 
 Check release metadata:
 
@@ -123,6 +129,8 @@ Before TestFlight, App Store review, or Google Play internal testing, complete:
 
 - `docs/mobile-store-readiness-checklist.md`
 
+The checklist is backed by store metadata in `config/store-metadata.json` and the public web pages `web/public/support.html` and `web/public/privacy.html`.
+
 Do not promote the build if any of these fail:
 
 - login/session restore
@@ -137,6 +145,7 @@ Do not promote the build if any of these fail:
 
 Before submit:
 
+- [ ] `npm run release:store-check` is green.
 - [ ] `npm run release:check` is green.
 - [ ] `npm run release:eas-doctor` is green on the release operator machine.
 - [ ] Device QA checklist is complete.

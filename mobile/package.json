@@ -31,6 +31,7 @@
     "smoke:mobile": "node ./scripts/smoke-mobile-release.cjs",
     "release:check:quick": "node -e \"process.env.SKIP_METRO_BUNDLE='1'; require('./scripts/check-mobile-release-ready.cjs')\"",
     "release:check": "node ./scripts/check-mobile-release-ready.cjs",
+    "release:store-check": "node ../scripts/mobile-store-readiness-check.cjs",
     "release:status": "node ./scripts/mobile-release-status.cjs",
     "audit:functional": "node ./scripts/mobile-functional-audit.cjs",
     "qa:note": "node ./scripts/create-device-qa-note.cjs",
