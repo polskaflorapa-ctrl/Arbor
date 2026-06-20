@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   buildRecommendedActions,
   buildProductionReadinessReport,
+  customDomainGate,
   deployHookGate,
   extractLiveSmokeArgs,
   parseArgs,
@@ -15,6 +16,8 @@ test("production readiness args accept live URLs, timeout, JSON, and local skip"
   const options = parseArgs([
     "--web",
     "https://web.example.com/",
+    "--custom-web",
+    "https://custom.example.com/",
     "--api",
     "https://api.example.com/api/",
     "--timeout-ms",
@@ -24,6 +27,7 @@ test("production readiness args accept live URLs, timeout, JSON, and local skip"
   ]);
 
   assert.equal(options.webUrl, "https://web.example.com/");
+  assert.equal(options.customWebUrl, "https://custom.example.com/");
   assert.equal(options.apiBaseUrl, "https://api.example.com/api");
   assert.equal(options.timeoutMs, 1234);
   assert.equal(options.skipLocal, true);
@@ -35,6 +39,7 @@ test("production readiness args accept live URLs, timeout, JSON, and local skip"
 test("production readiness args accept equals-style live smoke flags", () => {
   const options = parseArgs([
     "--web=https://web.example.com/app",
+    "--custom-web=https://custom.example.com/app",
     "--api=https://api.example.com/api/",
     "--timeout-ms=2345",
     "--expected-build=build-888",
@@ -42,6 +47,7 @@ test("production readiness args accept equals-style live smoke flags", () => {
   ]);
 
   assert.equal(options.webUrl, "https://web.example.com/app");
+  assert.equal(options.customWebUrl, "https://custom.example.com/app");
   assert.equal(options.apiBaseUrl, "https://api.example.com/api");
   assert.equal(options.timeoutMs, 2345);
   assert.equal(options.expectedBuild, "build-888");
@@ -52,6 +58,7 @@ test("production readiness forwards only live smoke flags to live parser", () =>
   assert.deepEqual(
     extractLiveSmokeArgs([
       "--web=https://web.example.com/app",
+      "--custom-web=https://custom.example.com/app",
       "--skip-remote",
       "--api",
       "https://api.example.com/api/",
@@ -71,10 +78,11 @@ test("production readiness forwards only live smoke flags to live parser", () =>
 });
 
 test("production readiness args accept remote and slow-local skip aliases", () => {
-  const options = parseArgs(["--skip-remote", "--skip-slow-local"]);
+  const options = parseArgs(["--skip-remote", "--skip-slow-local", "--skip-custom-domain"]);
 
   assert.equal(options.skipRemote, true);
   assert.equal(options.skipLocal, true);
+  assert.equal(options.skipCustomDomain, true);
 });
 
 test("production readiness args expose help mode", () => {
@@ -86,6 +94,7 @@ test("production readiness args reject unknown flags and missing values", () => 
   assert.throws(() => parseArgs(["--wat"]), /Unknown argument: --wat/);
   assert.throws(() => parseArgs(["--skip-remtoe"]), /Unknown argument: --skip-remtoe/);
   assert.throws(() => parseArgs(["--web"]), /Missing value for --web/);
+  assert.throws(() => parseArgs(["--custom-web"]), /Missing value for --custom-web/);
   assert.throws(() => parseArgs(["--api", "--skip-local"]), /Missing value for --api/);
 });
 
@@ -114,6 +123,23 @@ test("production readiness deploy hook gate reports missing Render hook as warni
   assert.equal(deployHookGate({}).status, "warn");
   assert.match(deployHookGate({}).detail, /missing/);
   assert.equal(deployHookGate({ RENDER_WEB_DEPLOY_HOOK_URL: "https://api.render.com/deploy/srv-1" }).status, "ok");
+});
+
+test("production readiness custom domain gate checks build marker", async () => {
+  const gate = await customDomainGate({
+    customWebUrl: "https://custom.example.com",
+    expectedBuild: "abc1234",
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      async text() {
+        return '<title>Polska Flora</title><meta name="arbor-web-build" content="abc1234">';
+      },
+    }),
+  });
+
+  assert.equal(gate.status, "ok");
+  assert.match(gate.detail, /custom.example.com/);
 });
 
 test("production readiness command gate captures command failures", () => {
@@ -157,6 +183,7 @@ test("production readiness report includes the expected web build marker", async
   });
 
   assert.equal(report.expectedBuild, "abc1234");
+  assert.equal(report.customWebUrl, "https://arbo-os.com");
   assert.equal(report.summary.status, "ready");
 });
 
@@ -195,4 +222,21 @@ test("production readiness actions explain missing hook and stale live build", (
   assert.match(actions[0], /RENDER_WEB_DEPLOY_HOOK_URL/);
   assert.match(actions[1], /deploy:render:web:wait -- --expected-build abc1234/);
   assert.match(actions[2], /status:production/);
+});
+
+test("production readiness actions explain stale custom domain", () => {
+  const actions = buildRecommendedActions({
+    expectedBuild: "abc1234",
+    gates: [
+      {
+        name: "custom-domain-live-smoke",
+        status: "fail",
+        detail: "Web build marker mismatch: expected abc1234, got old1234.",
+      },
+    ],
+  });
+
+  assert.equal(actions.length, 2);
+  assert.match(actions[0], /custom domain cache/);
+  assert.match(actions[1], /custom-domain smoke/);
 });

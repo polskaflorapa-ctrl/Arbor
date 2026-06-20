@@ -1,17 +1,20 @@
 const { spawnSync } = require("node:child_process");
 const {
+  assertWebLooksCurrent,
   DEFAULT_API_BASE_URL,
   DEFAULT_WEB_URL,
   parseArgs: parseLiveSmokeArgs,
   runRenderUnifiedLiveSmoke,
 } = require("./render-unified-live-smoke.cjs");
 
+const DEFAULT_CUSTOM_WEB_URL = "https://arbo-os.com";
+
 const LOCAL_GATES = [
   { name: "render-unified-config", command: "npm", args: ["run", "verify:render-unified"] },
   { name: "polska-flora-contract", command: "npm", args: ["run", "verify:polska-flora-ready"] },
 ];
 
-const VALUE_ARGS = new Set(["--web", "--api", "--timeout-ms", "--expected-build"]);
+const VALUE_ARGS = new Set(["--web", "--api", "--custom-web", "--timeout-ms", "--expected-build"]);
 const BOOLEAN_ARGS = new Set([
   "--any-build",
   "--skip-local",
@@ -19,6 +22,7 @@ const BOOLEAN_ARGS = new Set([
   "--skip-remote",
   "--skip-live",
   "--skip-remote-smoke",
+  "--skip-custom-domain",
   "--json",
   "--help",
   "-h",
@@ -47,17 +51,31 @@ function extractLiveSmokeArgs(argv = []) {
   const liveArgs = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === "--custom-web") {
+      index += 1;
+      continue;
+    }
     if (VALUE_ARGS.has(arg)) {
       liveArgs.push(arg, argv[index + 1]);
       index += 1;
       continue;
     }
     const eqIndex = String(arg).indexOf("=");
+    if (eqIndex > 0 && String(arg).slice(0, eqIndex) === "--custom-web") continue;
     if ((eqIndex > 0 && VALUE_ARGS.has(String(arg).slice(0, eqIndex))) || arg === "--any-build") {
       liveArgs.push(arg);
     }
   }
   return liveArgs;
+}
+
+function extractValueArg(argv = [], flag, fallback = "") {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = String(argv[index]);
+    if (arg === flag) return argv[index + 1] || fallback;
+    if (arg.startsWith(`${flag}=`)) return arg.slice(flag.length + 1);
+  }
+  return fallback;
 }
 
 function parseArgs(argv = process.argv.slice(2)) {
@@ -67,6 +85,8 @@ function parseArgs(argv = process.argv.slice(2)) {
     ...liveOptions,
     skipLocal: argv.includes("--skip-local") || argv.includes("--skip-slow-local"),
     skipRemote: argv.includes("--skip-remote") || argv.includes("--skip-live") || argv.includes("--skip-remote-smoke"),
+    skipCustomDomain: argv.includes("--skip-custom-domain"),
+    customWebUrl: extractValueArg(argv, "--custom-web", DEFAULT_CUSTOM_WEB_URL),
     json: argv.includes("--json"),
     help: argv.includes("--help") || argv.includes("-h"),
   };
@@ -77,6 +97,7 @@ function printHelp() {
 
 Options:
   --web <url>              Public web URL to check
+  --custom-web <url>       Custom production domain to check (default: ${DEFAULT_CUSTOM_WEB_URL})
   --api <url>              Public API base URL to check
   --expected-build <sha>   Require the live web build marker to match this value
   --any-build              Skip exact live web build marker matching
@@ -86,6 +107,7 @@ Options:
   --skip-remote            Skip Render deploy hook and live web/API smoke gates
   --skip-live              Alias for --skip-remote
   --skip-remote-smoke      Alias for --skip-remote
+  --skip-custom-domain     Skip custom production domain smoke gate
   --json                   Print JSON report
   --help, -h               Print this help
 `);
@@ -104,6 +126,7 @@ function buildRecommendedActions(reportLike) {
   const actions = [];
   const hookGate = gates.find((gate) => gate.name === "render-web-deploy-hook");
   const liveGate = gates.find((gate) => gate.name === "render-live-smoke");
+  const customDomainGate = gates.find((gate) => gate.name === "custom-domain-live-smoke");
   const expectedBuild = reportLike.expectedBuild;
 
   if (hookGate?.status === "warn") {
@@ -118,6 +141,13 @@ function buildRecommendedActions(reportLike) {
       actions.push(`Trigger latest web redeploy: npm run deploy:render:web:wait${expectedFlag}`);
     }
     actions.push("After Render finishes, rerun: npm run status:production -- --skip-local");
+  }
+
+  if (customDomainGate?.status === "fail") {
+    if (/build marker mismatch|old ARBOR-OS build/i.test(customDomainGate.detail || "")) {
+      actions.push("After Render redeploy, purge/refresh the custom domain cache and verify arbo-os.com serves the same build marker.");
+    }
+    actions.push("Rerun custom-domain smoke: npm run status:production -- --skip-local");
   }
 
   return actions;
@@ -167,6 +197,28 @@ async function liveRenderGate(options = {}) {
   }
 }
 
+async function customDomainGate(options = {}) {
+  const customWebUrl = options.customWebUrl || DEFAULT_CUSTOM_WEB_URL;
+  try {
+    const result = await assertWebLooksCurrent({
+      ...options,
+      webUrl: customWebUrl,
+    });
+    return {
+      name: "custom-domain-live-smoke",
+      status: "ok",
+      detail: `Custom domain ${customWebUrl} is live (build=${result.build || "unknown"}).`,
+      result,
+    };
+  } catch (error) {
+    return {
+      name: "custom-domain-live-smoke",
+      status: "fail",
+      detail: error.message,
+    };
+  }
+}
+
 async function buildProductionReadinessReport(options = {}) {
   const gates = [];
   if (!options.skipLocal) {
@@ -177,11 +229,15 @@ async function buildProductionReadinessReport(options = {}) {
   if (!options.skipRemote) {
     gates.push(deployHookGate(options.env || process.env));
     gates.push(await liveRenderGate(options));
+    if (!options.skipCustomDomain) {
+      gates.push(await customDomainGate(options));
+    }
   }
 
   const report = {
     generatedAt: new Date().toISOString(),
     webUrl: options.webUrl || DEFAULT_WEB_URL,
+    customWebUrl: options.skipCustomDomain ? null : options.customWebUrl || DEFAULT_CUSTOM_WEB_URL,
     apiBaseUrl: options.apiBaseUrl || DEFAULT_API_BASE_URL,
     expectedBuild: options.expectedBuild || null,
     summary: summarizeReadiness(gates),
@@ -194,6 +250,7 @@ async function buildProductionReadinessReport(options = {}) {
 function printTextReport(report) {
   console.log(`[production-readiness] ${report.summary.status}`);
   console.log(`[production-readiness] Web: ${report.webUrl}`);
+  if (report.customWebUrl) console.log(`[production-readiness] Custom web: ${report.customWebUrl}`);
   console.log(`[production-readiness] API: ${report.apiBaseUrl}`);
   if (report.expectedBuild) console.log(`[production-readiness] Expected web build: ${report.expectedBuild}`);
   for (const gate of report.gates) {
@@ -231,13 +288,16 @@ if (require.main === module) {
 
 module.exports = {
   LOCAL_GATES,
+  DEFAULT_CUSTOM_WEB_URL,
   parseArgs,
   extractLiveSmokeArgs,
+  extractValueArg,
   summarizeReadiness,
   buildRecommendedActions,
   runCommandGate,
   deployHookGate,
   liveRenderGate,
+  customDomainGate,
   buildProductionReadinessReport,
   printHelp,
 };
