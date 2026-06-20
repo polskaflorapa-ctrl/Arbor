@@ -12,7 +12,7 @@ import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
-import { Check, CheckCheck, Plus, Send, Trash2, X } from 'lucide-react';
+import { BellOff, Check, CheckCheck, Plus, Send, Trash2, X } from 'lucide-react';
 
 
 const TYP_META = [
@@ -194,9 +194,9 @@ export default function Powiadomienia() {
   const routeBriefPendingCount = powiadomienia.filter((n) => isRouteBriefNotification(n) && n.status === 'Nowe').length;
 
   return (
-    <div className="notifications-shell" style={styles.container}>
-      <CommandSidebar active="dashboard" />
-      <div className="notifications-main" style={styles.main}>
+    <div className="app-shell command-os-shell notifications-shell" style={styles.container}>
+      <CommandSidebar active="notifications" />
+      <main className="app-main command-content-main notifications-main" style={styles.main}>
         {/* Nagłówek */}
         <PageHeader
           variant="plain"
@@ -303,7 +303,10 @@ export default function Powiadomienia() {
           {loading ? (
             <div style={styles.loading}>{t('pages.powiadomienia.loading')}</div>
           ) : powiadomienia.length === 0 ? (
-            <div style={styles.empty}>
+            <div className="notifications-empty" style={styles.empty}>
+              <div className="notifications-empty-icon">
+                <BellOff size={42} strokeWidth={1.8} aria-hidden />
+              </div>
               <div style={styles.emptyIcon}>🔔</div>
               <p>{t('pages.powiadomienia.emptyTitle')}</p>
               <p style={styles.emptySub}>{t('pages.powiadomienia.emptyHint')}</p>
@@ -396,7 +399,7 @@ export default function Powiadomienia() {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -438,7 +441,7 @@ const styles = {
   unreadBadge: { backgroundColor: '#F9A825', color: '#fff', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: '600' },
   loading: { textAlign: 'center', padding: 40, color: 'var(--text-muted)' },
   empty: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
-  emptyIcon: { fontSize: 48, marginBottom: 12, opacity: 0.5 },
+  emptyIcon: { display: 'none' },
   emptySub: { fontSize: 12, marginTop: 4, opacity: 0.7 },
   notifItem: { display: 'flex', gap: 12, padding: '16px', borderRadius: 8, marginBottom: 12, border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.72)', transition: 'all 0.2s', '&:hover': { boxShadow: 'var(--shadow-sm)' } },
   notifIcon: { fontSize: 28, flexShrink: 0 },

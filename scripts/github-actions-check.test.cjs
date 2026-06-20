@@ -112,6 +112,24 @@ test("GitHub Actions check validates deploy workflows and production gates", () 
   });
 });
 
+test("GitHub Actions check forbids skipping mobile release status in deploy-prod", () => {
+  withFixture((root) => {
+    const repoRoot = path.resolve(__dirname, "..");
+    const deployProd = fs
+      .readFileSync(path.join(repoRoot, ".github/workflows/deploy-prod.yml"), "utf8")
+      .replace('--expected-build "$EXPECTED_BUILD"', '--expected-build "$EXPECTED_BUILD" --skip-mobile-release-status');
+    const deployReady = fs.readFileSync(path.join(repoRoot, ".github/workflows/deploy-ready.yml"), "utf8");
+
+    writeFixtureFile(root, ".github/workflows/deploy-prod.yml", deployProd);
+    writeFixtureFile(root, ".github/workflows/deploy-ready.yml", deployReady);
+
+    assert.throws(
+      () => runGithubActionsCheck({ root }),
+      /--skip-mobile-release-status/,
+    );
+  });
+});
+
 test("GitHub Actions check reports missing production readiness command", () => {
   withFixture((root) => {
     writeFixtureFile(

@@ -7234,3 +7234,147 @@ body.theme-dark #root .arbor-sidebar {
     width: 100% !important;
   }
 }
+
+/* Final authenticated module alignment: keeps production modules calm and consistent. */
+#root .app-shell:not(.login-shell):not(.explore-command-shell),
+#root .notifications-shell {
+  --pf-shell-text: #17231b;
+  --pf-shell-muted: #617064;
+  --pf-shell-line: rgba(35, 66, 44, 0.12);
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f5f8f4 0%, #edf3ee 100%) !important;
+  color: var(--pf-shell-text) !important;
+}
+
+#root .app-shell:not(.login-shell):not(.explore-command-shell) > .app-main,
+#root .notifications-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 24px !important;
+  background: transparent !important;
+  color: var(--pf-shell-text) !important;
+}
+
+#root .app-main > .module-page-header,
+#root .app-main > .module-page-header-plain,
+#root .app-main > .module-page-header-hero,
+#root .notifications-main > .module-page-header,
+#root .notifications-main > .module-page-header-plain,
+#root .notifications-main > .module-page-header-hero {
+  min-height: auto !important;
+  margin: 0 0 18px !important;
+  padding: 18px 20px !important;
+  overflow: hidden !important;
+  border: 1px solid var(--pf-shell-line) !important;
+  border-left: 4px solid #178548 !important;
+  border-radius: 8px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 247, 0.92)) !important;
+  box-shadow: 0 16px 34px rgba(19, 48, 30, 0.07) !important;
+  color: var(--pf-shell-text) !important;
+}
+
+#root .app-main > .module-page-header::after,
+#root .app-main > .module-page-header-plain::after,
+#root .app-main > .module-page-header-hero::after,
+#root .notifications-main > .module-page-header::after,
+#root .notifications-main > .module-page-header-plain::after,
+#root .notifications-main > .module-page-header-hero::after {
+  content: none !important;
+  display: none !important;
+}
+
+#root .app-main > .module-page-header h1,
+#root .app-main > .module-page-header-plain h1,
+#root .app-main > .module-page-header-hero h1,
+#root .notifications-main > .module-page-header h1,
+#root .notifications-main > .module-page-header-plain h1,
+#root .notifications-main > .module-page-header-hero h1 {
+  color: var(--pf-shell-text) !important;
+  -webkit-text-fill-color: var(--pf-shell-text) !important;
+  font-size: 30px !important;
+  line-height: 1.12 !important;
+  text-shadow: none !important;
+}
+
+#root .app-main > .module-page-header p,
+#root .app-main > .module-page-header-plain p,
+#root .app-main > .module-page-header-hero p,
+#root .notifications-main > .module-page-header p,
+#root .notifications-main > .module-page-header-plain p,
+#root .notifications-main > .module-page-header-hero p {
+  color: var(--pf-shell-muted) !important;
+}
+
+#root .app-main > .module-page-header button,
+#root .app-main > .module-page-header-plain button,
+#root .app-main > .module-page-header-hero button,
+#root .notifications-main > .module-page-header button,
+#root .notifications-main > .module-page-header-plain button,
+#root .notifications-main > .module-page-header-hero button {
+  border-radius: 8px !important;
+}
+
+#root .notifications-card {
+  min-height: auto !important;
+}
+
+#root .notifications-empty {
+  display: grid !important;
+  place-items: center !important;
+  min-height: 280px !important;
+  padding: 34px 18px !important;
+  color: var(--pf-shell-muted) !important;
+}
+
+#root .notifications-empty-icon {
+  width: 58px !important;
+  height: 58px !important;
+  display: grid !important;
+  place-items: center !important;
+  margin-bottom: 12px !important;
+  border-radius: 8px !important;
+  background: #eef7ef !important;
+  color: #178548 !important;
+  opacity: 1 !important;
+}
+
+#root .command-native-brand strong {
+  font-size: 18px !important;
+}
+
+#root .command-native-brand small {
+  color: rgba(255, 255, 255, 0.68) !important;
+}
+
+@media (max-width: 900px) {
+  #root .app-shell:not(.login-shell):not(.explore-command-shell) > .app-main,
+  #root .notifications-main {
+    width: calc(100vw - 60px) !important;
+    max-width: calc(100vw - 60px) !important;
+    margin-left: 60px !important;
+    margin-right: 0 !important;
+    padding: 14px 10px 26px !important;
+  }
+
+  #root .app-main > .module-page-header,
+  #root .app-main > .module-page-header-plain,
+  #root .app-main > .module-page-header-hero,
+  #root .notifications-main > .module-page-header,
+  #root .notifications-main > .module-page-header-plain,
+  #root .notifications-main > .module-page-header-hero {
+    padding: 16px !important;
+  }
+
+  #root .app-main > .module-page-header h1,
+  #root .app-main > .module-page-header-plain h1,
+  #root .app-main > .module-page-header-hero h1,
+  #root .notifications-main > .module-page-header h1,
+  #root .notifications-main > .module-page-header-plain h1,
+  #root .notifications-main > .module-page-header-hero h1 {
+    font-size: 24px !important;
+  }
+}

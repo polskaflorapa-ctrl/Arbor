@@ -14,6 +14,7 @@ export default function CommandSidebar({ active = 'dashboard', user = null, onPl
         { key: 'dashboard', label: 'Pulpit', path: '/dashboard' },
         { key: 'profile', label: 'Profil', path: '/profil' },
         { key: 'tasks', label: 'Moje zadania', path: '/zadania' },
+        { key: 'notifications', label: 'Powiadomienia', path: '/powiadomienia' },
       ],
     },
     {
@@ -78,12 +79,12 @@ export default function CommandSidebar({ active = 'dashboard', user = null, onPl
   };
 
   return (
-    <aside className="command-native-sidebar" aria-label="ARBOR Command navigation">
+    <aside className="command-native-sidebar" aria-label="Polska Flora navigation">
       <button type="button" className="command-native-brand" onClick={() => navigate('/dashboard')}>
-        <span>AR</span>
+        <span>PF</span>
         <div>
-          <strong>ARBOR-OS</strong>
-          <small>System zarzadzania</small>
+          <strong>Polska Flora</strong>
+          <small>Centrum operacyjne</small>
         </div>
       </button>
       <button type="button" className="command-native-session" onClick={() => navigate('/profil')}>
