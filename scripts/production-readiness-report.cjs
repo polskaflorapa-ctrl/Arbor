@@ -213,13 +213,20 @@ function deployHookGate(env = process.env) {
   };
 }
 
+function formatBuildDetail(result = {}, expectedBuild = "") {
+  const actualBuild = result.build || "unknown";
+  if (!expectedBuild) return `build=${actualBuild}`;
+  if (actualBuild === expectedBuild) return `build=${actualBuild}`;
+  return `build=${actualBuild}, compatible with expected ${expectedBuild}`;
+}
+
 async function liveRenderGate(options = {}) {
   try {
     const result = await runRenderUnifiedLiveSmoke(options);
     return {
       name: "render-live-smoke",
       status: "ok",
-      detail: `Web ${options.webUrl || DEFAULT_WEB_URL} and API ${options.apiBaseUrl || DEFAULT_API_BASE_URL} are live.`,
+      detail: `Web ${options.webUrl || DEFAULT_WEB_URL} and API ${options.apiBaseUrl || DEFAULT_API_BASE_URL} are live (${formatBuildDetail(result.web, options.expectedBuild)}).`,
       result,
     };
   } catch (error) {
@@ -241,7 +248,7 @@ async function customDomainGate(options = {}) {
     return {
       name: "custom-domain-live-smoke",
       status: "ok",
-      detail: `Custom domain ${customWebUrl} is live (build=${result.build || "unknown"}).`,
+      detail: `Custom domain ${customWebUrl} is live (${formatBuildDetail(result, options.expectedBuild)}).`,
       result,
     };
   } catch (error) {
@@ -333,6 +340,7 @@ module.exports = {
   buildRecommendedActions,
   runCommandGate,
   deployHookGate,
+  formatBuildDetail,
   liveRenderGate,
   customDomainGate,
   buildProductionReadinessReport,

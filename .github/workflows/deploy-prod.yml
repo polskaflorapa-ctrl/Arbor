@@ -35,6 +35,16 @@ jobs:
             echo "Missing required PROD_JWT_SECRET; production deploy cannot verify API signing secret."
             exit 1
           fi
+          if [ "${#JWT_SECRET}" -lt 32 ]; then
+            echo "PROD_JWT_SECRET must be at least 32 characters."
+            exit 1
+          fi
+          case "$JWT_SECRET" in
+            *placeholder*|*long-random-secret*|*dev-local-secret*)
+              echo "PROD_JWT_SECRET must not use placeholder values."
+              exit 1
+              ;;
+          esac
           npm run db:migrate -w arbor-os
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
@@ -58,6 +68,12 @@ jobs:
             echo "Missing required PROD_API_URL; production deploy cannot verify API health."
             exit 1
           fi
+          case "$PROD_API_URL" in
+            http://*|https://*|*/*)
+              echo "PROD_API_URL must be a host without scheme or path, for example arbor-os-b7k6.onrender.com."
+              exit 1
+              ;;
+          esac
           api_ready=false
           for i in {1..60}; do
             if curl -sf "https://$PROD_API_URL/api/ready/"; then
@@ -79,6 +95,12 @@ jobs:
             echo "Missing required PROD_WEB_URL; production deploy cannot verify web health."
             exit 1
           fi
+          case "$PROD_WEB_URL" in
+            http://*|https://*|*/*)
+              echo "PROD_WEB_URL must be a host without scheme or path, for example arbo-web.onrender.com."
+              exit 1
+              ;;
+          esac
           web_ready=false
           for i in {1..15}; do
             if curl -sf "https://$PROD_WEB_URL"; then

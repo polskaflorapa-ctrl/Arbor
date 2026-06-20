@@ -7,6 +7,7 @@ const {
   customDomainGate,
   deployHookGate,
   extractLiveSmokeArgs,
+  formatBuildDetail,
   parseArgs,
   resolveExpectedWebBuild,
   runCommandGate,
@@ -149,6 +150,14 @@ test("production readiness deploy hook gate reports missing Render hook as warni
   assert.equal(deployHookGate({}).status, "warn");
   assert.match(deployHookGate({}).detail, /missing/);
   assert.equal(deployHookGate({ RENDER_WEB_DEPLOY_HOOK_URL: "https://api.render.com/deploy/srv-1" }).status, "ok");
+});
+
+test("production readiness build detail explains compatible descendant builds", () => {
+  assert.equal(formatBuildDetail({ build: "abc1234" }, "abc1234"), "build=abc1234");
+  assert.equal(
+    formatBuildDetail({ build: "child999" }, "abc1234"),
+    "build=child999, compatible with expected abc1234",
+  );
 });
 
 test("production readiness custom domain gate checks build marker", async () => {
