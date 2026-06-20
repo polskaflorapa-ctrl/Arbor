@@ -81,7 +81,7 @@
     "expo-web-browser": "~56.0.5",
     "lodash": "^4.17.21",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react-dom": "^19.2.7",
     "react-native": "0.85.3",
     "react-native-calendars": "^1.1314.0",
     "react-native-gesture-handler": "~2.31.1",
