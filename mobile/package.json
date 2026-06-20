@@ -25,6 +25,7 @@
     "test:app-error-report": "node ./scripts/test-app-error-report.cjs",
     "test:error-monitoring": "node ./scripts/test-error-monitoring.cjs",
     "test:release-qa-status": "node ./scripts/test-release-qa-status.cjs",
+    "test:release-status": "node ./scripts/test-release-status.cjs",
     "test:device-qa-note": "node ./scripts/test-device-qa-note.cjs",
     "test:zlecenie-detail": "node ./scripts/test-zlecenie-detail.cjs",
     "test:metro-bundle": "node ./scripts/check-metro-bundle.cjs",

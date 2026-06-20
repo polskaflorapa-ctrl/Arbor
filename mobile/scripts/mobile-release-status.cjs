@@ -9,6 +9,9 @@ const appConfig = JSON.parse(fs.readFileSync(path.join(rootDir, "app.json"), "ut
 const environments = JSON.parse(
   fs.readFileSync(path.join(rootDir, "config", "release-environments.json"), "utf8")
 );
+const storeMetadata = JSON.parse(
+  fs.readFileSync(path.join(rootDir, "config", "store-metadata.json"), "utf8")
+);
 
 const androidPreviewUrl = getAndroidPreviewUrl();
 
@@ -41,12 +44,23 @@ printLine("Expected API version", environments.preview?.expectedApiVersion || "m
 printLine("Sentry sourcemap upload", hasSentryAutoUploadDisabled() ? "disabled for preview" : "enabled/config-dependent");
 console.log("");
 
+console.log("Store metadata");
+console.log("--------------");
+printLine("Marketing URL", storeMetadata.marketingUrl || "missing");
+printLine("Support URL", storeMetadata.supportUrl || "missing");
+printLine("Privacy URL", storeMetadata.privacyPolicyUrl || "missing");
+printLine("Manual store gates", String((storeMetadata.manualGates || []).length));
+printLine("Legal review required", storeMetadata.legalReviewRequired ? "yes" : "no");
+console.log("");
+
 console.log("Readiness");
 console.log("---------");
 console.log("[ok] Android preview build completed");
 console.log("[ok] Android preview ready for device QA");
+console.log("[ok] Store metadata check is available: npm run release:store-check");
 console.log("[ok] EAS iOS preflight command is available: npm run release:ios:preflight");
 console.log("[blocked] iOS preview build needs interactive Apple/EAS credentials setup");
+console.log("[pending] Store manual gates need owner evidence before public submission");
 console.log("[pending] Manual device smoke checklist must be completed before production promotion");
 console.log("");
 
@@ -61,6 +75,7 @@ console.log("npm run install:android:preview");
 console.log("npm run qa:note -- --tester=Jan --device=Pixel-8 --os=Android-15 --role=Brygadzista");
 console.log("npm run qa:validate -- docs/mobile-device-qa-YYYY-MM-DD-android-pixel-8.md");
 console.log("npm run qa:review");
+console.log("npm run release:store-check");
 console.log("npm run release:ios:preflight");
 console.log("npm run release:ios:credentials");
 console.log("npm run release:build:ios:preview");

@@ -11,6 +11,7 @@ const steps = [
   ['app error report tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:app-error-report']]],
   ['error monitoring tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:error-monitoring']]],
   ['release QA status tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:release-qa-status']]],
+  ['release status tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:release-status']]],
   ['device QA note tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:device-qa-note']]],
   ['zlecenie detail helper tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:zlecenie-detail']]],
 ];
