@@ -31,6 +31,10 @@ jobs:
             echo "Missing required PROD_DATABASE_URL; production deploy cannot run migrations."
             exit 1
           fi
+          if [ -z "$JWT_SECRET" ]; then
+            echo "Missing required PROD_JWT_SECRET; production deploy cannot verify API signing secret."
+            exit 1
+          fi
           npm run db:migrate -w arbor-os
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}

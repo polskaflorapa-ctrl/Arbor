@@ -39,6 +39,10 @@ test("GitHub Actions check validates deploy workflows and production gates", () 
         "            echo \"Missing required PROD_DATABASE_URL; production deploy cannot run migrations.\"",
         "            exit 1",
         "          fi",
+        "          if [ -z \"$JWT_SECRET\" ]; then",
+        "            echo \"Missing required PROD_JWT_SECRET; production deploy cannot verify API signing secret.\"",
+        "            exit 1",
+        "          fi",
         "          npm run db:migrate -w arbor-os",
         "      - run: |",
         "          if [ -z \"$RENDER_WEB_DEPLOY_HOOK_URL\" ]; then",
@@ -154,6 +158,57 @@ test("GitHub Actions check requires deploy-prod to fail without production datab
     assert.throws(
       () => runGithubActionsCheck({ root }),
       /Missing required PROD_DATABASE_URL/,
+    );
+  });
+});
+
+test("GitHub Actions check requires deploy-prod to fail without production JWT secret", () => {
+  withFixture((root) => {
+    writeFixtureFile(
+      root,
+      ".github/workflows/deploy-prod.yml",
+      [
+        "name: Deploy Production",
+        "jobs:",
+        "  deploy-prod:",
+        "    steps:",
+        "      - run: |",
+        "          if [ -z \"$DATABASE_URL\" ]; then",
+        "            echo \"Missing required PROD_DATABASE_URL; production deploy cannot run migrations.\"",
+        "            exit 1",
+        "          fi",
+        "          npm run db:migrate -w arbor-os",
+        "      - run: |",
+        "          if [ -z \"$RENDER_WEB_DEPLOY_HOOK_URL\" ]; then",
+        "            echo \"Missing required RENDER_WEB_DEPLOY_HOOK_URL; production deploy cannot continue.\"",
+        "            exit 1",
+        "          fi",
+        "      - run: npm run deploy:render:web:wait -- --expected-build abc123",
+        "        env:",
+        "          RENDER_WEB_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}",
+        "      - run: |",
+        "          if [ -z \"$PROD_API_URL\" ]; then",
+        "            echo \"Missing required PROD_API_URL; production deploy cannot verify API health.\"",
+        "            exit 1",
+        "          fi",
+        "          api_ready=false",
+        "          echo \"Production API health check failed after 60 attempts.\"",
+        "      - run: |",
+        "          if [ -z \"$PROD_WEB_URL\" ]; then",
+        "            echo \"Missing required PROD_WEB_URL; production deploy cannot verify web health.\"",
+        "            exit 1",
+        "          fi",
+        "          web_ready=false",
+        "          echo \"Production web health check failed after 15 attempts.\"",
+        "      - run: |",
+        "          EXPECTED_BUILD=\"${GITHUB_SHA::7}\"",
+        "          npm run status:production -- --skip-local --api \"https://$PROD_API_URL/api\" --web \"https://$PROD_WEB_URL\" --expected-build \"$EXPECTED_BUILD\"",
+      ].join("\n"),
+    );
+
+    assert.throws(
+      () => runGithubActionsCheck({ root }),
+      /Missing required PROD_JWT_SECRET/,
     );
   });
 });

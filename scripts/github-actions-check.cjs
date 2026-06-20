@@ -8,6 +8,7 @@ const workflowChecks = {
   ".github/workflows/deploy-prod.yml": [
     "npm run db:migrate -w arbor-os",
     "Missing required PROD_DATABASE_URL",
+    "Missing required PROD_JWT_SECRET",
     "deploy:render:web:wait",
     "--expected-build",
     "RENDER_WEB_DEPLOY_HOOK_URL",
