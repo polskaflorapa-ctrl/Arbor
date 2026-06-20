@@ -8,6 +8,7 @@ const {
   deployHookGate,
   extractLiveSmokeArgs,
   parseArgs,
+  resolveExpectedWebBuild,
   runCommandGate,
   summarizeReadiness,
 } = require("./production-readiness-report.cjs");
@@ -88,6 +89,31 @@ test("production readiness args accept remote and slow-local skip aliases", () =
 test("production readiness args expose help mode", () => {
   assert.equal(parseArgs(["--help"]).help, true);
   assert.equal(parseArgs(["-h"]).help, true);
+});
+
+test("production readiness resolves latest web-impacting build", () => {
+  const commands = [];
+  const build = resolveExpectedWebBuild({
+    execImpl: (command) => {
+      commands.push(command);
+      if (command.startsWith("git log")) return "web1234\n";
+      return "head999\n";
+    },
+  });
+
+  assert.equal(build, "web1234");
+  assert.match(commands[0], /git log -1 --format=%h -- web/);
+});
+
+test("production readiness build resolver falls back to HEAD", () => {
+  const build = resolveExpectedWebBuild({
+    execImpl: (command) => {
+      if (command.startsWith("git log")) throw new Error("no git log");
+      return "head999\n";
+    },
+  });
+
+  assert.equal(build, "head999");
 });
 
 test("production readiness args reject unknown flags and missing values", () => {

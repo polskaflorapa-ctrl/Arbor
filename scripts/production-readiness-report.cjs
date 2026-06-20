@@ -1,4 +1,4 @@
-const { spawnSync } = require("node:child_process");
+const { execSync, spawnSync } = require("node:child_process");
 const {
   assertWebLooksCurrent,
   DEFAULT_API_BASE_URL,
@@ -12,6 +12,15 @@ const DEFAULT_CUSTOM_WEB_URL = "https://arbo-os.com";
 const LOCAL_GATES = [
   { name: "render-unified-config", command: "npm", args: ["run", "verify:render-unified"] },
   { name: "polska-flora-contract", command: "npm", args: ["run", "verify:polska-flora-ready"] },
+];
+
+const WEB_BUILD_PATHS = [
+  "web",
+  "package.json",
+  "package-lock.json",
+  "render.yaml",
+  "web/render.yaml",
+  "deploy/web-production.env.example",
 ];
 
 const VALUE_ARGS = new Set(["--web", "--api", "--custom-web", "--timeout-ms", "--expected-build"]);
@@ -78,9 +87,35 @@ function extractValueArg(argv = [], flag, fallback = "") {
   return fallback;
 }
 
+function hasValueArg(argv = [], flag) {
+  return argv.some((arg) => String(arg) === flag || String(arg).startsWith(`${flag}=`));
+}
+
+function resolveExpectedWebBuild({ execImpl = execSync } = {}) {
+  const pathspec = WEB_BUILD_PATHS.join(" ");
+  try {
+    const output = execImpl(`git log -1 --format=%h -- ${pathspec}`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    if (output) return output;
+  } catch {}
+  try {
+    return execImpl("git rev-parse --short HEAD", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
 function parseArgs(argv = process.argv.slice(2)) {
   validateArgs(argv);
   const liveOptions = parseLiveSmokeArgs(extractLiveSmokeArgs(argv));
+  if (!argv.includes("--any-build") && !hasValueArg(argv, "--expected-build")) {
+    liveOptions.expectedBuild = resolveExpectedWebBuild();
+  }
   return {
     ...liveOptions,
     skipLocal: argv.includes("--skip-local") || argv.includes("--skip-slow-local"),
@@ -99,7 +134,7 @@ Options:
   --web <url>              Public web URL to check
   --custom-web <url>       Custom production domain to check (default: ${DEFAULT_CUSTOM_WEB_URL})
   --api <url>              Public API base URL to check
-  --expected-build <sha>   Require the live web build marker to match this value
+  --expected-build <sha>   Require the live web build marker to match this value (default: latest web-impacting commit)
   --any-build              Skip exact live web build marker matching
   --timeout-ms <ms>        HTTP timeout for live smoke checks
   --skip-local             Skip local contract gates
@@ -289,9 +324,12 @@ if (require.main === module) {
 module.exports = {
   LOCAL_GATES,
   DEFAULT_CUSTOM_WEB_URL,
+  WEB_BUILD_PATHS,
   parseArgs,
   extractLiveSmokeArgs,
   extractValueArg,
+  hasValueArg,
+  resolveExpectedWebBuild,
   summarizeReadiness,
   buildRecommendedActions,
   runCommandGate,
