@@ -8,6 +8,7 @@ const {
   buildCacheBustedUrl,
   parseArgs,
   resolveCurrentGitBuild,
+  isBuildMarkerCompatible,
   extractWebBuildMetadata,
   DEFAULT_WEB_URL,
   DEFAULT_API_BASE_URL,
@@ -56,6 +57,20 @@ test("buildCacheBustedUrl preserves existing query params", () => {
 
 test("resolveCurrentGitBuild reads the current short git SHA", () => {
   assert.equal(resolveCurrentGitBuild({ execImpl: () => "abc1234\n" }), "abc1234");
+});
+
+test("isBuildMarkerCompatible accepts descendants of the expected build", () => {
+  const commands = [];
+  assert.equal(
+    isBuildMarkerCompatible("base123", "child456", {
+      execImpl: (command) => {
+        commands.push(command);
+        return "";
+      },
+    }),
+    true,
+  );
+  assert.deepEqual(commands, ["git merge-base --is-ancestor base123 child456"]);
 });
 
 test("parseArgs expects the current git build unless any-build is requested", () => {
@@ -110,7 +125,7 @@ test("assertWebLooksCurrent rejects mismatched build marker", async () => {
 
   await assert.rejects(
     () => assertWebLooksCurrent({ fetchImpl, expectedBuild: "new-build" }),
-    /Web build marker mismatch: expected new-build, got old-build/,
+    /Web build marker mismatch: expected new-build or descendant, got old-build/,
   );
 });
 

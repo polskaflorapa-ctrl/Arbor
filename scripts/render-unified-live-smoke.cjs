@@ -21,6 +21,20 @@ function resolveCurrentGitBuild({ execImpl = execSync } = {}) {
   }
 }
 
+function isBuildMarkerCompatible(expectedBuild, actualBuild, { execImpl = execSync } = {}) {
+  if (!expectedBuild) return true;
+  if (!actualBuild) return false;
+  if (actualBuild === expectedBuild) return true;
+  try {
+    execImpl(`git merge-base --is-ancestor ${expectedBuild} ${actualBuild}`, {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const VALUE_ARGS = new Set(["--web", "--api", "--timeout-ms", "--expected-build"]);
 const BOOLEAN_ARGS = new Set(["--any-build", "--help", "-h"]);
 
@@ -148,8 +162,8 @@ async function assertWebLooksCurrent(options = {}) {
   if (options.expectedBuild && !metadata.build) {
     throw new Error(`Web build marker mismatch: expected ${options.expectedBuild}, got missing.`);
   }
-  if (options.expectedBuild && metadata.build !== options.expectedBuild) {
-    throw new Error(`Web build marker mismatch: expected ${options.expectedBuild}, got ${metadata.build || "missing"}.`);
+  if (options.expectedBuild && !isBuildMarkerCompatible(options.expectedBuild, metadata.build, options)) {
+    throw new Error(`Web build marker mismatch: expected ${options.expectedBuild} or descendant, got ${metadata.build || "missing"}.`);
   }
 
   return { ok: true, status: response.status, url: probeUrl, build: metadata.build || null, api: metadata.api || null };
@@ -218,6 +232,7 @@ module.exports = {
   printHelp,
   buildCacheBustedUrl,
   resolveCurrentGitBuild,
+  isBuildMarkerCompatible,
   extractMetaContent,
   extractWebBuildMetadata,
   fetchWithTimeout,

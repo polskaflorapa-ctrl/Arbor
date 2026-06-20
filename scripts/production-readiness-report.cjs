@@ -16,7 +16,6 @@ const LOCAL_GATES = [
 
 const WEB_BUILD_PATHS = [
   "web",
-  "package.json",
   "package-lock.json",
   "render.yaml",
   "web/render.yaml",
