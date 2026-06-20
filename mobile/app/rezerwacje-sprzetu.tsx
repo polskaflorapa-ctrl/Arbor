@@ -88,6 +88,10 @@ function rowTaskId(row: SprzetRezerwacjaRow): string {
   return row.task_id != null ? String(row.task_id) : '';
 }
 
+function rowTeamId(row: SprzetRezerwacjaRow): string {
+  return row.ekipa_id != null ? String(row.ekipa_id) : '';
+}
+
 function taskReservationLabel(row: SprzetRezerwacjaRow): string {
   const id = rowTaskId(row);
   if (!id) return '';
@@ -147,6 +151,8 @@ export default function RezerwacjeSprzetuScreen() {
   const [showOnlyConflicts, setShowOnlyConflicts] = useState(false);
   const [taskFilterId, setTaskFilterId] = useState('');
   const [showOnlyTask, setShowOnlyTask] = useState(false);
+  const [teamFilterId, setTeamFilterId] = useState('');
+  const [showOnlyTeam, setShowOnlyTeam] = useState(false);
 
   const [sprzetList, setSprzetList] = useState<{ id: number; nazwa: string; typ?: string }[]>([]);
   const [ekipyList, setEkipyList] = useState<{ id: number; nazwa: string }[]>([]);
@@ -251,7 +257,12 @@ export default function RezerwacjeSprzetuScreen() {
     const sprzetId = toPositiveNumber(prefSprzetRaw);
     if (sprzetId) setFormSprzetId(sprzetId);
     const ekipaId = toPositiveNumber(prefEkipaRaw);
-    if (ekipaId) setFormEkipaId(ekipaId);
+    if (ekipaId) {
+      const nextTeamId = String(ekipaId);
+      setFormEkipaId(ekipaId);
+      setTeamFilterId(nextTeamId);
+      setShowOnlyTeam(true);
+    }
   }, [prefEkipaRaw, prefSprzetRaw, prefTaskRaw]);
 
   useEffect(() => {
@@ -315,8 +326,10 @@ export default function RezerwacjeSprzetuScreen() {
   );
   const visibleRows = useMemo(() => {
     const focusedTask = taskFilterId.trim();
+    const focusedTeam = teamFilterId.trim();
     const list = rows.filter((r) => {
       if (showOnlyTask && focusedTask && rowTaskId(r) !== focusedTask) return false;
+      if (showOnlyTeam && focusedTeam && rowTeamId(r) !== focusedTeam) return false;
       if (showOnlyConflicts && !conflictKeySet.has(`${String(r.sprzet_id)}|${r.data}`)) return false;
       return true;
     });
@@ -324,12 +337,19 @@ export default function RezerwacjeSprzetuScreen() {
       const aFocused = focusedTask && rowTaskId(a) === focusedTask ? 1 : 0;
       const bFocused = focusedTask && rowTaskId(b) === focusedTask ? 1 : 0;
       if (aFocused !== bFocused) return bFocused - aFocused;
+      const aTeamFocused = focusedTeam && rowTeamId(a) === focusedTeam ? 1 : 0;
+      const bTeamFocused = focusedTeam && rowTeamId(b) === focusedTeam ? 1 : 0;
+      if (aTeamFocused !== bTeamFocused) return bTeamFocused - aTeamFocused;
       const aConflict = conflictKeySet.has(`${String(a.sprzet_id)}|${a.data}`) ? 1 : 0;
       const bConflict = conflictKeySet.has(`${String(b.sprzet_id)}|${b.data}`) ? 1 : 0;
       if (aConflict !== bConflict) return bConflict - aConflict;
       return a.data.localeCompare(b.data) || String(a.sprzet_nazwa).localeCompare(String(b.sprzet_nazwa));
     });
-  }, [rows, showOnlyConflicts, showOnlyTask, taskFilterId, conflictKeySet]);
+  }, [rows, showOnlyConflicts, showOnlyTask, showOnlyTeam, taskFilterId, teamFilterId, conflictKeySet]);
+  const teamFilterLabel = useMemo(() => {
+    if (!teamFilterId) return '';
+    return ekipyList.find((row) => String(row.id) === teamFilterId)?.nazwa || `Ekipa #${teamFilterId}`;
+  }, [ekipyList, teamFilterId]);
   const firstConflictIndex = useMemo(
     () => visibleRows.findIndex((r) => conflictKeySet.has(`${String(r.sprzet_id)}|${r.data}`)),
     [visibleRows, conflictKeySet],
@@ -728,6 +748,42 @@ export default function RezerwacjeSprzetuScreen() {
                   setTaskFilterId('');
                   setShowOnlyTask(false);
                   setFormTaskId('');
+                }}
+              >
+                <Ionicons name="close-outline" size={13} color={theme.textMuted} />
+                <Text style={S.taskContextBtnText}>Wyczysc</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+        {teamFilterId ? (
+          <View style={S.taskContextBox}>
+            <View style={S.taskContextHead}>
+              <View style={[S.taskContextIcon, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
+                <Ionicons name="people-outline" size={16} color={theme.info} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.taskContextTitle}>{teamFilterLabel || `Ekipa #${teamFilterId}`}</Text>
+                <Text style={S.taskContextSub}>
+                  Rezerwacje sprzetu dla wybranej ekipy terenowej.
+                </Text>
+              </View>
+            </View>
+            <View style={S.taskContextActions}>
+              <TouchableOpacity
+                style={[S.taskContextBtn, showOnlyTeam && { backgroundColor: theme.info, borderColor: theme.info }]}
+                onPress={() => setShowOnlyTeam((value) => !value)}
+              >
+                <Ionicons name="filter-outline" size={13} color={showOnlyTeam ? theme.accentText : theme.info} />
+                <Text style={[S.taskContextBtnText, showOnlyTeam && { color: theme.accentText }]}>
+                  {showOnlyTeam ? 'Tylko moja ekipa' : 'Wszystkie ekipy'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={S.taskContextBtn}
+                onPress={() => {
+                  setTeamFilterId('');
+                  setShowOnlyTeam(false);
                 }}
               >
                 <Ionicons name="close-outline" size={13} color={theme.textMuted} />

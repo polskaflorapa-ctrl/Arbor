@@ -63,7 +63,7 @@ npm run verify:mobile-reservations-api
 
 ## C. Kolejne pomysly produktowe
 
-- [ ] Filtr "tylko moja ekipa" dla rol terenowych.
+- [x] Filtr "tylko moja ekipa" dla rol terenowych.
 - [x] Skrot z **Misji dnia** lub **Harmonogramu**: rezerwacje na wybrany dzien.
 - [x] Opcjonalne powiazanie ze **zleceniem** (`task_id`) w API i UI.
 

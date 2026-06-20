@@ -32,6 +32,8 @@ test("mobile before/after photo check validates docs, scripts, mobile UX, backen
       "docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md",
       "mobile/utils/offline-queue.ts",
       "mobile/app/zlecenie/[id].tsx",
+      "mobile/components/task-photo-add-modal.tsx",
+      "mobile/components/task-photo-preview-modal.tsx",
       "os/src/routes/tasks.js",
       "os/src/services/taskSettlement.js",
       "mobile/scripts/test-offline-queue.cjs",
@@ -43,7 +45,9 @@ test("mobile before/after photo check validates docs, scripts, mobile UX, backen
     for (const file of files) writeFixtureFile(root, file, "placeholder");
     writeFixtureFile(root, "docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md", "TASK_FINISH_REQUIRE_PRZED_PHOTO_BRANCHES TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES finish_requirements queueTaskPhotoOffline offline_pending Przed Po GO NO-GO");
     writeFixtureFile(root, "mobile/utils/offline-queue.ts", "queueTaskPhotoOffline fields typ multipart Idempotency-Key");
-    writeFixtureFile(root, "mobile/app/zlecenie/[id].tsx", "finishRequirements.require_przed_photo finishRequirements.require_po_photo finishBeforePhotoReady finishAfterPhotoReady photos-before zrobZdjecie('przed' zrobZdjecie('po' offline_pending");
+    writeFixtureFile(root, "mobile/app/zlecenie/[id].tsx", "TaskPhotoAddModal TaskPhotoPreviewModal finishRequirements.require_przed_photo finishRequirements.require_po_photo finishBeforePhotoReady finishAfterPhotoReady photos-before zrobZdjecie('przed' zrobZdjecie('po' offline_pending");
+    writeFixtureFile(root, "mobile/components/task-photo-add-modal.tsx", "TaskPhotoAddModal PHOTO_TYPE_LABELS TYP_ZDJECIA_KEYS PlatinumIconName onSelectType(key, photoOpisDraft, photoTagiDraft)");
+    writeFixtureFile(root, "mobile/components/task-photo-preview-modal.tsx", "TaskPhotoPreviewModal absolutePhotoUrl photoTypeLabel Podgląd zdjęcia previewCounter Następne");
     writeFixtureFile(root, "os/src/routes/tasks.js", "TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES TASK_FINISH_REQUIRE_PRZED_PHOTO_BRANCHES finishRequirePoPhoto(row.oddzial_id) finishRequirePrzedPhoto(row.oddzial_id) assertTeamFinishPhotoRules(client, task) TASK_FINISH_PO_PHOTO_REQUIRED TASK_FINISH_PRZED_PHOTO_REQUIRED");
     writeFixtureFile(root, "os/src/services/taskSettlement.js", "FINISH_PHOTO_MIN countTaskFinishPhotos 'po', 'after' 'przed', 'before', 'checkin'");
     writeFixtureFile(root, "mobile/scripts/test-offline-queue.cjs", "typ: 'przed' typ: 'po' offline_pending file:///tmp/photo-before.jpg file:///tmp/photo-after.jpg");
@@ -56,7 +60,7 @@ test("mobile before/after photo check validates docs, scripts, mobile UX, backen
 
     const result = runMobileBeforeAfterPhotoCheck({ root });
 
-    assert.deepEqual(result, { ok: true, checkedFiles: 10, checkedPackages: 2 });
+    assert.deepEqual(result, { ok: true, checkedFiles: 12, checkedPackages: 2 });
   });
 });
 

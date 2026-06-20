@@ -41,12 +41,24 @@ assertIncludes('mobile/utils/sprzet-rezerwacje.ts', [
   'notImplemented: true',
 ]);
 
+assertIncludes('mobile/app/rezerwacje-sprzetu.tsx', [
+  'function rowTeamId(row: SprzetRezerwacjaRow): string',
+  "const [teamFilterId, setTeamFilterId] = useState('')",
+  "const [showOnlyTeam, setShowOnlyTeam] = useState(false)",
+  'setTeamFilterId(nextTeamId)',
+  'setShowOnlyTeam(true)',
+  'if (showOnlyTeam && focusedTeam && rowTeamId(r) !== focusedTeam) return false',
+  'Tylko moja ekipa',
+  'Wszystkie ekipy',
+]);
+
 assertIncludes('mobile/docs/checklist-rezerwacje.md', [
   '- [x] Tabela (lub kolekcja) z polami zgodnymi z mobile',
   '- [x] Statusy dokladnie jak w aplikacji',
   '- [x] Query: `from`, `to` w formacie `YYYY-MM-DD`',
   '- [x] Odpowiedz: **tablica** JSON',
   '- [x] `POST /flota/rezerwacje` oraz `PUT /flota/rezerwacje/:id/status`',
+  '- [x] Filtr "tylko moja ekipa" dla rol terenowych',
   '`npm run verify:mobile-reservations-api`',
 ]);
 

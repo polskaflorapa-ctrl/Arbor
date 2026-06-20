@@ -4,8 +4,10 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { useTheme } from '../../constants/ThemeContext';
 import { colorWithAlpha } from '../../constants/elevation';
 
+export type PlatinumIconName = React.ComponentProps<typeof Ionicons>['name'];
+
 type PlatinumIconBadgeProps = {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: PlatinumIconName;
   color?: string;
   /** Rozmiar samej ikony (px). Ramka skaluje sie automatycznie, z zachowaniem czytelnosci na telefonie. */
   size?: number;
