@@ -27,6 +27,22 @@ test("CircleCI config check requires verify-green to depend on backend tests", (
   assert.throws(() => validateCircleciConfig(config), /verify-green does not require os-tests/);
 });
 
+test("CircleCI config check requires verify-green to depend on product contracts", () => {
+  const config = clone(loadCurrentConfig());
+  const verifyGreen = config.workflows.verify.jobs.find((job) => job["verify-green"]);
+  verifyGreen["verify-green"].requires = verifyGreen["verify-green"].requires.filter((job) => job !== "contracts");
+
+  assert.throws(() => validateCircleciConfig(config), /verify-green does not require contracts/);
+});
+
+test("CircleCI config check requires contracts job to run contract gate", () => {
+  const config = clone(loadCurrentConfig());
+  const contractStep = config.jobs.contracts.steps.find((step) => step.run?.name === "Verify product contracts");
+  contractStep.run.command = "echo skipped";
+
+  assert.throws(() => validateCircleciConfig(config), /contracts job does not run verify:contracts/);
+});
+
 test("CircleCI config check requires deploy-ready to stay mainline-only", () => {
   const config = clone(loadCurrentConfig());
   const deployReady = config.workflows["deploy-ready"].jobs.find((job) => job["deploy-ready"]);
@@ -63,4 +79,12 @@ test("CircleCI config check requires OS tests to emit Jest JUnit", () => {
   testStep.run.command = "npm run verify:os:test";
 
   assert.throws(() => validateCircleciConfig(config), /OS test job does not generate Jest JUnit output/);
+});
+
+test("CircleCI config check requires deploy-ready to run contract gate", () => {
+  const config = clone(loadCurrentConfig());
+  const contractStep = config.jobs["deploy-ready"].steps.find((step) => step.run?.name === "Verify product contracts");
+  contractStep.run.command = "echo skipped";
+
+  assert.throws(() => validateCircleciConfig(config), /deploy-ready job does not run verify:contracts/);
 });

@@ -25,11 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run migrations when configured
+      - name: Run production migrations
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "PROD_DATABASE_URL is not configured; skipping production migration."
-            exit 0
+            echo "Missing required PROD_DATABASE_URL; production deploy cannot run migrations."
+            exit 1
           fi
           npm run db:migrate -w arbor-os
         env:
@@ -40,8 +40,8 @@ jobs:
       - name: Deploy Web to Render and wait for smoke
         run: |
           if [ -z "$RENDER_WEB_DEPLOY_HOOK_URL" ]; then
-            echo "RENDER_WEB_DEPLOY_HOOK_URL is not configured; skipping Render web deploy."
-            exit 0
+            echo "Missing required RENDER_WEB_DEPLOY_HOOK_URL; production deploy cannot continue."
+            exit 1
           fi
           EXPECTED_BUILD="${GITHUB_SHA::7}"
           npm run deploy:render:web:wait -- --timeout-ms 45000 --wait-attempts 30 --wait-interval-ms 10000 --expected-build "$EXPECTED_BUILD"
@@ -51,30 +51,50 @@ jobs:
       - name: Health check production API
         run: |
           if [ -z "$PROD_API_URL" ]; then
-            echo "PROD_API_URL is not configured; skipping API health check."
-            exit 0
+            echo "Missing required PROD_API_URL; production deploy cannot verify API health."
+            exit 1
           fi
+          api_ready=false
           for i in {1..60}; do
-            curl -sf "https://$PROD_API_URL/api/ready/" && break
+            if curl -sf "https://$PROD_API_URL/api/ready/"; then
+              api_ready=true
+              break
+            fi
             sleep 10
           done
+          if [ "$api_ready" != "true" ]; then
+            echo "Production API health check failed after 60 attempts."
+            exit 1
+          fi
         env:
           PROD_API_URL: ${{ secrets.PROD_API_URL }}
 
       - name: Health check production Web
         run: |
           if [ -z "$PROD_WEB_URL" ]; then
-            echo "PROD_WEB_URL is not configured; skipping web health check."
-            exit 0
+            echo "Missing required PROD_WEB_URL; production deploy cannot verify web health."
+            exit 1
           fi
+          web_ready=false
           for i in {1..15}; do
-            curl -sf "https://$PROD_WEB_URL" && break
+            if curl -sf "https://$PROD_WEB_URL"; then
+              web_ready=true
+              break
+            fi
             sleep 5
           done
+          if [ "$web_ready" != "true" ]; then
+            echo "Production web health check failed after 15 attempts."
+            exit 1
+          fi
         env:
           PROD_WEB_URL: ${{ secrets.PROD_WEB_URL }}
 
       - name: Production readiness report
-        run: npm run status:production -- --skip-local
+        run: |
+          EXPECTED_BUILD="${GITHUB_SHA::7}"
+          npm run status:production -- --skip-local --api "https://$PROD_API_URL/api" --web "https://$PROD_WEB_URL" --expected-build "$EXPECTED_BUILD"
         env:
           RENDER_WEB_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
+          PROD_WEB_URL: ${{ secrets.PROD_WEB_URL }}

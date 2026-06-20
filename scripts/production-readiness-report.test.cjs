@@ -91,7 +91,7 @@ test("production readiness args expose help mode", () => {
   assert.equal(parseArgs(["-h"]).help, true);
 });
 
-test("production readiness resolves latest web-impacting build", () => {
+test("production readiness resolves latest web-impacting build marker", () => {
   const commands = [];
   const build = resolveExpectedWebBuild({
     execImpl: (command) => {

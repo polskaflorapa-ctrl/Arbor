@@ -109,6 +109,7 @@ function validateCircleciConfig(config) {
   assertHasJobs(config, [
     "scripts",
     "mobile",
+    "contracts",
     "web",
     "os",
     "os-tests",
@@ -127,8 +128,8 @@ function validateCircleciConfig(config) {
     fail("Missing deploy-ready workflow");
   }
 
-  assertWorkflowContains(verify, ["scripts", "mobile", "web", "os", "os-tests", "verify-green"]);
-  assertRequires(verify, "verify-green", ["scripts", "mobile", "web", "os", "os-tests"]);
+  assertWorkflowContains(verify, ["scripts", "mobile", "contracts", "web", "os", "os-tests", "verify-green"]);
+  assertRequires(verify, "verify-green", ["scripts", "mobile", "contracts", "web", "os", "os-tests"]);
 
   assertWorkflowContains(deployReady, ["deploy-ready", "deploy-ready-green"]);
   assertRequires(deployReady, "deploy-ready-green", ["deploy-ready"]);
@@ -155,6 +156,16 @@ function validateCircleciConfig(config) {
   const osTestsCommand = commandText(config.jobs["os-tests"], "Test Arbor OS");
   if (!osTestsCommand.includes("--reporters=jest-junit") || !osTestsCommand.includes("test-results/jest")) {
     fail("OS test job does not generate Jest JUnit output");
+  }
+
+  const contractsCommand = commandText(config.jobs.contracts, "Verify product contracts");
+  if (!contractsCommand.includes("npm run verify:contracts")) {
+    fail("contracts job does not run verify:contracts");
+  }
+
+  const deployContractsCommand = commandText(config.jobs["deploy-ready"], "Verify product contracts");
+  if (!deployContractsCommand.includes("npm run verify:contracts")) {
+    fail("deploy-ready job does not run verify:contracts");
   }
 }
 

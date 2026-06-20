@@ -25,6 +25,8 @@ jobs:
           node-version-file: ".nvmrc"
           cache: npm
       - run: npm ci
+      - name: Verify product contracts
+        run: npm run verify:contracts
       - name: Deploy preflight and backend syntax
         run: npm run deploy:ready:check
       - name: Web production build

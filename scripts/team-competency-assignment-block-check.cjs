@@ -4,7 +4,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 
 function read(file) {
-  return fs.readFileSync(path.join(root, file), 'utf8');
+  return fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function assertIncludes(file, needles) {

@@ -97,6 +97,7 @@ function buildSteps(options) {
     npmCommand(["run", "verify:scale-readiness"]),
     npmCommand(["run", "verify:observability"]),
     npmCommand(["run", "verify:backup-rpo"]),
+    npmCommand(["run", "verify:contracts"]),
   ];
 
   if (!options.skipBuild) {

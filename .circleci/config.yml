@@ -41,6 +41,14 @@ jobs:
           name: Expo Doctor
           command: cd mobile && EXPO_NO_TELEMETRY=1 npx expo-doctor
 
+  contracts:
+    executor: node
+    steps:
+      - checkout_and_install
+      - run:
+          name: Verify product contracts
+          command: npm run verify:contracts
+
   web:
     executor: node
     parallelism: 2
@@ -89,6 +97,9 @@ jobs:
     steps:
       - checkout_and_install
       - run:
+          name: Verify product contracts
+          command: npm run verify:contracts
+      - run:
           name: Deploy preflight and backend syntax
           command: npm run deploy:ready:check
       - run:
@@ -117,6 +128,7 @@ workflows:
     jobs:
       - scripts
       - mobile
+      - contracts
       - web
       - os
       - os-tests
@@ -124,6 +136,7 @@ workflows:
           requires:
             - scripts
             - mobile
+            - contracts
             - web
             - os
             - os-tests
