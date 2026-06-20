@@ -31,6 +31,7 @@ const BOOLEAN_ARGS = new Set([
   "--skip-live",
   "--skip-remote-smoke",
   "--skip-custom-domain",
+  "--skip-mobile-release-status",
   "--json",
   "--help",
   "-h",
@@ -120,6 +121,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     skipLocal: argv.includes("--skip-local") || argv.includes("--skip-slow-local"),
     skipRemote: argv.includes("--skip-remote") || argv.includes("--skip-live") || argv.includes("--skip-remote-smoke"),
     skipCustomDomain: argv.includes("--skip-custom-domain"),
+    skipMobileReleaseStatus: argv.includes("--skip-mobile-release-status"),
     customWebUrl: extractValueArg(argv, "--custom-web", DEFAULT_CUSTOM_WEB_URL),
     json: argv.includes("--json"),
     help: argv.includes("--help") || argv.includes("-h"),
@@ -138,6 +140,8 @@ Options:
   --timeout-ms <ms>        HTTP timeout for live smoke checks
   --skip-local             Skip local contract gates
   --skip-slow-local        Alias for --skip-local
+  --skip-mobile-release-status
+                           Skip mobile release status gate
   --skip-remote            Skip Render deploy hook and live web/API smoke gates
   --skip-live              Alias for --skip-remote
   --skip-remote-smoke      Alias for --skip-remote
@@ -161,6 +165,7 @@ function buildRecommendedActions(reportLike) {
   const hookGate = gates.find((gate) => gate.name === "render-web-deploy-hook");
   const liveGate = gates.find((gate) => gate.name === "render-live-smoke");
   const customDomainGate = gates.find((gate) => gate.name === "custom-domain-live-smoke");
+  const mobileReleaseGate = gates.find((gate) => gate.name === "mobile-release-status");
   const expectedBuild = reportLike.expectedBuild;
 
   if (hookGate?.status === "warn") {
@@ -184,6 +189,11 @@ function buildRecommendedActions(reportLike) {
     actions.push("Rerun custom-domain smoke: npm run status:production -- --skip-local");
   }
 
+  if (mobileReleaseGate?.status === "fail") {
+    actions.push("Set EXPO_PUBLIC_SENTRY_DSN for the mobile production build, or record the approved external crash/error monitoring destination before production promotion.");
+    actions.push("Rerun mobile status: npm run release:status -w arbor-mobile");
+  }
+
   return actions;
 }
 
@@ -199,6 +209,50 @@ function runCommandGate(gate, { spawnImpl = spawnSync, cwd = process.cwd() } = {
     status: result.status === 0 ? "ok" : "fail",
     command: [gate.command, ...gate.args].join(" "),
     detail: result.status === 0 ? "OK" : (result.stderr || result.stdout || "command failed").trim(),
+  };
+}
+
+function mobileReleaseStatusGate({ spawnImpl = spawnSync, cwd = process.cwd() } = {}) {
+  const gate = { name: "mobile-release-status", command: "npm", args: ["run", "release:status", "-w", "arbor-mobile"] };
+  const executable = process.platform === "win32" ? "cmd.exe" : gate.command;
+  const args =
+    process.platform === "win32"
+      ? ["/d", "/s", "/c", ["npm", ...gate.args].join(" ")]
+      : gate.args;
+  const statusResult = spawnImpl(executable, args, { cwd, stdio: "pipe", encoding: "utf8" });
+  const output = `${statusResult.stdout || ""}\n${statusResult.stderr || ""}`;
+  const base = {
+    name: gate.name,
+    command: [gate.command, ...gate.args].join(" "),
+  };
+  if (statusResult.status !== 0) {
+    return {
+      ...base,
+      status: "fail",
+      detail: (statusResult.stderr || statusResult.stdout || "mobile release status failed").trim(),
+    };
+  }
+
+  if (/Production monitoring gate\s+blocked for production/i.test(output)) {
+    return {
+      ...base,
+      status: "fail",
+      detail: "Mobile production monitoring is blocked; set EXPO_PUBLIC_SENTRY_DSN or record an approved external crash/error monitoring destination.",
+    };
+  }
+
+  if (/\[blocked\].*Production crash\/error monitoring/i.test(output)) {
+    return {
+      ...base,
+      status: "fail",
+      detail: "Mobile crash/error monitoring is blocked for production.",
+    };
+  }
+
+  return {
+    ...base,
+    status: "ok",
+    detail: "Mobile release status has no production monitoring blocker.",
   };
 }
 
@@ -266,6 +320,9 @@ async function buildProductionReadinessReport(options = {}) {
     for (const gate of LOCAL_GATES) {
       gates.push(runCommandGate(gate, options));
     }
+  }
+  if (!options.skipMobileReleaseStatus) {
+    gates.push(mobileReleaseStatusGate(options));
   }
   if (!options.skipRemote) {
     gates.push(deployHookGate(options.env || process.env));
@@ -339,6 +396,7 @@ module.exports = {
   summarizeReadiness,
   buildRecommendedActions,
   runCommandGate,
+  mobileReleaseStatusGate,
   deployHookGate,
   formatBuildDetail,
   liveRenderGate,

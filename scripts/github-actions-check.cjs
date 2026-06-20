@@ -61,6 +61,14 @@ function assertWorkflowIncludes(relPath, needles, baseDir = root) {
   }
 }
 
+function assertWorkflowExcludes(relPath, forbidden, baseDir = root) {
+  const { text } = readWorkflow(relPath, baseDir);
+  const found = forbidden.filter((needle) => text.includes(needle));
+  if (found.length) {
+    throw new Error(`${relPath} must not include: ${found.join(", ")}`);
+  }
+}
+
 function runGithubActionsCheck(options = {}) {
   const baseDir = options.root || root;
   const checks = options.workflowChecks || workflowChecks;
@@ -68,6 +76,7 @@ function runGithubActionsCheck(options = {}) {
     assertWorkflowParses(file, baseDir);
     assertWorkflowIncludes(file, needles, baseDir);
   }
+  assertWorkflowExcludes(".github/workflows/deploy-prod.yml", ["--skip-mobile-release-status"], baseDir);
   return { ok: true, checkedWorkflows: Object.keys(checks).length };
 }
 
@@ -86,5 +95,6 @@ module.exports = {
   readWorkflow,
   assertWorkflowParses,
   assertWorkflowIncludes,
+  assertWorkflowExcludes,
   runGithubActionsCheck,
 };

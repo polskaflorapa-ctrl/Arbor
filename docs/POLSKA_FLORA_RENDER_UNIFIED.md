@@ -56,9 +56,10 @@ npm run verify:web
 npm run status:production -- --skip-local
 ```
 
-`status:production` zbiera w jednym raporcie status deploy hooka Render i live smoke
-publicznego weba/API. Status `blocked` oznacza, ze publiczny web nie jest jeszcze
-aktualna wersja, nawet kiedy lokalny build i lokalne kontrakty przechodza.
+`status:production` zbiera w jednym raporcie status deploy hooka Render, live smoke
+publicznego weba/API oraz lokalny `mobile-release-status`. Status `blocked` oznacza,
+ze publiczny web nie jest jeszcze aktualna wersja albo mobile nadal ma produkcyjny
+blocker, nawet kiedy lokalny build i lokalne kontrakty przechodza.
 
 Do szybkiej lokalnej diagnostyki bez dotykania publicznego Rendera uzyj:
 
@@ -66,7 +67,9 @@ Do szybkiej lokalnej diagnostyki bez dotykania publicznego Rendera uzyj:
 npm run status:production -- --skip-remote --skip-slow-local
 ```
 
-`--skip-local` pomija lokalne kontrakty, a `--skip-remote` pomija deploy hook i live smoke.
+`--skip-local` pomija lokalne kontrakty, ale nadal zostawia `mobile-release-status`.
+`--skip-mobile-release-status` jest osobna flaga awaryjna i nie powinna byc uzywana
+w production workflow bez swiadomej decyzji ownera. `--skip-remote` pomija deploy hook i live smoke.
 Komendy produkcyjne `deploy:render:web`, smoke/status maja `--help`, odrzucaja
 nieznane flagi i akceptuja wartosci zarowno jako `--web https://...`, jak i
 `--web=https://...`.

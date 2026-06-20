@@ -8,6 +8,7 @@ const {
   deployHookGate,
   extractLiveSmokeArgs,
   formatBuildDetail,
+  mobileReleaseStatusGate,
   parseArgs,
   resolveExpectedWebBuild,
   runCommandGate,
@@ -25,6 +26,7 @@ test("production readiness args accept live URLs, timeout, JSON, and local skip"
     "--timeout-ms",
     "1234",
     "--skip-local",
+    "--skip-mobile-release-status",
     "--json",
   ]);
 
@@ -33,6 +35,7 @@ test("production readiness args accept live URLs, timeout, JSON, and local skip"
   assert.equal(options.apiBaseUrl, "https://api.example.com/api");
   assert.equal(options.timeoutMs, 1234);
   assert.equal(options.skipLocal, true);
+  assert.equal(options.skipMobileReleaseStatus, true);
   assert.equal(options.json, true);
   assert.match(options.expectedBuild, /^[0-9a-f]{7,}$/);
   assert.equal(parseArgs(["--any-build"]).expectedBuild, "");
@@ -80,11 +83,12 @@ test("production readiness forwards only live smoke flags to live parser", () =>
 });
 
 test("production readiness args accept remote and slow-local skip aliases", () => {
-  const options = parseArgs(["--skip-remote", "--skip-slow-local", "--skip-custom-domain"]);
+  const options = parseArgs(["--skip-remote", "--skip-slow-local", "--skip-custom-domain", "--skip-mobile-release-status"]);
 
   assert.equal(options.skipRemote, true);
   assert.equal(options.skipLocal, true);
   assert.equal(options.skipCustomDomain, true);
+  assert.equal(options.skipMobileReleaseStatus, true);
 });
 
 test("production readiness args expose help mode", () => {
@@ -192,11 +196,51 @@ test("production readiness command gate captures command failures", () => {
   assert.match(gate.detail, /missing script/);
 });
 
+test("production readiness mobile release status blocks production monitoring gaps", () => {
+  const gate = mobileReleaseStatusGate({
+    spawnImpl: () => ({
+      status: 0,
+      stdout: "Production monitoring gate   blocked for production\n",
+      stderr: "",
+    }),
+    cwd: "C:\\repo",
+  });
+
+  assert.equal(gate.name, "mobile-release-status");
+  assert.equal(gate.status, "fail");
+  assert.match(gate.detail, /EXPO_PUBLIC_SENTRY_DSN/);
+});
+
+test("production readiness mobile release status passes when monitoring is ready", () => {
+  const gate = mobileReleaseStatusGate({
+    spawnImpl: () => ({
+      status: 0,
+      stdout: "Production monitoring gate   ready to verify on device\n",
+      stderr: "",
+    }),
+    cwd: "C:\\repo",
+  });
+
+  assert.equal(gate.status, "ok");
+  assert.match(gate.detail, /no production monitoring blocker/);
+});
+
 test("production readiness report includes the expected web build marker", async () => {
   const report = await buildProductionReadinessReport({
     skipLocal: true,
     expectedBuild: "abc1234",
     env: { RENDER_WEB_DEPLOY_HOOK_URL: "https://api.render.com/deploy/srv-1" },
+    spawnImpl: (_command, args) => {
+      const commandText = Array.isArray(args) ? args.join(" ") : "";
+      if (commandText.includes("release:status")) {
+        return {
+          status: 0,
+          stdout: "Production monitoring gate   ready to verify on device\n",
+          stderr: "",
+        };
+      }
+      return { status: 0, stdout: "ok", stderr: "" };
+    },
     fetchImpl: async (url) => {
       if (String(url).includes("/ready/")) {
         return {
@@ -222,10 +266,57 @@ test("production readiness report includes the expected web build marker", async
   assert.equal(report.summary.status, "ready");
 });
 
-test("production readiness report can skip all remote gates", async () => {
+test("production readiness report includes local mobile release status gate", async () => {
   const report = await buildProductionReadinessReport({
     skipLocal: true,
     skipRemote: true,
+    spawnImpl: (_command, args) => {
+      const commandText = Array.isArray(args) ? args.join(" ") : "";
+      if (commandText.includes("release:status")) {
+        return {
+          status: 0,
+          stdout: "Production monitoring gate   blocked for production\n",
+          stderr: "",
+        };
+      }
+      return { status: 0, stdout: "ok", stderr: "" };
+    },
+  });
+
+  const gate = report.gates.find((item) => item.name === "mobile-release-status");
+  assert.equal(gate.status, "fail");
+  assert.equal(report.summary.status, "blocked");
+});
+
+test("production readiness report can skip local contracts and remote gates while keeping mobile status", async () => {
+  const report = await buildProductionReadinessReport({
+    skipLocal: true,
+    skipRemote: true,
+    spawnImpl: (_command, args) => {
+      const commandText = Array.isArray(args) ? args.join(" ") : "";
+      if (commandText.includes("release:status")) {
+        return {
+          status: 0,
+          stdout: "Production monitoring gate   ready to verify on device\n",
+          stderr: "",
+        };
+      }
+      throw new Error("local contracts should not run");
+    },
+    fetchImpl: async () => {
+      throw new Error("remote smoke should not run");
+    },
+  });
+
+  assert.equal(report.summary.status, "ready");
+  assert.deepEqual(report.gates.map((gate) => gate.name), ["mobile-release-status"]);
+});
+
+test("production readiness report can skip all local, mobile, and remote gates", async () => {
+  const report = await buildProductionReadinessReport({
+    skipLocal: true,
+    skipRemote: true,
+    skipMobileReleaseStatus: true,
     env: {},
     fetchImpl: async () => {
       throw new Error("remote smoke should not run");
@@ -274,4 +365,20 @@ test("production readiness actions explain stale custom domain", () => {
   assert.equal(actions.length, 2);
   assert.match(actions[0], /custom domain cache/);
   assert.match(actions[1], /custom-domain smoke/);
+});
+
+test("production readiness actions explain mobile monitoring blocker", () => {
+  const actions = buildRecommendedActions({
+    gates: [
+      {
+        name: "mobile-release-status",
+        status: "fail",
+        detail: "Mobile production monitoring is blocked",
+      },
+    ],
+  });
+
+  assert.equal(actions.length, 2);
+  assert.match(actions[0], /EXPO_PUBLIC_SENTRY_DSN/);
+  assert.match(actions[1], /release:status -w arbor-mobile/);
 });
