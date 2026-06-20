@@ -28,6 +28,7 @@ import { InfoRow } from '../../components/task-info-row';
 import { TaskClientSignatureModal } from '../../components/task-client-signature-modal';
 import { TaskPhotoFilterStrip } from '../../components/task-photo-filter-strip';
 import { TaskPhotoHeroPreview } from '../../components/task-photo-hero-preview';
+import { TaskPhotoPreviewModal } from '../../components/task-photo-preview-modal';
 import { FieldOpsBackdrop, FieldOpsHeroImage } from '../../components/ui/field-ops-art';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../../components/ui/platinum-cta';
@@ -7021,82 +7022,15 @@ export default function ZlecenieDetailScreen() {
         </View>
       </Modal>
 
-      <Modal visible={!!photoPreview} animationType="fade" transparent onRequestClose={() => setPhotoPreview(null)}>
-        <View style={S.photoPreviewOverlay}>
-          <TouchableOpacity style={S.photoPreviewCloseLayer} activeOpacity={1} onPress={() => setPhotoPreview(null)} />
-          {photoPreview ? (
-            <View style={[S.photoPreviewBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-              <View style={S.photoPreviewHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[S.photoPreviewTitle, { color: theme.text }]}>Podgląd zdjęcia</Text>
-                  <Text style={[S.photoPreviewSub, { color: theme.textMuted }]}>
-                    {photoTypeLabel(photoPreview.typ)}
-                  </Text>
-                </View>
-                <View style={[S.photoPreviewCounter, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
-                  <Text style={[S.photoPreviewCounterText, { color: theme.accent }]}>{previewCounter}</Text>
-                </View>
-                <TouchableOpacity onPress={() => setPhotoPreview(null)}>
-                  <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 28, height: 28, borderRadius: 9 }} />
-                </TouchableOpacity>
-              </View>
-              <View style={S.photoPreviewStage}>
-                <Image source={{ uri: absolutePhotoUrl(photoPreview.download_url || photoPreview.url || photoPreview.sciezka) }} style={S.photoPreviewImage} />
-                {previewPhotoList.length > 1 ? (
-                  <>
-                    <TouchableOpacity
-                      style={[S.photoPreviewNavBtn, S.photoPreviewNavPrev]}
-                      onPress={() => goToPreviewPhoto(-1)}
-                    >
-                      <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[S.photoPreviewNavBtn, S.photoPreviewNavNext]}
-                      onPress={() => goToPreviewPhoto(1)}
-                    >
-                      <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </>
-                ) : null}
-              </View>
-              <View style={S.photoPreviewInfo}>
-                {photoPreview.opis ? (
-                  <Text style={[S.photoPreviewDescription, { color: theme.text }]} selectable>
-                    {photoPreview.opis}
-                  </Text>
-                ) : null}
-                {Array.isArray(photoPreview.tagi) && photoPreview.tagi.length > 0 ? (
-                  <Text style={[S.photoPreviewMeta, { color: theme.textMuted }]} selectable>
-                    {photoPreview.tagi.join(' · ')}
-                  </Text>
-                ) : null}
-                <Text style={[S.photoPreviewMeta, { color: theme.textMuted }]} selectable>
-                  {new Date(photoPreview.data_dodania || photoPreview.created_at || Date.now()).toLocaleString('pl-PL')}
-                  {photoPreview.lokalizacja ? ` · GPS: ${photoPreview.lokalizacja}` : ''}
-                </Text>
-                {previewPhotoList.length > 1 ? (
-                  <View style={S.photoPreviewActions}>
-                    <TouchableOpacity
-                      style={[S.photoPreviewActionBtn, { borderColor: theme.border, backgroundColor: theme.surface2 }]}
-                      onPress={() => goToPreviewPhoto(-1)}
-                    >
-                      <Ionicons name="chevron-back" size={15} color={theme.textSub} />
-                      <Text style={[S.photoPreviewActionText, { color: theme.textSub }]}>Poprzednie</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[S.photoPreviewActionBtn, { borderColor: theme.accent, backgroundColor: theme.accentLight }]}
-                      onPress={() => goToPreviewPhoto(1)}
-                    >
-                      <Text style={[S.photoPreviewActionText, { color: theme.accent }]}>Następne</Text>
-                      <Ionicons name="chevron-forward" size={15} color={theme.accent} />
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-          ) : null}
-        </View>
-      </Modal>
+      <TaskPhotoPreviewModal
+        visible={!!photoPreview}
+        photo={photoPreview}
+        previewCounter={previewCounter}
+        previewPhotoCount={previewPhotoList.length}
+        theme={theme}
+        onClose={() => setPhotoPreview(null)}
+        onNavigate={goToPreviewPhoto}
+      />
 
       {/* M3 F3.9 - mobilny protokol zamkniecia pracy */}
       <Modal visible={finishModal} animationType="slide" transparent onRequestClose={() => setFinishModal(false)}>
@@ -9570,79 +9504,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingHorizontal: 8,
   },
   photoGalleryScoreText: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  photoPreviewOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(4,8,16,0.9)',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  photoPreviewCloseLayer: {
-    ...StyleSheet.absoluteFill,
-  },
-  photoPreviewBox: {
-    borderWidth: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  photoPreviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  photoPreviewTitle: { fontSize: 15, fontWeight: '900' },
-  photoPreviewSub: { fontSize: 11, marginTop: 2 },
-  photoPreviewCounter: {
-    minWidth: 48,
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    alignItems: 'center',
-  },
-  photoPreviewCounterText: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  photoPreviewStage: {
-    position: 'relative',
-    backgroundColor: '#05080F',
-  },
-  photoPreviewImage: { width: '100%', height: 430 },
-  photoPreviewNavBtn: {
-    position: 'absolute',
-    top: '45%',
-    width: 44,
-    height: 44,
-    borderRadius: 7,
-    backgroundColor: 'rgba(0,0,0,0.48)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoPreviewNavPrev: { left: 10 },
-  photoPreviewNavNext: { right: 10 },
-  photoPreviewInfo: { padding: 14, gap: 6 },
-  photoPreviewDescription: { fontSize: 13, lineHeight: 19, fontWeight: '700' },
-  photoPreviewMeta: { fontSize: 11.5, lineHeight: 16 },
-  photoPreviewActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 6,
-  },
-  photoPreviewActionBtn: {
-    flexGrow: 1,
-    flexBasis: '45%',
-    minHeight: 40,
-    borderWidth: 1,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  photoPreviewActionText: { fontSize: 12, fontWeight: '900' },
-
   // Przyciski dodaj
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
