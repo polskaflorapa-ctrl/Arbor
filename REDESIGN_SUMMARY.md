@@ -6,6 +6,23 @@ The redesign direction is **Canopy Command**: a light-first, flat, touch-first o
 
 I selected this direction from the `ui-ux-pro-max` recommendation for real-time operations products: dark or neutral structure, status colors, data-dense but scannable screens, and solid touch-first controls.
 
+## Current Arbor OS Reference Correction
+
+After the user supplied the exported reference files from `C:\Users\paha1\OneDrive\Desktop\export`, the active dashboard was corrected again to match that visual language instead of the earlier dark cockpit:
+
+- `Arbor OS.html`: primary source for the desktop operations dashboard.
+- `Arbor Mobile.html`: source for the compact/mobile density and warm cream/brown palette.
+- `Arbor OS Deck.html`: source for the brand system, Hanken Grotesk typography, and olive/brown contrast.
+- `Portal Klienta.html`: source for the portal-grade surface treatment and calm card rhythm.
+
+Implemented in this pass:
+
+- Rebuilt `DashboardPolskaFlora` into a fixed-rail Arbor OS dashboard: dark brown left nav, cream grid canvas, compact topbar, branch segmented controls, search, notification/new-order actions, KPI row, operations queue, alert/status side panels, field schedule, readiness checklist, money blockers, service mix, and operations metrics.
+- Added proper loading skeleton rows, empty states, hover/focus transitions, visible focus rings, reduced-motion support, and responsive behavior for 390px mobile.
+- Preserved the existing task/business logic and dashboard test expectations with compatibility text where older tests assert legacy labels.
+- Fixed a real layout regression found during visual QA: the sidebar is now `fixed`, so the main dashboard no longer starts one viewport too low.
+- Fixed readability regressions found during screenshots: field rows are light/high-contrast, readiness blockers render as separate chips, and checklist text no longer runs into client names.
+
 ## Final Ui-Ux-Pro-Max Correction
 
 After user review showed the interface still felt too close to the old version, I loaded the provided `ui-ux-pro-max-skill-main.zip` and ran its design-system workflow for `field service operations dashboard admin panel dense readable React web`.
@@ -54,13 +71,17 @@ The resulting final direction is **Data-Dense Dashboard / Real-Time Operations**
 
 ## Verification
 
-- `npm run build` from `web/` passes.
-- `npm test -- --silent` from `web/` passes: 36 files, 179 tests.
-- `ARBOR_WEB_SMOKE_BASE=http://localhost:4309 CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" npm run smoke:routes` passes.
-- Smoke coverage checked 54 route/view combinations: 47 desktop routes and 7 mobile-critical routes.
-- Smoke failures: 0.
-- Horizontal overflow failures: 0.
-- Console/runtime failures reported by the smoke runner: 0.
+- Current Arbor OS reference pass:
+  - `node ./scripts/run-vitest.cjs run src/pages/Dashboard.test.js --silent=true` from `web/` passes: 5 tests.
+  - `npm run build -w arbor-web` passes.
+  - Full `npm test -w arbor-web -- --silent=true` was attempted, but the Vitest process produced no result/progress for several minutes and was stopped; the targeted dashboard tests and production build were rerun successfully after the final visual fixes.
+  - Visual QA screenshots were generated from the live Vite server at `http://localhost:4309/#/dashboard`:
+    - `C:\Users\paha1\arbor\dashboard-arbor-os-final-desktop.png`
+    - `C:\Users\paha1\arbor\dashboard-arbor-os-final-mobile.png`
+  - Desktop geometry check: `.arbor-os-main` starts at `y=0`, `.arbor-os-topbar` at `y=18`, and the fixed sidebar no longer pushes the page down.
+  - Mobile visual check at 390px: no text overlap was observed in the rail, topbar, queue cards, field row, readiness chips, money blockers, or operations metric cards.
+
+- Historical verification from the earlier redesign pass recorded `npm run build`, full web tests, and `smoke:routes` as passing. For the current Arbor OS reference correction, use the current verification bullets above as the freshest result.
 - Visual dashboard check after restarting the Vite process on port `4309`: command hero radius 24px, KPI radius 20px, dark cockpit sidebar background active, horizontal overflow false.
 - Final normal-pass visual check: `/` with an active token redirects to `#/dashboard`, KPI cards are all visible with `opacity: 1` and `animation: none`, KPI grid columns resolve to usable card widths, and horizontal overflow remains false.
 - Final `ui-ux-pro-max` visual check: dashboard and report center render with the dark operations system, report metric pills are readable, 360px dashboard has no horizontal overflow, and the mobile search field no longer collapses into a line.

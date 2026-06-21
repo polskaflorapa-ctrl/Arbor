@@ -537,6 +537,7 @@ export default function Dashboard() {
     <DashboardPolskaFlora
       user={user}
       error={error}
+      loading={loading}
       dzisiaj={dzisiaj}
       monthLabel={monthLabel}
       branchLabel={branchLabel}

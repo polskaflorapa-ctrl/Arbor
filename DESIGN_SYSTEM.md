@@ -6,6 +6,24 @@
 
 I chose this direction because Arbor OS users scan schedules, exceptions, crews, approvals, CRM activity, and money under time pressure. The UI needs to feel calm, fast, legible, and trustworthy before it feels decorative.
 
+## Current Reference Pass: Arbor OS Operations
+
+After the supplied exported references were reviewed (`Arbor OS.html`, `Arbor OS Deck.html`, `Arbor Mobile.html`, and `Portal Klienta.html`), the active dashboard direction was corrected to **Arbor OS Operations**: a warm cream command surface with a fixed dark-brown navigation rail, olive action states, compact white operational panels, and Hanken Grotesk typography.
+
+This is now the source of truth for the active `/dashboard` screen:
+
+- Background: `#faf8f1` to `#f0ebdd`, with a subtle operational grid.
+- Navigation/ink: `#2c2011`, `#3b2a18`.
+- Primary action/status: `#a0af14`, `#7f8c12`.
+- Secondary/risk accents: `#bd701e`, `#c0492f`.
+- Panels: `#fffdf8`, `#fbfaf6`, borders `#e6ddc9`.
+- Muted text: `#8a8069`, with dark body text `#2c2011`.
+- Font: Hanken Grotesk for UI, with tabular numeric emphasis for operational counters.
+- Radius: 8px for compact controls, 12px for inputs/chips, 14-18px for panels.
+- Motion: 160ms hover/focus transitions, shimmer skeletons, disabled under `prefers-reduced-motion`.
+
+The active implementation lives in `web/src/pages/DashboardPolskaFlora.js` and `web/src/styles/ui-ux-pro-max-final.css`. The dashboard is intentionally light and dense now; the earlier dark cockpit notes below are retained as history of the redesign process, not as the current dashboard source of truth.
+
 ## Final Ui-Ux-Pro-Max Pass
 
 After the direct `ui-ux-pro-max` skill run, the applied direction was tightened to **Data-Dense Dashboard / Real-Time Operations**:
