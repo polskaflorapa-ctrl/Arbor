@@ -23,6 +23,17 @@ Implemented in this pass:
 - Fixed a real layout regression found during visual QA: the sidebar is now `fixed`, so the main dashboard no longer starts one viewport too low.
 - Fixed readability regressions found during screenshots: field rows are light/high-contrast, readiness blockers render as separate chips, and checklist text no longer runs into client names.
 
+## Final All-Modules Correction
+
+After the last user review, I treated the remaining issue as a product-wide shell failure rather than a color pass. The final correction applies the Polska Flora brand and Arbor OS shell across all authenticated modules:
+
+- Replaced text/leaf placeholder marks with the real `web/public/brand/polska-flora-logo.svg` in both navigation systems.
+- Fixed mobile and desktop content offsets for MUI shell pages whose class order prevented the previous `:has()` rule from applying.
+- Added shell coverage for `ZarzadzajRolami`, `MagazynPolskaFlora`, `Oględziny`, and `Eksploruj` without changing their business logic.
+- Fixed the mobile logo hiding caused by an older rule that hid the first `.pf-sidebar` child.
+- Corrected role strings in `Uzytkownicy` so Polish role names are counted consistently.
+- Re-ran the route sweep after the fixes: 56 authenticated routes × 3 viewports = 168 checks, 0 failures.
+
 ## Final Ui-Ux-Pro-Max Correction
 
 After user review showed the interface still felt too close to the old version, I loaded the provided `ui-ux-pro-max-skill-main.zip` and ran its design-system workflow for `field service operations dashboard admin panel dense readable React web`.
@@ -70,6 +81,12 @@ The resulting final direction is **Data-Dense Dashboard / Real-Time Operations**
 - Mobile-critical web routes were smoke-tested at narrow width: dashboard, CRM inbox, orders, map live, telephony, field settlements, and payroll.
 
 ## Verification
+
+- Final all-modules verification:
+  - `npm run build -w arbor-web` passes.
+  - `node ./scripts/run-vitest.cjs run src/pages/Dashboard.test.js src/pages/Login.test.js src/pages/Zlecenia.test.js --silent=true` from `web/` passes: 3 files, 23 tests.
+  - `artifacts/module-pass/full-final-sweep-report.json`: 168 checks, 56 routes, 3 viewports, 0 failures.
+  - Sweep criteria: no login redirect, sidebar present, Polska Flora logo visible, no horizontal overflow, no mojibake in visible text, and main content clears the fixed rail on desktop/tablet/mobile.
 
 - Current Arbor OS reference pass:
   - `node ./scripts/run-vitest.cjs run src/pages/Dashboard.test.js --silent=true` from `web/` passes: 5 tests.

@@ -416,10 +416,8 @@ export default function Sidebar() {
   return (
     <aside className="pf-sidebar" style={pfSb.root}>
       <div style={pfSb.logo}>
-        <div style={pfSb.logoIcon}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M12 22V12M12 12C12 7 7 3 3 3c0 4 2 8 5 10M12 12C12 7 17 3 21 3c0 4-2 8-5 10" />
-          </svg>
+        <div className="pf-sidebar-logo-mark" style={pfSb.logoIcon}>
+          <img src="/brand/polska-flora-logo.svg" alt="" />
         </div>
         <div>
           <div style={pfSb.logoName}>Polska Flora</div>

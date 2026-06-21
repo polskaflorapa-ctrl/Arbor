@@ -7,6 +7,7 @@ import api from '../api';
 import { Button } from '../components/ui/Button';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import CommandSidebar from '../components/CommandSidebar';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage } from '../utils/statusMessage';
@@ -182,23 +183,25 @@ export default function ZarzadzajRolami() {
   const canSaveRole = Boolean(form?.nazwa?.trim());
 
   return (
-    <div className="roles-admin-shell" style={S.page}>
-      <PageHeader
-        variant="plain"
-        title={t('pages.role.title')}
-        subtitle={t('pages.role.subtitle')}
-        icon={<SettingsOutlined style={{ fontSize: 26 }} />}
-        back={{ onClick: () => navigate('/dashboard'), label: t('nav.dashboard'), ariaLabel: t('pages.role.backToDashboard') }}
-        actions={
-          <Button type="button" leftIcon={Plus} style={S.btnAdd} onClick={openNew}>
-            {t('pages.role.newRole')}
-          </Button>
-        }
-      />
+    <div className="app-shell roles-admin-shell" style={S.page}>
+      <CommandSidebar active="profile" />
+      <main className="app-main command-content-main roles-admin-main" style={S.main}>
+        <PageHeader
+          variant="plain"
+          title={t('pages.role.title')}
+          subtitle={t('pages.role.subtitle')}
+          icon={<SettingsOutlined style={{ fontSize: 26 }} />}
+          back={{ onClick: () => navigate('/dashboard'), label: t('nav.dashboard'), ariaLabel: t('pages.role.backToDashboard') }}
+          actions={
+            <Button type="button" leftIcon={Plus} style={S.btnAdd} onClick={openNew}>
+              {t('pages.role.newRole')}
+            </Button>
+          }
+        />
 
-      <StatusMessage message={msg} style={S.msgBar} />
+        <StatusMessage message={msg} style={S.msgBar} />
 
-      <div className="roles-admin-layout" style={S.layout}>
+        <div className="roles-admin-layout" style={S.layout}>
         {/* ─── LISTA RÓL ────────────────────────────────────── */}
         <div className="roles-admin-sidebar" style={S.sidebar}>
           <div className="roles-admin-sidebar-header" style={S.sidebarHeader}>
@@ -424,7 +427,8 @@ export default function ZarzadzajRolami() {
             </>
           )}
         </div>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
@@ -492,8 +496,9 @@ function ToggleSwitch({ value, onChange, disabled }) {
 const S = {
   page: {
     minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)',
-    padding: '28px 24px',
+    padding: 0,
   },
+  main: { minWidth: 0 },
   btnAdd: {
     background: '#34D399', color: '#052E16', border: 'none', borderRadius: 10,
     padding: '10px 20px', fontWeight: 700, fontSize: 14, cursor: 'pointer',

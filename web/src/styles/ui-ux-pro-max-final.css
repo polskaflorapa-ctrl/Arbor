@@ -8478,3 +8478,393 @@ body.theme-dark #root .arbor-sidebar {
     transition: none !important;
   }
 }
+
+/* Arbor OS all-modules pass: shared production skin for every authenticated module. */
+#root {
+  --arbor-app-brown: #2c2011;
+  --arbor-app-brown-2: #3b2a18;
+  --arbor-app-ink: #2c2011;
+  --arbor-app-muted: #8a8069;
+  --arbor-app-paper: #faf8f1;
+  --arbor-app-soft: #f0ebdd;
+  --arbor-app-panel: #fffdf8;
+  --arbor-app-card: #fbfaf6;
+  --arbor-app-line: #e6ddc9;
+  --arbor-app-green: #a0af14;
+  --arbor-app-green-2: #7f8c12;
+  --arbor-app-orange: #bd701e;
+  --arbor-app-red: #c0492f;
+  --arbor-app-shadow: 0 18px 42px rgba(44, 32, 17, 0.09);
+}
+
+body:not(.theme-dark) {
+  background: var(--arbor-app-paper) !important;
+}
+
+#root .command-native-logo-frame,
+#root .pf-sidebar-logo-mark {
+  width: 58px !important;
+  min-width: 58px !important;
+  height: 42px !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(230, 221, 201, 0.8) !important;
+  border-radius: 12px !important;
+  background: #faf8f1 !important;
+  color: var(--arbor-app-brown) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+#root .command-native-logo-frame img,
+#root .pf-sidebar-logo-mark img {
+  width: 50px !important;
+  height: auto !important;
+  max-width: 50px !important;
+  max-height: 32px !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+#root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell) {
+  min-height: 100vh !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(160, 175, 20, 0.12), transparent 30%),
+    linear-gradient(90deg, rgba(44, 32, 17, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(44, 32, 17, 0.025) 1px, transparent 1px),
+    linear-gradient(180deg, #faf8f1 0%, #f0ebdd 100%) !important;
+  background-size: auto, 54px 54px, 54px 54px, auto !important;
+  color: var(--arbor-app-ink) !important;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+#root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):has(> :is(.pf-sidebar, .command-native-sidebar)) {
+  display: block !important;
+}
+
+#root :is(.app-shell, [class*='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):has(> :is(.pf-sidebar, .command-native-sidebar)) {
+  display: block !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) {
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  z-index: 80 !important;
+  width: 252px !important;
+  height: 100vh !important;
+  padding: 20px 14px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: var(--arbor-app-brown) !important;
+  color: #efe9da !important;
+  box-shadow: none !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(160, 175, 20, 0.5) rgba(255, 255, 255, 0.04);
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) * {
+  letter-spacing: 0 !important;
+}
+
+#root .pf-sidebar [style],
+#root .command-native-sidebar [style] {
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button']) {
+  border-radius: 8px !important;
+  color: rgba(250, 248, 241, 0.78) !important;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button']):hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button'], .ios-inset-row)[aria-current='page'],
+#root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button']).is-active {
+  background: var(--arbor-app-green) !important;
+  color: var(--arbor-app-brown) !important;
+  box-shadow: none !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(svg, path, rect, circle, line, polyline, polygon) {
+  filter: none !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(strong, b),
+#root :is(.pf-sidebar, .command-native-sidebar) [style*='color: #ffffff'] {
+  color: #ffffff !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(small, .ios-section-title),
+#root :is(.pf-sidebar, .command-native-sidebar) [style*='uppercase'] {
+  color: rgba(250, 248, 241, 0.62) !important;
+}
+
+#root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+  > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar) {
+  min-height: 100vh !important;
+  margin-left: 252px !important;
+  padding: 22px 28px 48px !important;
+  color: var(--arbor-app-ink) !important;
+  background: transparent !important;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+#root :is(.app-shell, [class*='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+  > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar) {
+  min-height: 100vh !important;
+  margin-left: 252px !important;
+  padding: 22px 28px 48px !important;
+  color: var(--arbor-app-ink) !important;
+  background: transparent !important;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+#root > [class*='-shell']:not(.login-shell):not(.explore-command-shell):not(.landing-shell)
+  > :is([class*='-main'], main):not(.pf-sidebar):not(.command-native-sidebar) {
+  min-height: 100vh !important;
+  margin-left: 252px !important;
+  padding: 22px 28px 48px !important;
+  color: var(--arbor-app-ink) !important;
+  background: transparent !important;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+#root .ogledziny-main {
+  padding: 0 !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+
+#root .explore-command-shell > .explore-command-main {
+  margin-left: 252px !important;
+}
+
+#root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+  > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar)::before {
+  display: none !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main),
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main) * {
+  letter-spacing: 0 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.module-page-header, .module-page-header-plain, .module-page-header-hero, [class*='topbar'], [class*='header']):not(.MuiTableCell-root) {
+  border-color: var(--arbor-app-line) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(h1, h2, h3, h4, .MuiTypography-h1, .MuiTypography-h2, .MuiTypography-h3) {
+  color: var(--arbor-app-ink) !important;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(p, small, label, .MuiTypography-body2, .MuiFormHelperText-root) {
+  color: var(--arbor-app-muted) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card'], [class*='box'], [class*='Box']):not(.arbor-sidebar):not(.pf-sidebar):not(.command-native-sidebar):not(.route-loading-card) {
+  border: 1px solid var(--arbor-app-line) !important;
+  border-radius: 14px !important;
+  background: rgba(255, 253, 248, 0.94) !important;
+  color: var(--arbor-app-ink) !important;
+  box-shadow: var(--arbor-app-shadow) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.modern-data-row, .ios-inset-row, .MuiTableRow-root, [class*='row'], [class*='Row']):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *) {
+  border-color: var(--arbor-app-line) !important;
+  background: #fbfaf6 !important;
+  color: var(--arbor-app-ink) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.modern-data-row:hover, .ios-inset-row:hover, .MuiTableRow-root:hover, [class*='row']:hover, [class*='Row']:hover):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *) {
+  background: #f6f1e5 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is([class*='command-strip'], [class*='CommandStrip'], [class*='hero'], [class*='Hero']) {
+  border: 1px solid var(--arbor-app-line) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 253, 248, 0.94) !important;
+  color: var(--arbor-app-ink) !important;
+  box-shadow: var(--arbor-app-shadow) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is([class*='command-card'], [class*='CommandCard'], [class*='kpi'], [class*='Kpi'], [class*='metric'], [class*='Metric']) {
+  border-color: var(--arbor-app-line) !important;
+  background: #fbfaf6 !important;
+  color: var(--arbor-app-ink) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(button, .MuiButton-root, a[role='button']):not(.MuiIconButton-root):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *) {
+  min-height: 38px;
+  border-radius: 10px !important;
+  border-color: var(--arbor-app-line) !important;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-weight: 850 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(button, .MuiButton-root, a[role='button']):not(.MuiIconButton-root):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *):hover {
+  transform: translateY(-1px);
+  border-color: rgba(160, 175, 20, 0.44) !important;
+  box-shadow: 0 14px 28px rgba(44, 32, 17, 0.1) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(input, select, textarea, .MuiInputBase-root, .MuiSelect-select) {
+  border-color: var(--arbor-app-line) !important;
+  border-radius: 10px !important;
+  background: #fffdf8 !important;
+  color: var(--arbor-app-ink) !important;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(input, select, textarea, button, a, .MuiButton-root, .MuiInputBase-root):focus-visible {
+  outline: 3px solid rgba(160, 175, 20, 0.4) !important;
+  outline-offset: 2px !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main) table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  color: var(--arbor-app-ink) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main) th {
+  background: #f0ebdd !important;
+  color: #5a5040 !important;
+  font-weight: 900 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.modern-data-empty, [class*='empty'], [class*='Empty'], [class*='loading'], [class*='Loading']) {
+  border-color: var(--arbor-app-line) !important;
+  background: #fbfaf6 !important;
+  color: var(--arbor-app-muted) !important;
+}
+
+#root .AiChat,
+#root [class*='ai-chat'],
+#root [class*='chat'] {
+  z-index: 95;
+}
+
+@media (max-width: 900px) {
+  #root :is(.pf-sidebar, .command-native-sidebar) {
+    width: 60px !important;
+    padding: 12px 8px !important;
+  }
+
+  #root :is(.pf-sidebar, .command-native-sidebar) :is(.command-native-brand, [style*='logo']) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    margin: 0 auto 14px !important;
+    overflow: visible !important;
+  }
+
+  #root :is(.pf-sidebar, .command-native-sidebar) :is(.command-native-logo-frame, .pf-sidebar-logo-mark) {
+    display: grid !important;
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+    padding: 0 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow: hidden !important;
+  }
+
+  #root :is(.pf-sidebar, .command-native-sidebar) :is(.command-native-logo-frame img, .pf-sidebar-logo-mark img) {
+    display: block !important;
+    width: 34px !important;
+    max-width: 34px !important;
+    min-width: 34px !important;
+    max-height: 34px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    object-fit: contain !important;
+  }
+
+  #root :is(.pf-sidebar, .command-native-sidebar) :is(.command-native-brand div, .command-native-session, .command-native-actions, .command-native-system, .command-native-user div),
+  #root .pf-sidebar :is(nav span:not(:first-child), [style*='logoName'], [style*='logoSub']) {
+    display: none !important;
+  }
+
+  #root .pf-sidebar > div:first-child {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    margin: 0 auto 14px !important;
+    overflow: visible !important;
+  }
+
+  #root .pf-sidebar > div:first-child > div:not(.pf-sidebar-logo-mark) {
+    display: none !important;
+  }
+
+  #root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+    > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar) {
+    margin-left: 60px !important;
+    padding: 14px 12px 34px !important;
+  }
+
+  #root :is(.app-shell, [class*='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+    > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar) {
+    margin-left: 60px !important;
+    padding: 14px 12px 34px !important;
+  }
+
+  #root > [class*='-shell']:not(.login-shell):not(.explore-command-shell):not(.landing-shell)
+    > :is([class*='-main'], main):not(.pf-sidebar):not(.command-native-sidebar) {
+    margin-left: 60px !important;
+    padding: 14px 12px 34px !important;
+  }
+
+  #root .ogledziny-main {
+    padding: 0 !important;
+  }
+
+  #root .explore-command-shell > .explore-command-main {
+    margin-left: 60px !important;
+  }
+
+  #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+    :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card']) {
+    border-radius: 12px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root :is(.app-main, .command-content-main, .pf-sidebar, .command-native-sidebar) *,
+  #root :is(.app-main, .command-content-main, .pf-sidebar, .command-native-sidebar) *::before,
+  #root :is(.app-main, .command-content-main, .pf-sidebar, .command-native-sidebar) *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

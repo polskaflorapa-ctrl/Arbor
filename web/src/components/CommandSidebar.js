@@ -81,7 +81,9 @@ export default function CommandSidebar({ active = 'dashboard', user = null, onPl
   return (
     <aside className="command-native-sidebar" aria-label="Polska Flora navigation">
       <button type="button" className="command-native-brand" onClick={() => navigate('/dashboard')}>
-        <span>PF</span>
+        <span className="command-native-logo-frame">
+          <img src="/brand/polska-flora-logo.svg" alt="" />
+        </span>
         <div>
           <strong>Polska Flora</strong>
           <small>Centrum operacyjne</small>

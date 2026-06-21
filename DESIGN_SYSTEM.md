@@ -24,6 +24,16 @@ This is now the source of truth for the active `/dashboard` screen:
 
 The active implementation lives in `web/src/pages/DashboardPolskaFlora.js` and `web/src/styles/ui-ux-pro-max-final.css`. The dashboard is intentionally light and dense now; the earlier dark cockpit notes below are retained as history of the redesign process, not as the current dashboard source of truth.
 
+## Final All-Modules Shell
+
+The production shell now applies across every non-parameterized authenticated web module checked in the app. The active brand mark is the real Polska Flora SVG asset at `web/public/brand/polska-flora-logo.svg`, used in both `CommandSidebar` and the legacy `Sidebar`.
+
+- Navigation rail: fixed left rail, `#2c2011`, compact at 60-66px on tablet/mobile.
+- Main content offset: 252px desktop, 60px tablet/mobile; special split-view modules keep zero internal padding while still clearing the rail.
+- App surface: warm cream grid, compact white panels, olive active states, brown ink.
+- Module coverage: dashboard, explore, orders, schedule, reports, CRM, quotes, fleet, warehouse, inspections, maps, HR, roles, finance, settings, profile, and admin routes.
+- Verification source: `artifacts/module-pass/full-final-sweep-report.json` checks 56 routes across desktop 1440px, tablet 768px, and mobile 390px with zero failures.
+
 ## Final Ui-Ux-Pro-Max Pass
 
 After the direct `ui-ux-pro-max` skill run, the applied direction was tightened to **Data-Dense Dashboard / Real-Time Operations**:
