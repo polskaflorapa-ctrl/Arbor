@@ -27,7 +27,7 @@
     "@vitejs/plugin-react": "^6.0.2",
     "jsdom": "^27.2.0",
     "vite": "^8.0.16",
-    "vitest": "^4.0.15"
+    "vitest": "^4.1.9"
   },
   "scripts": {
     "clean:cache": "node -e \"const fs=require('fs');['node_modules/.cache','node_modules/.vite','build'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true});}catch(e){}});\"",
