@@ -5,6 +5,16 @@ const TASK_DETAIL_CACHE_PREFIX = 'task_detail_cache_v1';
 export const TASK_LIST_CACHE_TTL_MS = 18 * 60 * 60 * 1000;
 export const TASK_LIST_CACHE_STALE_MS = 15 * 60 * 1000;
 
+export async function clearTaskCaches(): Promise<void> {
+  const keys = await AsyncStorage.getAllKeys();
+  const taskCacheKeys = keys.filter(
+    (key) => key.startsWith(`${TASK_LIST_CACHE_PREFIX}:`) || key.startsWith(`${TASK_DETAIL_CACHE_PREFIX}:`),
+  );
+  if (taskCacheKeys.length > 0) {
+    await AsyncStorage.multiRemove(taskCacheKeys);
+  }
+}
+
 type TaskListCachePayload = {
   savedAt: string;
   endpoint: string;

@@ -2,12 +2,32 @@
  * Test mode utilities dla aplikacji mobilnej (React Native/Expo).
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import { API_URL } from '../constants/api';
+import { clearStoredSession, getStoredSession, saveStoredSession } from './session';
 
 const TEST_MODE_STORAGE_KEY = 'arbor-mobile-test-mode';
 const TEST_USER_STORAGE_KEY = 'arbor-mobile-test-user';
+const LEGACY_TOKEN_KEY = 'token';
+const TEST_TOKEN_PREFIX = 'test_token_mobile_';
 const mockTaskCheckins = new Map<string, { lat?: unknown; lng?: unknown; recorded_at: string }>();
+
+type FetchFunction = typeof globalThis.fetch;
+type ActiveFetchPatch = {
+  previous: FetchFunction;
+  patched: FetchFunction;
+  cleanup: () => void;
+};
+
+let activeFetchPatch: ActiveFetchPatch | null = null;
+
+export function canUseTestMode(): boolean {
+  const isDevRuntime = typeof __DEV__ !== 'undefined' && __DEV__ === true;
+  return isDevRuntime || process.env.EXPO_PUBLIC_ENABLE_TEST_MODE === 'true';
+}
+
+function isTestToken(token: string | null | undefined): boolean {
+  return typeof token === 'string' && token.startsWith(TEST_TOKEN_PREFIX);
+}
 
 // Testowi użytkownicy o różnych rolach
 export const TEST_USERS_MOBILE = {
@@ -47,7 +67,7 @@ export const TEST_USERS_MOBILE = {
 };
 
 // Token testowy
-export const TEST_TOKEN_MOBILE = 'test_token_mobile_' + Math.random().toString(36).substr(2, 9);
+export const TEST_TOKEN_MOBILE = TEST_TOKEN_PREFIX + Math.random().toString(36).slice(2, 11);
 
 function mockTaskMissingLabels(task: any) {
   const missing: string[] = [];
@@ -348,6 +368,7 @@ export const MOCK_DATA_MOBILE = {
  * Sprawdza czy tryb testowy jest włączony.
  */
 export async function isTestModeEnabledMobile() {
+  if (!canUseTestMode()) return false;
   try {
     const stored = await AsyncStorage.getItem(TEST_MODE_STORAGE_KEY);
     return stored === 'true';
@@ -360,11 +381,45 @@ export async function isTestModeEnabledMobile() {
  * Włącza/wyłącza tryb testowy.
  */
 export async function toggleTestModeMobile(enabled: boolean) {
+  if (enabled && !canUseTestMode()) {
+    throw new Error('Test mode is disabled in this build');
+  }
   try {
-    await AsyncStorage.setItem(TEST_MODE_STORAGE_KEY, String(enabled));
+    if (enabled) {
+      await AsyncStorage.setItem(TEST_MODE_STORAGE_KEY, 'true');
+      return;
+    }
+
+    uninstallMobileTestModeFetchInterceptor();
+    await Promise.all([
+      clearStoredSession(),
+      AsyncStorage.multiRemove([TEST_MODE_STORAGE_KEY, TEST_USER_STORAGE_KEY, LEGACY_TOKEN_KEY]),
+    ]);
   } catch (e) {
     console.error('Failed to toggle test mode:', e);
+    throw e;
   }
+}
+
+/**
+ * Production startup hardening for flags/tokens left by an older development build.
+ * A real session is preserved; only tokens with the dedicated test prefix are removed.
+ */
+export async function clearUnavailableTestModeState(): Promise<void> {
+  if (canUseTestMode()) return;
+
+  const legacyToken = await AsyncStorage.getItem(LEGACY_TOKEN_KEY).catch(() => null);
+  const { token } = await getStoredSession().catch(() => ({ token: null, user: null }));
+  const cleanupTasks: Promise<unknown>[] = [
+    AsyncStorage.multiRemove([TEST_MODE_STORAGE_KEY, TEST_USER_STORAGE_KEY]),
+  ];
+  if (isTestToken(legacyToken)) {
+    cleanupTasks.push(AsyncStorage.removeItem(LEGACY_TOKEN_KEY));
+  }
+  if (isTestToken(token)) {
+    cleanupTasks.push(clearStoredSession());
+  }
+  await Promise.all(cleanupTasks);
 }
 
 export type MobileRoleKey = keyof typeof TEST_USERS_MOBILE;
@@ -390,15 +445,19 @@ export function getTestTokenMobile() {
  * Zaloguj testowego użytkownika.
  */
 export async function loginTestUserMobile(role: MobileRoleKey) {
+  if (!canUseTestMode()) {
+    throw new Error('Test mode is disabled in this build');
+  }
   try {
     const user = getTestUserMobile(role);
     const token = TEST_TOKEN_MOBILE;
 
-    await AsyncStorage.multiSet([
-      ['token', token],
-      ['user', JSON.stringify(user)],
-      [TEST_MODE_STORAGE_KEY, 'true'],
-      [TEST_USER_STORAGE_KEY, role],
+    await Promise.all([
+      saveStoredSession(token, user),
+      AsyncStorage.multiSet([
+        [TEST_MODE_STORAGE_KEY, 'true'],
+        [TEST_USER_STORAGE_KEY, role],
+      ]),
     ]);
 
     return { token, user };
@@ -412,19 +471,11 @@ export async function loginTestUserMobile(role: MobileRoleKey) {
  * Wyloguj testowego użytkownika.
  */
 export async function logoutTestUserMobile() {
-  try {
-    await AsyncStorage.multiRemove([
-      'token',
-      'user',
-      TEST_MODE_STORAGE_KEY,
-      TEST_USER_STORAGE_KEY,
-    ]);
-  } catch (e) {
-    console.error('Failed to logout test user:', e);
-  }
+  await toggleTestModeMobile(false);
 }
 
 export async function getCurrentTestUserMobile() {
+  if (!canUseTestMode()) return null;
   try {
     const storedRole = await AsyncStorage.getItem(TEST_USER_STORAGE_KEY);
     if (!storedRole) return null;
@@ -435,6 +486,7 @@ export async function getCurrentTestUserMobile() {
 }
 
 export async function getCurrentTestRoleMobile(): Promise<MobileRoleKey | null> {
+  if (!canUseTestMode()) return null;
   try {
     const storedRole = await AsyncStorage.getItem(TEST_USER_STORAGE_KEY);
     if (!storedRole) return null;
@@ -743,18 +795,27 @@ export async function getMockDataForMobileFetch(url: string | undefined, method 
   return { ok: true };
 }
 
-export async function installMobileTestModeFetchInterceptor() {
+export function uninstallMobileTestModeFetchInterceptor(): void {
+  activeFetchPatch?.cleanup();
+}
+
+export async function installMobileTestModeFetchInterceptor(): Promise<() => void> {
+  if (!canUseTestMode()) return () => undefined;
   const isEnabled = await isTestModeEnabledMobile();
-  if (!isEnabled) return;
+  if (!isEnabled) return () => undefined;
 
-  const originalFetch = (globalThis as any).fetch;
-  if (typeof originalFetch !== 'function') return;
-  if ((originalFetch as any).__testModePatched) return;
+  if (activeFetchPatch && globalThis.fetch === activeFetchPatch.patched) {
+    return activeFetchPatch.cleanup;
+  }
 
-  const patchedFetch = async (input: RequestInfo, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input?.url;
-    const method = (init?.method || (typeof input !== 'string' ? input.method : undefined) || 'GET') as string;
-    const body = init?.body ?? (typeof input !== 'string' ? input.body : undefined);
+  const previousFetch = globalThis.fetch;
+  if (typeof previousFetch !== 'function') return () => undefined;
+
+  const patchedFetch: FetchFunction = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestInput = typeof input === 'object' && 'url' in input ? input : null;
+    const url = typeof input === 'string' ? input : requestInput?.url ?? input.toString();
+    const method = (init?.method || requestInput?.method || 'GET') as string;
+    const body = init?.body ?? requestInput?.body;
     const mockResponse = await getMockDataForMobileFetch(url, method, body);
     if (mockResponse != null) {
       return new Response(JSON.stringify(mockResponse), {
@@ -762,47 +823,21 @@ export async function installMobileTestModeFetchInterceptor() {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    return originalFetch(input, init);
+    return previousFetch(input, init);
   };
 
-  (patchedFetch as any).__testModePatched = true;
-  (globalThis as any).fetch = patchedFetch;
-}
-
-export async function installMobileTestModeAxiosAdapter() {
-  const isEnabled = await isTestModeEnabledMobile();
-  if (!isEnabled) return;
-
-  const currentAdapter = axios.defaults.adapter as any;
-  if ((currentAdapter as any)?.__testModePatched) return;
-
-  const originalAdapter =
-    typeof currentAdapter === 'function'
-      ? currentAdapter
-      : typeof (axios as any).getAdapter === 'function'
-        ? (axios as any).getAdapter(currentAdapter)
-        : null;
-  if (typeof originalAdapter !== 'function') return;
-
-  axios.defaults.adapter = async (config: any) => {
-    const mockData = await getMockDataForMobileFetch(
-      config.url as string,
-      (config.method || 'GET').toUpperCase(),
-      config.data,
-    );
-    if (mockData != null) {
-      return {
-        data: mockData,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config,
-        request: {},
-      };
+  const cleanup = () => {
+    if (globalThis.fetch === patchedFetch) {
+      globalThis.fetch = previousFetch;
     }
-    return originalAdapter(config);
+    if (activeFetchPatch?.patched === patchedFetch) {
+      activeFetchPatch = null;
+    }
   };
-  (axios.defaults.adapter as any).__testModePatched = true;
+
+  activeFetchPatch = { previous: previousFetch, patched: patchedFetch, cleanup };
+  globalThis.fetch = patchedFetch;
+  return cleanup;
 }
 
 /**

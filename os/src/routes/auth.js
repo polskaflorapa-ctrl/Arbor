@@ -4,9 +4,16 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const pool = require('../config/database');
+const logger = require('../config/logger');
 const { authMiddleware, buildAppPermissions, isDyrektorOrAdmin } = require('../middleware/auth');
 const { validateBody } = require('../middleware/validate');
-const { loginLimiter, resetLoginLimiterForTests } = require('../middleware/rate-limit');
+const {
+  forgotPasswordLimiter,
+  loginLimiter,
+  resetLoginLimiterForTests,
+  resetPasswordLimiter,
+  resetPasswordResetLimitersForTests,
+} = require('../middleware/rate-limit');
 const { env } = require('../config/env');
 const { sendSystemEmailOptional } = require('../services/systemEmail');
 const {
@@ -136,11 +143,21 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res, 
   }
 });
 
-router.post('/forgot-password', validateBody(forgotPasswordSchema), async (req, res, next) => {
+router.post('/forgot-password', forgotPasswordLimiter, validateBody(forgotPasswordSchema), async (req, res) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
+  const resetUrl = `${publicAppBaseUrl(req)}/#/login?resetToken=${encodeURIComponent(token)}`;
+  // Staly ksztalt odpowiedzi nie ujawnia, czy konto, e-mail albo SMTP istnieja.
+  // `email.sent` pozostaje dla zgodnosci ze starszym klientem i oznacza przyjecie
+  // zadania przez endpoint, a nie potwierdzenie dostarczenia wiadomosci.
   const generic = {
     ok: true,
     message: 'Jesli konto istnieje i ma adres e-mail, wyslalismy link resetujacy haslo.',
+    email: { sent: true },
+    expires_at: expiresAt.toISOString(),
   };
+  if (env.NODE_ENV !== 'production') generic.dev_reset_url = resetUrl;
+
   try {
     await ensurePasswordResetTable();
     const identifier = req.body.identifier.trim().toLowerCase();
@@ -155,17 +172,14 @@ router.post('/forgot-password', validateBody(forgotPasswordSchema), async (req, 
     const user = rows[0];
     if (!user || !String(user.email || '').trim()) return res.json(generic);
 
-    const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = sha256(token);
-    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
     await pool.query(
       `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, $3)`,
       [user.id, tokenHash, expiresAt]
     );
 
-    const resetUrl = `${publicAppBaseUrl(req)}/#/login?resetToken=${encodeURIComponent(token)}`;
-    const email = await sendSystemEmailOptional({
+    await sendSystemEmailOptional({
       to: user.email,
       subject: 'Reset hasla ARBOR-OS',
       text: [
@@ -184,31 +198,42 @@ router.post('/forgot-password', validateBody(forgotPasswordSchema), async (req, 
       `,
     });
 
-    const response = { ...generic, email, expires_at: expiresAt.toISOString() };
-    if (env.NODE_ENV !== 'production') response.dev_reset_url = resetUrl;
-    return res.json(response);
+    return res.json(generic);
   } catch (err) {
-    return next(err);
+    logger.error('auth.passwordReset.requestFailed', {
+      requestId: req.requestId,
+      message: err && err.message ? err.message : String(err),
+    });
+    return res.json(generic);
   }
 });
 
-router.post('/reset-password', validateBody(resetPasswordSchema), async (req, res, next) => {
+router.post('/reset-password', resetPasswordLimiter, validateBody(resetPasswordSchema), async (req, res, next) => {
+  let client;
+  let transactionOpen = false;
   try {
     await ensurePasswordResetTable();
     const tokenHash = sha256(req.body.token);
-    const { rows } = await pool.query(
-      `SELECT prt.id, prt.user_id
-       FROM password_reset_tokens prt
-       JOIN users u ON u.id = prt.user_id
+    client = await pool.connect();
+    await client.query('BEGIN');
+    transactionOpen = true;
+
+    const { rows } = await client.query(
+      `UPDATE password_reset_tokens AS prt
+       SET used_at = NOW()
+       FROM users AS u
        WHERE prt.token_hash = $1
          AND prt.used_at IS NULL
          AND prt.expires_at > NOW()
+         AND u.id = prt.user_id
          AND u.aktywny = true
-       LIMIT 1`,
+       RETURNING prt.user_id`,
       [tokenHash]
     );
     const reset = rows[0];
     if (!reset) {
+      await client.query('ROLLBACK');
+      transactionOpen = false;
       return res.status(400).json({
         error: 'Link resetujacy jest nieprawidlowy albo wygasl',
         requestId: req.requestId,
@@ -216,11 +241,32 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req, re
     }
 
     const newHash = await bcrypt.hash(req.body.haslo, 12);
-    await pool.query('UPDATE users SET haslo_hash = $1 WHERE id = $2', [newHash, reset.user_id]);
-    await pool.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [reset.id]);
+    const passwordUpdate = await client.query(
+      'UPDATE users SET haslo_hash = $1 WHERE id = $2 AND aktywny = true',
+      [newHash, reset.user_id]
+    );
+    if (passwordUpdate.rowCount !== 1) {
+      throw new Error('Password reset target is no longer active');
+    }
+    await client.query('COMMIT');
+    transactionOpen = false;
     return res.json({ ok: true, message: 'Haslo zostalo zmienione. Mozesz sie zalogowac.' });
   } catch (err) {
+    if (client && transactionOpen) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        logger.error('auth.passwordReset.rollbackFailed', {
+          requestId: req.requestId,
+          message: rollbackError && rollbackError.message
+            ? rollbackError.message
+            : String(rollbackError),
+        });
+      }
+    }
     return next(err);
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -318,6 +364,7 @@ router.get('/pomocnicy', authMiddleware, async (req, res, next) => {
 
 if (env.NODE_ENV === 'test') {
   router.__resetLoginLimiterForTests = resetLoginLimiterForTests;
+  router.__resetPasswordResetLimitersForTests = resetPasswordResetLimitersForTests;
 }
 
 module.exports = router;

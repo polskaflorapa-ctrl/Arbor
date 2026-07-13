@@ -1,0 +1,250 @@
+{
+  "$description": "Polska Flora design tokens. The three layers are primitive, semantic and component; aliases use DTCG-style curly-brace references.",
+  "primitive": {
+    "color": {
+      "brand": {
+        "darkBrown": {
+          "$type": "color",
+          "$value": "#3B2A18",
+          "$description": "Primary dark brown; RGB 59 42 24; Pantone Black 4 C."
+        },
+        "lightBrown": {
+          "$type": "color",
+          "$value": "#766440",
+          "$description": "Supporting light brown; RGB 118 100 64; Pantone 7532 C."
+        },
+        "primaryGreen": {
+          "$type": "color",
+          "$value": "#A0AF14",
+          "$description": "Primary green; RGB 160 175 20; Pantone 383 C."
+        },
+        "lightGreen": {
+          "$type": "color",
+          "$value": "#B4C232",
+          "$description": "Supporting light green; RGB 180 194 50; Pantone 583 C."
+        },
+        "orangeBrown": {
+          "$type": "color",
+          "$value": "#BD701E",
+          "$description": "Accent orange-brown; RGB 189 112 30; Pantone 723 C."
+        }
+      },
+      "neutral": {
+        "white": {
+          "$type": "color",
+          "$value": "#FFFFFF"
+        },
+        "transparent": {
+          "$type": "color",
+          "$value": "transparent"
+        }
+      }
+    },
+    "fontFamily": {
+      "brand": {
+        "$type": "fontFamily",
+        "$value": [
+          "Road UA",
+          "Arial",
+          "sans-serif"
+        ]
+      }
+    },
+    "fontWeight": {
+      "thin": { "$type": "fontWeight", "$value": 100 },
+      "extraLight": { "$type": "fontWeight", "$value": 200 },
+      "light": { "$type": "fontWeight", "$value": 300 },
+      "regular": { "$type": "fontWeight", "$value": 400 },
+      "medium": { "$type": "fontWeight", "$value": 500 },
+      "bold": { "$type": "fontWeight", "$value": 700 },
+      "extraBold": { "$type": "fontWeight", "$value": 800 },
+      "black": { "$type": "fontWeight", "$value": 900 }
+    },
+    "fontSize": {
+      "caption": { "$type": "dimension", "$value": "0.75rem" },
+      "small": { "$type": "dimension", "$value": "0.875rem" },
+      "body": {
+        "$type": "dimension",
+        "$value": "1rem",
+        "$description": "Digital equivalent of the 12 pt brand-book body size at 96 dpi."
+      },
+      "headingSecond": {
+        "$type": "dimension",
+        "$value": "2rem",
+        "$description": "Digital equivalent of the 24 pt second-level heading at 96 dpi."
+      },
+      "headingFirst": {
+        "$type": "dimension",
+        "$value": "4rem",
+        "$description": "Digital equivalent of the 48 pt first-level heading at 96 dpi."
+      }
+    },
+    "lineHeight": {
+      "tight": { "$type": "number", "$value": 1.1 },
+      "heading": { "$type": "number", "$value": 1.2 },
+      "body": { "$type": "number", "$value": 1.5 },
+      "relaxed": { "$type": "number", "$value": 1.625 }
+    },
+    "letterSpacing": {
+      "tight": { "$type": "dimension", "$value": "-0.02em" },
+      "normal": { "$type": "dimension", "$value": "0" },
+      "wide": { "$type": "dimension", "$value": "0.05em" }
+    },
+    "space": {
+      "0": { "$type": "dimension", "$value": "0" },
+      "1": { "$type": "dimension", "$value": "0.25rem" },
+      "2": { "$type": "dimension", "$value": "0.5rem" },
+      "3": { "$type": "dimension", "$value": "0.75rem" },
+      "4": { "$type": "dimension", "$value": "1rem" },
+      "6": { "$type": "dimension", "$value": "1.5rem" },
+      "8": { "$type": "dimension", "$value": "2rem" },
+      "12": { "$type": "dimension", "$value": "3rem" },
+      "16": { "$type": "dimension", "$value": "4rem" }
+    },
+    "radius": {
+      "none": { "$type": "dimension", "$value": "0" },
+      "small": { "$type": "dimension", "$value": "0.25rem" },
+      "medium": { "$type": "dimension", "$value": "0.5rem" },
+      "large": { "$type": "dimension", "$value": "0.75rem" },
+      "full": { "$type": "dimension", "$value": "9999px" }
+    },
+    "shadow": {
+      "small": {
+        "$type": "shadow",
+        "$value": "0 1px 2px rgb(59 42 24 / 0.12)"
+      },
+      "medium": {
+        "$type": "shadow",
+        "$value": "0 8px 24px rgb(59 42 24 / 0.16)"
+      }
+    },
+    "duration": {
+      "fast": { "$type": "duration", "$value": "120ms" },
+      "normal": { "$type": "duration", "$value": "200ms" }
+    }
+  },
+  "semantic": {
+    "color": {
+      "background": { "$type": "color", "$value": "{primitive.color.neutral.white}" },
+      "foreground": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+      "surface": { "$type": "color", "$value": "{primitive.color.neutral.white}" },
+      "surfaceInverse": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+      "primary": { "$type": "color", "$value": "{primitive.color.brand.primaryGreen}" },
+      "primaryHover": { "$type": "color", "$value": "{primitive.color.brand.lightGreen}" },
+      "primaryActive": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+      "primaryActiveForeground": { "$type": "color", "$value": "{primitive.color.neutral.white}" },
+      "primaryForeground": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+      "secondary": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+      "secondaryHover": { "$type": "color", "$value": "{primitive.color.brand.lightBrown}" },
+      "secondaryForeground": { "$type": "color", "$value": "{primitive.color.neutral.white}" },
+      "accent": { "$type": "color", "$value": "{primitive.color.brand.orangeBrown}" },
+      "accentForeground": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+      "mutedForeground": { "$type": "color", "$value": "{primitive.color.brand.lightBrown}" },
+      "border": { "$type": "color", "$value": "{primitive.color.brand.lightBrown}" },
+      "focus": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+      "success": { "$type": "color", "$value": "{primitive.color.brand.primaryGreen}" },
+      "warning": { "$type": "color", "$value": "{primitive.color.brand.orangeBrown}" }
+    },
+    "theme": {
+      "dark": {
+        "color": {
+          "background": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+          "foreground": { "$type": "color", "$value": "{primitive.color.neutral.white}" },
+          "surface": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+          "primary": { "$type": "color", "$value": "{primitive.color.brand.lightGreen}" },
+          "primaryHover": { "$type": "color", "$value": "{primitive.color.brand.primaryGreen}" },
+          "primaryActive": { "$type": "color", "$value": "{primitive.color.neutral.white}" },
+          "primaryActiveForeground": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+          "primaryForeground": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+          "secondary": { "$type": "color", "$value": "{primitive.color.neutral.white}" },
+          "secondaryForeground": { "$type": "color", "$value": "{primitive.color.brand.darkBrown}" },
+          "mutedForeground": { "$type": "color", "$value": "{primitive.color.brand.lightGreen}" },
+          "border": { "$type": "color", "$value": "{primitive.color.brand.lightBrown}" },
+          "focus": { "$type": "color", "$value": "{primitive.color.neutral.white}" }
+        }
+      }
+    },
+    "typography": {
+      "headingFirst": {
+        "fontFamily": { "$type": "fontFamily", "$value": "{primitive.fontFamily.brand}" },
+        "fontWeight": { "$type": "fontWeight", "$value": "{primitive.fontWeight.extraBold}" },
+        "fontSize": { "$type": "dimension", "$value": "{primitive.fontSize.headingFirst}" },
+        "lineHeight": { "$type": "number", "$value": "{primitive.lineHeight.tight}" }
+      },
+      "headingSecond": {
+        "fontFamily": { "$type": "fontFamily", "$value": "{primitive.fontFamily.brand}" },
+        "fontWeight": { "$type": "fontWeight", "$value": "{primitive.fontWeight.bold}" },
+        "fontSize": { "$type": "dimension", "$value": "{primitive.fontSize.headingSecond}" },
+        "lineHeight": { "$type": "number", "$value": "{primitive.lineHeight.heading}" }
+      },
+      "body": {
+        "fontFamily": { "$type": "fontFamily", "$value": "{primitive.fontFamily.brand}" },
+        "fontWeight": { "$type": "fontWeight", "$value": "{primitive.fontWeight.regular}" },
+        "fontSize": { "$type": "dimension", "$value": "{primitive.fontSize.body}" },
+        "lineHeight": { "$type": "number", "$value": "{primitive.lineHeight.body}" }
+      }
+    },
+    "spacing": {
+      "inline": { "$type": "dimension", "$value": "{primitive.space.4}" },
+      "stack": { "$type": "dimension", "$value": "{primitive.space.6}" },
+      "section": { "$type": "dimension", "$value": "{primitive.space.12}" }
+    }
+  },
+  "component": {
+    "button": {
+      "primaryBackground": { "$type": "color", "$value": "{semantic.color.primary}" },
+      "primaryForeground": { "$type": "color", "$value": "{semantic.color.primaryForeground}" },
+      "primaryHoverBackground": { "$type": "color", "$value": "{semantic.color.primaryHover}" },
+      "primaryActiveBackground": { "$type": "color", "$value": "{semantic.color.primaryActive}" },
+      "primaryActiveForeground": { "$type": "color", "$value": "{semantic.color.primaryActiveForeground}" },
+      "secondaryBackground": { "$type": "color", "$value": "{semantic.color.secondary}" },
+      "secondaryForeground": { "$type": "color", "$value": "{semantic.color.secondaryForeground}" },
+      "focusRing": { "$type": "color", "$value": "{semantic.color.focus}" },
+      "paddingInline": { "$type": "dimension", "$value": "{primitive.space.4}" },
+      "paddingBlock": { "$type": "dimension", "$value": "{primitive.space.2}" },
+      "radius": { "$type": "dimension", "$value": "{primitive.radius.medium}" },
+      "fontWeight": { "$type": "fontWeight", "$value": "{primitive.fontWeight.bold}" }
+    },
+    "card": {
+      "background": { "$type": "color", "$value": "{semantic.color.surface}" },
+      "foreground": { "$type": "color", "$value": "{semantic.color.foreground}" },
+      "border": { "$type": "color", "$value": "{semantic.color.border}" },
+      "padding": { "$type": "dimension", "$value": "{primitive.space.6}" },
+      "radius": { "$type": "dimension", "$value": "{primitive.radius.large}" },
+      "shadow": { "$type": "shadow", "$value": "{primitive.shadow.small}" }
+    },
+    "input": {
+      "background": { "$type": "color", "$value": "{semantic.color.background}" },
+      "foreground": { "$type": "color", "$value": "{semantic.color.foreground}" },
+      "border": { "$type": "color", "$value": "{semantic.color.border}" },
+      "focusBorder": { "$type": "color", "$value": "{semantic.color.focus}" },
+      "placeholder": { "$type": "color", "$value": "{semantic.color.mutedForeground}" },
+      "paddingInline": { "$type": "dimension", "$value": "{primitive.space.3}" },
+      "paddingBlock": { "$type": "dimension", "$value": "{primitive.space.2}" },
+      "radius": { "$type": "dimension", "$value": "{primitive.radius.medium}" }
+    },
+    "navigation": {
+      "background": { "$type": "color", "$value": "{semantic.color.surfaceInverse}" },
+      "foreground": { "$type": "color", "$value": "{primitive.color.neutral.white}" },
+      "activeBackground": { "$type": "color", "$value": "{semantic.color.primary}" },
+      "activeForeground": { "$type": "color", "$value": "{semantic.color.primaryForeground}" },
+      "focusRing": { "$type": "color", "$value": "{primitive.color.neutral.white}" }
+    },
+    "badge": {
+      "background": { "$type": "color", "$value": "{semantic.color.primary}" },
+      "foreground": { "$type": "color", "$value": "{semantic.color.primaryForeground}" },
+      "radius": { "$type": "dimension", "$value": "{primitive.radius.full}" },
+      "paddingInline": { "$type": "dimension", "$value": "{primitive.space.2}" },
+      "paddingBlock": { "$type": "dimension", "$value": "{primitive.space.1}" }
+    },
+    "logo": {
+      "clearSpaceFactor": {
+        "$type": "number",
+        "$value": 1.5,
+        "$description": "Minimum clear space equals 1.5 times the gap between the symbol and wordmark."
+      },
+      "minimumWidthHorizontal": { "$type": "dimension", "$value": "56mm" },
+      "minimumWidthVertical": { "$type": "dimension", "$value": "25mm" }
+    }
+  }
+}

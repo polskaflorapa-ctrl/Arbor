@@ -1,0 +1,36 @@
+#root .mobile-shell,
+#root .arbor-mobile-shell,
+#root [class*='mobile-main'] {
+  --mobile-safe-bottom: max(18px, env(safe-area-inset-bottom));
+  color: var(--pf-ink) !important;
+  font-family: var(--pf-font) !important;
+}
+
+#root .mobile-shell,
+#root .arbor-mobile-shell {
+  min-height: 100dvh !important;
+  background:
+    radial-gradient(circle at 90% -6%, rgba(160, 175, 20, 0.1), transparent 28rem),
+    linear-gradient(180deg, var(--pf-paper), var(--pf-paper-2)) !important;
+}
+
+#root :is(.mobile-shell, .arbor-mobile-shell, [class*='mobile-main'])
+  :is([class*='card'], [class*='Card'], [class*='panel'], [class*='Panel'], section, article) {
+  border: 1px solid var(--pf-line) !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  box-shadow: var(--pf-shadow-soft) !important;
+}
+
+#root :is(.mobile-shell, .arbor-mobile-shell, [class*='mobile-main'])
+  :is(button, a[role='button'], [role='button']) {
+  min-width: 44px !important;
+  min-height: 44px !important;
+  border-radius: 12px !important;
+}
+
+#root :is(.mobile-shell, .arbor-mobile-shell, [class*='mobile-main'])
+  :is([class*='tab'], [class*='bottom'], nav) {
+  border-top: 1px solid var(--pf-line) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+}

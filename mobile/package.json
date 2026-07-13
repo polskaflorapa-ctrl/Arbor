@@ -20,6 +20,8 @@
     "lint": "node ./scripts/run-expo-lint.cjs",
     "typecheck": "node ./scripts/run-tsc-noemit.cjs",
     "test:module-resolution": "node ./scripts/check-module-resolution.cjs",
+    "test:test-mode": "node ./scripts/test-test-mode.cjs",
+    "test:session-boundary": "node ./scripts/test-session-boundary.cjs",
     "test:offline-queue": "node ./scripts/test-offline-queue.cjs",
     "test:notification-deeplink": "node ./scripts/test-notification-deeplink.cjs",
     "test:app-error-report": "node ./scripts/test-app-error-report.cjs",

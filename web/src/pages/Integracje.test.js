@@ -631,20 +631,23 @@ describe('Integracje (integration-style)', () => {
   });
 
   test('filters branch setup checklist by required reaction reasons', async () => {
+    const recentAuditAt = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const staleAuditAt = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
+
     setupGetMocks({
       crmApps: [
         {
           id: 11,
           oddzial_id: 8,
           active: true,
-          created_at: '2026-06-01T10:00:00.000Z',
+          created_at: recentAuditAt,
           config: { unified_inbox: true, channel: 'whatsapp' },
         },
         {
           id: 12,
           oddzial_id: 9,
           active: false,
-          created_at: '2026-04-01T10:00:00.000Z',
+          created_at: staleAuditAt,
           config: { unified_inbox: true, channel: 'whatsapp' },
         },
       ],

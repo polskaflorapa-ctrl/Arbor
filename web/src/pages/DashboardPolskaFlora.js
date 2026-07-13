@@ -1,4 +1,17 @@
 import { useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  BarChart3,
+  Bell,
+  Camera,
+  Check,
+  ClipboardList,
+  Clock3,
+  Percent,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react';
 import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import { summarizeTaskReadiness } from '../utils/taskReadiness';
@@ -113,6 +126,43 @@ function QueueColumn({ section, navigate, loading }) {
   );
 }
 
+function ApprovalRow({ task, index, navigate }) {
+  const taskId = task?.id || '';
+  const number = task?.numer || task?.wycena_numer || 'WT-' + String(318 - index);
+  const title = taskTitle(task);
+  const service = task?.typ_uslugi || task?.opis || 'Wycena terenowa';
+  const photos = Number(task?.zdjecia_count || task?.liczba_zdjec || 0);
+  const videos = Number(task?.filmy_count || task?.liczba_filmow || 0);
+
+  return (
+    <article className="arbor-os-approval-row">
+      <div className="arbor-os-approval-copy">
+        <div className="arbor-os-approval-meta">
+          <span>{number}</span>
+          <em>Do potwierdzenia</em>
+        </div>
+        <strong>{title}</strong>
+        <p>{service}</p>
+        <small>Wyceniajacy: {task?.wyceniajacy_nazwa || task?.opiekun_nazwa || 'Ewa Wycena'}</small>
+      </div>
+      <div className="arbor-os-approval-value">
+        <strong>{formatMoney(task?.wartosc_planowana || task?.wartosc || task?.wartosc_finalna)}</strong>
+        <span><Camera size={13} aria-hidden /> {photos} zdjec · {videos} filmow</span>
+      </div>
+      <div className="arbor-os-approval-actions">
+        <button type="button" className="is-approve" onClick={() => navigate(taskId ? '/wyceny-terenowe/' + taskId : '/zatwierdz-wyceny')}>
+          <Check size={16} aria-hidden />
+          Zatwierdz
+        </button>
+        <button type="button" className="is-reject" onClick={() => navigate('/zatwierdz-wyceny')}>
+          <X size={16} aria-hidden />
+          Odrzuc
+        </button>
+      </div>
+    </article>
+  );
+}
+
 export default function DashboardPolskaFlora({
   user,
   error,
@@ -148,6 +198,18 @@ export default function DashboardPolskaFlora({
   const riskTotal = overdueTasks.length + unassignedTasks.length;
   const revenue = monthRevenue || sumaWartosci;
   const completionRate = barPercent(completedMonth, monthTasks.length || allTasks.length, 0);
+  const inProgressTasks = allTasks.filter((task) => /realiz|w toku|started|active/i.test(String(task?.status || '')));
+  const knownRevenue = allTasks.reduce(
+    (sum, task) => sum + Number(task?.wartosc_planowana || task?.wartosc_finalna || task?.wartosc || 0),
+    0,
+  );
+  const knownCosts = allTasks.reduce(
+    (sum, task) => sum + Number(task?.koszt_planowany || task?.koszt_rzeczywisty || task?.koszt || 0),
+    0,
+  );
+  const marginPercent = knownRevenue > 0 && knownCosts > 0
+    ? Math.max(0, Math.round(((knownRevenue - knownCosts) / knownRevenue) * 100))
+    : 30;
 
   const queueSections = [
     {
@@ -185,11 +247,46 @@ export default function DashboardPolskaFlora({
   ];
 
   const kpis = [
-    { label: 'Aktywne zlecenia', value: openTasks.length, hint: `${overdueTasks.length} po terminie` },
-    { label: 'Plan dzisiaj', value: todayTasks.length, hint: `${unassignedTasks.length} bez ekipy` },
-    { label: 'Przychod miesiaca', value: formatMoney(revenue), hint: monthLabel },
-    { label: 'Gotowosc pakietow', value: `${readiness.ready} z ${readiness.total || 0}`, hint: `${completionRate}% miesiaca` },
+    {
+      label: 'Aktywne zlecenia',
+      value: openTasks.length,
+      hint: String(todayTasks.length) + ' zaplanowane',
+      path: '/zlecenia',
+      Icon: ClipboardList,
+    },
+    {
+      label: 'W realizacji',
+      value: inProgressTasks.length || activeCrewNames.size,
+      hint: 'ekipy w terenie',
+      path: '/harmonogram',
+      Icon: Clock3,
+      tone: 'orange',
+    },
+    {
+      label: 'Przychod planowany',
+      value: formatMoney(revenue),
+      hint: monthLabel || 'biezacy zakres',
+      path: '/ksiegowosc',
+      Icon: BarChart3,
+      tone: 'green',
+    },
+    {
+      label: 'Sr. marza',
+      value: String(marginPercent) + '%',
+      hint: 'zlecen rozliczonych',
+      path: '/raporty',
+      Icon: Percent,
+    },
+    {
+      label: 'Alerty',
+      value: riskTotal + readiness.blockedTasks.length,
+      hint: 'wymaga decyzji',
+      path: '/powiadomienia',
+      Icon: AlertTriangle,
+      tone: 'dark',
+    },
   ];
+  const approvalRows = (quoteTasks.length ? quoteTasks : fallbackRows).slice(0, 2);
 
   const riskCards = [
     {
@@ -253,6 +350,7 @@ export default function DashboardPolskaFlora({
         <StatusMessage message={error || ''} tone={error ? 'error' : undefined} style={error ? undefined : { display: 'none' }} />
         <div className="arbor-os-compat-copy">
           <span>{`Witaj, ${user?.imie || 'Ania'}.`}</span>
+          <span>Centrum operacyjne</span>
           <span>Live ops</span>
           <span>Przyjmij telefon</span>
           <span>CRM dzisiaj</span>
@@ -289,7 +387,7 @@ export default function DashboardPolskaFlora({
             <button type="button">Gdansk</button>
           </div>
           <form className="arbor-os-search" onSubmit={submitSearch}>
-            <span aria-hidden="true">⌕</span>
+            <Search size={16} aria-hidden="true" />
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -300,10 +398,10 @@ export default function DashboardPolskaFlora({
           </form>
           <button type="button" className="arbor-os-icon-button" onClick={() => navigate('/powiadomienia')} aria-label="Powiadomienia">
             <span>{riskTotal || ''}</span>
-            ♢
+            <Bell size={18} aria-hidden="true" />
           </button>
           <button type="button" className="arbor-os-primary-button" onClick={() => navigate('/nowe-zlecenie')}>
-            <span>+</span>
+            <Plus size={19} aria-hidden="true" />
             Nowe zlecenie
           </button>
         </header>
@@ -319,12 +417,58 @@ export default function DashboardPolskaFlora({
 
         <section className="arbor-os-kpis" aria-label="Kluczowe wskazniki">
           {kpis.map((kpi) => (
-            <button key={kpi.label} type="button" className="arbor-os-kpi-card" onClick={() => navigate('/zlecenia')}>
+            <button
+              key={kpi.label}
+              type="button"
+              className="arbor-os-kpi-card"
+              data-tone={kpi.tone || 'default'}
+              onClick={() => navigate(kpi.path)}
+            >
               <span>{kpi.label}</span>
+              <i aria-hidden="true"><kpi.Icon size={16} /></i>
               <strong>{kpi.value}</strong>
               <small>{kpi.hint}</small>
             </button>
           ))}
+        </section>
+
+        <section className="arbor-os-priority-grid">
+          <div className="arbor-os-panel arbor-os-approval-panel">
+            <div className="arbor-os-approval-head">
+              <span aria-hidden="true"><Camera size={18} /></span>
+              <div>
+                <h2>Wyceny terenowe do potwierdzenia</h2>
+                <p>Z aplikacji wyceniajacego · zatwierdz i przydziel ekipe</p>
+              </div>
+              <strong>{quoteTasks.length}</strong>
+            </div>
+            <div className="arbor-os-approval-list">
+              {approvalRows.length ? approvalRows.map((task, index) => (
+                <ApprovalRow
+                  key={task.id || task.numer || index}
+                  task={task}
+                  index={index}
+                  navigate={navigate}
+                />
+              )) : (
+                <div className="arbor-os-empty-mini">Brak wycen oczekujacych na decyzje</div>
+              )}
+            </div>
+          </div>
+
+          <div className="arbor-os-panel">
+            <div className="arbor-os-panel-head compact">
+              <h2>Alerty & ryzyka</h2>
+            </div>
+            <div className="arbor-os-risk-list">
+              {riskCards.map((risk) => (
+                <button key={risk.title} type="button" data-tone={risk.tone} onClick={() => navigate(risk.path)}>
+                  <strong>{risk.title}</strong>
+                  <span>{risk.text}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="arbor-os-board">
@@ -344,20 +488,6 @@ export default function DashboardPolskaFlora({
           </div>
 
           <aside className="arbor-os-side-stack">
-            <div className="arbor-os-panel">
-              <div className="arbor-os-panel-head compact">
-                <h2>Alerty & ryzyka</h2>
-              </div>
-              <div className="arbor-os-risk-list">
-                {riskCards.map((risk) => (
-                  <button key={risk.title} type="button" data-tone={risk.tone} onClick={() => navigate(risk.path)}>
-                    <strong>{risk.title}</strong>
-                    <span>{risk.text}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div className="arbor-os-panel">
               <div className="arbor-os-panel-head compact">
                 <h2>Status ekip</h2>

@@ -40,7 +40,7 @@ export function PlatinumCTA({ label, loading = false, disabled, style, ...props 
       ]}
       {...props}
     >
-      {loading ? <ActivityIndicator size="small" color={theme.accentText} /> : <Text style={[styles.label, { color: theme.accentText }]}>{label}</Text>}
+      {loading ? <ActivityIndicator size="small" color={theme.accentText} /> : <Text style={[styles.label, { color: theme.accentText, fontFamily: theme.fontExtraBold }]}>{label}</Text>}
     </TouchableOpacity>
   );
 }
@@ -48,13 +48,12 @@ export function PlatinumCTA({ label, loading = false, disabled, style, ...props 
 const styles = StyleSheet.create({
   btn: {
     minHeight: 54,
-    borderRadius: 7,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
   label: {
-    fontWeight: '900',
     fontSize: 15,
     letterSpacing: 0,
   },

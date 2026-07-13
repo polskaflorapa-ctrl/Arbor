@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Fira+Sans:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap');
-
 :root {
   --ux-bg: #020617;
   --ux-bg-2: #07111f;
@@ -7402,7 +7400,7 @@ body.theme-dark #root .arbor-sidebar {
     linear-gradient(180deg, #faf8f1 0%, #f0ebdd 100%);
   background-size: auto, 54px 54px, 54px 54px, auto;
   color: var(--arbor-ink);
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Road UA", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 #root .arbor-os-shell * {
@@ -8535,7 +8533,7 @@ body:not(.theme-dark) {
     linear-gradient(180deg, #faf8f1 0%, #f0ebdd 100%) !important;
   background-size: auto, 54px 54px, 54px 54px, auto !important;
   color: var(--arbor-app-ink) !important;
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
 #root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):has(> :is(.pf-sidebar, .command-native-sidebar)) {
@@ -8569,7 +8567,7 @@ body:not(.theme-dark) {
 
 #root .pf-sidebar [style],
 #root .command-native-sidebar [style] {
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
 }
 
 #root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button']) {
@@ -8611,7 +8609,7 @@ body:not(.theme-dark) {
   padding: 22px 28px 48px !important;
   color: var(--arbor-app-ink) !important;
   background: transparent !important;
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
   box-sizing: border-box !important;
 }
 
@@ -8622,7 +8620,7 @@ body:not(.theme-dark) {
   padding: 22px 28px 48px !important;
   color: var(--arbor-app-ink) !important;
   background: transparent !important;
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
   box-sizing: border-box !important;
 }
 
@@ -8633,7 +8631,7 @@ body:not(.theme-dark) {
   padding: 22px 28px 48px !important;
   color: var(--arbor-app-ink) !important;
   background: transparent !important;
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
   box-sizing: border-box !important;
 }
 
@@ -8665,7 +8663,7 @@ body:not(.theme-dark) {
 #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
   :is(h1, h2, h3, h4, .MuiTypography-h1, .MuiTypography-h2, .MuiTypography-h3) {
   color: var(--arbor-app-ink) !important;
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
   font-weight: 900 !important;
   letter-spacing: 0 !important;
 }
@@ -8717,7 +8715,7 @@ body:not(.theme-dark) {
   min-height: 38px;
   border-radius: 10px !important;
   border-color: var(--arbor-app-line) !important;
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
   font-weight: 850 !important;
 }
 
@@ -8734,7 +8732,7 @@ body:not(.theme-dark) {
   border-radius: 10px !important;
   background: #fffdf8 !important;
   color: var(--arbor-app-ink) !important;
-  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
 }
 
 #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)

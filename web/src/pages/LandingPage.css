@@ -1999,10 +1999,10 @@
 /* Polska Flora brand book pass: olive green, dark brown, warm operational neutrals. */
 .landing-page {
   --pf-green: #a0af14;
-  --pf-green-soft: #b7c52a;
+  --pf-green-soft: #b4c232;
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #786243;
-  --pf-brown-orange: #c87520;
+  --pf-brown-soft: #766440;
+  --pf-brown-orange: #bd701e;
   --pf-paper: #f4f3ec;
   --pf-panel: #ffffff;
   --pf-line: rgba(59, 42, 24, 0.14);

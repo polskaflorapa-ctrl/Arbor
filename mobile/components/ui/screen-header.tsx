@@ -6,6 +6,7 @@ import { useLanguage } from '../../constants/LanguageContext';
 import { useTheme } from '../../constants/ThemeContext';
 import { shadowStyle } from '../../constants/elevation';
 import type { Theme } from '../../constants/theme';
+import { BrandPattern } from './brand-logo';
 import { PlatinumIconBadge } from './platinum-icon-badge';
 
 export type ScreenHeaderProps = {
@@ -44,6 +45,7 @@ export function ScreenHeader({
 
   return (
     <View style={styles.header}>
+      <BrandPattern opacity={theme.name === 'dark' ? 0.035 : 0.022} />
       <TouchableOpacity
         onPress={goBack}
         style={[styles.edgeSlot, { width: edgeSlotWidth }]}
@@ -83,7 +85,7 @@ function makeStyles(
 ) {
   return StyleSheet.create({
     header: {
-      backgroundColor: t.name === 'dark' ? 'rgba(5,11,9,0.98)' : t.headerBg,
+      backgroundColor: t.headerBg,
       paddingHorizontal: 16,
       paddingTop: opts.paddingTop,
       paddingBottom: 10,
@@ -91,7 +93,8 @@ function makeStyles(
       alignItems: 'center',
       justifyContent: 'space-between',
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.name === 'dark' ? 'rgba(24,224,123,0.16)' : t.navBorder,
+      borderBottomColor: t.navBorder,
+      overflow: 'hidden',
       ...shadowStyle(t, {
         opacity: t.name === 'light' ? 0.025 : t.shadowOpacity * 0.06,
         radius: Math.max(3, t.shadowRadius * 0.18),
@@ -101,16 +104,16 @@ function makeStyles(
     },
     edgeSlot: {
       minHeight: opts.edgeSlotWidth,
-      borderRadius: 7,
-      backgroundColor: t.name === 'light' ? t.surface2 : 'rgba(16,28,24,0.92)',
+      borderRadius: 12,
+      backgroundColor: t.name === 'light' ? t.surface2 : 'rgba(255,255,255,0.06)',
       borderWidth: 1,
-      borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
+      borderColor: t.cardBorder,
       justifyContent: 'center',
       alignItems: 'center',
     },
     title: {
+      fontFamily: t.fontExtraBold,
       fontSize: 17,
-      fontWeight: '900',
       letterSpacing: 0,
       color: t.headerText,
       minWidth: 0,
@@ -120,9 +123,9 @@ function makeStyles(
       textAlign: 'left',
     },
     subtitle: {
+      fontFamily: t.fontMedium,
       color: t.headerSub,
       fontSize: 12,
-      fontWeight: '600',
       opacity: 0.95,
       textAlign: 'center',
     },
@@ -153,7 +156,7 @@ function makeStyles(
     backIconBadge: {
       width: 26,
       height: 26,
-      borderRadius: 6,
+      borderRadius: 10,
     },
   });
 }

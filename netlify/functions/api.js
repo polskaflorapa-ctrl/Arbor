@@ -1,7 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-
-let handlerPromise;
+const { createRetryableInitializer } = require('../../os/src/lib/retryable-initializer');
 
 async function resolveDatabaseUrl() {
   if (process.env.DATABASE_URL) return;
@@ -37,25 +36,21 @@ function normalizeEventPath(event) {
   return event;
 }
 
-async function getHandler() {
-  if (!handlerPromise) {
-    handlerPromise = (async () => {
-      process.env.NODE_ENV = process.env.NODE_ENV || 'production';
-      process.env.TRUST_PROXY = process.env.TRUST_PROXY || '1';
-      process.env.UPLOADS_DIR = process.env.UPLOADS_DIR || '/tmp/arbor-uploads';
-      process.env.PHONE_RECORDING_STORAGE = process.env.PHONE_RECORDING_STORAGE || 'none';
-      process.env.METRICS_ENABLED = process.env.METRICS_ENABLED || 'false';
+const getHandler = createRetryableInitializer(async () => {
+  process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+  process.env.TRUST_PROXY = process.env.TRUST_PROXY || '1';
+  process.env.UPLOADS_DIR = process.env.UPLOADS_DIR || '/tmp/arbor-uploads';
+  process.env.PHONE_RECORDING_STORAGE = process.env.PHONE_RECORDING_STORAGE || 'none';
+  process.env.METRICS_ENABLED = process.env.METRICS_ENABLED || 'false';
 
-      await resolveDatabaseUrl();
-      await runColdStartMigrations();
+  await resolveDatabaseUrl();
+  await runColdStartMigrations();
 
-      const serverless = require('serverless-http');
-      const { createApp } = require('../../os/src/app');
-      return serverless(createApp());
-    })();
-  }
-  return handlerPromise;
-}
+  const serverless = require('serverless-http');
+  const { createApp } = require('../../os/src/app');
+  const { initSentry } = require('../../os/src/config/sentry');
+  return serverless(createApp({ sentry: initSentry() }));
+});
 
 exports.handler = async (event, context) => {
   const handler = await getHandler();

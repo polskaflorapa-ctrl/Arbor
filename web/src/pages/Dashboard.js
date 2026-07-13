@@ -10,6 +10,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName, hasAnyRole, normalizeRole } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { localDateKey } from '../utils/localDateKey';
 import {
   CREW_REQUIRED_TASK_STATUSES,
   isTaskClosed,
@@ -86,7 +87,7 @@ function pickDashboardWeek(ranking) {
   const weeks = ranking?.weeks || [];
   if (!weeks.length) return null;
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const today = localDateKey(now);
   return weeks.find((week) => week.start <= today && week.end >= today) || weeks.find((week) => week.winner) || weeks[0];
 }
 
@@ -244,7 +245,7 @@ export default function Dashboard() {
       setTeamRankingApi(rRes.data || null);
       setLoading(false);
 
-      const month = new Date().toISOString().slice(0, 7);
+      const month = localDateKey().slice(0, 7);
       api.get('/payroll/month-close-status', {
         headers: h,
         params: { month },
@@ -295,7 +296,7 @@ export default function Dashboard() {
   const isBrygadzista = user?.rola === 'Brygadzista';
   const isWyceniajacy = user?.rola === 'Wyceniający';
   const sumaWartosci = allTasks.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = localDateKey();
   const openTasks = allTasks.filter((z) => !isTaskClosed(z.status));
   const activeTasks = openTasks.filter((z) => isTaskInProgress(z.status));
   const overdueTasks = openTasks.filter((z) => {
@@ -306,7 +307,7 @@ export default function Dashboard() {
   const unassignedTasks = openTasks.filter((z) => CREW_REQUIRED_TASK_STATUSES.has(z.status) && !z.ekipa_id);
   const todayUnassignedTasks = todayTasks.filter((z) => CREW_REQUIRED_TASK_STATUSES.has(z.status) && !z.ekipa_id);
   const dzisiaj = new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = todayIso.slice(0, 7);
   const monthTasks = allTasks.filter((z) => String(z.data_planowana || z.data_wykonania || z.created_at || '').startsWith(currentMonth));
   const monthRevenue = monthTasks.reduce((s, z) => s + (Number(z.wartosc_planowana) || 0), 0);
   const completedMonth = monthTasks.filter((z) => isTaskDone(z.status)).length;

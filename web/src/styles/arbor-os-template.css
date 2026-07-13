@@ -1,0 +1,879 @@
+/*
+ * Active Arbor OS shell.
+ * Geometry follows the supplied Arbor OS.html export; brand assets and type
+ * follow the Polska Flora brand book.
+ */
+
+#root .arbor-os-shell {
+  --template-brown: #3b2a18;
+  --template-brown-deep: #2a1d0f;
+  --template-ink: #3b2a18;
+  --template-muted: #766f5c;
+  --template-muted-soft: #a89f8c;
+  --template-paper: #f6f3e9;
+  --template-panel: #ffffff;
+  --template-card: #fbfaf6;
+  --template-line: #e6ddc9;
+  --template-green: #a0af14;
+  --template-green-dark: #7f8c12;
+  --template-green-soft: #f1f3d6;
+  --template-orange: #bd701e;
+  --template-red: #c0492f;
+  --template-shadow: 0 10px 26px rgba(59, 42, 24, 0.08);
+  min-height: 100vh !important;
+  background:
+    radial-gradient(circle at 96% 0%, rgba(160, 175, 20, 0.1), transparent 28rem),
+    linear-gradient(180deg, #faf9f3 0%, #f1eee2 100%) !important;
+  color: var(--template-ink) !important;
+  font-family: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+#root .arbor-os-shell .command-native-sidebar {
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  z-index: 80 !important;
+  width: 248px !important;
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 20px 14px 18px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: linear-gradient(180deg, var(--template-brown), var(--template-brown-deep)) !important;
+  color: #efe9da !important;
+  box-shadow: none !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(239, 233, 218, 0.5) transparent;
+}
+
+#root .arbor-os-shell .command-native-sidebar::before {
+  content: none !important;
+}
+
+#root .arbor-os-shell .command-native-brand {
+  min-height: 64px !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  padding: 0 6px 16px !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#root .arbor-os-shell .command-native-logo-frame {
+  width: 184px !important;
+  min-width: 0 !important;
+  height: 48px !important;
+  max-height: 48px !important;
+  display: block !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+#root .arbor-os-shell .command-native-logo-frame img {
+  width: 184px !important;
+  height: 48px !important;
+  max-width: 184px !important;
+  max-height: 48px !important;
+  object-fit: contain !important;
+  object-position: left center !important;
+}
+
+#root .arbor-os-shell .command-native-session,
+#root .arbor-os-shell .command-native-actions,
+#root .arbor-os-shell .command-native-system {
+  display: none !important;
+}
+
+#root .arbor-os-shell .command-native-nav {
+  display: grid !important;
+  gap: 2px !important;
+  padding: 14px 0 8px !important;
+}
+
+#root .arbor-os-shell .command-native-nav-group {
+  display: grid !important;
+  gap: 2px !important;
+  margin: 0 !important;
+}
+
+#root .arbor-os-shell .command-native-nav-group > small {
+  display: none !important;
+}
+
+#root .arbor-os-shell .command-native-nav button {
+  min-height: 42px !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  margin: 0 !important;
+  padding: 0 13px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: rgba(239, 233, 218, 0.78) !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+#root .arbor-os-shell .command-native-nav button:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #ffffff !important;
+}
+
+#root .arbor-os-shell .command-native-nav button.is-active {
+  background: var(--template-green) !important;
+  color: var(--template-brown-deep) !important;
+}
+
+#root .arbor-os-shell .command-native-nav-icon {
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: currentColor !important;
+  opacity: 1 !important;
+}
+
+#root .arbor-os-shell .command-native-weather {
+  width: 100% !important;
+  min-height: 86px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 6px 10px !important;
+  margin: auto 0 0 !important;
+  padding: 13px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  color: #efe9da !important;
+  text-align: left !important;
+  box-shadow: none !important;
+}
+
+#root .arbor-os-shell .command-native-weather > span {
+  grid-column: 1 / -1;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+
+#root .arbor-os-shell .command-native-weather small {
+  color: rgba(239, 233, 218, 0.58) !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+#root .arbor-os-shell .command-native-weather b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #efe9da !important;
+  font-size: 11px !important;
+}
+
+#root .arbor-os-shell .command-native-weather b svg {
+  color: var(--template-green) !important;
+}
+
+#root .arbor-os-shell .command-native-weather > strong {
+  color: #ffffff !important;
+  font-size: 26px !important;
+  line-height: 1 !important;
+}
+
+#root .arbor-os-shell .command-native-weather em {
+  align-self: end;
+  color: rgba(239, 233, 218, 0.66) !important;
+  font-size: 11px !important;
+  font-style: normal !important;
+}
+
+#root .arbor-os-shell .command-native-user {
+  min-height: 54px !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  margin: 10px 0 0 !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#root .arbor-os-shell .command-native-user > span {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 10px !important;
+  background: var(--template-orange) !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+#root .arbor-os-shell .command-native-user strong {
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+#root .arbor-os-shell .command-native-user small {
+  color: rgba(239, 233, 218, 0.58) !important;
+  font-size: 10px !important;
+}
+
+#root .arbor-os-main {
+  min-height: 100vh !important;
+  margin-left: 248px !important;
+  padding: 0 28px 48px !important;
+  background: transparent !important;
+  color: var(--template-ink) !important;
+}
+
+#root .arbor-os-topbar {
+  min-height: 74px !important;
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1fr) 94px 316px minmax(126px, 160px) 44px 142px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 -28px 24px !important;
+  padding: 0 28px !important;
+  border-bottom: 1px solid var(--template-line) !important;
+  background: rgba(255, 255, 255, 0.58) !important;
+  backdrop-filter: blur(12px);
+}
+
+#root .arbor-os-title span {
+  color: #64720b !important;
+  font-size: 10px !important;
+  line-height: 1.1 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+}
+
+#root .arbor-os-title h1 {
+  margin: 3px 0 0 !important;
+  color: var(--template-ink) !important;
+  font-size: 28px !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+}
+
+#root .arbor-os-view-toggle,
+#root .arbor-os-segments,
+#root .arbor-os-search,
+#root .arbor-os-icon-button,
+#root .arbor-os-range-row > div {
+  border: 1px solid var(--template-line) !important;
+  border-radius: 11px !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: none !important;
+}
+
+#root .arbor-os-view-toggle {
+  display: grid !important;
+  grid-template-columns: repeat(3, 16px) !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 7px !important;
+}
+
+#root .arbor-os-view-toggle span {
+  width: 15px !important;
+  height: 15px !important;
+  border-radius: 5px !important;
+  background: #766f5c !important;
+}
+
+#root .arbor-os-view-toggle span.is-active {
+  background: var(--template-green) !important;
+  outline: 3px solid var(--template-brown) !important;
+  outline-offset: 2px !important;
+}
+
+#root .arbor-os-segments {
+  display: flex !important;
+  justify-content: stretch !important;
+  padding: 4px !important;
+}
+
+#root .arbor-os-segments button,
+#root .arbor-os-range-row button {
+  min-height: 34px !important;
+  flex: 1 1 auto !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #766f5c !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+#root .arbor-os-segments button.is-active,
+#root .arbor-os-range-row button.is-active {
+  background: var(--template-brown) !important;
+  color: #ffffff !important;
+}
+
+#root .arbor-os-search {
+  min-height: 42px !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  gap: 7px !important;
+  padding: 0 10px !important;
+}
+
+#root .arbor-os-search input {
+  min-width: 0 !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--template-ink) !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+}
+
+#root .arbor-os-search kbd {
+  padding: 2px 5px !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: #eeeade !important;
+  color: #766f5c !important;
+  font-size: 10px !important;
+}
+
+#root .arbor-os-icon-button,
+#root .arbor-os-primary-button {
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 11px !important;
+}
+
+#root .arbor-os-icon-button {
+  position: relative !important;
+  width: 44px !important;
+  padding: 0 !important;
+  color: var(--template-ink) !important;
+}
+
+#root .arbor-os-icon-button > span {
+  position: absolute !important;
+  top: -6px !important;
+  right: -5px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+  background: var(--template-red) !important;
+  color: #ffffff !important;
+  font-size: 10px !important;
+}
+
+#root .arbor-os-primary-button {
+  gap: 8px !important;
+  padding: 0 14px !important;
+  border: 1px solid var(--template-green) !important;
+  background: var(--template-green) !important;
+  color: var(--template-brown) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  box-shadow: 0 10px 22px rgba(160, 175, 20, 0.18) !important;
+}
+
+#root .arbor-os-range-row {
+  min-height: 52px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  margin-bottom: 16px !important;
+}
+
+#root .arbor-os-range-row p {
+  color: var(--template-muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+#root .arbor-os-range-row > div {
+  display: inline-flex !important;
+  min-width: 205px !important;
+  padding: 4px !important;
+}
+
+#root .arbor-os-kpis {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+  margin-bottom: 18px !important;
+}
+
+#root .arbor-os-kpi-card {
+  position: relative !important;
+  min-height: 124px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-content: center !important;
+  gap: 7px 10px !important;
+  padding: 16px !important;
+  border: 1px solid var(--template-line) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: var(--template-ink) !important;
+  text-align: left !important;
+  opacity: 1 !important;
+  box-shadow: var(--template-shadow) !important;
+}
+
+#root .arbor-os-kpi-card > span {
+  align-self: center;
+  color: var(--template-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+#root .arbor-os-kpi-card > i {
+  width: 28px !important;
+  height: 28px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 8px !important;
+  background: var(--template-green-soft) !important;
+  color: var(--template-green-dark) !important;
+  font-style: normal !important;
+}
+
+#root .arbor-os-kpi-card[data-tone='orange'] > i {
+  background: #fae7d2 !important;
+  color: var(--template-orange) !important;
+}
+
+#root .arbor-os-kpi-card > strong {
+  grid-column: 1 / -1 !important;
+  color: var(--template-ink) !important;
+  font-size: 25px !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+}
+
+#root .arbor-os-kpi-card > small {
+  grid-column: 1 / -1 !important;
+  color: var(--template-muted-soft) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+
+#root .arbor-os-kpi-card[data-tone='dark'] {
+  border-color: var(--template-brown) !important;
+  background: var(--template-brown) !important;
+  color: #ffffff !important;
+}
+
+#root .arbor-os-shell button.arbor-os-kpi-card[data-tone='dark'] {
+  background-color: var(--template-brown) !important;
+  background-image: none !important;
+}
+
+#root .arbor-os-kpi-card[data-tone='dark'] > span,
+#root .arbor-os-kpi-card[data-tone='dark'] > small {
+  color: #cbbd9d !important;
+}
+
+#root .arbor-os-kpi-card[data-tone='dark'] > strong {
+  color: #ffffff !important;
+}
+
+#root .arbor-os-kpi-card[data-tone='dark'] > i {
+  background: rgba(189, 112, 30, 0.24) !important;
+  color: #e4a35d !important;
+}
+
+#root .arbor-os-priority-grid,
+#root .arbor-os-board {
+  display: grid !important;
+  grid-template-columns: minmax(0, 2.25fr) minmax(290px, 1fr) !important;
+  gap: 18px !important;
+  margin-bottom: 18px !important;
+}
+
+#root .arbor-os-panel {
+  border: 1px solid var(--template-line) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: var(--template-ink) !important;
+  box-shadow: var(--template-shadow) !important;
+  overflow: hidden !important;
+}
+
+#root .arbor-os-approval-panel {
+  border-color: rgba(189, 112, 30, 0.4) !important;
+}
+
+#root .arbor-os-approval-head {
+  min-height: 68px !important;
+  display: grid !important;
+  grid-template-columns: 30px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid var(--template-line) !important;
+  background: #fff9f3 !important;
+}
+
+#root .arbor-os-approval-head > span {
+  width: 30px !important;
+  height: 30px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 9px !important;
+  background: #fae7d2 !important;
+  color: var(--template-orange) !important;
+}
+
+#root .arbor-os-approval-head h2 {
+  margin: 0 !important;
+  color: var(--template-ink) !important;
+  font-size: 16px !important;
+  line-height: 1.15 !important;
+  font-weight: 800 !important;
+}
+
+#root .arbor-os-approval-head p {
+  margin: 3px 0 0 !important;
+  color: var(--template-muted-soft) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+
+#root .arbor-os-approval-head > strong {
+  min-width: 24px !important;
+  height: 24px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 8px !important;
+  background: #aa5b10 !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+}
+
+#root .arbor-os-approval-list {
+  display: grid !important;
+}
+
+#root .arbor-os-approval-row {
+  min-height: 134px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 150px !important;
+  grid-template-rows: auto auto !important;
+  gap: 8px 18px !important;
+  padding: 16px 18px !important;
+  border-bottom: 1px solid var(--template-line) !important;
+  background: #ffffff !important;
+}
+
+#root .arbor-os-approval-row:last-child {
+  border-bottom: 0 !important;
+}
+
+#root .arbor-os-approval-copy {
+  min-width: 0 !important;
+  display: grid !important;
+  align-content: start !important;
+  gap: 4px !important;
+}
+
+#root .arbor-os-approval-meta {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+#root .arbor-os-approval-meta > span {
+  color: var(--template-muted-soft) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+}
+
+#root .arbor-os-approval-meta > em {
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  background: #fae7d2 !important;
+  color: #9a5611 !important;
+  font-size: 9px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+}
+
+#root .arbor-os-approval-copy > strong {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: var(--template-ink) !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#root .arbor-os-approval-copy > p,
+#root .arbor-os-approval-copy > small {
+  margin: 0 !important;
+  color: var(--template-muted) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+
+#root .arbor-os-approval-copy > small {
+  color: var(--template-muted-soft) !important;
+}
+
+#root .arbor-os-approval-value {
+  display: grid !important;
+  align-content: start !important;
+  justify-items: end !important;
+  gap: 4px !important;
+}
+
+#root .arbor-os-approval-value > strong {
+  color: var(--template-ink) !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+}
+
+#root .arbor-os-approval-value > span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  color: var(--template-muted-soft) !important;
+  font-size: 9px !important;
+}
+
+#root .arbor-os-approval-actions {
+  grid-column: 1 / -1 !important;
+  display: flex !important;
+  gap: 8px !important;
+}
+
+#root .arbor-os-approval-actions > button {
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 0 13px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+}
+
+#root .arbor-os-approval-actions > button.is-approve {
+  background: var(--template-green) !important;
+  color: var(--template-brown) !important;
+}
+
+#root .arbor-os-approval-actions > button.is-reject {
+  background: #f6e0d9 !important;
+  color: #a3402a !important;
+}
+
+#root .arbor-os-panel-head {
+  min-height: 58px !important;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid var(--template-line) !important;
+}
+
+#root .arbor-os-panel-head h2 {
+  color: var(--template-ink) !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+}
+
+#root .arbor-os-panel-head p {
+  color: var(--template-muted-soft) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+
+#root .arbor-os-panel-head button {
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: var(--template-green-soft) !important;
+  color: var(--template-green-dark) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+}
+
+#root .arbor-os-risk-list,
+#root .arbor-os-team-list {
+  padding: 14px 16px !important;
+}
+
+#root .arbor-os-risk-list button {
+  min-height: 88px !important;
+  padding: 13px !important;
+  border-radius: 12px !important;
+}
+
+#root .arbor-os-risk-list button strong {
+  font-size: 12px !important;
+}
+
+#root .arbor-os-risk-list button span {
+  font-size: 10px !important;
+}
+
+#root .arbor-os-queue-grid {
+  padding: 14px 16px !important;
+}
+
+#root .arbor-os-queue-column {
+  min-height: 128px !important;
+  border-radius: 12px !important;
+}
+
+#root .arbor-os-queue-card {
+  min-height: 72px !important;
+}
+
+@media (max-width: 1280px) {
+  #root .arbor-os-topbar {
+    grid-template-columns: minmax(240px, 1fr) 88px minmax(250px, 300px) minmax(120px, 1fr) 44px 138px !important;
+  }
+
+  #root .arbor-os-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 980px) {
+  #root .arbor-os-shell .command-native-sidebar {
+    width: 68px !important;
+    padding: 16px 8px !important;
+  }
+
+  #root .arbor-os-shell .command-native-brand {
+    min-height: 68px !important;
+    align-items: center !important;
+    padding: 0 0 12px !important;
+  }
+
+  #root .arbor-os-shell .command-native-logo-frame,
+  #root .arbor-os-shell .command-native-logo-frame img {
+    width: 44px !important;
+    height: 52px !important;
+    max-width: 44px !important;
+    max-height: 52px !important;
+    object-position: center !important;
+  }
+
+  #root .arbor-os-shell .command-native-brand > small,
+  #root .arbor-os-shell .command-native-nav button:not(.is-active),
+  #root .arbor-os-shell .command-native-weather,
+  #root .arbor-os-shell .command-native-user div {
+    display: none !important;
+  }
+
+  #root .arbor-os-shell .command-native-nav button {
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  #root .arbor-os-shell .command-native-user {
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  #root .arbor-os-main {
+    margin-left: 68px !important;
+    padding: 0 14px 40px !important;
+  }
+
+  #root .arbor-os-topbar {
+    grid-template-columns: 1fr !important;
+    margin: 0 -14px 20px !important;
+    padding: 16px 14px !important;
+  }
+
+  #root .arbor-os-segments,
+  #root .arbor-os-search,
+  #root .arbor-os-primary-button,
+  #root .arbor-os-icon-button {
+    width: 100% !important;
+  }
+
+  #root .arbor-os-kpis,
+  #root .arbor-os-priority-grid,
+  #root .arbor-os-board {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 560px) {
+  #root .arbor-os-title h1 {
+    font-size: 27px !important;
+  }
+
+  #root .arbor-os-kpi-card {
+    min-height: 112px !important;
+  }
+
+  #root .arbor-os-approval-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  #root .arbor-os-approval-value {
+    justify-items: start !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root .arbor-os-shell *,
+  #root .arbor-os-shell *::before,
+  #root .arbor-os-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

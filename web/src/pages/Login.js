@@ -5,6 +5,7 @@ import { clearAuthSession } from '../utils/authSession';
 import { getStoredToken } from '../utils/storedToken';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import BrandLogo from '../components/BrandLogo';
 
 const DEMO_ACCOUNTS = [
   { label: 'Dyrektor', login: 'dyrektor', haslo: 'ArborDemo2026!', color: '#a855f7' },
@@ -149,46 +150,37 @@ export default function Login() {
   };
 
   return (
-    <div className="login-shell" style={s.root}>
+    <main className="login-shell" style={s.root}>
       {/* Tło z efektem */}
       <div className="login-glow login-glow-primary" style={s.bgGlow1} />
       <div className="login-glow login-glow-side" style={s.bgGlow2} />
 
       <section className="login-command-panel" style={s.commandPanel} aria-label="Polska Flora - panel operacyjny">
-        <div style={s.commandBrandRow}>
-          <div style={s.commandLogoIcon}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3v18" />
-              <path d="m7 8 5-5 5 5" />
-              <path d="m6 13 6-6 6 6" />
-              <path d="m5 18 7-7 7 7" />
-            </svg>
-          </div>
-          <div>
-            <h2 style={s.commandTitle}>Polska Flora</h2>
-            <div style={s.commandKicker}>OBSŁUGA ZLECEŃ I OGLĘDZIN</div>
-          </div>
-        </div>
+        <BrandLogo
+          background="dark"
+          withDescriptor
+          className="login-command-logo"
+          alt="Polska Flora — Nature Integrator"
+        />
         <p style={s.commandCopy}>
           Operacyjny system dla zgłoszeń, bezpłatnych oględzin, ekip terenowych
           i usług pielęgnacji zieleni w Małopolsce.
         </p>
         <div style={s.featureList}>
-          <div style={s.featureRow}><span style={s.featureIcon}>PF</span> Zgłoszenia z telefonu, CRM i formularzy</div>
-          <div style={s.featureRow}><span style={s.featureIcon}>OG</span> Oględziny i trasy dla specjalistów</div>
-          <div style={s.featureRow}><span style={s.featureIcon}>CRM</span> Pipeline, statusy i kontrola oddziału</div>
-          <div style={s.featureRow}><span style={s.featureIcon}>AI</span> Telefonia z agentką Anią i SMS-ami</div>
+          <div style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>PF</span> Zgłoszenia z telefonu, CRM i formularzy</div>
+          <div style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>OG</span> Oględziny i trasy dla specjalistów</div>
+          <div style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>CRM</span> Pipeline, statusy i kontrola oddziału</div>
+          <div style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>AI</span> Telefonia z agentką Anią i SMS-ami</div>
         </div>
       </section>
 
       <div className="login-card" style={s.card}>
-        {/* Logo */}
+        <BrandLogo
+          background="light"
+          className="login-card-brand-logo"
+          alt="Polska Flora"
+        />
         <div className="login-logo-row" style={s.logoRow}>
-          <div className="login-logo-icon" style={s.logoIcon}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22V12M12 12C12 7 7 3 3 3c0 4 2 8 5 10M12 12C12 7 17 3 21 3c0 4-2 8-5 10"/>
-            </svg>
-          </div>
           <h1 style={s.logoText}>Zaloguj się</h1>
         </div>
         <p style={s.subtitle}>Wprowadź dane dostępowe do systemu Polska Flora</p>
@@ -247,7 +239,7 @@ export default function Login() {
             >
               <span>{loading ? 'Zmieniam hasło...' : 'Zmień hasło'}</span>
             </button>
-            <button type="button" style={s.linkBtn} onClick={() => navigate('/login', { replace: true })}>
+            <button className="login-link" type="button" style={s.linkBtn} onClick={() => navigate('/login', { replace: true })}>
               Wróć do logowania
             </button>
           </form>
@@ -313,6 +305,7 @@ export default function Login() {
                 required
               />
               <button
+                className="login-eye-toggle"
                 type="button"
                 style={s.eyeBtn}
                 onClick={() => setShowPassword(!showPassword)}
@@ -339,6 +332,7 @@ export default function Login() {
               <span style={s.checkLabel}>{t('login.rememberMe')}</span>
             </label>
             <button
+              className="login-link"
               type="button"
               style={s.linkBtn}
               onClick={() => {
@@ -407,7 +401,7 @@ export default function Login() {
 
         <p style={s.footer}>&copy; {new Date().getFullYear()} Polska Flora</p>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -424,13 +418,13 @@ const s = {
   },
   bgGlow1: {
     position: 'absolute', inset: 0,
-    background: 'linear-gradient(135deg, rgba(40,182,108,0.12), transparent 48%)',
+    background: 'linear-gradient(135deg, rgba(160,175,20,0.12), transparent 48%)',
     opacity: 0.55,
     pointerEvents: 'none',
   },
   bgGlow2: {
     position: 'absolute', top: 0, right: 0, width: '42%', height: '100%',
-    background: 'linear-gradient(90deg, transparent 0%, rgba(20,131,79,0.1) 100%)',
+    background: 'linear-gradient(90deg, transparent 0%, rgba(189,112,30,0.1) 100%)',
     pointerEvents: 'none',
   },
   commandPanel: {
@@ -442,10 +436,10 @@ const s = {
     justifyContent: 'center',
     borderRadius: 0,
     padding: '72px clamp(44px, 7vw, 92px)',
-    color: '#f8fafc',
+    color: '#ffffff',
     border: 'none',
     background:
-      'linear-gradient(90deg, rgba(148,163,184,0.14) 1px, transparent 1px), linear-gradient(0deg, rgba(148,163,184,0.12) 1px, transparent 1px), linear-gradient(135deg, #0b1726 0%, #062f27 56%, #05261f 100%)',
+      'linear-gradient(90deg, rgba(180,194,50,0.12) 1px, transparent 1px), linear-gradient(0deg, rgba(180,194,50,0.1) 1px, transparent 1px), #3b2a18',
     backgroundSize: '72px 72px, 72px 72px, auto',
     boxShadow: 'none',
     overflow: 'hidden',

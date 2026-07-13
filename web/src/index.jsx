@@ -10,6 +10,13 @@ import './arbor-command-redesign.css';
 import App from './App';
 import './animations.css';
 import './styles/ui-ux-pro-max-final.css';
+import './styles/arbor-reference/tokens.css';
+import './styles/arbor-reference/os.css';
+import './styles/arbor-reference/client-portal.css';
+import './styles/arbor-reference/estimator-office.css';
+import './styles/arbor-reference/mobile-web.css';
+import './styles/polska-flora-brand.css';
+import './styles/arbor-os-template.css';
 import reportWebVitals from './reportWebVitals';
 import { BUILD_STAMP } from './buildStamp';
 

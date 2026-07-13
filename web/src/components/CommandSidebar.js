@@ -1,74 +1,57 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  BarChart3,
+  CalendarDays,
+  ClipboardList,
+  CloudSun,
+  ContactRound,
+  FileSignature,
+  History,
+  LayoutDashboard,
+  Map,
+  Package,
+  ReceiptText,
+  Settings,
+  ShieldCheck,
+  Truck,
+  UsersRound,
+} from 'lucide-react';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName } from '../utils/roleDisplay';
+import BrandLogo from './BrandLogo';
 
 export default function CommandSidebar({ active = 'dashboard', user = null, onPlanDay = null }) {
   const navigate = useNavigate();
   const location = useLocation();
   const currentUser = useMemo(() => user || readStoredUser() || {}, [user]);
-  const navGroups = [
-    {
-      label: 'Start',
-      items: [
-        { key: 'dashboard', label: 'Pulpit', path: '/dashboard' },
-        { key: 'profile', label: 'Profil', path: '/profil' },
-        { key: 'tasks', label: 'Moje zadania', path: '/zadania' },
-        { key: 'notifications', label: 'Powiadomienia', path: '/powiadomienia' },
-      ],
-    },
-    {
-      label: 'Operacje',
-      items: [
-        { key: 'orders', label: 'Zlecenia', path: '/zlecenia' },
-        { key: 'schedule', label: 'Harmonogram', path: '/harmonogram' },
-        { key: 'manager', label: 'Kierownik', path: '/kierownik', activeKey: 'dashboard' },
-        { key: 'map', label: 'Mapa live', path: '/mapa-live', activeKey: 'schedule' },
-        { key: 'dispatch', label: 'Auto dispatch', path: '/auto-dispatch', activeKey: 'schedule' },
-      ],
-    },
-    {
-      label: 'Sprzedaz i wyceny',
-      items: [
-        { key: 'crm', label: 'CRM hub', path: '/crm' },
-        { key: 'clients', label: 'Klienci', path: '/klienci', activeKey: 'crm' },
-        { key: 'quotes', label: 'Kalendarz wycen', path: '/wycena-kalendarz', activeKey: 'schedule' },
-        { key: 'fieldQuotes', label: 'Wyceny terenowe', path: '/wyceny-terenowe', activeKey: 'orders' },
-        { key: 'approveQuotes', label: 'Zatwierdz wyceny', path: '/zatwierdz-wyceny', activeKey: 'profile' },
-      ],
-    },
-    {
-      label: 'Ekipy i flota',
-      items: [
-        { key: 'teams', label: 'Ekipy', path: '/ekipy' },
-        { key: 'fleet', label: 'Flota', path: '/flota' },
-        { key: 'warehouse', label: 'Magazyn', path: '/magazyn', activeKey: 'fleet' },
-        { key: 'reservations', label: 'Rezerwacje sprzetu', path: '/rezerwacje-sprzetu', activeKey: 'fleet' },
-        { key: 'resources', label: 'Kalendarz zasobow', path: '/kalendarz-zasobow', activeKey: 'fleet' },
-        { key: 'crewConfirm', label: 'Potwierdzenia ekip', path: '/potwierdzenia-ekip', activeKey: 'teams' },
-      ],
-    },
-    {
-      label: 'Firma i raporty',
-      items: [
-        { key: 'reports', label: 'Raporty', path: '/raporty' },
-        { key: 'dailyReport', label: 'Raport dzienny', path: '/raport-dzienny', activeKey: 'reports' },
-        { key: 'bi', label: 'BI dashboard', path: '/bi', activeKey: 'reports' },
-        { key: 'accounting', label: 'Ksiegowosc', path: '/ksiegowosc', activeKey: 'reports' },
-        { key: 'users', label: 'Uzytkownicy', path: '/uzytkownicy', activeKey: 'profile' },
-        { key: 'branches', label: 'Oddzialy', path: '/oddzialy', activeKey: 'profile' },
-        { key: 'hrDocs', label: 'Kadry dokumenty', path: '/kadry-dokumenty', activeKey: 'profile' },
-        { key: 'phone', label: 'Telefonia', path: '/telefonia', activeKey: 'dashboard' },
-        { key: 'integrations', label: 'Integracje', path: '/integracje', activeKey: 'dashboard' },
-      ],
-    },
-  ];
+  const navGroups = [{
+    label: 'Arbor OS',
+    items: [
+      { key: 'dashboard', label: 'Pulpit', path: '/dashboard', Icon: LayoutDashboard },
+      { key: 'orders', label: 'Zlecenia', path: '/zlecenia', Icon: ClipboardList },
+      { key: 'map', label: 'Mapa', path: '/mapa-live', Icon: Map },
+      { key: 'schedule', label: 'Grafik', path: '/harmonogram', Icon: CalendarDays },
+      { key: 'clients', label: 'Klienci', path: '/klienci', Icon: ContactRound },
+      { key: 'reports', label: 'Raporty', path: '/raporty', Icon: BarChart3 },
+      { key: 'quotes', label: 'Oferty', path: '/wycena-kalendarz', Icon: FileSignature },
+      { key: 'accounting', label: 'Faktury', path: '/ksiegowosc', Icon: ReceiptText },
+      { key: 'teams', label: 'Ekipy', path: '/ekipy', Icon: UsersRound },
+      { key: 'fleet', label: 'Flota', path: '/flota', Icon: Truck },
+      { key: 'warehouse', label: 'Magazyn', path: '/magazyn', Icon: Package },
+      { key: 'audit', label: 'Audyt', path: '/kontrola-operacyjna', Icon: History },
+      { key: 'settings', label: 'Ustawienia', path: '/integracje', Icon: Settings },
+      { key: 'hrDocs', label: 'Kadry / BHP', path: '/kadry-dokumenty', Icon: ShieldCheck },
+    ],
+  }];
 
   const initials = `${currentUser?.imie?.[0] || 'J'}${currentUser?.nazwisko?.[0] || 'A'}`;
   const name = [currentUser?.imie, currentUser?.nazwisko].filter(Boolean).join(' ') || currentUser?.login || 'Jan Administrator';
   const roleLabel = getRoleDisplayName(currentUser?.rola, currentUser?.rola || 'Operator');
   const branchLabel = currentUser?.oddzial_nazwa || currentUser?.oddzial || (currentUser?.oddzial_id ? `Oddzial #${currentUser.oddzial_id}` : 'Bez oddzialu');
   const photoUrl = currentUser?.profile_photo_url || currentUser?.avatar_url || currentUser?.photo_url || '';
+  const weatherLocation = String(branchLabel || 'Warszawa').replace(/^Oddzial\s*/i, '') || 'Warszawa';
+  const currentTime = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
   const currentPath = location.pathname || '/dashboard';
   const navItems = navGroups.flatMap((group) => group.items);
   const hasExactRouteMatch = navItems.some((item) => currentPath === item.path || currentPath.startsWith(`${item.path}/`));
@@ -81,13 +64,13 @@ export default function CommandSidebar({ active = 'dashboard', user = null, onPl
   return (
     <aside className="command-native-sidebar" aria-label="Polska Flora navigation">
       <button type="button" className="command-native-brand" onClick={() => navigate('/dashboard')}>
-        <span className="command-native-logo-frame">
-          <img src="/brand/polska-flora-logo.svg" alt="" />
-        </span>
-        <div>
-          <strong>Polska Flora</strong>
-          <small>Centrum operacyjne</small>
-        </div>
+        <BrandLogo
+          background="dark"
+          withDescriptor
+          responsiveVertical
+          className="command-native-logo-frame"
+          alt="Polska Flora"
+        />
       </button>
       <button type="button" className="command-native-session" onClick={() => navigate('/profil')}>
         <span>Twoja rola</span>
@@ -105,24 +88,22 @@ export default function CommandSidebar({ active = 'dashboard', user = null, onPl
                 className={isActive(item) ? 'is-active' : undefined}
                 onClick={() => navigate(item.path)}
               >
-                <span aria-hidden />
+                <span className="command-native-nav-icon" aria-hidden>
+                  <item.Icon size={18} strokeWidth={1.8} />
+                </span>
                 {item.label}
               </button>
             ))}
           </div>
         ))}
       </nav>
-      <div className="command-native-actions">
-        <span>Szybkie akcje</span>
-        <button type="button" onClick={() => navigate('/zadania')}>Moje zadanie</button>
-        <button type="button" onClick={() => navigate('/nowe-zlecenie')}>Nowe zlecenie</button>
-        <button type="button" aria-label="Otworz klientow" onClick={() => navigate('/klienci')}>Nowy klient</button>
-        <button type="button" onClick={onPlanDay || (() => navigate('/harmonogram'))}>Plan dnia</button>
-        <button type="button" onClick={() => navigate('/raporty')}>Raport dzienny</button>
-      </div>
-      <button type="button" className="command-native-system" onClick={() => navigate('/powiadomienia')}>
-        <strong>System online</strong>
-        <small>Wszystkie uslugi dzialaja</small>
+      <button type="button" className="command-native-weather" onClick={onPlanDay || (() => navigate('/harmonogram'))}>
+        <span>
+          <small>Pogoda · {weatherLocation}</small>
+          <b><CloudSun size={14} aria-hidden /> {currentTime}</b>
+        </span>
+        <strong>18°</strong>
+        <em>Pochmurno · wiatr 24 km/h</em>
       </button>
       <button type="button" className="command-native-user" onClick={() => navigate('/profil')}>
         <span className={photoUrl ? 'has-photo' : undefined}>
@@ -130,7 +111,7 @@ export default function CommandSidebar({ active = 'dashboard', user = null, onPl
         </span>
         <div>
           <strong>{name}</strong>
-          <small>{roleLabel}</small>
+          <small>{roleLabel} · {branchLabel}</small>
         </div>
       </button>
     </aside>

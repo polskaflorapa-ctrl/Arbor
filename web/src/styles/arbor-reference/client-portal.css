@@ -1,0 +1,65 @@
+#root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell, .landing-shell.client-portal) {
+  min-height: 100vh !important;
+  padding: 0 20px 60px !important;
+  background:
+    radial-gradient(circle at 88% -6%, rgba(160, 175, 20, 0.1), transparent 32rem),
+    linear-gradient(180deg, var(--pf-paper), var(--pf-paper-2)) !important;
+  color: var(--pf-ink) !important;
+  font-family: var(--pf-font) !important;
+}
+
+#root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell) main,
+#root :is(.quotation-public-main, .client-portal-main, .portal-klienta-main, .public-quotation-main) {
+  width: min(860px, 100%) !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+
+#root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell) header,
+#root :is(.quotation-public-header, .client-portal-header, .portal-klienta-header) {
+  width: min(860px, 100%) !important;
+  margin: 0 auto !important;
+  padding: 22px 4px !important;
+}
+
+#root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell)
+  :is(.hero, .status-hero, [class*='hero'], [class*='Hero']) {
+  border: none !important;
+  border-radius: 22px !important;
+  background: linear-gradient(165deg, var(--pf-brown-2), var(--pf-brown)) !important;
+  color: #efe9da !important;
+  box-shadow: 0 16px 40px rgba(43, 29, 15, 0.22) !important;
+}
+
+#root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell)
+  :is(section, article, [class*='card'], [class*='panel']) {
+  border: 1px solid var(--pf-line) !important;
+  border-radius: 18px !important;
+  background: var(--pf-card) !important;
+  box-shadow: var(--pf-shadow-soft) !important;
+}
+
+#root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell)
+  :is(button, a[role='button'], .button) {
+  min-height: 44px !important;
+  border-radius: 12px !important;
+  font-weight: 800 !important;
+}
+
+#root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell)
+  :is(.timeline-dot, [class*='dot'], [class*='progress']) {
+  accent-color: var(--pf-green);
+}
+
+@media (max-width: 760px) {
+  #root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell) {
+    padding-inline: 14px !important;
+  }
+
+  #root :is(.quotation-public-shell, .client-portal-shell, .portal-klienta-shell, .public-quotation-shell)
+    :is([style*='grid-template-columns'], [class*='grid'], [class*='Grid']) {
+    grid-template-columns: 1fr !important;
+  }
+}

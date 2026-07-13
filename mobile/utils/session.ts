@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { clearOfflineQueue } from './offline-queue';
+import { clearTaskCaches } from './task-list-cache';
 
 export interface StoredUser {
   id?: number;
@@ -38,6 +40,15 @@ const normalizeStoredToken = (value: string | null): string | null => {
   const token = String(value).replace(/[\uFEFF\u200B-\u200D]/g, '').trim();
   if (!token || token === 'undefined' || token === 'null') return null;
   return token;
+};
+
+const userIdentity = (user: StoredUser | null): string => {
+  if (user?.id === undefined || user?.id === null) return '';
+  return String(user.id).trim();
+};
+
+const clearSessionBoundData = async (): Promise<void> => {
+  await Promise.all([clearOfflineQueue(), clearTaskCaches()]);
 };
 
 export const getStoredSession = async (): Promise<StoredSession> => {
@@ -88,6 +99,13 @@ export const saveStoredSession = async (token: string, user: StoredUser): Promis
   if (!normalizedToken) {
     throw new Error('Invalid session token');
   }
+  const previousUserRaw = await AsyncStorage.getItem(USER_KEY).catch(() => null);
+  const previousUser = safeParseUser(previousUserRaw);
+  const previousIdentity = userIdentity(previousUser);
+  const nextIdentity = userIdentity(user);
+  if (!previousIdentity || !nextIdentity || previousIdentity !== nextIdentity) {
+    await clearSessionBoundData();
+  }
   await SecureStore.setItemAsync(SESSION_TOKEN_KEY, normalizedToken);
   await AsyncStorage.multiSet([[USER_KEY, JSON.stringify(user)]]);
   await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
@@ -97,5 +115,6 @@ export const clearStoredSession = async (): Promise<void> => {
   await Promise.all([
     SecureStore.deleteItemAsync(SESSION_TOKEN_KEY).catch(() => undefined),
     AsyncStorage.multiRemove([LEGACY_TOKEN_KEY, USER_KEY]),
+    clearSessionBoundData(),
   ]);
 };

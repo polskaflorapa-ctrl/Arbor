@@ -5,9 +5,11 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl, ScrollView,
-  StyleSheet, Text, TouchableOpacity, View,
+  StyleSheet, TouchableOpacity, View,
 } from 'react-native';
 import { AppStatusBar } from '../components/ui/app-status-bar';
+import { BrandLogo, BrandPattern } from '../components/ui/brand-logo';
+import { BrandText as Text } from '../components/ui/brand-text';
 import { DashboardSkeleton } from '../components/ui/skeleton-block';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { PlatinumCard } from '../components/ui/platinum-card';
@@ -17,7 +19,7 @@ import { colorWithAlpha, elevationCard, shadowStyle } from '../constants/elevati
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
-import { getRolaColor, type Theme } from '../constants/theme';
+import { type Theme } from '../constants/theme';
 import {
   getOddzialFeatureConfig,
   isFeatureEnabledForOddzial,
@@ -446,16 +448,16 @@ export default function DashboardScreen() {
   const statusKolor = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
 
   const rolaKolor = useMemo(() => ({
-    Dyrektor: getRolaColor('Dyrektor'),
-    Administrator: getRolaColor('Administrator'),
-    Kierownik: getRolaColor('Kierownik'),
-    Brygadzista: getRolaColor('Brygadzista'),
-    Specjalista: getRolaColor('Specjalista'),
-    Wyceniający: getRolaColor('Wyceniający'),
-    Pomocnik: getRolaColor('Pomocnik'),
-    'Pomocnik bez doświadczenia': getRolaColor('Pomocnik bez doświadczenia'),
-    Magazynier: getRolaColor('Magazynier'),
-  }), []);
+    Dyrektor: theme.warning,
+    Administrator: theme.info,
+    Kierownik: theme.textSub,
+    Brygadzista: theme.success,
+    Specjalista: theme.success,
+    Wyceniający: theme.textSub,
+    Pomocnik: theme.textMuted,
+    'Pomocnik bez doświadczenia': theme.textMuted,
+    Magazynier: theme.warning,
+  }), [theme]);
 
   const quickActions: QuickAction[] = [
     { label: 'Command Center', icon: 'sparkles-outline' as IoniconName, path: '/task-command-center', color: theme.chartCyan },
@@ -664,7 +666,9 @@ export default function DashboardScreen() {
 
       {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
       <View style={S.header}>
+        <BrandPattern opacity={theme.name === 'dark' ? 0.04 : 0.025} />
         <View style={S.headerLeft}>
+          <BrandLogo orientation="horizontal" descriptor={false} style={S.headerLogo} />
           <Text style={S.greeting}>{t('dashboard.greeting', { name: user?.imie || '' })}</Text>
           <Text style={S.date}>{dzisiajLocalized || dzisiaj}</Text>
           <View style={S.headerMetaRow}>
@@ -1209,19 +1213,21 @@ const makeStyles = (t: Theme) => {
     alignItems: 'flex-start',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: ARBOR_UI.line,
+    overflow: 'hidden',
   },
   headerLeft: { flex: 1 },
-  greeting: { fontSize: 22, fontWeight: '900', color: ARBOR_UI.text, marginBottom: 2, letterSpacing: 0 },
-  date: { fontSize: t.fontCaption, color: ARBOR_UI.muted, marginBottom: 9, textTransform: 'capitalize' },
+  headerLogo: { width: 124, marginBottom: 10 },
+  greeting: { fontFamily: t.fontExtraBold, fontSize: 22, color: ARBOR_UI.text, marginBottom: 2, letterSpacing: 0 },
+  date: { fontFamily: t.fontRegular, fontSize: t.fontCaption, color: ARBOR_UI.muted, marginBottom: 9, textTransform: 'capitalize' },
   headerMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
   rolaBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: 20,
   },
-  rolaText: { fontSize: 12, fontWeight: '700' },
-  oddzialText: { flex: 1, fontSize: 12, color: ARBOR_UI.muted, fontWeight: '800' },
-  oddzialSub: { fontSize: 11, color: ARBOR_UI.muted, marginTop: 3 },
+  rolaText: { fontFamily: t.fontBold, fontSize: 12 },
+  oddzialText: { flex: 1, fontFamily: t.fontExtraBold, fontSize: 12, color: ARBOR_UI.muted },
+  oddzialSub: { fontFamily: t.fontRegular, fontSize: 11, color: ARBOR_UI.muted, marginTop: 3 },
   headerRight: { alignItems: 'flex-end', gap: 10 },
   commandCenterBtn: {
     width: 48,
@@ -1239,7 +1245,7 @@ const makeStyles = (t: Theme) => {
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: ARBOR_UI.line,
   },
-  avatarText: { fontSize: 15, fontWeight: '900', color: ARBOR_UI.forest },
+  avatarText: { fontFamily: t.fontExtraBold, fontSize: 15, color: ARBOR_UI.forest },
 
   errorBanner: {
     marginHorizontal: 16,
@@ -1313,9 +1319,9 @@ const makeStyles = (t: Theme) => {
     borderColor: ARBOR_UI.line,
   },
   opsHeroText: { flex: 1 },
-  opsEyebrow: { color: ARBOR_UI.muted, fontSize: 10, fontWeight: '900', letterSpacing: 0 },
-  opsTitle: { color: ARBOR_UI.text, fontSize: 18, fontWeight: '900', letterSpacing: 0, marginTop: 2 },
-  opsSubtitle: { color: ARBOR_UI.muted, fontSize: 12, fontWeight: '700', marginTop: 3 },
+  opsEyebrow: { color: ARBOR_UI.muted, fontFamily: t.fontExtraBold, fontSize: 10, letterSpacing: 0 },
+  opsTitle: { color: ARBOR_UI.text, fontFamily: t.fontExtraBold, fontSize: 18, letterSpacing: 0, marginTop: 2 },
+  opsSubtitle: { color: ARBOR_UI.muted, fontFamily: t.fontBold, fontSize: 12, marginTop: 3 },
   opsHeroMetrics: {
     flexDirection: 'row',
     borderRadius: 14,
@@ -1325,8 +1331,8 @@ const makeStyles = (t: Theme) => {
     paddingVertical: 10,
   },
   opsMetric: { flex: 1, alignItems: 'center', gap: 2 },
-  opsMetricValue: { color: ARBOR_UI.forest, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  opsMetricLabel: { color: ARBOR_UI.muted, fontSize: 11, fontWeight: '800' },
+  opsMetricValue: { color: ARBOR_UI.forest, fontFamily: t.fontExtraBold, fontSize: 20, fontVariant: ['tabular-nums'] },
+  opsMetricLabel: { color: ARBOR_UI.muted, fontFamily: t.fontExtraBold, fontSize: 11 },
   opsMetricDivider: { width: 1, backgroundColor: ARBOR_UI.line },
   todayRail: {
     marginHorizontal: 16,

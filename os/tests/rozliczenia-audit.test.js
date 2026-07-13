@@ -38,6 +38,7 @@ describe('Rozliczenia audit', () => {
     const client = {
       query: jest.fn()
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 44, oddzial_id: 3, ekipa_id: 5 }] })
         .mockResolvedValueOnce({
           rows: [{
             wartosc_brutto: '2000',
@@ -179,7 +180,7 @@ describe('Rozliczenia audit', () => {
   });
 
   it('blocks operational costs for tasks in another branch before insert or audit', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ id: 44, oddzial_id: 7 }] });
+    pool.query.mockResolvedValueOnce({ rows: [] });
     const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
 
     const res = await request(app)
@@ -187,9 +188,11 @@ describe('Rozliczenia audit', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ category: 'paliwo', amount: 120.5, note: 'Paragon' });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     expect(pool.query).toHaveBeenCalledTimes(1);
-    expect(pool.query.mock.calls[0][0]).toContain('SELECT id, oddzial_id FROM tasks');
+    expect(pool.query.mock.calls[0][0]).toContain('SELECT t.id, t.oddzial_id, t.ekipa_id');
+    expect(pool.query.mock.calls[0][0]).toContain('t.oddzial_id = $2');
+    expect(pool.query.mock.calls[0][1]).toEqual([44, 3]);
     expect(auditSpy).not.toHaveBeenCalled();
   });
 
@@ -232,7 +235,7 @@ describe('Rozliczenia audit', () => {
   });
 
   it('blocks finish materials for tasks in another branch before insert or audit', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ id: 44, oddzial_id: 7 }] });
+    pool.query.mockResolvedValueOnce({ rows: [] });
     const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
 
     const res = await request(app)
@@ -240,9 +243,11 @@ describe('Rozliczenia audit', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ nazwa: 'Kora sosnowa', koszt_laczny: 160 });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     expect(pool.query).toHaveBeenCalledTimes(1);
-    expect(pool.query.mock.calls[0][0]).toContain('SELECT id, oddzial_id FROM tasks');
+    expect(pool.query.mock.calls[0][0]).toContain('SELECT t.id, t.oddzial_id, t.ekipa_id');
+    expect(pool.query.mock.calls[0][0]).toContain('t.oddzial_id = $2');
+    expect(pool.query.mock.calls[0][1]).toEqual([44, 3]);
     expect(auditSpy).not.toHaveBeenCalled();
   });
 });

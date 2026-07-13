@@ -1,6 +1,76 @@
 /* ─── ARBOR-OS: design tokens & global styles ───────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&family=Manrope:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap');
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-Thin.otf') format('opentype');
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-ExtraLight.otf') format('opentype');
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-Light.otf') format('opentype');
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-Regular.otf') format('opentype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-Medium.otf') format('opentype');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-Medium.otf') format('opentype');
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-Bold.otf') format('opentype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-ExtraBold.otf') format('opentype');
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Road UA';
+  src: url('/brand/fonts/RoadUA-Black.otf') format('opentype');
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
 
 *, *::before, *::after {
   box-sizing: border-box;

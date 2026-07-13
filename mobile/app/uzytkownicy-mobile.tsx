@@ -18,7 +18,7 @@ import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
-import { getRolaColor, type Theme } from '../constants/theme';
+import { type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { fetchWithTimeout } from '../utils/api-client';
 import { getRoleDisplayName } from '../utils/role-display';
@@ -30,7 +30,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 export default function UzytkownicyScreen() {
   const { theme } = useTheme();
   const rolaKolorMap = useMemo(() => ({
-    Dyrektor: getRolaColor('Dyrektor'),
+    Dyrektor: theme.warning,
     Administrator: theme.warning,
     Kierownik: theme.info,
     Brygadzista: theme.success,

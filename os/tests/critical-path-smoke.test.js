@@ -291,6 +291,9 @@ describe('critical operational path smoke', () => {
           if (s.includes('SELECT * FROM tasks WHERE id = $1 FOR UPDATE')) {
             return { rows: [{ ...task }], rowCount: 1 };
           }
+          if (s.includes('SELECT t.id, t.oddzial_id, t.ekipa_id') && s.includes('FROM tasks t')) {
+            return { rows: [{ id: task.id, oddzial_id: task.oddzial_id, ekipa_id: task.ekipa_id }], rowCount: 1 };
+          }
           if (s.includes('SELECT id FROM work_logs WHERE task_id = $1 AND end_time IS NULL')) {
             return { rows: [{ id: workLogId }], rowCount: 1 };
           }

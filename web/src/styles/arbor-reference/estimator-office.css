@@ -1,0 +1,64 @@
+#root :is(.estimator-office-shell, .gabinet-wyceniajacego-shell, .field-quotes-shell, .field-quote-detail-shell, .wyceniajacy-hub-shell, .quote-calendar-shell) {
+  min-height: 100vh !important;
+  background: linear-gradient(180deg, var(--pf-brown-2), var(--pf-brown)) !important;
+  color: #efe9da !important;
+  font-family: var(--pf-font) !important;
+}
+
+#root :is(.estimator-office-main, .gabinet-wyceniajacego-main, .field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main) {
+  width: min(1480px, calc(100vw - 128px)) !important;
+  margin: 0 auto !important;
+  padding: 24px clamp(18px, 2.6vw, 34px) 44px !important;
+}
+
+#root :is(.field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main)
+  :is(.module-page-header, .module-page-header-hero, [class*='hero'], [class*='Hero']) {
+  border: 1px solid rgba(160, 175, 20, 0.28) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #fffaf0 !important;
+  box-shadow: none !important;
+}
+
+#root :is(.field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main)
+  :is(.module-page-header, .module-page-header-hero, [class*='hero'], [class*='Hero']) * {
+  color: inherit !important;
+}
+
+#root :is(.field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main)
+  :is([class*='card'], [class*='Card'], [class*='panel'], [class*='Panel'], .ios-inset, .modern-data-row) {
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #efe9da !important;
+  box-shadow: none !important;
+}
+
+#root :is(.field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main)
+  :is(input, select, textarea) {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #fffaf0 !important;
+}
+
+#root :is(.field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main)
+  :is(button, a[role='button']) {
+  min-height: 44px !important;
+  border-radius: 12px !important;
+  font-weight: 850 !important;
+}
+
+#root :is(.field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main)
+  :is(button, a[role='button']):not(:disabled):hover {
+  border-color: var(--pf-green) !important;
+  background: rgba(160, 175, 20, 0.16) !important;
+  color: #fffaf0 !important;
+}
+
+@media (max-width: 900px) {
+  #root :is(.estimator-office-main, .gabinet-wyceniajacego-main, .field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main) {
+    width: calc(100vw - 60px) !important;
+    margin-left: 60px !important;
+    padding: 18px 12px 34px !important;
+  }
+}

@@ -16,6 +16,7 @@ const pool = require('../src/config/database');
 const ksiegowoscRoutes = require('../src/routes/ksiegowosc');
 const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
+const { INVOICE_NUMBER_LOCK_NAMESPACE } = require('../src/services/invoices');
 
 describe('Ksiegowosc faktury', () => {
   const app = createTestApp('/api/ksiegowosc', ksiegowoscRoutes);
@@ -50,11 +51,11 @@ describe('Ksiegowosc faktury', () => {
     };
   }
 
-  it('creates an invoice inside one transaction with locked yearly branch numbering', async () => {
+  it('creates an invoice inside one transaction with locked global yearly numbering', async () => {
     client.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ cnt: '4' }] })
+      .mockResolvedValueOnce({ rows: [{ last_number: 4 }] })
       .mockResolvedValueOnce({ rows: [{ id: 90 }], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [] });
@@ -66,7 +67,7 @@ describe('Ksiegowosc faktury', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ id: 90, numer: 'FV/2026/005' });
-    expect(pool.query).not.toHaveBeenCalledWith(expect.stringContaining('COUNT(*) as cnt'), expect.any(Array));
+    expect(pool.query).not.toHaveBeenCalledWith(expect.stringContaining('last_number'), expect.any(Array));
     expect(client.query.mock.calls.map(([sql]) => sql)).toEqual([
       'BEGIN',
       'SELECT pg_advisory_xact_lock($1, $2)',
@@ -75,7 +76,14 @@ describe('Ksiegowosc faktury', () => {
       expect.stringContaining('INSERT INTO invoice_items'),
       'COMMIT',
     ]);
-    expect(client.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock($1, $2)', [2026, 3]);
+    expect(client.query).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock($1, $2)',
+      [INVOICE_NUMBER_LOCK_NAMESPACE, 2026]
+    );
+    const numberingCall = client.query.mock.calls.find(([sql]) => String(sql).includes('AS last_number'));
+    expect(numberingCall).toBeDefined();
+    expect(numberingCall[1]).toEqual([2026]);
+    expect(numberingCall[0]).not.toContain('oddzial_id');
     expect(client.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO invoices'),
       expect.arrayContaining(['FV/2026/005', null, 3, 11, 'Firma Test'])
@@ -87,7 +95,7 @@ describe('Ksiegowosc faktury', () => {
     client.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ cnt: '0' }] })
+      .mockResolvedValueOnce({ rows: [{ last_number: 0 }] })
       .mockResolvedValueOnce({ rows: [{ id: 91 }], rowCount: 1 })
       .mockRejectedValueOnce(new Error('item insert failed'))
       .mockResolvedValueOnce({ rows: [] });

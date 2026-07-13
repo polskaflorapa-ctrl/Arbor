@@ -96,3 +96,15 @@ test("money-flow needle map reports missing payment guard", () => {
     );
   });
 });
+
+test("money-flow contract accepts invoice locking in the shared invoice service", () => {
+  withFixture((root) => {
+    writeFixtureFile(root, "os/src/routes/ksiegowosc.js", "allocateInvoiceNumber invoiceIdScope ROLLBACK INSERT INTO invoice_items");
+    writeFixtureFile(root, "os/src/services/invoices.js", "pg_advisory_xact_lock MAX( FV/ invoiceIdScope");
+
+    assert.doesNotThrow(() => assertNeedleMap({
+      "os/src/routes/ksiegowosc.js": ["allocateInvoiceNumber", "invoiceIdScope"],
+      "os/src/services/invoices.js": ["pg_advisory_xact_lock", "MAX(", "FV/"],
+    }, root));
+  });
+});

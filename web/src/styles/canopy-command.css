@@ -1,6 +1,4 @@
 /* Canopy Command: final token layer and production UI polish. */
-@import url('https://fonts.googleapis.com/css2?family=Calistoga&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');
-
 :root,
 body.theme-light {
   --cc-primary: #0f172a;
@@ -25,8 +23,8 @@ body.theme-light {
   --cc-radius-xs: 4px;
   --cc-radius-sm: 6px;
   --cc-radius-md: 8px;
-  --cc-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --cc-font-display: 'Calistoga', Georgia, serif;
+  --cc-font-sans: 'Road UA', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --cc-font-display: 'Road UA', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --cc-font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 
   --bg: var(--cc-bg);

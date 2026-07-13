@@ -11,13 +11,13 @@ import { clearAuthSession } from '../utils/authSession';
 import { useTheme, THEMES } from '../ThemeContext';
 import { getRolaColor } from '../theme';
 import { isTaskClosed } from '../utils/taskWorkflow';
+import { localDateKey } from '../utils/localDateKey';
 
 const SMART_FILTER_KEY = 'zlecenia_smart_filter';
 const SMART_FILTER_INTENT_KEY = 'zlecenia_smart_filter_intent_at';
 
 const FIELD_ROLES = new Set(['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia']);
 const MANAGEMENT_ROLES = new Set(['Administrator', 'Dyrektor', 'Kierownik']);
-const TODAY = new Date().toISOString().slice(0, 10);
 const OPERATOR_TASK_STATUS_LABELS = {
   todo: 'Do zrobienia',
   in_progress: 'W toku',
@@ -135,7 +135,7 @@ function isFieldWorker(user) {
 }
 
 function getDocAckKey(user, docType) {
-  return `arbor_profile_ack_${user?.id || 'guest'}_${docType}_${TODAY}`;
+  return `arbor_profile_ack_${user?.id || 'guest'}_${docType}_${localDateKey()}`;
 }
 
 function getTaskDay(task) {
@@ -322,15 +322,15 @@ function isOperatorTaskOpen(task) {
   return task && task.status !== 'done' && task.status !== 'archived';
 }
 
-function getOperatorTaskDueMeta(task) {
+function getOperatorTaskDueMeta(task, todayKey = localDateKey()) {
   if (!task?.due_at) return { label: 'bez terminu', overdue: false, today: false };
   const due = new Date(task.due_at);
   if (Number.isNaN(due.getTime())) return { label: 'bez terminu', overdue: false, today: false };
-  const dueDay = due.toISOString().slice(0, 10);
+  const dueDay = localDateKey(due);
   return {
     label: formatDateTime(task.due_at),
     overdue: isOperatorTaskOpen(task) && due.getTime() < Date.now(),
-    today: isOperatorTaskOpen(task) && dueDay === TODAY,
+    today: isOperatorTaskOpen(task) && dueDay === todayKey,
   };
 }
 
@@ -712,6 +712,7 @@ export default function Profil() {
     `${String(user?.imie?.[0] || '').toUpperCase()}${String(user?.nazwisko?.[0] || '').toUpperCase()}` ||
     '?';
   const profilePhotoUrl = user?.profile_photo_url || user?.avatar_url || user?.photo_url || '';
+  const todayKey = localDateKey();
 
   const dashboard = useMemo(() => {
     const relatedTasks = ops.tasks.filter((task) => isTaskRelatedToUser(task, user));
@@ -719,7 +720,7 @@ export default function Profil() {
     const todayTasks = activeTasks
       .filter((task) => {
         const day = getTaskDay(task);
-        return !day || day <= TODAY;
+        return !day || day <= todayKey;
       })
       .sort((a, b) => {
         const aDay = getTaskDay(a) || '9999-12-31';
@@ -753,7 +754,7 @@ export default function Profil() {
       ...delegatedOperatorTasks.filter((task) => Number(task.assigned_to) !== Number(user?.id)),
       ...openOperatorTasks.filter((task) => Number(task.assigned_to) !== Number(user?.id) && Number(task.created_by) !== Number(user?.id)),
     ].slice(0, 6);
-    const overdueOperatorTasks = openOperatorTasks.filter((task) => getOperatorTaskDueMeta(task).overdue);
+    const overdueOperatorTasks = openOperatorTasks.filter((task) => getOperatorTaskDueMeta(task, todayKey).overdue);
     const savedPositionCards = Object.values(ops.positionCards || {}).filter((card) => card?.updated_at);
     const pendingPositionCards = savedPositionCards.filter((card) => card.acknowledgement_status === 'pending');
     const visibleEmployeeDocuments = Object.values(ops.employeeDocuments || {}).flat();
@@ -777,19 +778,19 @@ export default function Profil() {
       visibleEmployeeDocuments,
       employeeDocumentAlerts,
     };
-  }, [ops.contacts, ops.closureEvents, ops.employeeDocuments, ops.operatorTasks, ops.positionCards, ops.tasks, operatorName, user]);
+  }, [ops.contacts, ops.closureEvents, ops.employeeDocuments, ops.operatorTasks, ops.positionCards, ops.tasks, operatorName, todayKey, user]);
 
   const permissions = useMemo(() => buildRolePermissions(user), [user]);
   const quickOperatorTasks = useMemo(() => {
     return dashboard.operatorTaskQueue
       .filter((task) => {
-        const due = getOperatorTaskDueMeta(task);
+        const due = getOperatorTaskDueMeta(task, todayKey);
         if (quickTaskFilter === 'today') return due.today;
         if (quickTaskFilter === 'overdue') return due.overdue;
         return true;
       })
       .slice(0, 3);
-  }, [dashboard.operatorTaskQueue, quickTaskFilter]);
+  }, [dashboard.operatorTaskQueue, quickTaskFilter, todayKey]);
   const canAssignTasks = MANAGEMENT_ROLES.has(actorUser?.rola);
   const canConfirmDocument = Number(actorUser?.id) === Number(user?.id);
   const canEditProfilePhoto =

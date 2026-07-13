@@ -23,10 +23,6 @@ const errorHandler = (err, req, res, next) => {
     requestId: req.requestId,
   };
 
-  if (status >= 500) {
-    payload.message = err.message;
-  }
-
   logger.error('Blad HTTP', {
     requestId: req.requestId,
     userId: req.user?.id,

@@ -6,6 +6,7 @@ import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getApiErrorMessage } from '../utils/apiError';
+import { localDateKey } from '../utils/localDateKey';
 
 const TEAM_COLORS = [
   '#16a34a','#2563eb','#dc2626','#d97706','#7c3aed',
@@ -13,7 +14,7 @@ const TEAM_COLORS = [
 ];
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateKey();
 }
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

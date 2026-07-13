@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { ROLE_GROUPS } from './utils/routeAccess';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
 import AiChat from './components/AiChat';
@@ -66,13 +67,22 @@ const HrPanel = lazy(() => import('./pages/HrPanel'));
 const KalendarzZasobow = lazy(() => import('./pages/KalendarzZasobow'));
 const MapaLive = lazy(() => import('./pages/MapaLive'));
 const ArborSpecPage = lazy(() => import('./pages/ArborSpecPage'));
+const ArborOsReference = lazy(() => import('./pages/reference/ArborOsReference'));
+const ArborOsDeckReference = lazy(() => import('./pages/reference/ArborOsReference').then((mod) => ({ default: mod.ArborOsDeckReference })));
+const ClientPortalReference = lazy(() => import('./pages/reference/ClientPortalReference'));
+const EstimatorOfficeReference = lazy(() => import('./pages/reference/EstimatorOfficeReference'));
+const MobileReference = lazy(() => import('./pages/reference/MobileReference'));
+const ReferenceIndex = lazy(() => import('./pages/reference/ReferenceIndex'));
 
-// Role constants — single source of truth for App.js route guards
-const ADMIN   = ['Prezes', 'Dyrektor', 'Administrator'];
-const MGMT    = [...ADMIN, 'Kierownik'];
-const SALES   = [...MGMT, 'Dyrektor Sprzedazy', 'Dyrektor Sprzedaży', 'Dyrektor dzialu sprzedaz', 'Dyrektor działu sprzedaż'];
-const WYCENY  = [...MGMT, 'Wyceniający', 'Wyceniajacy', 'Specjalista'];
-const FINANCE = ['Prezes', 'Dyrektor', 'Administrator'];
+const {
+  ADMIN,
+  MANAGEMENT: MGMT,
+  SALES,
+  ESTIMATOR: WYCENY,
+  FINANCE,
+  FIELD_SETTLEMENT,
+  ESTIMATOR_PAYROLL,
+} = ROLE_GROUPS;
 
 function AuthenticatedRoute({ children }) {
   return <ProtectedRoute>{children}</ProtectedRoute>;
@@ -127,6 +137,12 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/arbor-os-spec" element={<ArborSpecPage />} />
+          <Route path="/reference" element={<ReferenceIndex />} />
+          <Route path="/reference/arbor-os" element={<ArborOsReference />} />
+          <Route path="/reference/arbor-os-deck" element={<ArborOsDeckReference />} />
+          <Route path="/reference/portal-klienta" element={<ClientPortalReference />} />
+          <Route path="/reference/gabinet-wyceniajacego" element={<EstimatorOfficeReference />} />
+          <Route path="/reference/arbor-mobile" element={<MobileReference />} />
 
           {/* All authenticated users */}
           <Route path="/dashboard" element={<AuthenticatedRoute><Dashboard /></AuthenticatedRoute>} />
@@ -247,7 +263,7 @@ function App() {
             <ProtectedRoute roles={MGMT}><KartaStanowiskaDruk /></ProtectedRoute>
           } />
           <Route path="/rozliczenia-polowe" element={
-            <ProtectedRoute roles={[...MGMT, 'Brygadzista']}><RozliczeniaFieldEntry /></ProtectedRoute>
+            <ProtectedRoute roles={FIELD_SETTLEMENT}><RozliczeniaFieldEntry /></ProtectedRoute>
           } />
 
           {/* Finance — Dyrektor/Admin only */}
@@ -255,7 +271,7 @@ function App() {
             <ProtectedRoute roles={FINANCE}><Ksiegowosc /></ProtectedRoute>
           } />
           <Route path="/wynagrodzenie-wyceniajacych" element={
-            <ProtectedRoute roles={[...FINANCE, 'Kierownik', 'Wyceniający', 'Wyceniajacy']}><WynagrodzenieWyceniajacych /></ProtectedRoute>
+            <ProtectedRoute roles={ESTIMATOR_PAYROLL}><WynagrodzenieWyceniajacych /></ProtectedRoute>
           } />
           <Route path="/rozliczenia-ekip" element={
             <ProtectedRoute roles={MGMT}><PayrollM11 /></ProtectedRoute>

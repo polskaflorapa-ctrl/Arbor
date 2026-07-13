@@ -50,13 +50,13 @@ export default function TabLayout() {
       tabBarInactiveTintColor: theme.navInactive,
       tabBarButton: HapticTab,
       tabBarStyle: {
-        backgroundColor: theme.name === 'dark' ? 'rgba(5,11,9,0.98)' : theme.navBg,
+        backgroundColor: theme.navBg,
         borderTopWidth: 1,
-        borderTopColor: theme.name === 'dark' ? 'rgba(24,224,123,0.18)' : theme.navBorder,
+        borderTopColor: theme.navBorder,
         borderRadius: 0,
         paddingBottom: Platform.select({ ios: 14, default: 10 }),
         paddingTop: 8,
-        height: Platform.select({ ios: 74, default: 66 }),
+        height: Platform.select({ ios: 76, default: 68 }),
         position: 'absolute' as const,
         left: 0,
         right: 0,
@@ -69,8 +69,8 @@ export default function TabLayout() {
         }),
       },
       tabBarLabelStyle: {
+        fontFamily: theme.fontExtraBold,
         fontSize: 11,
-        fontWeight: '800' as const,
         letterSpacing: 0,
         marginTop: 0,
       },
@@ -95,7 +95,7 @@ export default function TabLayout() {
         options={{
           title: 'Start',
           tabBarIcon: ({ color, focused }) => (
-            <TabGlyph outline="home-outline" solid="home" color={color} focused={focused} activeBg={theme.name === 'dark' ? 'rgba(24,224,123,0.14)' : 'rgba(21,128,61,0.10)'} />
+            <TabGlyph outline="home-outline" solid="home" color={color} focused={focused} activeBg={theme.accentLight} />
           ),
         }}
       />
@@ -104,7 +104,7 @@ export default function TabLayout() {
         options={{
           title: 'Raporty',
           tabBarIcon: ({ color, focused }) => (
-            <TabGlyph outline="bar-chart-outline" solid="bar-chart" color={color} focused={focused} activeBg={theme.name === 'dark' ? 'rgba(24,224,123,0.14)' : 'rgba(21,128,61,0.10)'} />
+            <TabGlyph outline="bar-chart-outline" solid="bar-chart" color={color} focused={focused} activeBg={theme.accentLight} />
           ),
         }}
       />

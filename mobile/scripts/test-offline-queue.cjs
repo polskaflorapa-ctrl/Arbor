@@ -31,7 +31,11 @@ function createHarness() {
   const events = [];
   const asyncStorage = {
     async getItem(key) {
-      return storage.has(key) ? storage.get(key) : null;
+      const value = storage.has(key) ? storage.get(key) : null;
+      // Preserve the read snapshot across a turn so concurrent read-modify-write
+      // operations deterministically expose lost-update bugs in the harness.
+      await new Promise((resolve) => setImmediate(resolve));
+      return value;
     },
     async setItem(key, value) {
       storage.set(key, String(value));
@@ -52,7 +56,10 @@ function createHarness() {
       return { emitOfflineFlushDone: (payload) => events.push(payload) };
     }
     if (id === './api-client') {
-      return { fetchWithTimeout: (url, options) => global.fetch(url, options) };
+      return {
+        apiUrl: (url) => /^https?:\/\//i.test(url) ? url : `https://api.test/api${url.startsWith('/') ? url : `/${url}`}`,
+        fetchWithTimeout: (url, options) => global.fetch(url, options),
+      };
     }
     throw new Error(`Unexpected require: ${id}`);
   };
@@ -125,6 +132,58 @@ async function testDedupeAndLimit() {
   assert.equal(queue.length, 250);
   assert.equal(queue[0].id, 'bulk-10');
   assert.equal(queue[249].id, 'bulk-259');
+}
+
+async function testConcurrentEnqueuesDoNotLoseItems() {
+  const { api, readQueue } = createHarness();
+
+  await Promise.all([
+    api.enqueueOfflineRequest({ id: 'concurrent-a', url: 'https://api.test/a', method: 'POST' }),
+    api.enqueueOfflineRequest({ id: 'concurrent-b', url: 'https://api.test/b', method: 'POST' }),
+  ]);
+
+  assert.deepEqual(readQueue().map((item) => item.id).sort(), ['concurrent-a', 'concurrent-b']);
+}
+
+async function testConcurrentEnqueueSurvivesFlushCommit() {
+  const { api, readQueue } = createHarness();
+  let notifyFetchStarted;
+  let releaseFetch;
+  const fetchStarted = new Promise((resolve) => { notifyFetchStarted = resolve; });
+  const fetchReleased = new Promise((resolve) => { releaseFetch = resolve; });
+  let fetchCalls = 0;
+  global.fetch = async () => {
+    fetchCalls += 1;
+    notifyFetchStarted();
+    await fetchReleased;
+    return response(200);
+  };
+
+  await api.enqueueOfflineRequest({ id: 'flush-a', url: 'https://api.test/a', method: 'POST' });
+  const firstFlush = api.flushOfflineQueue('token-a');
+  const duplicateFlush = api.flushOfflineQueue('token-a');
+  assert.equal(firstFlush, duplicateFlush, 'concurrent flush calls should share one in-flight operation');
+  await fetchStarted;
+  await api.enqueueOfflineRequest({ id: 'during-flush-b', url: 'https://api.test/b', method: 'POST' });
+  releaseFetch();
+
+  assert.deepEqual(await firstFlush, { flushed: 1, left: 1 });
+  assert.equal(fetchCalls, 1);
+  assert.deepEqual(readQueue().map((item) => item.id), ['during-flush-b']);
+}
+
+async function testFlushRejectsDifferentApiOrigin() {
+  const { api, readQueue } = createHarness();
+  let fetchCalls = 0;
+  global.fetch = async () => {
+    fetchCalls += 1;
+    return response(200);
+  };
+
+  await api.enqueueOfflineRequest({ id: 'foreign-origin', url: 'https://evil.example/tasks/1', method: 'POST' });
+  assert.deepEqual(await api.flushOfflineQueue('sensitive-token'), { flushed: 0, left: 1 });
+  assert.equal(fetchCalls, 0);
+  assert.match(readQueue()[0].lastError, /ORIGIN_MISMATCH/);
 }
 
 async function testSuccessfulFlushUsesIdempotencyAndClearsQueue() {
@@ -582,6 +641,9 @@ async function testQueueTaskFinishOfflinePreservesMaterialsCostsAndDedupe() {
 async function run() {
   const tests = [
     testDedupeAndLimit,
+    testConcurrentEnqueuesDoNotLoseItems,
+    testConcurrentEnqueueSurvivesFlushCommit,
+    testFlushRejectsDifferentApiOrigin,
     testSuccessfulFlushUsesIdempotencyAndClearsQueue,
     testKnown400IsDroppedAsDone,
     testKnown409AlreadyFinishedIsDroppedAsDone,

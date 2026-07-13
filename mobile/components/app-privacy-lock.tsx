@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
+import { BrandLogo, BrandPattern } from './ui/brand-logo';
 
 export const PRIVACY_LOCK_KEY = 'privacy_lock_biometric_v1';
 
@@ -65,7 +66,8 @@ export function AppPrivacyLock() {
 
   return (
     <Modal visible animationType="fade" onShow={() => { void tryUnlock(); }}>
-      <View style={[styles.backdrop, { backgroundColor: 'rgba(5,8,15,0.92)' }]}>
+      <View style={[styles.backdrop, { backgroundColor: theme.bg }]}>
+        <BrandPattern opacity={0.06} />
         <View
           style={[
             styles.card,
@@ -81,13 +83,14 @@ export function AppPrivacyLock() {
             },
           ]}
         >
-          <Text style={[styles.title, { color: theme.text }]}>Aplikacja zablokowana</Text>
-          <Text style={[styles.sub, { color: theme.textSub }]}>Użyj biometrii lub ponów próbę.</Text>
+          <BrandLogo orientation="horizontal" descriptor style={styles.logo} />
+          <Text style={[styles.title, { color: theme.text, fontFamily: theme.fontExtraBold }]}>Aplikacja zablokowana</Text>
+          <Text style={[styles.sub, { color: theme.textSub, fontFamily: theme.fontRegular }]}>Użyj biometrii lub ponów próbę.</Text>
           <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={() => { void tryUnlock(); }}>
-            <Text style={[styles.btnText, { color: theme.accentText }]}>Odblokuj</Text>
+            <Text style={[styles.btnText, { color: theme.accentText, fontFamily: theme.fontExtraBold }]}>Odblokuj</Text>
           </TouchableOpacity>
           <View style={[styles.ribbon, { backgroundColor: theme.accentLight, borderColor: theme.accent }]}>
-            <Text style={[styles.ribbonTxt, { color: theme.accent }]}>PLATINUM SECURITY</Text>
+            <Text style={[styles.ribbonTxt, { color: theme.text, fontFamily: theme.fontBold }]}>POLSKA FLORA • BEZPIECZEŃSTWO</Text>
           </View>
         </View>
       </View>
@@ -112,14 +115,15 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     alignItems: 'center',
   },
-  title: { fontSize: 20, fontWeight: '800', marginBottom: 8, letterSpacing: 0.3 },
+  logo: { width: 240, maxWidth: '88%', marginBottom: 18 },
+  title: { fontSize: 20, marginBottom: 8, letterSpacing: 0.3 },
   sub: { fontSize: 14, textAlign: 'center', marginBottom: 18 },
   btn: {
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 7,
   },
-  btnText: { fontWeight: '800', fontSize: 15, letterSpacing: 0.2 },
+  btnText: { fontSize: 15, letterSpacing: 0.2 },
   ribbon: {
     marginTop: 14,
     borderRadius: 5,
@@ -129,7 +133,6 @@ const styles = StyleSheet.create({
   },
   ribbonTxt: {
     fontSize: 10,
-    fontWeight: '800',
     letterSpacing: 1.2,
   },
 });

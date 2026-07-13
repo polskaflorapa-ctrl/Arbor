@@ -15,10 +15,10 @@ const baseBtn = {
 };
 
 const activeBtn = {
-  border: '1px solid rgba(15, 95, 58, 0.14)',
+  border: '1px solid var(--border2)',
   color: 'var(--text)',
-  background: '#ffffff',
-  boxShadow: '0 1px 2px rgba(16, 24, 40, 0.08)',
+  background: 'var(--bg-card)',
+  boxShadow: 'var(--shadow-sm)',
 };
 
 export default function LanguageSwitcher({ compact = false, tone = 'light', style = {} }) {
@@ -32,15 +32,15 @@ export default function LanguageSwitcher({ compact = false, tone = 'light', styl
         background: 'rgba(255, 255, 255, 0.08)',
       }
     : {
-        border: '1px solid rgba(15, 95, 58, 0.12)',
-        background: 'rgba(248, 250, 252, 0.86)',
+        border: '1px solid var(--border)',
+        background: 'var(--bg-card2)',
       };
   const darkBtn = dark ? { color: 'rgba(255, 255, 255, 0.72)' } : {};
   const darkActiveBtn = dark
     ? {
         border: '1px solid rgba(255, 255, 255, 0.22)',
-        color: '#113226',
-        background: '#ffffff',
+        color: 'var(--brand-dark-brown, #3b2a18)',
+        background: 'var(--brand-white, #ffffff)',
         boxShadow: '0 1px 2px rgba(0, 0, 0, 0.16)',
       }
     : {};

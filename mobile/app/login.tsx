@@ -4,10 +4,12 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView,
-  Platform, StyleSheet, Text, TextInput,
+  Platform, StyleSheet, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
 import { AppStatusBar } from '../components/ui/app-status-bar';
+import { BrandLogo, BrandPattern } from '../components/ui/brand-logo';
+import { BrandText as Text } from '../components/ui/brand-text';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../constants/LanguageContext';
@@ -224,13 +226,11 @@ export default function Login() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
       <AppStatusBar backgroundColor={theme.bg} />
+      <BrandPattern opacity={theme.name === 'dark' ? 0.045 : 0.035} />
 
       <View style={S.shell}>
         <View style={S.brandArea}>
-          <View style={S.logoCircle}>
-            <Ionicons name="leaf" size={38} color={theme.accentText} />
-          </View>
-          <Text style={S.appName}>Polska Flora</Text>
+          <BrandLogo orientation="horizontal" descriptor style={S.brandLogo} />
           <Text style={S.tagline}>{t('login.subtitle')}</Text>
         </View>
 
@@ -363,6 +363,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
+    overflow: 'hidden',
   },
   shell: {
     width: '100%',
@@ -370,23 +371,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignSelf: 'center',
   },
   brandArea: { alignItems: 'center', marginBottom: 22 },
-  logoCircle: {
-    width: 74, height: 74, borderRadius: 20,
-    backgroundColor: t.accent,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
-    ...shadowStyle(t, {
-      opacity: t.shadowOpacity * 0.28,
-      radius: t.shadowRadius * 0.5,
-      offsetY: Math.max(2, t.shadowOffsetY - 1),
-      elevation: 4,
-    }),
-  },
-  appName: {
-    fontSize: 29, fontWeight: '900',
-    color: t.text, letterSpacing: 0, marginBottom: 5,
-  },
-  tagline: { fontSize: 13, color: t.textSub, letterSpacing: 0, fontWeight: '700' },
+  brandLogo: { width: 280, maxWidth: '88%', marginBottom: 10 },
+  tagline: { fontFamily: t.fontBold, fontSize: 13, color: t.textSub, letterSpacing: 0 },
   card: {
     width: '100%',
     backgroundColor: t.surface,
@@ -398,7 +384,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     }),
   },
   cardTitle: {
-    fontSize: 20, fontWeight: '900',
+    fontFamily: t.fontExtraBold, fontSize: 20,
     color: t.text, marginBottom: 16, letterSpacing: 0,
   },
   serverRow: {
@@ -408,11 +394,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginTop: -6,
     marginBottom: 12,
   },
-  serverText: { fontSize: 12, fontWeight: '600' },
+  serverText: { fontFamily: t.fontMedium, fontSize: 12 },
   apiHostText: {
     color: t.textMuted,
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: t.fontBold,
     marginTop: -8,
     marginBottom: 12,
   },
@@ -428,7 +414,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  retryBtnText: { color: t.accentText, fontSize: 12, fontWeight: '700' },
+  retryBtnText: { color: t.accentText, fontFamily: t.fontBold, fontSize: 12 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: t.inputBg,
@@ -437,8 +423,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginBottom: 12, height: 50,
   },
   inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 16, color: t.inputText },
-  inputFlex: { flex: 1, fontSize: 16, color: t.inputText },
+  input: { flex: 1, fontFamily: t.fontRegular, fontSize: 16, color: t.inputText },
+  inputFlex: { flex: 1, fontFamily: t.fontRegular, fontSize: 16, color: t.inputText },
   eyeBtn: { padding: 4 },
   capsLockRow: {
     flexDirection: 'row',
@@ -448,7 +434,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 4,
   },
-  capsLockText: { fontSize: 12, color: t.warning, fontWeight: '600' },
+  capsLockText: { fontFamily: t.fontMedium, fontSize: 12, color: t.warning },
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -457,7 +443,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 2,
   },
-  rememberText: { fontSize: 13, color: t.textSub, fontWeight: '600' },
+  rememberText: { fontFamily: t.fontMedium, fontSize: 13, color: t.textSub },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -471,7 +457,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginTop: -2,
     marginBottom: 8,
   },
-  errorText: { flex: 1, fontSize: 13, color: t.danger, fontWeight: '600' },
+  errorText: { flex: 1, fontFamily: t.fontMedium, fontSize: 13, color: t.danger },
   lockInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -480,7 +466,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 4,
   },
-  lockInfoText: { fontSize: 12, color: t.warning, fontWeight: '600' },
+  lockInfoText: { fontFamily: t.fontMedium, fontSize: 12, color: t.warning },
   btn: {
     backgroundColor: t.accent, borderRadius: 12,
     height: 50, alignItems: 'center', justifyContent: 'center',
@@ -493,5 +479,5 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     }),
   },
   btnDisabled: { opacity: 0.6 },
-  footer: { marginTop: 18, fontSize: 12, color: t.textMuted, textAlign: 'center' },
+  footer: { marginTop: 18, fontFamily: t.fontRegular, fontSize: 12, color: t.textMuted, textAlign: 'center' },
 });
