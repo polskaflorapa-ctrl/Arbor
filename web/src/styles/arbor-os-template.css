@@ -28,11 +28,13 @@
   font-family: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
 }
 
-#root .arbor-os-shell .command-native-sidebar {
+#root .arbor-os-shell > aside.command-native-sidebar {
   position: fixed !important;
   inset: 0 auto 0 0 !important;
   z-index: 80 !important;
   width: 248px !important;
+  min-width: 248px !important;
+  max-width: 248px !important;
   height: 100vh !important;
   display: flex !important;
   flex-direction: column !important;
@@ -253,7 +255,7 @@
 #root .arbor-os-main {
   min-height: 100vh !important;
   margin-left: 248px !important;
-  padding: 0 28px 48px !important;
+  padding: 0 39px 48px 28px !important;
   background: transparent !important;
   color: var(--template-ink) !important;
 }
@@ -264,8 +266,8 @@
   grid-template-columns: minmax(280px, 1fr) 94px 316px minmax(126px, 160px) 44px 142px !important;
   align-items: center !important;
   gap: 10px !important;
-  margin: 0 -28px 24px !important;
-  padding: 0 28px !important;
+  margin: 0 -39px 24px -28px !important;
+  padding: 0 39px 0 28px !important;
   border-bottom: 1px solid var(--template-line) !important;
   background: rgba(255, 255, 255, 0.58) !important;
   backdrop-filter: blur(12px);
@@ -415,12 +417,12 @@
 }
 
 #root .arbor-os-range-row {
-  min-height: 52px !important;
+  min-height: 42px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 14px !important;
-  margin-bottom: 16px !important;
+  margin-bottom: 10px !important;
 }
 
 #root .arbor-os-range-row p {
@@ -432,7 +434,11 @@
 #root .arbor-os-range-row > div {
   display: inline-flex !important;
   min-width: 205px !important;
-  padding: 4px !important;
+  padding: 3px !important;
+}
+
+#root .arbor-os-range-row button {
+  min-height: 30px !important;
 }
 
 #root .arbor-os-kpis {
@@ -530,6 +536,11 @@
   margin-bottom: 18px !important;
 }
 
+#root .arbor-os-priority-grid {
+  align-items: start !important;
+  margin-bottom: 19px !important;
+}
+
 #root .arbor-os-panel {
   border: 1px solid var(--template-line) !important;
   border-radius: 18px !important;
@@ -595,7 +606,7 @@
 }
 
 #root .arbor-os-approval-row {
-  min-height: 134px !important;
+  min-height: 167px !important;
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) 150px !important;
   grid-template-rows: auto auto !important;
@@ -717,6 +728,11 @@
   border-bottom: 1px solid var(--template-line) !important;
 }
 
+#root .arbor-os-panel-head.compact {
+  min-height: 50px !important;
+  padding-block: 10px !important;
+}
+
 #root .arbor-os-panel-head h2 {
   color: var(--template-ink) !important;
   font-size: 15px !important;
@@ -744,9 +760,21 @@
   box-shadow: none !important;
 }
 
-#root .arbor-os-risk-list,
 #root .arbor-os-team-list {
   padding: 14px 16px !important;
+}
+
+#root .arbor-os-risk-list {
+  padding: 9px 16px !important;
+}
+
+#root .arbor-os-queue-panel .arbor-os-panel-head {
+  min-height: 69px !important;
+}
+
+#root .arbor-os-side-stack {
+  position: relative !important;
+  top: -50px !important;
 }
 
 #root .arbor-os-risk-list button {
@@ -764,7 +792,7 @@
 }
 
 #root .arbor-os-queue-grid {
-  padding: 14px 16px !important;
+  padding: 16px !important;
 }
 
 #root .arbor-os-queue-column {
@@ -787,8 +815,10 @@
 }
 
 @media (max-width: 980px) {
-  #root .arbor-os-shell .command-native-sidebar {
+  #root .arbor-os-shell > aside.command-native-sidebar {
     width: 68px !important;
+    min-width: 68px !important;
+    max-width: 68px !important;
     padding: 16px 8px !important;
   }
 
@@ -846,6 +876,10 @@
   #root .arbor-os-priority-grid,
   #root .arbor-os-board {
     grid-template-columns: 1fr !important;
+  }
+
+  #root .arbor-os-side-stack {
+    top: 0 !important;
   }
 }
 

@@ -156,7 +156,9 @@ router.post('/forgot-password', forgotPasswordLimiter, validateBody(forgotPasswo
     email: { sent: true },
     expires_at: expiresAt.toISOString(),
   };
-  if (env.NODE_ENV !== 'production') generic.dev_reset_url = resetUrl;
+  // Token resetu WYŁĄCZNIE w dev/test — jawna lista zamiast "nie-produkcja",
+  // żeby środowiska produkcyjno-podobne (staging/preview) nigdy nie ujawniały tokenu.
+  if (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') generic.dev_reset_url = resetUrl;
 
   try {
     await ensurePasswordResetTable();

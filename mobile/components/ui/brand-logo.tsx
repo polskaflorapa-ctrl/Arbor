@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Image,
+  StyleSheet,
   type ImageSourcePropType,
   type ImageStyle,
   type StyleProp,
@@ -76,6 +77,18 @@ export function BrandLogo({
     ? (theme.name === 'dark' ? 'dark' : 'light')
     : surface;
   const source: ImageSourcePropType = APPROVED_LOGOS[descriptorKey][orientation][resolvedSurface];
+  const aspectRatio = ASPECT_RATIO[descriptorKey][orientation];
+  const flattenedStyle = StyleSheet.flatten(style) || {};
+  const requestedWidth = typeof flattenedStyle.width === 'number' ? flattenedStyle.width : undefined;
+  const requestedHeight = typeof flattenedStyle.height === 'number' ? flattenedStyle.height : undefined;
+  const defaultWidth = orientation === 'horizontal' ? 240 : 112;
+  const resolvedDimensions: ImageStyle = requestedWidth !== undefined && requestedHeight === undefined
+    ? { height: requestedWidth / aspectRatio }
+    : requestedHeight !== undefined && requestedWidth === undefined
+      ? { width: requestedHeight * aspectRatio }
+      : flattenedStyle.width == null && flattenedStyle.height == null
+        ? { width: defaultWidth, height: defaultWidth / aspectRatio }
+        : {};
 
   return (
     <Image
@@ -84,10 +97,10 @@ export function BrandLogo({
       resizeMode="contain"
       style={[
         {
-          width: orientation === 'horizontal' ? 240 : 112,
-          aspectRatio: ASPECT_RATIO[descriptorKey][orientation],
+          aspectRatio,
         },
         style,
+        resolvedDimensions,
       ]}
     />
   );

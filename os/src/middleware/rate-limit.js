@@ -116,6 +116,28 @@ const webhookLimiter = rateLimit({
   },
 });
 
+// Jeden wspólny klient Redis dla WSZYSTKICH limiterów auth (login, forgot-password,
+// reset-password) — sklepy różnią się tylko prefiksem kluczy. Osobny klient per sklep
+// niepotrzebnie mnożyłby połączenia (istotne przy limitach połączeń i wielu workerach).
+let sharedAuthRedis = null;
+
+function getSharedAuthRedis() {
+  if (sharedAuthRedis) return sharedAuthRedis;
+  const { createClient } = require('redis');
+  const client = createClient({ url: env.LOGIN_RATE_LIMIT_REDIS_URL });
+
+  let ready = Promise.resolve();
+  if (typeof client.connect === 'function' && !client.isOpen) {
+    ready = client.connect().catch((error) => {
+      const detail = error && error.message ? error.message : String(error);
+      console.warn(`[rate-limit] Failed to connect auth limiter Redis client: ${detail}`);
+    });
+  }
+
+  sharedAuthRedis = { client, ready };
+  return sharedAuthRedis;
+}
+
 function createAuthLimiterStore(prefix = 'login') {
   if (env.LOGIN_RATE_LIMIT_STORE !== 'redis') {
     return new rateLimit.MemoryStore();
@@ -129,18 +151,9 @@ function createAuthLimiterStore(prefix = 'login') {
   }
 
   try {
-    const { createClient } = require('redis');
     const redisStorePackage = require('rate-limit-redis');
     const RedisStore = resolveRedisStoreConstructor(redisStorePackage);
-    const client = createClient({ url: env.LOGIN_RATE_LIMIT_REDIS_URL });
-
-    let ready = Promise.resolve();
-    if (typeof client.connect === 'function' && !client.isOpen) {
-      ready = client.connect().catch((error) => {
-        const detail = error && error.message ? error.message : String(error);
-        console.warn(`[rate-limit] Failed to connect login limiter Redis client: ${detail}`);
-      });
-    }
+    const { client, ready } = getSharedAuthRedis();
 
     return new RedisStore({
       prefix: `arbor:rl:${prefix}:`,

@@ -86,7 +86,10 @@ describe('auth limiter store factory', () => {
 
     expect(store).toBeInstanceOf(MockRedisStore);
     expect(createClient).toHaveBeenCalledWith({ url: 'redis://127.0.0.1:6379' });
-    expect(connect).toHaveBeenCalledTimes(4);
+    // Wszystkie limitery auth współdzielą JEDEN klient Redis (jedno połączenie
+    // per proces), niezależnie od liczby sklepów utworzonych przy imporcie modułu.
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledTimes(1);
     expect(store.options.prefix).toBe('arbor:rl:login:');
 
     await store.options.sendCommand('PING');

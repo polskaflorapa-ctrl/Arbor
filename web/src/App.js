@@ -69,7 +69,7 @@ const MapaLive = lazy(() => import('./pages/MapaLive'));
 const ArborSpecPage = lazy(() => import('./pages/ArborSpecPage'));
 const ArborOsReference = lazy(() => import('./pages/reference/ArborOsReference'));
 const ArborOsDeckReference = lazy(() => import('./pages/reference/ArborOsReference').then((mod) => ({ default: mod.ArborOsDeckReference })));
-const ClientPortalReference = lazy(() => import('./pages/reference/ClientPortalReference'));
+const ClientPortal = lazy(() => import('./pages/ClientPortal'));
 const EstimatorOfficeReference = lazy(() => import('./pages/reference/EstimatorOfficeReference'));
 const MobileReference = lazy(() => import('./pages/reference/MobileReference'));
 const ReferenceIndex = lazy(() => import('./pages/reference/ReferenceIndex'));
@@ -90,7 +90,11 @@ function AuthenticatedRoute({ children }) {
 
 function AppChrome() {
   const location = useLocation();
-  const hideChat = location.pathname === '/' || location.pathname === '/login';
+  const hideChat = location.pathname === '/'
+    || location.pathname === '/login'
+    || location.pathname === '/portal-klienta'
+    || location.pathname.startsWith('/portal-klienta/')
+    || location.pathname === '/reference/portal-klienta';
   return hideChat ? null : <AiChat />;
 }
 
@@ -140,7 +144,9 @@ function App() {
           <Route path="/reference" element={<ReferenceIndex />} />
           <Route path="/reference/arbor-os" element={<ArborOsReference />} />
           <Route path="/reference/arbor-os-deck" element={<ArborOsDeckReference />} />
-          <Route path="/reference/portal-klienta" element={<ClientPortalReference />} />
+          <Route path="/reference/portal-klienta" element={<ClientPortal />} />
+          <Route path="/portal-klienta" element={<ClientPortal />} />
+          <Route path="/portal-klienta/:token" element={<ClientPortal />} />
           <Route path="/reference/gabinet-wyceniajacego" element={<EstimatorOfficeReference />} />
           <Route path="/reference/arbor-mobile" element={<MobileReference />} />
 

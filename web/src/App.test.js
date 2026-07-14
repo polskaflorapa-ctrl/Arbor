@@ -20,6 +20,13 @@ test('keeps login available on the login route', () => {
   expect(screen.getByText(/Konta demonstracyjne/i)).toBeInTheDocument();
 });
 
+test('exposes the client portal as a public application route', async () => {
+  window.history.replaceState(null, '', '/#/portal-klienta');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: /Pielęgnacja i wycinka/i })).toBeInTheDocument();
+  expect(screen.getByText('Status realizacji')).toBeInTheDocument();
+});
+
 test('preserves clean production paths by converting them to hash routes', () => {
   window.history.replaceState(null, '', '/zlecenia?search=Anna');
   const redirected = redirectCleanPathToHashRoute();

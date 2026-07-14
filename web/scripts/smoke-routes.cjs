@@ -59,6 +59,7 @@ const routes = [
   '/reference/arbor-os',
   '/reference/arbor-os-deck',
   '/reference/portal-klienta',
+  '/portal-klienta',
   '/reference/gabinet-wyceniajacego',
   '/reference/arbor-mobile',
 ];

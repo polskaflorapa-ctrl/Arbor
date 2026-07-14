@@ -19,7 +19,7 @@ import { summarizeTaskReadiness } from '../utils/taskReadiness';
 function formatMoney(value) {
   const numeric = Number(value || 0);
   if (!numeric) return '-';
-  return `${numeric.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zl`;
+  return `${numeric.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł`;
 }
 
 function statusText(value) {
@@ -143,20 +143,20 @@ function ApprovalRow({ task, index, navigate }) {
         </div>
         <strong>{title}</strong>
         <p>{service}</p>
-        <small>Wyceniajacy: {task?.wyceniajacy_nazwa || task?.opiekun_nazwa || 'Ewa Wycena'}</small>
+        <small>Wyceniający: {task?.wyceniajacy_nazwa || task?.opiekun_nazwa || 'Ewa Wycena'}</small>
       </div>
       <div className="arbor-os-approval-value">
         <strong>{formatMoney(task?.wartosc_planowana || task?.wartosc || task?.wartosc_finalna)}</strong>
-        <span><Camera size={13} aria-hidden /> {photos} zdjec · {videos} filmow</span>
+        <span><Camera size={13} aria-hidden /> {photos} zdjęć · {videos} filmów</span>
       </div>
       <div className="arbor-os-approval-actions">
         <button type="button" className="is-approve" onClick={() => navigate(taskId ? '/wyceny-terenowe/' + taskId : '/zatwierdz-wyceny')}>
           <Check size={16} aria-hidden />
-          Zatwierdz
+          Zatwierdź
         </button>
         <button type="button" className="is-reject" onClick={() => navigate('/zatwierdz-wyceny')}>
           <X size={16} aria-hidden />
-          Odrzuc
+          Odrzuć
         </button>
       </div>
     </article>
@@ -213,7 +213,7 @@ export default function DashboardPolskaFlora({
 
   const queueSections = [
     {
-      title: 'Nowe wiadomosci',
+      title: 'Nowe wiadomości',
       count: missingPhoneTasks.length,
       tone: 'olive',
       rows: (missingPhoneTasks.length ? missingPhoneTasks : fallbackRows).slice(0, 2),
@@ -237,7 +237,7 @@ export default function DashboardPolskaFlora({
       channel: () => 'SLA',
     },
     {
-      title: 'Bledy pakietu',
+      title: 'Błędy pakietu',
       count: readiness.blockedTasks.length,
       tone: 'sand',
       rows: (readiness.blockedTasks.length ? readiness.blockedTasks : fallbackRows).slice(0, 2),
@@ -263,17 +263,17 @@ export default function DashboardPolskaFlora({
       tone: 'orange',
     },
     {
-      label: 'Przychod planowany',
+      label: 'Przychód planowany',
       value: formatMoney(revenue),
-      hint: monthLabel || 'biezacy zakres',
+      hint: monthLabel || 'bieżący zakres',
       path: '/ksiegowosc',
       Icon: BarChart3,
       tone: 'green',
     },
     {
-      label: 'Sr. marza',
+      label: 'Śr. marża',
       value: String(marginPercent) + '%',
-      hint: 'zlecen rozliczonych',
+      hint: 'zleceń rozliczonych',
       path: '/raporty',
       Icon: Percent,
     },
@@ -290,19 +290,19 @@ export default function DashboardPolskaFlora({
 
   const riskCards = [
     {
-      title: overdueTasks.length ? 'Zlecenia po terminie' : 'Terminy pod kontrola',
-      text: overdueTasks.length ? `${overdueTasks.length} wymaga nowej decyzji.` : 'Brak krytycznych opoznien.',
+      title: overdueTasks.length ? 'Zlecenia po terminie' : 'Terminy pod kontrolą',
+      text: overdueTasks.length ? `${overdueTasks.length} wymaga nowej decyzji.` : 'Brak krytycznych opóźnień.',
       tone: overdueTasks.length ? 'danger' : 'good',
       path: '/zlecenia',
     },
     {
-      title: unassignedTasks.length ? 'Brak przypisanej ekipy' : 'Obsada domknieta',
-      text: unassignedTasks.length ? `${unassignedTasks.length} zlecen potrzebuje brygady.` : 'Plan moze jechac dalej.',
+      title: unassignedTasks.length ? 'Brak przypisanej ekipy' : 'Obsada domknięta',
+      text: unassignedTasks.length ? `${unassignedTasks.length} zleceń potrzebuje brygady.` : 'Plan może jechać dalej.',
       tone: unassignedTasks.length ? 'warning' : 'good',
       path: '/kierownik',
     },
     {
-      title: quoteTasks.length ? 'Wyceny do zamkniecia' : 'Oferty bez alarmu',
+      title: quoteTasks.length ? 'Wyceny do zamknięcia' : 'Oferty bez alarmu',
       text: quoteTasks.length ? `${quoteTasks.length} pozycji blokuje kolejne kroki.` : 'Nie ma pilnych ofert.',
       tone: quoteTasks.length ? 'notice' : 'good',
       path: '/wycena-kalendarz',
@@ -312,7 +312,7 @@ export default function DashboardPolskaFlora({
   const moneyBlockers = [
     { label: 'Oferty do akceptacji', value: acceptanceTasks.length, detail: 'follow-up z klientem', path: '/crm' },
     { label: 'Brak ceny', value: missingPriceTasks.length, detail: 'wycena lub oferta bez kwoty', path: '/wycena-kalendarz' },
-    { label: 'Wykonane bez rozliczenia', value: settlementTasks.length, detail: 'wykonane, ale nie zamkniete', path: '/ksiegowosc' },
+    { label: 'Wykonane bez rozliczenia', value: settlementTasks.length, detail: 'wykonane, ale nie zamknięte', path: '/ksiegowosc' },
   ];
   const moneyPreviewRows = [
     ...missingPriceTasks.map((task) => ({ task, label: 'Brak ceny', path: '/wycena-kalendarz' })),
@@ -332,7 +332,7 @@ export default function DashboardPolskaFlora({
 
   const serviceRows = [
     ['Wycinka drzew', getServiceCount(allTasks, /wycink|drzew/i)],
-    ['Pielegnacja', getServiceCount(allTasks, /piel|koron/i)],
+    ['Pielęgnacja', getServiceCount(allTasks, /piel|koron/i)],
     ['Dachy', getServiceCount(allTasks, /dach/i)],
     ['Ogrodnictwo', getServiceCount(allTasks, /ogrod|traw|nasad/i)],
   ];
@@ -380,11 +380,11 @@ export default function DashboardPolskaFlora({
             <span />
             <span />
           </div>
-          <div className="arbor-os-segments" aria-label="Filtr oddzialu">
+          <div className="arbor-os-segments" aria-label="Filtr oddziału">
             <button type="button" className="is-active">Wszystkie</button>
             <button type="button">Warszawa</button>
-            <button type="button">Krakow</button>
-            <button type="button">Gdansk</button>
+            <button type="button">Kraków</button>
+            <button type="button">Gdańsk</button>
           </div>
           <form className="arbor-os-search" onSubmit={submitSearch}>
             <Search size={16} aria-hidden="true" />
@@ -392,7 +392,7 @@ export default function DashboardPolskaFlora({
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Szukaj"
-              aria-label="Szukaj zlecen"
+              aria-label="Szukaj zleceń"
             />
             <kbd>Enter</kbd>
           </form>
@@ -407,15 +407,15 @@ export default function DashboardPolskaFlora({
         </header>
 
         <section className="arbor-os-range-row">
-          <p>Podsumowanie operacyjne · zakres: <strong>dzis</strong></p>
+          <p>Podsumowanie operacyjne · zakres: <strong>dziś</strong></p>
           <div>
-            <button type="button" className="is-active">Dzis</button>
-            <button type="button">Tydzien</button>
-            <button type="button">Miesiac</button>
+            <button type="button" className="is-active">Dziś</button>
+            <button type="button">Tydzień</button>
+            <button type="button">Miesiąc</button>
           </div>
         </section>
 
-        <section className="arbor-os-kpis" aria-label="Kluczowe wskazniki">
+        <section className="arbor-os-kpis" aria-label="Kluczowe wskaźniki">
           {kpis.map((kpi) => (
             <button
               key={kpi.label}
@@ -438,7 +438,7 @@ export default function DashboardPolskaFlora({
               <span aria-hidden="true"><Camera size={18} /></span>
               <div>
                 <h2>Wyceny terenowe do potwierdzenia</h2>
-                <p>Z aplikacji wyceniajacego · zatwierdz i przydziel ekipe</p>
+                <p>Z aplikacji wyceniającego · zatwierdź i przydziel ekipę</p>
               </div>
               <strong>{quoteTasks.length}</strong>
             </div>
@@ -451,7 +451,7 @@ export default function DashboardPolskaFlora({
                   navigate={navigate}
                 />
               )) : (
-                <div className="arbor-os-empty-mini">Brak wycen oczekujacych na decyzje</div>
+                <div className="arbor-os-empty-mini">Brak wycen oczekujących na decyzję</div>
               )}
             </div>
           </div>
@@ -476,9 +476,9 @@ export default function DashboardPolskaFlora({
             <div className="arbor-os-panel-head">
               <div>
                 <h2>Kolejka operacyjna dnia</h2>
-                <p>Aktualizacja na zywo · {riskTotal + readiness.blockedTasks.length} spraw wymaga uwagi</p>
+                <p>Aktualizacja na żywo · {riskTotal + readiness.blockedTasks.length} spraw wymaga uwagi</p>
               </div>
-              <button type="button" onClick={() => navigate('/zlecenia')}>Odswiez</button>
+              <button type="button" onClick={() => navigate('/zlecenia')}>Odśwież</button>
             </div>
             <div className="arbor-os-queue-grid">
               {queueSections.map((section) => (
@@ -513,8 +513,8 @@ export default function DashboardPolskaFlora({
         <section className="arbor-os-panel arbor-os-field-panel">
           <div className="arbor-os-panel-head">
             <div>
-              <h2>Dzis w terenie</h2>
-              <p>Zlecenia z oknem realizacji na dzis</p>
+              <h2>Dziś w terenie</h2>
+              <p>Zlecenia z oknem realizacji na dziś</p>
             </div>
             <button type="button" onClick={() => navigate('/harmonogram')}>Grafik</button>
           </div>
@@ -537,7 +537,7 @@ export default function DashboardPolskaFlora({
             )) : (
               <div className="arbor-os-empty-state">
                 <strong>Plan dnia jest pusty</strong>
-                <span>Dodaj zlecenie albo otworz harmonogram, zeby zaplanowac prace.</span>
+                <span>Dodaj zlecenie albo otwórz harmonogram, żeby zaplanować pracę.</span>
               </div>
             )}
           </div>
@@ -570,7 +570,7 @@ export default function DashboardPolskaFlora({
                   <b>{task.readiness.score}%</b>
                 </button>
               ))}
-              {!readiness.blockedTasks.length && <div className="arbor-os-empty-mini">Pakiety sa gotowe.</div>}
+              {!readiness.blockedTasks.length && <div className="arbor-os-empty-mini">Pakiety są gotowe.</div>}
             </div>
           </div>
 
@@ -607,7 +607,7 @@ export default function DashboardPolskaFlora({
           <div className="arbor-os-panel">
             <div className="arbor-os-panel-head">
               <div>
-                <h2>Typy uslug</h2>
+                <h2>Typy usług</h2>
                 <p>Struktura aktywnych prac</p>
               </div>
             </div>
@@ -626,7 +626,7 @@ export default function DashboardPolskaFlora({
         <section className="arbor-os-panel arbor-os-ops-panel">
           <div className="arbor-os-panel-head">
             <div>
-              <h2>Wydajnosc operacyjna</h2>
+              <h2>Wydajność operacyjna</h2>
               <p>Puls firmy dla {branchLabel}</p>
             </div>
             <button type="button" onClick={() => navigate('/bi')}>BI</button>

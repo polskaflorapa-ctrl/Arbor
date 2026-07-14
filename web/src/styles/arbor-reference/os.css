@@ -1,4 +1,4 @@
-#root :is(.app-shell, [class$='-shell'], [class*='-shell']):not(.login-shell):not(.landing-shell):not(.explore-command-shell) {
+#root :is(.app-shell, [class$='-shell'], [class*='-shell']):not(.login-shell):not(.landing-shell):not(.explore-command-shell):not(.arbor-os-shell):not(.client-portal-shell) {
   min-height: 100vh !important;
   background:
     radial-gradient(circle at 90% -6%, rgba(160, 175, 20, 0.1), transparent 32rem),
@@ -7,7 +7,7 @@
   font-family: var(--pf-font) !important;
 }
 
-#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar, .ios-glass-panel.arbor-sidebar) {
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar, .ios-glass-panel.arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) {
   position: fixed !important;
   inset: 0 auto 0 0 !important;
   z-index: 80 !important;
@@ -26,7 +26,7 @@
   font-family: var(--pf-font) !important;
 }
 
-#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(button, a, [role='button'], .ios-inset-row) {
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) :is(button, a, [role='button'], .ios-inset-row) {
   min-height: 42px !important;
   border-radius: 11px !important;
   color: rgba(239, 233, 218, 0.78) !important;
@@ -35,24 +35,24 @@
   transition: background-color 160ms ease, color 160ms ease, transform 160ms ease !important;
 }
 
-#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(button, a, [role='button'], .ios-inset-row):hover {
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) :is(button, a, [role='button'], .ios-inset-row):hover {
   background: rgba(255, 255, 255, 0.07) !important;
   color: #ffffff !important;
   filter: none !important;
 }
 
-#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(button, a, [role='button'], .ios-inset-row)[aria-current='page'],
-#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(button, a, [role='button']).is-active {
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) :is(button, a, [role='button'], .ios-inset-row)[aria-current='page'],
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) :is(button, a, [role='button']).is-active {
   background: var(--pf-green) !important;
   color: var(--pf-brown) !important;
   box-shadow: none !important;
 }
 
-#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(strong, b) {
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) :is(strong, b) {
   color: #ffffff !important;
 }
 
-#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(small, [class*='section'], [style*='uppercase']) {
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) :is(small, [class*='section'], [style*='uppercase']) {
   color: rgba(239, 233, 218, 0.62) !important;
 }
 
@@ -62,7 +62,7 @@
   color: var(--pf-brown) !important;
 }
 
-#root :is(.app-shell, [class$='-shell'], [class*='-shell']):not(.login-shell):not(.landing-shell):not(.explore-command-shell):has(> :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar))
+#root :is(.app-shell, [class$='-shell'], [class*='-shell']):not(.login-shell):not(.landing-shell):not(.explore-command-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar))
   > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar) {
   min-height: 100vh !important;
   margin-left: var(--pf-sidebar-w) !important;
@@ -72,7 +72,7 @@
   font-family: var(--pf-font) !important;
 }
 
-#root > [class*='-shell']:not(.login-shell):not(.landing-shell):not(.explore-command-shell)
+#root > [class*='-shell']:not(.login-shell):not(.landing-shell):not(.explore-command-shell):not(.arbor-os-shell):not(.client-portal-shell)
   > :is([class*='-main'], main):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar) {
   min-height: 100vh !important;
   margin-left: var(--pf-sidebar-w) !important;
@@ -82,14 +82,14 @@
   font-family: var(--pf-font) !important;
 }
 
-#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main) :is(h1, h2, h3, h4) {
+#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main) :is(h1, h2, h3, h4) {
   color: var(--pf-ink) !important;
   font-family: var(--pf-font) !important;
   font-weight: 850 !important;
   letter-spacing: -0.01em !important;
 }
 
-#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main)
+#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
   :is(.module-page-header, .module-page-header-plain, .module-page-header-hero, [class*='hero'], [class*='Hero']) {
   overflow: hidden !important;
   border: 1px solid var(--pf-line) !important;
@@ -119,7 +119,7 @@
   color: #fffaf0 !important;
 }
 
-#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main)
+#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
   :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card']):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar):not(.route-loading-card) {
   border: 1px solid var(--pf-line) !important;
   border-radius: 18px !important;
@@ -128,14 +128,14 @@
   box-shadow: var(--pf-shadow-soft) !important;
 }
 
-#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main)
+#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
   :is(.modern-data-row, .ios-inset-row, .MuiTableRow-root, [class*='row'], [class*='Row']):not(.pf-sidebar *):not(.command-native-sidebar *) {
   border-color: var(--pf-line) !important;
   background: var(--pf-card-soft) !important;
   color: var(--pf-ink) !important;
 }
 
-#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main)
+#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
   :is(button, .MuiButton-root, a[role='button']):not(.MuiIconButton-root):not(.pf-sidebar *):not(.command-native-sidebar *):not(.arbor-sidebar *) {
   min-height: 44px !important;
   border-radius: 12px !important;
@@ -144,7 +144,7 @@
   font-weight: 800 !important;
 }
 
-#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main)
+#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main)
   :is(button, .MuiButton-root, a[role='button']):not(.MuiIconButton-root):not(.pf-sidebar *):not(.command-native-sidebar *):hover {
   transform: translateY(-1px);
   border-color: #d3da93 !important;
@@ -178,19 +178,19 @@
     --pf-sidebar-w: 60px;
   }
 
-  #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) {
+  #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) {
     width: 60px !important;
     padding: 12px 8px !important;
   }
 
-  #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(.command-native-brand div, .command-native-session, .command-native-actions, .command-native-system, .command-native-user div),
+  #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar):not(.arbor-os-shell .command-native-sidebar) :is(.command-native-brand div, .command-native-session, .command-native-actions, .command-native-system, .command-native-user div),
   #root .pf-sidebar :is(nav span:not(:first-child), [style*='logoName'], [style*='logoSub']) {
     display: none !important;
   }
 
-  #root :is(.app-shell, [class$='-shell'], [class*='-shell']):not(.login-shell):not(.landing-shell):not(.explore-command-shell):has(> :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar))
+  #root :is(.app-shell, [class$='-shell'], [class*='-shell']):not(.login-shell):not(.landing-shell):not(.explore-command-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar))
     > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar),
-  #root > [class*='-shell']:not(.login-shell):not(.landing-shell):not(.explore-command-shell)
+  #root > [class*='-shell']:not(.login-shell):not(.landing-shell):not(.explore-command-shell):not(.arbor-os-shell):not(.client-portal-shell)
     > :is([class*='-main'], main):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar) {
     margin-left: 60px !important;
     padding: 16px 12px 34px !important;
@@ -198,7 +198,7 @@
 }
 
 @media (max-width: 560px) {
-  #root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main)
+  #root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
     :is(.module-page-header, .module-page-header-plain, .module-page-header-hero, [class*='hero'], [class*='Hero'], [class*='panel'], [class*='card']) {
     border-radius: 14px !important;
   }

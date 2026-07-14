@@ -239,6 +239,10 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true,
         },
+        '/track': {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
       },
     },
     optimizeDeps: {

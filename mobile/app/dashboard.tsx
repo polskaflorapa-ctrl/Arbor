@@ -8,7 +8,7 @@ import {
   StyleSheet, TouchableOpacity, View,
 } from 'react-native';
 import { AppStatusBar } from '../components/ui/app-status-bar';
-import { BrandLogo, BrandPattern } from '../components/ui/brand-logo';
+import { BrandLogo } from '../components/ui/brand-logo';
 import { BrandText as Text } from '../components/ui/brand-text';
 import { DashboardSkeleton } from '../components/ui/skeleton-block';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
@@ -19,6 +19,7 @@ import { colorWithAlpha, elevationCard, shadowStyle } from '../constants/elevati
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { POLSKA_FLORA_COLORS } from '../constants/brand';
 import { type Theme } from '../constants/theme';
 import {
   getOddzialFeatureConfig,
@@ -192,6 +193,15 @@ function filterDashboardOrdersForUser(tasks: any[], user: StoredUser | null) {
 function dashboardNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function dashboardInitials(value: unknown) {
+  const words = String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return 'PF';
+  return words.slice(0, 2).map((word) => word[0]).join('').toUpperCase();
 }
 
 function dashboardOpenProblemCount(task: any) {
@@ -447,18 +457,6 @@ export default function DashboardScreen() {
 
   const statusKolor = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
 
-  const rolaKolor = useMemo(() => ({
-    Dyrektor: theme.warning,
-    Administrator: theme.info,
-    Kierownik: theme.textSub,
-    Brygadzista: theme.success,
-    Specjalista: theme.success,
-    Wyceniający: theme.textSub,
-    Pomocnik: theme.textMuted,
-    'Pomocnik bez doświadczenia': theme.textMuted,
-    Magazynier: theme.warning,
-  }), [theme]);
-
   const quickActions: QuickAction[] = [
     { label: 'Command Center', icon: 'sparkles-outline' as IoniconName, path: '/task-command-center', color: theme.chartCyan },
     { label: 'Tryb Dzisiaj', icon: 'navigate-circle-outline' as IoniconName, path: '/misja-dnia', color: theme.accent },
@@ -563,6 +561,56 @@ export default function DashboardScreen() {
     .map((path) => quickActionsFiltered.find((action) => action.path === path))
     .filter((action): action is QuickAction => Boolean(action))
     .slice(0, 4);
+  const templateQuickActions = [...focusActions, ...quickActionsFiltered]
+    .filter((action, index, items) => items.findIndex((item) => item.path === action.path) === index)
+    .slice(0, 4);
+  const missionPath = quickActionsFiltered.some((action) => action.path === '/misja-dnia')
+    ? '/misja-dnia'
+    : (focusActions[0]?.path || '/zlecenia');
+  const terrainQuotePath = quickActionsFiltered.find((action) => [
+    '/wyceny-terenowe',
+    '/ogledziny',
+    '/plan-ogledzin',
+    '/wyceny-do-biura',
+  ].includes(action.path))?.path || '/zlecenia';
+  const missionDoneCount = Math.max(
+    doneCount,
+    dashboardOrders.filter((task) => isTaskClosed(task?.status)).length,
+  );
+  const missionTotalCount = Math.max(totalCount, missionDoneCount);
+  const nextMissionTask = useMemo(() => dashboardOrders
+    .filter((task) => !isTaskClosed(task?.status))
+    .sort((a, b) => {
+      const aTime = Date.parse(String(a?.data_planowana || a?.data || ''));
+      const bTime = Date.parse(String(b?.data_planowana || b?.data || ''));
+      const safeA = Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER;
+      const safeB = Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER;
+      return safeA - safeB;
+    })[0] || null, [dashboardOrders]);
+  const nextMissionText = nextMissionTask
+    ? `następne #${nextMissionTask.id}`
+    : 'brak kolejnych';
+  const storyItems = useMemo(() => {
+    const seen = new Set<string>();
+    return dashboardOrders
+      .filter((task) => !isTaskClosed(task?.status))
+      .flatMap((task) => {
+        const title = String(task?.ekipa_nazwa || task?.klient_nazwa || `Zlecenie #${task?.id}`);
+        const key = title.toLocaleLowerCase('pl-PL');
+        if (seen.has(key)) return [];
+        seen.add(key);
+        const ringColor = (statusKolor as Record<string, string>)[String(task?.status || '')]
+          || POLSKA_FLORA_COLORS.primaryGreen;
+        return [{
+          id: String(task?.id || key),
+          title,
+          initials: dashboardInitials(title),
+          path: task?.id ? `/zlecenie/${task.id}` : '/zlecenia',
+          ringColor,
+        }];
+      })
+      .slice(0, 4);
+  }, [dashboardOrders, statusKolor]);
 
   const quickSections = useMemo(() => {
     const byCat = new Map<QuickCategoryId, QuickAction[]>();
@@ -654,7 +702,7 @@ export default function DashboardScreen() {
   if (loading) {
     return (
       <View style={S.root}>
-        <AppStatusBar backgroundColor={ARBOR_UI.paper} />
+        <AppStatusBar backgroundColor={POLSKA_FLORA_COLORS.darkBrown} barStyle="light-content" />
         <DashboardSkeleton />
       </View>
     );
@@ -662,37 +710,51 @@ export default function DashboardScreen() {
 
   return (
     <View style={S.root}>
-      <AppStatusBar backgroundColor={ARBOR_UI.paper} />
+      <AppStatusBar backgroundColor={POLSKA_FLORA_COLORS.darkBrown} barStyle="light-content" />
 
       {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
       <View style={S.header}>
-        <BrandPattern opacity={theme.name === 'dark' ? 0.04 : 0.025} />
-        <View style={S.headerLeft}>
-          <BrandLogo orientation="horizontal" descriptor={false} style={S.headerLogo} />
-          <Text style={S.greeting}>{t('dashboard.greeting', { name: user?.imie || '' })}</Text>
-          <Text style={S.date}>{dzisiajLocalized || dzisiaj}</Text>
-          <View style={S.headerMetaRow}>
-            <View style={[S.rolaBadge, { backgroundColor: (rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent) + '20' }]}>
-              <Text style={[S.rolaText, { color: rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent }]}>
-                {rolaLabel}
-              </Text>
+        <View style={S.headerTop}>
+          <View style={S.headerBrand}>
+            <BrandLogo
+              orientation="horizontal"
+              descriptor={false}
+              surface="dark"
+              style={S.headerLogo}
+            />
+            <View style={S.liveRow}>
+              <View style={S.liveDot} />
+              <Text style={S.liveText}>NA ŻYWO</Text>
             </View>
-            <Text style={S.oddzialText} numberOfLines={1}>{oddzialConfig.name}</Text>
+          </View>
+          <View style={S.headerActions}>
+            <TouchableOpacity
+              accessibilityLabel="Powiadomienia"
+              style={S.headerIconButton}
+              onPress={() => void openWithContext('/powiadomienia', 'Powiadomienia', 'dashboard-header')}
+            >
+              <Ionicons name="notifications-outline" size={18} color={POLSKA_FLORA_COLORS.white} />
+              {riskCount > 0 ? (
+                <View style={S.headerAlertBadge}>
+                  <Text style={S.headerAlertText}>{Math.min(riskCount, 99)}</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+            <View style={[S.connectionBadge, loadError && S.connectionBadgeOffline]}>
+              <View style={S.connectionDot} />
+              <Text style={S.connectionText}>{loadError ? 'Offline' : 'Online'}</Text>
+            </View>
+            <TouchableOpacity
+              accessibilityLabel="Profil"
+              style={S.avatar}
+              onPress={() => void openWithContext('/profil', 'Profil', 'dashboard-header')}
+            >
+              <Text style={S.avatarText}>{dashboardInitials(`${user?.imie || ''} ${user?.nazwisko || ''}`)}</Text>
+            </TouchableOpacity>
           </View>
         </View>
-        <View style={S.headerRight}>
-          <TouchableOpacity
-            style={S.commandCenterBtn}
-            onPress={() => {
-              void openWithContext('/task-command-center', 'Command Center', 'dashboard-header');
-            }}
-          >
-            <Ionicons name="search-outline" size={18} color={ARBOR_UI.forest} />
-          </TouchableOpacity>
-          <TouchableOpacity style={S.avatar} onPress={() => void openWithContext('/profil', 'Profil', 'dashboard-header')}>
-            <Text style={S.avatarText}>{user?.imie?.[0]}{user?.nazwisko?.[0]}</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={S.date}>{dzisiajLocalized || dzisiaj}</Text>
+        <Text style={S.greeting} numberOfLines={1}>{rolaLabel} · {oddzialConfig.name}</Text>
       </View>
 
       <ScrollView
@@ -735,54 +797,86 @@ export default function DashboardScreen() {
             </View>
           </View>
         ) : null}
-        {/* ─── KPI KARTY ─────────────────────────────────────────────────────── */}
-        <View style={S.opsHero}>
-          <View style={S.opsHeroTop}>
-            <View style={S.opsLeafBadge}>
-              <Ionicons name="leaf-outline" size={22} color={ARBOR_UI.forest} />
-            </View>
-            <View style={S.opsHeroText}>
-              <Text style={S.opsEyebrow}>POLSKA FLORA MOBILE</Text>
-              <Text style={S.opsTitle}>Centrum operacji terenowych</Text>
-              <Text style={S.opsSubtitle}>{oddzialConfig.name} / {rolaLabel}</Text>
-            </View>
-          </View>
-          <View style={S.opsHeroMetrics}>
-            <View style={S.opsMetric}>
-              <Text style={S.opsMetricValue}>{activeCount}</Text>
-              <Text style={S.opsMetricLabel}>Aktywne</Text>
-            </View>
-            <View style={S.opsMetricDivider} />
-            <View style={[S.opsMetric, riskCount > 0 && { backgroundColor: ARBOR_UI.dangerSoft, borderRadius: 10 }]}>
-              <Text style={[S.opsMetricValue, riskCount > 0 && { color: ARBOR_UI.danger }]}>{riskCount}</Text>
-              <Text style={S.opsMetricLabel}>{signalCount > delayedCount ? 'Sygnały' : 'Ryzyka'}</Text>
-            </View>
-            <View style={S.opsMetricDivider} />
-            <View style={S.opsMetric}>
-              <Text style={S.opsMetricValue}>{totalCount}</Text>
-              <Text style={S.opsMetricLabel}>Razem</Text>
-            </View>
-          </View>
-        </View>
-
-        {focusActions.length > 0 ? (
-          <View style={S.todayRail}>
-            {focusActions.slice(0, 3).map((action, index) => (
+        {/* ─── ARBOR MOBILE: HISTORIE, MISJA I SZYBKIE AKCJE ───────────────── */}
+        <View style={S.templateHome}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={S.storyRail}
+          >
+            <TouchableOpacity
+              style={S.storyButton}
+              onPress={() => void openWithContext('/zlecenia', 'Aktywne zlecenia', 'dashboard-stories')}
+            >
+              <View style={S.storyLeadCircle}>
+                <Text style={S.storyLeadCount}>{activeCount}</Text>
+              </View>
+              <Text style={S.storyCaption} numberOfLines={1}>Aktywne</Text>
+            </TouchableOpacity>
+            {storyItems.map((story) => (
               <TouchableOpacity
-                key={`rail-${action.path}-${index}`}
-                style={[S.todayRailAction, index === 0 && S.todayRailPrimary]}
-                onPress={() => {
-                  void openWithContext(action.path, quickActionListLabel(action.label), 'dashboard-today-rail');
-                }}
+                key={story.id}
+                style={S.storyButton}
+                onPress={() => void openWithContext(story.path, story.title, 'dashboard-stories')}
               >
-                <Ionicons name={action.icon} size={18} color={index === 0 ? ARBOR_UI.onAccent : action.color} />
-                <Text style={[S.todayRailText, index === 0 && S.todayRailPrimaryText]} numberOfLines={2}>
-                  {quickActionListLabel(action.label)}
-                </Text>
+                <View style={[S.storyRing, { borderColor: story.ringColor }]}>
+                  <View style={[S.storyCircle, { backgroundColor: colorWithAlpha(story.ringColor, 0.18) }]}>
+                    <Text style={[S.storyInitials, { color: story.ringColor }]}>{story.initials}</Text>
+                  </View>
+                </View>
+                <Text style={S.storyCaption} numberOfLines={1}>{story.title}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[S.templateHeroCard, S.missionCard]}
+            onPress={() => void openWithContext(missionPath, 'Misja dnia', 'dashboard-template')}
+          >
+            <View style={S.missionIcon}>
+              <Ionicons name="reader-outline" size={22} color={POLSKA_FLORA_COLORS.primaryGreen} />
+            </View>
+            <View style={S.templateHeroBody}>
+              <Text style={S.missionTitle}>Misja dnia</Text>
+              <Text style={S.missionSubtitle} numberOfLines={1}>
+                {missionDoneCount}/{missionTotalCount} ukończone · {nextMissionText}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colorWithAlpha(POLSKA_FLORA_COLORS.white, 0.62)} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[S.templateHeroCard, S.terrainCard]}
+            onPress={() => void openWithContext(terrainQuotePath, 'Wycena terenowa', 'dashboard-template')}
+          >
+            <View style={S.terrainIcon}>
+              <Ionicons name="camera-outline" size={22} color={POLSKA_FLORA_COLORS.darkBrown} />
+            </View>
+            <View style={S.templateHeroBody}>
+              <Text style={S.terrainTitle}>Wycena terenowa</Text>
+              <Text style={S.terrainSubtitle} numberOfLines={1}>Zdjęcia, rysowanie, filmy → do biura</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={POLSKA_FLORA_COLORS.darkBrown} />
+          </TouchableOpacity>
+
+          <View style={S.templateActionGrid}>
+            {templateQuickActions.map((action, index) => (
+              <TouchableOpacity
+                key={`template-${action.path}-${index}`}
+                style={S.templateActionCard}
+                onPress={() => void openWithContext(action.path, quickActionListLabel(action.label), 'dashboard-template-grid')}
+              >
+                <View style={[S.templateActionIcon, { backgroundColor: colorWithAlpha(action.color, 0.16) }]}>
+                  <Ionicons name={action.icon} size={22} color={action.color} />
+                </View>
+                <View>
+                  <Text style={S.templateActionTitle} numberOfLines={1}>{quickActionListLabel(action.label)}</Text>
+                  <Text style={S.templateActionSubtitle} numberOfLines={2}>{dashboardFocusHint(action.path)}</Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
-        ) : null}
+        </View>
 
         {(zlecenia.length > 0 || isCrew || isWyceniajacy) ? (
           <TouchableOpacity
@@ -910,43 +1004,6 @@ export default function DashboardScreen() {
             <Text style={S.workflowFooterValue}>{workflowDoneLabel}</Text>
           </View>
         </View>
-
-        {focusActions.length > 0 ? (
-          <View style={S.focusDeck}>
-            <View style={S.focusDeckHead}>
-              <View style={S.focusDeckTitleWrap}>
-                <View style={S.focusDeckIcon}>
-                  <Ionicons name="compass-outline" size={17} color={ARBOR_UI.forest} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={S.focusDeckTitle}>Najwazniejsze teraz</Text>
-                  <Text style={S.focusDeckSub}>Szybki start pod Twoja role i oddzial.</Text>
-                </View>
-              </View>
-              <Text style={S.focusDeckCount}>{focusActions.length}</Text>
-            </View>
-            <View style={S.focusGrid}>
-              {focusActions.map((action, index) => (
-                <TouchableOpacity
-                  key={`${action.path}-${index}`}
-                  style={[S.focusActionCard, index === 0 && S.focusActionPrimary]}
-                  onPress={() => {
-                    void openWithContext(action.path, quickActionListLabel(action.label), 'dashboard-focus');
-                  }}
-                >
-                  <View style={[S.focusActionIcon, { backgroundColor: action.color + '18', borderColor: action.color + '55' }]}>
-                    <Ionicons name={action.icon} size={18} color={action.color} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={S.focusActionTitle} numberOfLines={1}>{quickActionListLabel(action.label)}</Text>
-                    <Text style={S.focusActionHint} numberOfLines={2}>{dashboardFocusHint(action.path)}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={ARBOR_UI.muted} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        ) : null}
 
         {!isWyceniajacy && <View style={S.statsRow}>
           {[
@@ -1204,48 +1261,96 @@ const makeStyles = (t: Theme) => {
 
   // Header
   header: {
-    backgroundColor: ARBOR_UI.paper,
-    paddingHorizontal: 18,
+    backgroundColor: POLSKA_FLORA_COLORS.darkBrown,
+    paddingHorizontal: 20,
     paddingTop: 52,
-    paddingBottom: 14,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colorWithAlpha(POLSKA_FLORA_COLORS.lightGreen, 0.22),
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: ARBOR_UI.line,
-    overflow: 'hidden',
+    alignItems: 'center',
+    gap: 12,
   },
-  headerLeft: { flex: 1 },
-  headerLogo: { width: 124, marginBottom: 10 },
-  greeting: { fontFamily: t.fontExtraBold, fontSize: 22, color: ARBOR_UI.text, marginBottom: 2, letterSpacing: 0 },
-  date: { fontFamily: t.fontRegular, fontSize: t.fontCaption, color: ARBOR_UI.muted, marginBottom: 9, textTransform: 'capitalize' },
-  headerMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
-  rolaBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 20,
+  headerBrand: { flex: 1, alignItems: 'flex-start' },
+  headerLogo: { width: 132 },
+  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: POLSKA_FLORA_COLORS.primaryGreen,
+    borderWidth: 1,
+    borderColor: colorWithAlpha(POLSKA_FLORA_COLORS.lightGreen, 0.72),
   },
-  rolaText: { fontFamily: t.fontBold, fontSize: 12 },
-  oddzialText: { flex: 1, fontFamily: t.fontExtraBold, fontSize: 12, color: ARBOR_UI.muted },
-  oddzialSub: { fontFamily: t.fontRegular, fontSize: 11, color: ARBOR_UI.muted, marginTop: 3 },
-  headerRight: { alignItems: 'flex-end', gap: 10 },
-  commandCenterBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 999,
+  liveText: {
+    color: POLSKA_FLORA_COLORS.lightGreen,
+    fontFamily: t.fontExtraBold,
+    fontSize: 9,
+    letterSpacing: 1.2,
+  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ARBOR_UI.paperSoft,
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
+    backgroundColor: colorWithAlpha(POLSKA_FLORA_COLORS.white, 0.1),
   },
+  headerAlertBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: POLSKA_FLORA_COLORS.orangeBrown,
+    borderWidth: 2,
+    borderColor: POLSKA_FLORA_COLORS.darkBrown,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAlertText: { color: POLSKA_FLORA_COLORS.white, fontFamily: t.fontExtraBold, fontSize: 9 },
+  connectionBadge: {
+    minHeight: 30,
+    borderRadius: 9,
+    paddingHorizontal: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colorWithAlpha(POLSKA_FLORA_COLORS.white, 0.12),
+  },
+  connectionBadgeOffline: { backgroundColor: POLSKA_FLORA_COLORS.orangeBrown },
+  connectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: POLSKA_FLORA_COLORS.white,
+  },
+  connectionText: { color: POLSKA_FLORA_COLORS.white, fontFamily: t.fontBold, fontSize: 10.5 },
   avatar: {
-    width: 46, height: 46, borderRadius: 23,
-    backgroundColor: ARBOR_UI.leafSoft,
+    width: 36, height: 36, borderRadius: 11,
+    backgroundColor: POLSKA_FLORA_COLORS.orangeBrown,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: ARBOR_UI.line,
   },
-  avatarText: { fontFamily: t.fontExtraBold, fontSize: 15, color: ARBOR_UI.forest },
+  avatarText: { fontFamily: t.fontExtraBold, fontSize: 12, color: POLSKA_FLORA_COLORS.white },
+  date: {
+    fontFamily: t.fontBold,
+    fontSize: 11,
+    color: colorWithAlpha(POLSKA_FLORA_COLORS.white, 0.62),
+    marginTop: 14,
+    textTransform: 'capitalize',
+  },
+  greeting: {
+    fontFamily: t.fontExtraBold,
+    fontSize: 21,
+    color: POLSKA_FLORA_COLORS.white,
+    marginTop: 2,
+  },
 
   errorBanner: {
     marginHorizontal: 16,
@@ -1296,74 +1401,139 @@ const makeStyles = (t: Theme) => {
   },
   errorActionSecondaryText: { color: ARBOR_UI.forest, fontSize: 12, fontWeight: '900' },
 
-  opsHero: {
+  // Górna część pulpitu odwzorowana z oficjalnego projektu Arbor Mobile.
+  templateHome: {
     marginHorizontal: 16,
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: ARBOR_UI.paper,
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { opacity: 0.045, radius: 10, offsetY: 2, elevation: 1 }),
-    gap: 14,
+    marginTop: 16,
   },
-  opsHeroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  opsLeafBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 13,
-    backgroundColor: ARBOR_UI.leafSoft,
+  storyRail: {
+    gap: 12,
+    paddingBottom: 16,
+    paddingRight: 4,
+  },
+  storyButton: {
+    width: 62,
+    alignItems: 'center',
+    gap: 6,
+  },
+  storyLeadCircle: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colorWithAlpha(POLSKA_FLORA_COLORS.lightBrown, 0.42),
+    backgroundColor: colorWithAlpha(POLSKA_FLORA_COLORS.lightBrown, 0.1),
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
   },
-  opsHeroText: { flex: 1 },
-  opsEyebrow: { color: ARBOR_UI.muted, fontFamily: t.fontExtraBold, fontSize: 10, letterSpacing: 0 },
-  opsTitle: { color: ARBOR_UI.text, fontFamily: t.fontExtraBold, fontSize: 18, letterSpacing: 0, marginTop: 2 },
-  opsSubtitle: { color: ARBOR_UI.muted, fontFamily: t.fontBold, fontSize: 12, marginTop: 3 },
-  opsHeroMetrics: {
-    flexDirection: 'row',
-    borderRadius: 14,
-    backgroundColor: ARBOR_UI.bgSoft,
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
-    paddingVertical: 10,
+  storyLeadCount: {
+    color: POLSKA_FLORA_COLORS.lightBrown,
+    fontFamily: t.fontExtraBold,
+    fontSize: 18,
+    fontVariant: ['tabular-nums'],
   },
-  opsMetric: { flex: 1, alignItems: 'center', gap: 2 },
-  opsMetricValue: { color: ARBOR_UI.forest, fontFamily: t.fontExtraBold, fontSize: 20, fontVariant: ['tabular-nums'] },
-  opsMetricLabel: { color: ARBOR_UI.muted, fontFamily: t.fontExtraBold, fontSize: 11 },
-  opsMetricDivider: { width: 1, backgroundColor: ARBOR_UI.line },
-  todayRail: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    flexDirection: 'row',
-    gap: 8,
+  storyRing: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 2.5,
+    padding: 2.5,
   },
-  todayRailAction: {
+  storyCircle: {
     flex: 1,
-    minHeight: 58,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
-    backgroundColor: ARBOR_UI.paper,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    justifyContent: 'space-between',
-    ...shadowStyle(t, { opacity: 0.035, radius: 8, offsetY: 1, elevation: 1 }),
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: POLSKA_FLORA_COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  todayRailPrimary: {
-    backgroundColor: ARBOR_UI.forest,
-    borderColor: ARBOR_UI.forest,
-  },
-  todayRailText: {
+  storyInitials: { fontFamily: t.fontExtraBold, fontSize: 13 },
+  storyCaption: {
+    width: 62,
     color: ARBOR_UI.text,
-    fontSize: 11.5,
-    lineHeight: 14,
-    fontWeight: '900',
-    marginTop: 6,
+    fontFamily: t.fontBold,
+    fontSize: 10.5,
+    textAlign: 'center',
   },
-  todayRailPrimaryText: { color: ARBOR_UI.onAccent },
+  templateHeroCard: {
+    minHeight: 76,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  missionCard: { backgroundColor: POLSKA_FLORA_COLORS.darkBrown },
+  terrainCard: { backgroundColor: POLSKA_FLORA_COLORS.primaryGreen },
+  missionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: colorWithAlpha(POLSKA_FLORA_COLORS.primaryGreen, 0.18),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  terrainIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: colorWithAlpha(POLSKA_FLORA_COLORS.darkBrown, 0.16),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  templateHeroBody: { flex: 1 },
+  missionTitle: { color: POLSKA_FLORA_COLORS.white, fontFamily: t.fontExtraBold, fontSize: 16 },
+  missionSubtitle: {
+    color: colorWithAlpha(POLSKA_FLORA_COLORS.white, 0.64),
+    fontFamily: t.fontRegular,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  terrainTitle: { color: POLSKA_FLORA_COLORS.darkBrown, fontFamily: t.fontExtraBold, fontSize: 16 },
+  terrainSubtitle: {
+    color: colorWithAlpha(POLSKA_FLORA_COLORS.darkBrown, 0.78),
+    fontFamily: t.fontRegular,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  templateActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  templateActionCard: {
+    width: '48%',
+    minHeight: 132,
+    borderRadius: 16,
+    padding: 16,
+    gap: 11,
+    backgroundColor: POLSKA_FLORA_COLORS.white,
+    borderWidth: 1,
+    borderColor: colorWithAlpha(POLSKA_FLORA_COLORS.lightBrown, 0.2),
+    ...shadowStyle(t, { opacity: 0.04, radius: 8, offsetY: 2, elevation: 1 }),
+  },
+  templateActionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  templateActionTitle: {
+    color: POLSKA_FLORA_COLORS.darkBrown,
+    fontFamily: t.fontExtraBold,
+    fontSize: 14.5,
+  },
+  templateActionSubtitle: {
+    color: POLSKA_FLORA_COLORS.lightBrown,
+    fontFamily: t.fontRegular,
+    fontSize: 11.5,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+
   signalCard: {
     marginHorizontal: 16,
     marginTop: 12,
@@ -1535,79 +1705,6 @@ const makeStyles = (t: Theme) => {
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
-  focusDeck: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 20,
-    backgroundColor: ARBOR_UI.paper,
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
-    gap: 12,
-  },
-  focusDeckHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  focusDeckTitleWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  focusDeckIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    backgroundColor: ARBOR_UI.leafSoft,
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  focusDeckTitle: { color: ARBOR_UI.text, fontSize: 15, fontWeight: '900' },
-  focusDeckSub: { color: ARBOR_UI.muted, fontSize: 11, lineHeight: 15, marginTop: 2 },
-  focusDeckCount: {
-    minWidth: 34,
-    textAlign: 'center',
-    color: ARBOR_UI.forest,
-    backgroundColor: ARBOR_UI.bgSoft,
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    fontSize: 12,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-    overflow: 'hidden',
-  },
-  focusGrid: { gap: 8 },
-  focusActionCard: {
-    minHeight: 62,
-    borderWidth: 1,
-    borderColor: ARBOR_UI.line,
-    backgroundColor: ARBOR_UI.paperSoft,
-    borderRadius: 15,
-    paddingHorizontal: 11,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  focusActionPrimary: {
-    backgroundColor: ARBOR_UI.paper,
-    borderColor: ARBOR_UI.leafBorder,
-  },
-  focusActionIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  focusActionTitle: { color: ARBOR_UI.text, fontSize: 13, fontWeight: '900' },
-  focusActionHint: { color: ARBOR_UI.muted, fontSize: 11, lineHeight: 15, marginTop: 2 },
-
   // Statystyki
   statsRow: {
     flexDirection: 'row',
