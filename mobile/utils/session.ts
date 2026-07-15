@@ -1,7 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { clearOfflineQueue } from './offline-queue';
 import { clearTaskCaches } from './task-list-cache';
+
+// expo-secure-store nie istnieje na web (rzuca przy każdym wywołaniu) — w przeglądarce
+// token trzymamy w AsyncStorage (localStorage). Natywne platformy bez zmian: Keychain/Keystore.
+const secureStoreAvailable = Platform.OS !== 'web';
+const secureGetItem = (key: string): Promise<string | null> =>
+  secureStoreAvailable ? SecureStore.getItemAsync(key) : AsyncStorage.getItem(key);
+const secureSetItem = (key: string, value: string): Promise<void> =>
+  secureStoreAvailable ? SecureStore.setItemAsync(key, value) : AsyncStorage.setItem(key, value);
+const secureDeleteItem = (key: string): Promise<void> =>
+  secureStoreAvailable ? SecureStore.deleteItemAsync(key) : AsyncStorage.removeItem(key);
 
 export interface StoredUser {
   id?: number;
@@ -54,7 +65,7 @@ const clearSessionBoundData = async (): Promise<void> => {
 export const getStoredSession = async (): Promise<StoredSession> => {
   let secureTokenRaw: string | null = null;
   try {
-    secureTokenRaw = await SecureStore.getItemAsync(SESSION_TOKEN_KEY);
+    secureTokenRaw = await secureGetItem(SESSION_TOKEN_KEY);
   } catch {
     secureTokenRaw = null;
   }
@@ -69,7 +80,7 @@ export const getStoredSession = async (): Promise<StoredSession> => {
 
   if (!token && legacyToken) {
     try {
-      await SecureStore.setItemAsync(SESSION_TOKEN_KEY, legacyToken);
+      await secureSetItem(SESSION_TOKEN_KEY, legacyToken);
       token = legacyToken;
       await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
     } catch {
@@ -82,7 +93,7 @@ export const getStoredSession = async (): Promise<StoredSession> => {
   const user = safeParseUser(userStr);
 
   if (secureTokenRaw && !normalizeStoredToken(secureTokenRaw)) {
-    await SecureStore.deleteItemAsync(SESSION_TOKEN_KEY).catch(() => undefined);
+    await secureDeleteItem(SESSION_TOKEN_KEY).catch(() => undefined);
   }
   if (legacyTokenRaw && !legacyToken) {
     await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
@@ -106,14 +117,14 @@ export const saveStoredSession = async (token: string, user: StoredUser): Promis
   if (!previousIdentity || !nextIdentity || previousIdentity !== nextIdentity) {
     await clearSessionBoundData();
   }
-  await SecureStore.setItemAsync(SESSION_TOKEN_KEY, normalizedToken);
+  await secureSetItem(SESSION_TOKEN_KEY, normalizedToken);
   await AsyncStorage.multiSet([[USER_KEY, JSON.stringify(user)]]);
   await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
 };
 
 export const clearStoredSession = async (): Promise<void> => {
   await Promise.all([
-    SecureStore.deleteItemAsync(SESSION_TOKEN_KEY).catch(() => undefined),
+    secureDeleteItem(SESSION_TOKEN_KEY).catch(() => undefined),
     AsyncStorage.multiRemove([LEGACY_TOKEN_KEY, USER_KEY]),
     clearSessionBoundData(),
   ]);
