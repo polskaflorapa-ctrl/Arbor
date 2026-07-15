@@ -14,7 +14,7 @@ const compiled = ts.transpileModule(fs.readFileSync(sourcePath, 'utf8'), {
   fileName: sourcePath,
 }).outputText;
 
-function createHarness() {
+function createHarness(platformOS = 'ios') {
   const storage = new Map();
   const secureStorage = new Map();
   const cleanup = { offline: 0, taskCaches: 0 };
@@ -54,6 +54,9 @@ function createHarness() {
     if (id === '@react-native-async-storage/async-storage') {
       return { __esModule: true, default: asyncStorage };
     }
+    if (id === 'react-native') {
+      return { Platform: { OS: platformOS } };
+    }
     if (id === 'expo-secure-store') return secureStore;
     if (id === './offline-queue') {
       return { clearOfflineQueue: async () => { cleanup.offline += 1; } };
@@ -88,6 +91,17 @@ async function run() {
   assert.equal(secureStorage.has('session_token_v1'), false);
   assert.equal(storage.has('token'), false);
   assert.equal(storage.has('user'), false);
+
+  const web = createHarness('web');
+  await web.api.saveStoredSession('web-token', { id: 3, imie: 'Web' });
+  assert.equal(web.storage.get('session_token_v1'), 'web-token');
+  assert.equal(web.secureStorage.size, 0, 'web must not call expo-secure-store');
+  assert.deepEqual(await web.api.getStoredSession(), {
+    token: 'web-token',
+    user: { id: 3, imie: 'Web' },
+  });
+  await web.api.clearStoredSession();
+  assert.equal(web.storage.has('session_token_v1'), false);
 
   console.log('ok testSessionBoundaryCleanup');
 }

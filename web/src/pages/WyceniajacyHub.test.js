@@ -89,7 +89,7 @@ test('renders the estimator office from real inspection data and keeps quotation
   expect(screen.getByRole('link', { name: 'Zadzwoń' })).toHaveAttribute('href', 'tel:+48500666555');
   expect(screen.queryByText('Inny oddział')).not.toBeInTheDocument();
   expect(screen.getByText('Hotel Park')).toBeInTheDocument();
-  expect(screen.getByText('1 230 zł')).toBeInTheDocument();
+  expect(screen.getByText('1230 zł')).toBeInTheDocument();
   expect(api.get).toHaveBeenCalledWith('/ogledziny', expect.objectContaining({
     headers: expect.objectContaining({ Authorization: 'Bearer estimator-token' }),
   }));
@@ -118,7 +118,7 @@ test('updates a quote locally and opens an existing field quotation', async () =
   expect(await screen.findByRole('heading', { name: 'Wspólnota Zielona 12' })).toBeInTheDocument();
   const firstPrice = screen.getAllByLabelText('Cena')[0];
   fireEvent.change(firstPrice, { target: { value: '2000' } });
-  await waitFor(() => expect(screen.getByText('3 321 zł')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText('3321 zł')).toBeInTheDocument());
 
   fireEvent.click(screen.getByRole('button', { name: 'Wyślij wycenę' }));
   expect(await screen.findByTestId('location-probe')).toHaveTextContent('/wyceny-terenowe/321');

@@ -405,6 +405,7 @@ export default function WyceniajacyHub() {
   const [drafts, setDrafts] = useState({});
   const [toast, setToast] = useState('');
   const toastTimer = useRef(null);
+  const initialLoadStarted = useRef(false);
 
   const load = useCallback(async () => {
     setRuntimeError('');
@@ -430,6 +431,8 @@ export default function WyceniajacyHub() {
   }, [navigate, t]);
 
   useEffect(() => {
+    if (initialLoadStarted.current) return;
+    initialLoadStarted.current = true;
     if (!getStoredToken()) navigate('/');
     else void load();
   }, [navigate, load]);
