@@ -344,7 +344,9 @@ export default function DashboardPolskaFlora({
   };
 
   return (
-    <div className="arbor-os-shell">
+    // Skórę .arbor-os-shell zakłada ProtectedRoute dla wszystkich modułów —
+    // tu została tylko struktura strony (bez klasy: uniknięcie podwójnego tła).
+    <div>
       <CommandSidebar active="dashboard" user={user} />
       <main className="arbor-os-main">
         <StatusMessage message={error || ''} tone={error ? 'error' : undefined} style={error ? undefined : { display: 'none' }} />

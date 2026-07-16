@@ -50,5 +50,8 @@ export default function ProtectedRoute({ children, require: permKey, roles, redi
     }
   }
 
-  return children;
+  // Jedna skóra designu dla WSZYSTKICH zalogowanych modułów: warstwa unifikująca
+  // (ui-ux-pro-max-final.css) działa w zasięgu .arbor-os-shell — wcześniej klasę
+  // miał tylko dashboard i każdy moduł wyglądał inaczej (DESIGN_SYSTEM.md).
+  return <div className="arbor-os-shell">{children}</div>;
 }
