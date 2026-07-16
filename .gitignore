@@ -83,3 +83,8 @@ blobs/
 # Manifests cache
 manifests/
 .tmp-locked-*/
+
+# Platforma (fuzja z repo Polska Flora) — dane runtime i sekrety
+platform/server/data/
+platform/.env
+platform/dist/

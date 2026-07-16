@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<script src="./prototype-api-bridge.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; color:#2c2011; -webkit-font-smoothing:antialiased; letter-spacing:-0.005em;
+    background: radial-gradient(circle at 90% -6%, rgba(160,175,20,0.10), transparent 32rem), linear-gradient(180deg,#faf9f3,#f1eee2); }
+  @keyframes gFade { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+</style>
+</helmet>
+
+<!-- ===== EKRAN LOGOWANIA (produkcja: konta z hasłami) ===== -->
+<sc-if value="{{ authLoggedOut }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(42,29,15,0.72); backdrop-filter:blur(5px);">
+    <div style="width:100%; max-width:360px; background:#faf9f3; border:1px solid #e7e2d4; border-radius:18px; box-shadow:0 24px 70px rgba(0,0,0,0.35); overflow:hidden;">
+      <div style="padding:18px 18px 14px; border-bottom:1px solid #e7e2d4;"><div style="font-size:10.5px; font-weight:900; letter-spacing:0.12em; text-transform:uppercase; color:#5d6a0b;">Gabinet wyceniającego</div><h2 style="margin:5px 0 0; font-size:20px; line-height:1.1; color:#2c2011;">Zaloguj się</h2><p style="margin:7px 0 0; font-size:12.5px; color:#8a8069;">Sesja wygasła lub wymagane jest hasło.</p></div>
+      <div style="padding:14px 18px 18px; display:flex; flex-direction:column; gap:8px;">
+        <input value="{{ authLogin }}" onInput="{{ onAuthLogin }}" placeholder="login" style="min-width:0; height:40px; border:1px solid #e0d9c8; border-radius:11px; padding:0 11px; font-size:13.5px; color:#2c2011; background:#faf8f1;"/>
+        <input value="{{ authPassword }}" onInput="{{ onAuthPassword }}" type="password" placeholder="hasło (jeśli ustawione)" style="min-width:0; height:40px; border:1px solid #e0d9c8; border-radius:11px; padding:0 11px; font-size:13.5px; color:#2c2011; background:#faf8f1;"/>
+        <button onClick="{{ authSubmit }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; min-height:40px; border-radius:11px; color:#23260a; background:#A0AF14; font-size:13px; font-weight:900;" style-active="transform:scale(0.99);">{{ authSubmitLabel }}</button>
+        <div style="min-height:16px; font-size:11.5px; font-weight:700; color:#a3402a;">{{ authError }}</div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<div style="min-height:100vh; display:grid; grid-template-columns:300px minmax(0,1fr) 320px; font-family:'Hanken Grotesk',sans-serif;">
+
+  <!-- ===== LEWA: KOLEJKA ZAPYTAŃ ===== -->
+  <aside style="position:sticky; top:0; height:100vh; overflow-y:auto; background:linear-gradient(180deg,#3b2a18,#2a1d0f); color:#efe9da; padding:20px 16px; display:flex; flex-direction:column; gap:18px;">
+    <div style="display:flex; align-items:center; gap:11px; padding:2px 4px 16px; border-bottom:1px solid rgba(255,255,255,0.1);">
+      <div style="width:42px; height:42px; border-radius:12px; background:#A0AF14; display:grid; place-items:center; flex:0 0 auto;"><svg viewBox="155 -8 323 458" width="26" height="36" fill="#2a1d0f"><path d="M356.69 402.64l-39.89 0 0 -64.68 114.04 -65.02 0 -45.49 -114.04 65.02 0 -45.49 114.04 -65.02 0 -181.96 -153.68 87.62 0 91.28 -114.05 -65.02 0 181.96 114.05 65.02 0 41.78 -74.42 0 0 39.63 267.73 0 0 -127.24 -36.78 -20.97 -39.9 22.74 37.04 21.12 0 64.72 -34.52 0 0 -38.57 -39.63 0 0 38.57zm-39.89 -201.15l0 -90.98 74.41 -42.43 0 90.98 -74.41 42.43zm-39.63 22.89l0 90.98 -74.42 -42.43 0 -90.98 74.42 42.43z"/></svg></div>
+      <div style="display:flex; flex-direction:column; gap:3px;"><strong style="font-size:14px; font-weight:800; letter-spacing:0.02em; line-height:1; white-space:nowrap;">POLSKA FLORA</strong><span style="font-size:9.5px; color:#A0AF14; letter-spacing:0.16em; text-transform:uppercase; font-weight:700; line-height:1;">Gabinet wyceniającego</span></div>
+    </div>
+
+    <div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:11px;"><span style="font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#bfa888;">Do wyceny</span><span style="min-width:22px; height:22px; padding:0 7px; display:grid; place-items:center; border-radius:7px; font-size:12px; font-weight:800; background:#A0AF14; color:#23260a;">{{ queueCount }}</span></div>
+      <button onClick="{{ openBook }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:11px; border-radius:11px; margin-bottom:10px; font-size:12.5px; font-weight:800; color:#23260a; background:#A0AF14;" style-hover="filter:brightness(1.05);"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Umów oględziny z rozmowy</button>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <sc-for list="{{ queue }}" as="q" hint-placeholder-count="4">
+          <button onClick="{{ q.pick }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:block; padding:13px 14px; border-radius:13px; background:{{ q.bg }}; border:1px solid {{ q.bd }};" style-hover="border-color:#A0AF14;">
+            <div style="display:flex; align-items:start; justify-content:space-between; gap:8px;"><span style="font-size:14px; font-weight:800; color:{{ q.nameFg }};">{{ q.client }}</span><span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; background:{{ q.priBg }}; color:{{ q.priFg }};">{{ q.pri }}</span></div>
+            <div style="font-size:12px; color:{{ q.subFg }}; margin-top:4px; line-height:1.35;">{{ q.service }}</div>
+            <div style="display:flex; align-items:center; gap:7px; font-size:11px; color:{{ q.metaFg }}; margin-top:7px;"><span>{{ q.channel }}</span><span>·</span><span>{{ q.time }}</span></div>
+            <div style="display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:4px 9px; border-radius:7px; background:rgba(160,175,20,0.16); font-size:11px; font-weight:700; color:#cfe08a;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Oględziny: {{ q.ogl }}</div>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="margin-top:auto; display:flex; align-items:center; gap:10px; padding:10px; border-radius:13px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09);">
+      <div style="width:38px; height:38px; border-radius:11px; background:#BD701E; color:#fff; display:grid; place-items:center; font-size:13px; font-weight:800; flex:0 0 auto;">EW</div>
+      <div style="flex:1; min-width:0;"><div style="font-size:13.5px; font-weight:700;">Ewa Wycena</div><div style="font-size:11.5px; color:#bfa888;">Specjalista ds. wycen</div></div>
+    </div>
+  </aside>
+
+  <!-- ===== ŚRODEK: KREATOR WYCENY ===== -->
+  <main style="min-width:0; padding:26px 30px 50px; animation:gFade .3s ease both;">
+    <div style="display:flex; align-items:start; justify-content:space-between; gap:16px; margin-bottom:22px;">
+      <div>
+        <div style="font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#5d6a0b;">Wycena · {{ active.id }}</div>
+        <h1 style="margin:6px 0 0; font-size:30px; font-weight:800; letter-spacing:-0.02em; color:#2c2011;">{{ active.client }}</h1>
+        <div style="font-size:14px; color:#7a7059; margin-top:4px;">{{ active.service }} · {{ active.address }}</div>
+        <div style="display:inline-flex; align-items:center; gap:7px; margin-top:9px; padding:6px 12px; border-radius:9px; background:#f1f3d6; font-size:12.5px; font-weight:700; color:#5d6a0b;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Umówione oględziny: {{ active.ogl }}</div>
+      </div>
+      <div style="display:flex; gap:9px;">
+        <a href="{{ active.tel }}" style="text-decoration:none; display:inline-flex; align-items:center; gap:7px; padding:10px 15px; border-radius:11px; font-size:13px; font-weight:700; color:#2c2011; background:#fff; border:1px solid #ece6d7;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#7f8c12" stroke-width="2"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg>Zadzwoń</a>
+      </div>
+    </div>
+
+    <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 1px 2px rgba(43,29,15,0.04); overflow:hidden;">
+      <div style="display:grid; grid-template-columns:minmax(0,1fr) 90px 110px 110px 120px 40px; gap:12px; padding:13px 22px; background:#faf8f1; border-bottom:1px solid #f0ebdd; font-size:11px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a;">
+        <span>Pozycja</span><span style="text-align:right; padding-right:10px;">Ilość</span><span style="text-align:right; padding-right:10px;">Cena</span><span>Jedn.</span><span style="text-align:right;">Wartość</span><span></span>
+      </div>
+      <sc-for list="{{ items }}" as="it" hint-placeholder-count="4">
+        <div style="display:grid; grid-template-columns:minmax(0,1fr) 90px 110px 110px 120px 40px; gap:12px; align-items:center; padding:10px 22px; border-bottom:1px solid #f4f0e6;">
+          <input value="{{ it.name }}" onInput="{{ it.onName }}" style="min-height:40px; border:1px solid #e8e1d2; border-radius:9px; padding:0 12px; font-size:14px; font-weight:600; background:#fff; color:#2c2011; outline:none;"/>
+          <input value="{{ it.qty }}" onInput="{{ it.onQty }}" inputmode="decimal" style="min-height:40px; border:1px solid #e8e1d2; border-radius:9px; padding:0 10px; font-size:13.5px; background:#fff; color:#2c2011; text-align:right; outline:none;"/>
+          <input value="{{ it.price }}" onInput="{{ it.onPrice }}" inputmode="decimal" style="min-height:40px; border:1px solid #e8e1d2; border-radius:9px; padding:0 10px; font-size:13.5px; background:#fff; color:#2c2011; text-align:right; outline:none;"/>
+          <select value="{{ it.unit }}" onChange="{{ it.onUnit }}" style="min-height:40px; border:1px solid #e8e1d2; border-radius:9px; padding:0 9px; font-size:13px; background:#fff; color:#5a5040;"><option value="szt">szt</option><option value="m²">m²</option><option value="m³">m³</option><option value="rbg">rbg</option><option value="usł">usługa</option></select>
+          <span style="text-align:right; font-size:14.5px; font-weight:800; color:#2c2011;">{{ it.line }}</span>
+          <button onClick="{{ it.remove }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:8px; display:grid; place-items:center; color:#a3402a; background:#f6e0d9;" style-hover="background:#efcabd;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+        </div>
+      </sc-for>
+      <div style="padding:14px 22px; display:flex; gap:10px;">
+        <button onClick="{{ addItem }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:10px; font-size:13px; font-weight:700; color:#5d6a0b; background:#f1f3d6;" style-hover="filter:brightness(0.97);"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Dodaj pozycję</button>
+        <sc-for list="{{ presets }}" as="p" hint-placeholder-count="3">
+          <button onClick="{{ p.add }}" style="all:unset; box-sizing:border-box; cursor:pointer; padding:9px 13px; border-radius:10px; font-size:12.5px; font-weight:700; color:#7a7059; background:#faf8f1; border:1px solid #f0ebdd;" style-hover="border-color:#d3da93;">+ {{ p.label }}</button>
+        </sc-for>
+      </div>
+    </section>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:18px;">
+      <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; padding:18px 20px;">
+        <h3 style="margin:0 0 12px; font-size:14px; font-weight:800; color:#2c2011;">Notatka do wyceny</h3>
+        <textarea value="{{ note }}" onInput="{{ onNote }}" placeholder="Warunki, dojazd, uwagi techniczne…" style="width:100%; min-height:96px; border:1px solid #e0d9c8; border-radius:11px; padding:11px 13px; font-size:13.5px; line-height:1.5; background:#faf8f1; color:#2c2011; outline:none; resize:vertical; font-family:inherit;"></textarea>
+      </section>
+      <section style="background:#2c2011; color:#efe9da; border-radius:18px; padding:18px 20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:14px;"><span style="color:#c7bda3;">Wartość netto</span><span style="font-weight:700; color:#fff;">{{ totals.net }}</span></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:14px; margin-top:9px;"><span style="color:#c7bda3;">Rabat {{ totals.discountPct }}</span><span style="color:#c7bda3;">{{ totals.discount }}</span></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:14px; margin-top:9px; padding-bottom:11px; border-bottom:1px solid rgba(255,255,255,0.12);"><span style="color:#c7bda3;">VAT 23%</span><span style="color:#c7bda3;">{{ totals.vat }}</span></div>
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-top:12px;"><span style="font-size:15px; font-weight:700; color:#fff;">Do zapłaty</span><span style="font-size:26px; font-weight:800; color:#fff;">{{ totals.gross }}</span></div>
+        <div style="display:flex; gap:9px; margin-top:16px;">
+          <button onClick="{{ toggleDiscount }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:0 0 auto; padding:11px 14px; border-radius:11px; font-size:13px; font-weight:700; color:#efe9da; background:rgba(255,255,255,0.1);" style-hover="background:rgba(255,255,255,0.16);">{{ discountLabel }}</button>
+          <button onClick="{{ sendQuote }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:1; text-align:center; padding:11px; border-radius:11px; font-size:13.5px; font-weight:800; color:#23260a; background:#A0AF14;" style-hover="filter:brightness(1.04);">Wyślij wycenę</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ===== PRAWA: STATYSTYKI + WYSŁANE ===== -->
+  <aside style="position:sticky; top:0; height:100vh; overflow-y:auto; background:#fff; border-left:1px solid #e7e2d4; padding:24px 22px; display:flex; flex-direction:column; gap:20px;">
+    <div>
+      <h3 style="margin:0 0 13px; font-size:13px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#9a907a;">Mój dzień</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:11px;">
+        <div style="padding:14px; border-radius:14px; background:#f1f3d6;"><div style="font-size:24px; font-weight:800; color:#2c2011;">{{ stats.sent }}</div><div style="font-size:11.5px; color:#5d6a0b; margin-top:2px;">wysłanych</div></div>
+        <div style="padding:14px; border-radius:14px; background:#e4efd6;"><div style="font-size:24px; font-weight:800; color:#2c2011;">{{ stats.won }}</div><div style="font-size:11.5px; color:#456b1f; margin-top:2px;">zaakcept.</div></div>
+        <div style="padding:14px; border-radius:14px; background:#fae7d2;"><div style="font-size:24px; font-weight:800; color:#2c2011;">{{ stats.pending }}</div><div style="font-size:11.5px; color:#995510; margin-top:2px;">w kolejce</div></div>
+        <div style="padding:14px; border-radius:14px; background:#2c2011;"><div style="font-size:21px; font-weight:800; color:#fff;">{{ stats.value }}</div><div style="font-size:11.5px; color:#bfa888; margin-top:2px;">wartość</div></div>
+      </div>
+    </div>
+    <div style="flex:1;">
+      <button onClick="{{ openCoach }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:12px; width:100%; padding:14px; border-radius:14px; background:linear-gradient(135deg,#2c2011,#3b2a18); color:#efe9da; margin-bottom:18px;" style-hover="filter:brightness(1.08);">
+        <span style="width:40px; height:40px; flex:0 0 auto; border-radius:12px; background:rgba(160,175,20,0.2); color:#A0AF14; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3ZM5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+        <span style="flex:1; text-align:left;"><span style="display:block; font-size:14px; font-weight:800;">Analiza rozmów AI</span><span style="display:block; font-size:11.5px; color:#bfa888; margin-top:1px;">Ucz się i poprawiaj wyceny</span></span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#bfa888" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <h3 style="margin:0 0 13px; font-size:13px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#9a907a;">Wysłane wyceny</h3>
+      <div style="display:flex; flex-direction:column; gap:9px;">
+        <sc-for list="{{ sentList }}" as="s" hint-placeholder-count="4">
+          <div style="padding:12px 13px; border-radius:13px; background:#faf8f1; border:1px solid #f0ebdd;">
+            <div style="display:flex; align-items:start; justify-content:space-between; gap:8px;"><span style="font-size:13.5px; font-weight:700; color:#2c2011;">{{ s.client }}</span><span style="font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; background:{{ s.bg }}; color:{{ s.fg }}; white-space:nowrap;">{{ s.status }}</span></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;"><span style="font-size:11.5px; color:#8a8069;">{{ s.id }} · {{ s.date }}</span><span style="font-size:13.5px; font-weight:800; color:#2c2011;">{{ s.value }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== ANALIZA ROZMÓW (AI coaching) ===== -->
+  <sc-if value="{{ coachOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; padding:32px; font-family:'Hanken Grotesk',sans-serif;">
+      <div onClick="{{ closeCoach }}" style="position:absolute; inset:0; background:rgba(43,29,15,0.5); backdrop-filter:blur(3px);"></div>
+      <div style="position:relative; width:1000px; max-width:96vw; height:86vh; background:#faf9f3; border-radius:20px; box-shadow:0 30px 80px rgba(43,29,15,0.4); overflow:hidden; display:grid; grid-template-columns:300px minmax(0,1fr); animation:gFade .25s ease both;">
+        <!-- lista nagrań -->
+        <div style="background:#fff; border-right:1px solid #ece6d7; display:flex; flex-direction:column; overflow:hidden;">
+          <div style="padding:18px 18px 14px; border-bottom:1px solid #f0ebdd;">
+            <div style="display:flex; align-items:center; gap:9px;"><span style="width:32px; height:32px; border-radius:10px; background:#2c2011; color:#A0AF14; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3ZM5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span><div><div style="font-size:15px; font-weight:800; color:#2c2011;">Analiza rozmów</div><div style="font-size:11.5px; color:#8a8069;">Śr. ocena {{ coachAvgScore }}/100</div></div></div>
+          </div>
+          <div style="flex:1; overflow-y:auto; padding:12px;">
+            <div style="padding:13px; border-radius:13px; background:linear-gradient(135deg,#2c2011,#3b2a18); color:#efe9da; margin-bottom:14px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;"><span style="font-size:11px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#bfa888;">Mój rozwój</span><span style="font-size:12px; font-weight:800; color:#A0AF14;">{{ growth.delta }} pkt</span></div>
+              <div style="display:flex; align-items:flex-end; gap:5px; height:46px;">
+                <sc-for list="{{ growth.bars }}" as="b" hint-placeholder-count="6">
+                  <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%;"><div style="flex:1; width:100%; display:flex; align-items:flex-end;"><div style="width:100%; height:{{ b.h }}; background:#A0AF14; border-radius:3px 3px 0 0; min-height:3px;"></div></div><span style="font-size:8px; color:#9a8e76;">{{ b.m }}</span></div>
+                </sc-for>
+              </div>
+              <div style="font-size:10.5px; color:#bfa888; margin-top:8px;">Ocena rozmów {{ growth.first }} → {{ growth.last }} w 6 mies.</div>
+            </div>
+            <div style="padding:13px; border-radius:13px; background:#faf8f1; border:1px solid #f0ebdd; margin-bottom:14px;">
+              <div style="font-size:11px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:10px;">Cele rozwojowe</div>
+              <div style="display:flex; flex-direction:column; gap:9px;">
+                <sc-for list="{{ growth.goals }}" as="g" hint-placeholder-count="4">
+                  <div><div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; margin-bottom:3px;"><span style="color:#3b3120; font-weight:600;">{{ g.label }}</span><span style="font-weight:800; color:{{ g.color }};">{{ g.w }}</span></div><div style="height:5px; border-radius:3px; background:#ece6d7; overflow:hidden;"><div style="height:100%; width:{{ g.w }}; background:{{ g.color }};"></div></div></div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="padding:13px; border-radius:13px; background:#faf8f1; border:1px solid #f0ebdd; margin-bottom:14px;">
+              <div style="font-size:11px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:10px;">Ranking zespołu</div>
+              <div style="display:flex; flex-direction:column; gap:7px;">
+                <sc-for list="{{ growth.ranking }}" as="p" hint-placeholder-count="3">
+                  <div style="display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:9px; background:{{ p.bg }}; border:1px solid {{ p.bd }};"><span style="font-size:12px; font-weight:800; color:#a89f8c; width:14px;">{{ p.pos }}</span><span style="width:26px; height:26px; border-radius:8px; background:#efeadd; color:#BD701E; display:grid; place-items:center; font-size:10px; font-weight:800;">{{ p.init }}</span><span style="flex:1; font-size:12.5px; font-weight:700; color:#2c2011;">{{ p.name }}</span><span style="font-size:13px; font-weight:800; color:#5d6a0b;">{{ p.score }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="font-size:11px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:9px;">Nagrania</div>
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <sc-for list="{{ recItems }}" as="r" hint-placeholder-count="3">
+                <button onClick="{{ r.pick }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:block; padding:12px 13px; border-radius:12px; background:{{ r.bg }}; border:1px solid {{ r.bd }};" style-hover="filter:brightness(0.98);">
+                  <div style="display:flex; align-items:start; justify-content:space-between; gap:8px;"><span style="font-size:13.5px; font-weight:800; color:#2c2011;">{{ r.client }}</span><span style="font-size:14px; font-weight:800; color:{{ r.scoreFg }};">{{ r.score }}</span></div>
+                  <div style="font-size:11.5px; color:#8a8069; margin-top:4px;">{{ r.date }} · {{ r.len }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <!-- szczegóły -->
+        <div style="display:flex; flex-direction:column; overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid #ece6d7;">
+            <div><div style="font-size:18px; font-weight:800; color:#2c2011;">{{ rec.client }}</div><div style="font-size:12.5px; color:#8a8069; margin-top:2px;">{{ rec.date }} · długość {{ rec.len }}</div></div>
+            <div style="display:flex; align-items:center; gap:14px;">
+              <sc-if value="{{ rec.aiSource }}" hint-placeholder-val="{{ true }}"><span style="padding:4px 9px; border-radius:7px; font-size:10px; font-weight:800; background:#2c2011; color:#A0AF14;">{{ rec.aiBadge }}</span></sc-if>
+              <button onClick="{{ rec.analyze }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:11px; font-size:12.5px; font-weight:800; color:#23260a; background:#A0AF14;" style-hover="filter:brightness(1.04);"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M5 12H2M22 12h-3M12 8a4 4 0 0 0-4 4 4 4 0 0 0 8 0 4 4 0 0 0-4-4Z"/></svg>{{ rec.analyzeLabel }}</button>
+              <div style="text-align:right;"><div style="font-size:28px; font-weight:800; color:{{ rec.scoreFg }}; line-height:1;">{{ rec.score }}<span style="font-size:14px; color:#a89f8c;">/100</span></div><div style="font-size:10.5px; color:#8a8069; text-transform:uppercase; letter-spacing:0.04em; margin-top:2px;">ocena rozmowy</div></div>
+              <button onClick="{{ closeCoach }}" aria-label="Zamknij" style="all:unset; box-sizing:border-box; cursor:pointer; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:#efeadd; color:#7a7059;" style-hover="background:#e7e1d2;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+            </div>
+          </div>
+          <div style="flex:1; overflow-y:auto; padding:20px 22px; display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:22px; align-items:start;">
+            <!-- transkrypcja + odtwarzacz -->
+            <div>
+              <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:13px; background:#2c2011; margin-bottom:16px;">
+                <button onClick="{{ togglePlay }}" aria-label="Odtwórz lub zatrzymaj nagranie" style="all:unset; box-sizing:border-box; cursor:pointer; width:38px; height:38px; flex:0 0 auto; border-radius:50%; background:#A0AF14; color:#23260a; display:grid; place-items:center;" style-hover="filter:brightness(1.08);">
+                  <sc-if value="{{ recPlaying }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></sc-if>
+                  <sc-if value="{{ recPlaying }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 5l12 7-12 7Z"/></svg></sc-if>
+                </button>
+                <div style="flex:1;"><div style="height:5px; border-radius:3px; background:rgba(255,255,255,0.16); overflow:hidden;"><div style="height:100%; width:{{ recProg }}; background:#A0AF14;"></div></div><div style="font-size:10.5px; color:#bfa888; margin-top:6px;">Nagranie rozmowy · auto-zapis Zadarma</div></div>
+              </div>
+              <div style="font-size:12px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:11px;">Transkrypcja</div>
+              <div style="display:flex; flex-direction:column; gap:9px;">
+                <sc-for list="{{ rec.transcript }}" as="l" hint-placeholder-count="6">
+                  <div style="display:flex; flex-direction:column; align-items:{{ l.align }};">
+                    <span style="font-size:10.5px; font-weight:700; color:{{ l.whoFg }}; margin-bottom:3px;">{{ l.who }}</span>
+                    <span style="max-width:84%; padding:9px 13px; border-radius:13px; background:{{ l.bg }}; font-size:13px; line-height:1.4; color:#2c2011;">{{ l.t }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <!-- analiza -->
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              <section style="background:#fff; border:1px solid #ece6d7; border-radius:15px; padding:15px 16px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:11px;"><span style="width:8px; height:8px; border-radius:50%; background:#7f8c12;"></span><h4 style="margin:0; font-size:13px; font-weight:800; color:#2c2011;">Mocne strony</h4></div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <sc-for list="{{ rec.strengths }}" as="s" hint-placeholder-count="2">
+                    <div style="display:flex; gap:8px; font-size:12.5px; color:#3b3120; line-height:1.4;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#456b1f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto; margin-top:1px;"><path d="M5 12l5 5L20 6"/></svg>{{ s }}</div>
+                  </sc-for>
+                </div>
+              </section>
+              <section style="background:#fff; border:1px solid #ece6d7; border-radius:15px; padding:15px 16px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:11px;"><span style="width:8px; height:8px; border-radius:50%; background:#c0492f;"></span><h4 style="margin:0; font-size:13px; font-weight:800; color:#2c2011;">Do poprawy</h4></div>
+                <div style="display:flex; flex-direction:column; gap:9px;">
+                  <sc-for list="{{ rec.improve }}" as="x" hint-placeholder-count="3">
+                    <div style="display:flex; align-items:start; gap:9px;"><span style="padding:2px 7px; border-radius:6px; font-size:9.5px; font-weight:800; background:{{ x.bg }}; color:{{ x.fg }}; flex:0 0 auto; margin-top:1px;">{{ x.label }}</span><span style="font-size:12.5px; color:#3b3120; line-height:1.4;">{{ x.t }}</span></div>
+                  </sc-for>
+                </div>
+              </section>
+              <section style="background:#f1f3d6; border:1px solid #e1e6b8; border-radius:15px; padding:15px 16px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#5d6a0b" stroke-width="2"><path d="M12 3v3M12 18v3M5 12H2M22 12h-3M12 8a4 4 0 0 0-4 4 4 4 0 0 0 8 0 4 4 0 0 0-4-4Z"/></svg><h4 style="margin:0; font-size:13px; font-weight:800; color:#5d6a0b;">Wskazówka AI</h4></div>
+                <div style="font-size:12.5px; color:#4a520b; line-height:1.5;">{{ rec.tips }}</div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== UMÓW OGLĘDZINY ===== -->
+  <sc-if value="{{ bookOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; padding:28px; font-family:'Hanken Grotesk',sans-serif;">
+      <div onClick="{{ closeBook }}" style="position:absolute; inset:0; background:rgba(43,29,15,0.5); backdrop-filter:blur(3px);"></div>
+      <div style="position:relative; width:440px; max-width:94vw; background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 30px 70px rgba(43,29,15,0.34); overflow:hidden; animation:gFade .2s ease both;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #f0ebdd;">
+          <div><div style="font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#5d6a0b;">Z rozmowy z klientem</div><h3 style="margin:3px 0 0; font-size:17px; font-weight:800; color:#2c2011;">Umów oględziny</h3></div>
+          <button onClick="{{ closeBook }}" aria-label="Zamknij" style="all:unset; box-sizing:border-box; cursor:pointer; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:#efeadd; color:#7a7059;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div style="padding:18px 20px; display:flex; flex-direction:column; gap:13px;">
+          <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:12.5px; font-weight:700; color:#5a5040;">Klient *</span><input value="{{ bookClient }}" onInput="{{ onBookClient }}" placeholder="np. Wspólnota Słoneczna" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 13px; font-size:14px; background:#faf8f1; color:#2c2011; outline:none;"/></label>
+          <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:12.5px; font-weight:700; color:#5a5040;">Zakres / usługa</span><input value="{{ bookService }}" onInput="{{ onBookService }}" placeholder="np. wycinka 3 drzew + pielęgnacja" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 13px; font-size:14px; background:#faf8f1; color:#2c2011; outline:none;"/></label>
+          <div style="display:flex; gap:12px;">
+            <label style="flex:1; display:flex; flex-direction:column; gap:6px;"><span style="font-size:12.5px; font-weight:700; color:#5a5040;">Termin oględzin</span><input type="date" value="{{ bookDate }}" onInput="{{ onBookDate }}" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 12px; font-size:14px; background:#faf8f1; color:#2c2011; outline:none;"/></label>
+            <label style="flex:0 0 130px; display:flex; flex-direction:column; gap:6px;"><span style="font-size:12.5px; font-weight:700; color:#5a5040;">Priorytet</span><select value="{{ bookPri }}" onChange="{{ onBookPri }}" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 11px; font-size:14px; background:#faf8f1; color:#2c2011;"><option value="NORMALNY">Normalny</option><option value="WYSOKI">Wysoki</option><option value="PILNY">Pilny</option></select></label>
+          </div>
+        </div>
+        <div style="padding:14px 20px; border-top:1px solid #f0ebdd; display:flex; gap:10px; justify-content:flex-end;">
+          <button onClick="{{ closeBook }}" style="all:unset; box-sizing:border-box; cursor:pointer; padding:11px 18px; border-radius:11px; font-size:13.5px; font-weight:700; color:#5a5040; background:#efeadd;">Anuluj</button>
+          <button onClick="{{ confirmBook }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:8px; padding:11px 20px; border-radius:11px; font-size:13.5px; font-weight:800; color:#23260a; background:#A0AF14;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>Dodaj do kolejki</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- toast -->
+  <div style="position:fixed; left:50%; bottom:26px; z-index:30; transform:translate(-50%,{{ toastY }}); opacity:{{ toastOp }}; transition:transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s; pointer-events:none;">
+    <div style="display:flex; align-items:center; gap:10px; padding:12px 18px; border-radius:13px; background:#2c2011; color:#fff; box-shadow:0 14px 34px rgba(43,29,15,0.32); font-size:13.5px; font-weight:600;"><span style="display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#A0AF14; color:#23260a;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span>{{ toast }}</div>
+  </div>
+
+</div>
+
+<template id="__bundler_thumbnail" data-bg-color="#2a1d0f">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#2a1d0f"/>
+    <rect x="490" y="270" width="220" height="220" rx="56" fill="#A0AF14"/>
+    <g fill="#2a1d0f" transform="translate(556,306) scale(0.26)"><path d="M356.69 402.64l-39.89 0 0 -64.68 114.04 -65.02 0 -45.49 -114.04 65.02 0 -45.49 114.04 -65.02 0 -181.96 -153.68 87.62 0 91.28 -114.05 -65.02 0 181.96 114.05 65.02 0 41.78 -74.42 0 0 39.63 267.73 0 0 -127.24 -36.78 -20.97 -39.9 22.74 37.04 21.12 0 64.72 -34.52 0 0 -38.57 -39.63 0 0 38.57zm-39.89 -201.15l0 -90.98 74.41 -42.43 0 90.98 -74.41 42.43zm-39.63 22.89l0 90.98 -74.42 -42.43 0 -90.98 74.42 42.43z"/></g>
+    <text x="600" y="600" font-family="sans-serif" font-size="38" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="2">Gabinet wyceniającego</text>
+  </svg>
+</template></x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:920}}">
+class Component extends DCLogic {
+  state = {
+    coachOpen: false, recId: 0, recPlaying: false, recProg: 0, aiAnalysis: {}, aiLoading: false,
+    authLoggedOut: false, authLogin: 'wycena', authPassword: '', authError: '', authBusy: false,
+    activeId: 0,
+    items: [
+      { id: 1, name: 'Wycinka topoli (zagrożenie)', qty: 3, price: 650, unit: 'szt' },
+      { id: 2, name: 'Frezowanie pni', qty: 3, price: 140, unit: 'szt' },
+      { id: 3, name: 'Wywóz i utylizacja', qty: 8, price: 90, unit: 'm³' },
+    ], nextId: 4,
+    note: '', discount: false, toast: '', toastOn: false,
+    bookOpen: false, bookClient: '', bookService: '', bookDate: '2026-09-09', bookPri: 'NORMALNY',
+    requests: [
+      { client: 'Dom Seniora Parkowy', service: 'Wycena ogrodu + suchy konar', address: 'al. Lipowa 8, Warszawa', tel: 'tel:+48500666555', pri: 'PILNY', channel: 'WhatsApp', time: '15:05', ogl: '07.09.2026 · 10:00' },
+      { client: 'Wspólnota Zielona 12', service: 'Pielęgnacja koron — 12 drzew', address: 'ul. Cisowa 7, Kraków', tel: 'tel:+48500777888', pri: 'WYSOKI', channel: 'E-mail', time: '14:20', ogl: '09.09.2026 · 12:30' },
+      { client: 'Park Handlowy Aura', service: 'Przegląd i cięcia sanitarne', address: 'ul. Targowa 2, Gdańsk', tel: 'tel:+48581234567', pri: 'NORMALNY', channel: 'Telefon', time: '12:40', ogl: '11.09.2026 · 09:00' },
+      { client: 'Ogród Botaniczny', service: 'Nasadzenia + wycinka 2 drzew', address: 'ul. Zielona 1, Wrocław', tel: 'tel:+48711112233', pri: 'NORMALNY', channel: 'Formularz', time: 'wczoraj', ogl: '14.09.2026 · 11:00' },
+    ],
+    incoming: [
+      { client: 'Spółdzielnia Nadrzeczna', service: 'Wycinka 5 drzew przy parkingu', address: 'ul. Wodna 9, Poznań', tel: 'tel:+48611002030', pri: 'WYSOKI', channel: 'Telefon', time: 'teraz', ogl: '16.09.2026 · 08:30' },
+      { client: 'Zarząd Dróg Miejskich', service: 'Cięcia w pasie drogowym', address: 'al. Wojska 14, Łódź', tel: 'tel:+48422003040', pri: 'NORMALNY', channel: 'E-mail', time: 'teraz', ogl: '18.09.2026 · 13:00' },
+    ], sent: 6,
+  };
+  presetItems = [
+    { label: 'Dojazd', name: 'Dojazd ekipy + sprzęt', qty: 1, price: 250, unit: 'usł' },
+    { label: 'Podnośnik', name: 'Praca podnośnika koszowego', qty: 4, price: 180, unit: 'rbg' },
+    { label: 'Rębak', name: 'Rozdrabnianie gałęzi (rębak)', qty: 1, price: 400, unit: 'usł' },
+  ];
+
+  priMeta(p) { return { PILNY: { bg: '#f6e0d9', fg: '#a3402a' }, WYSOKI: { bg: '#fae7d2', fg: '#995510' }, NORMALNY: { bg: '#ede7da', fg: '#574629' } }[p] || { bg: '#ede7da', fg: '#574629' }; }
+  flash(m) { this.setState({ toast: m, toastOn: true }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toastOn: false }), 2400); }
+  componentDidMount() {
+    this.loadArborBackend();
+    // Realtime: nowe zapytania/zmiany zleceń z biura → cichy re-bootstrap kolejki.
+    if (window.ArborBridge && window.ArborBridge.onRefresh) {
+      window.ArborBridge.onRefresh(() => { if (!this.state.authLoggedOut) this.loadArborBackend({ silent: true }); });
+    }
+  }
+  loadArborBackend(opts = {}) {
+    if (!window.ArborBridge) return;
+    window.ArborBridge.bootstrap()
+      .then((data) => {
+        this._arborClients = data.clients || [];
+        this._arborOrders = data.orders || [];
+        this._arborValuations = data.valuations || [];
+        const valued = new Set(this._arborValuations.map(v => v.orderId));
+        const mapped = this._arborOrders
+          .filter(order => order.estimatorId || order.status === 'NOWE' || !valued.has(order.id))
+          .map(order => this.mapArborRequest(order));
+        if (mapped.length) {
+          // Cichy refresh (realtime): bez toasta i bez skakania aktywnego zapytania.
+          const activeValid = this.state.activeId < mapped.length;
+          this.setState({ requests: mapped, ...(opts.silent && activeValid ? {} : { activeId: 0 }) });
+          if (!opts.silent) this.flash('Gabinet połączony z backendem · ' + mapped.length + ' zapytań');
+        }
+      })
+      .catch((error) => {
+        if (error?.code === 'LOGGED_OUT' || /Wylogowano|LOGGED_OUT|Sesja wygasła/i.test(String(error))) {
+          this.setState({ authLoggedOut: true, authError: '', authBusy: false });
+          return;
+        }
+        console.warn('Estimator bootstrap failed', error);
+        this.flash('Backend niedostępny · gabinet działa lokalnie');
+      });
+  }
+  onAuthLogin(e) { this.setState({ authLogin: e.target.value, authError: '' }); }
+  onAuthPassword(e) { this.setState({ authPassword: e.target.value, authError: '' }); }
+  loginAccount() {
+    const nextLogin = this.state.authLogin || 'wycena';
+    if (!window.ArborBridge?.login) { this.setState({ authError: 'Backend logowania niedostępny' }); return; }
+    this.setState({ authBusy: true, authError: '' });
+    window.ArborBridge.login(nextLogin, this.state.authPassword || undefined)
+      .then(() => {
+        this.setState({ authLoggedOut: false, authBusy: false, authPassword: '' });
+        this.loadArborBackend();
+        this.flash('Zalogowano: ' + nextLogin);
+      })
+      .catch(() => this.setState({ authBusy: false, authError: 'Nie zalogowano: sprawdź login i hasło' }));
+  }
+  mapArborRequest(order) {
+    const client = (this._arborClients || []).find(c => c.id === order.clientId) || {};
+    const pri = { pilny: 'PILNY', wysoki: 'WYSOKI', normalny: 'NORMALNY', niski: 'NORMALNY' }[order.priority] || 'NORMALNY';
+    const at = order.inspectionAt || order.scheduledAt;
+    const ogl = at ? new Date(at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·') : 'do ustalenia';
+    return {
+      backendOrderId: order.id,
+      backendClientId: order.clientId,
+      client: client.name || order.clientId || 'Klient',
+      service: order.type || 'Oględziny i wycena',
+      address: (order.address || client.address || '—') + (order.city ? ', ' + order.city : ''),
+      tel: client.phone ? 'tel:' + client.phone.replace(/\s/g, '') : 'tel:',
+      pri,
+      channel: 'Backend',
+      time: 'teraz',
+      ogl,
+      value: Number(order.value || 0),
+      margin: Number(order.margin || 30),
+    };
+  }
+  pick(i) { this.setState({ activeId: i }); this.flash('Wczytano zapytanie: ' + this.state.requests[i].client); }
+  openBook() { this.setState({ bookOpen: true, bookClient: '', bookService: '', bookDate: '2026-09-09', bookPri: 'NORMALNY' }); }
+  closeBook() { this.setState({ bookOpen: false }); }
+  bookField(k) { return (e) => this.setState({ [k]: e.target.value }); }
+  confirmBook() {
+    const c = this.state.bookClient.trim(); if (!c) { this.flash('Podaj nazwę klienta'); return; }
+    const d = this.state.bookDate.split('-'); const ogl = (d[2] + '.' + d[1] + '.' + d[0]) + ' · oględziny';
+    const req = { client: c, service: this.state.bookService.trim() || 'Oględziny i wycena', address: '—', tel: 'tel:', pri: this.state.bookPri, channel: 'Telefon', time: 'teraz', ogl };
+    this.setState({ requests: this.state.requests.concat(req), bookOpen: false });
+    this.flash('Umówiono oględziny: ' + c + ' → trafiło do kolejki');
+    const _match = (this._arborClients || []).find(cl => (cl.name || '').trim().toLowerCase() === c.toLowerCase());
+    const _targetClient = _match || (this._arborClients || [])[0];
+    if (window.ArborBridge && _targetClient) {
+      window.ArborBridge.createOrder({
+        clientId: _targetClient.id,
+        type: req.service,
+        inspectionAt: this.state.bookDate + 'T09:00:00.000Z',
+        scheduledAt: this.state.bookDate + 'T09:00:00.000Z',
+        priority: String(this.state.bookPri).toLowerCase(),
+        value: 0,
+        source: 'estimator',
+      }).then(() => this.loadArborBackend()).catch((error) => { console.warn('Estimator book failed', error); this.flash('Oględziny w kolejce (zapis zlecenia wymaga uprawnień biura)'); });
+    }
+  }
+  field(id, k) { return (e) => { const v = (k === 'name' || k === 'unit') ? e.target.value : (parseFloat(e.target.value) || 0); this.setState({ items: this.state.items.map(it => it.id === id ? { ...it, [k]: v } : it) }); }; }
+  addItem() { const id = this.state.nextId; this.setState({ items: this.state.items.concat({ id, name: 'Nowa pozycja', qty: 1, price: 0, unit: 'szt' }), nextId: id + 1 }); }
+  addPreset(p) { const id = this.state.nextId; this.setState({ items: this.state.items.concat({ id, name: p.name, qty: p.qty, price: p.price, unit: p.unit }), nextId: id + 1 }); }
+  removeItem(id) { this.setState({ items: this.state.items.filter(it => it.id !== id) }); }
+  onNote(e) { this.setState({ note: e.target.value }); }
+  toggleDiscount() { this.setState({ discount: !this.state.discount }); }
+  sendQuote() {
+    const reqs = this.state.requests; const ai = this.state.activeId;
+    if (!reqs.length) return;
+    const activeReq = reqs[ai];
+    const sentClient = activeReq ? activeReq.client : '';
+    const total = this.state.items.reduce((s, it) => s + it.qty * it.price, 0);
+    const left = reqs.filter((_, i) => i !== ai);
+    // kolejka się kręci: dociągnij następne zapytanie z napływających
+    const inc = this.state.incoming.slice();
+    const pulled = inc.length ? [inc.shift()] : [];
+    const next = left.concat(pulled);
+    this.setState({ requests: next, incoming: inc, activeId: 0, sent: this.state.sent + 1,
+      items: [{ id: 1, name: 'Oględziny i wycena', qty: 1, price: 0, unit: 'usł' }], nextId: 2, note: '', discount: false });
+    this.flash('Wysłano wycenę: ' + sentClient + (pulled.length ? ' · nowe zapytanie w kolejce' : ''));
+    if (window.ArborBridge && activeReq && activeReq.backendOrderId) {
+      window.ArborBridge.createValuation({
+        orderId: activeReq.backendOrderId,
+        status: 'do_potwierdzenia',
+        totalNet: total || activeReq.value || 0,
+        margin: activeReq.margin || 30,
+        notes: this.state.note || activeReq.service,
+        media: ['gabinet wyceniającego'],
+        items: this.state.items.map(it => ({ name: it.name, qty: it.qty, unit: it.unit, price: it.price, cost: Math.round(it.price * 0.62) })),
+      }).then(() => this.loadArborBackend()).catch((error) => console.warn('Estimator create valuation failed', error));
+    }
+  }
+
+  recordings = [
+    { client: 'Dom Seniora Parkowy', date: 'dziś 15:05', len: '4:12', score: 78,
+      transcript: [
+        { who: 'Klient', t: 'Dzień dobry, chciałbym wycenić wycinkę kilku drzew w ogrodzie.' },
+        { who: 'Wyceniający', t: 'Dzień dobry. Ile to drzew i jakiej wielkości?' },
+        { who: 'Klient', t: 'Trzy topole, dość wysokie, plus suchy konar nad altaną.' },
+        { who: 'Wyceniający', t: 'Rozumiem. Przyjadę zrobić oględziny i przygotuję wycenę.' },
+        { who: 'Klient', t: 'A czy uprzątniecie gałęzie? I jaki orientacyjnie koszt?' },
+        { who: 'Wyceniający', t: 'Tak, sprzątamy. Cenę podam po oględzinach.' },
+      ],
+      strengths: ['Szybkie dopytanie o zakres (liczba i wielkość drzew)', 'Potwierdzenie sprzątania po pracach'],
+      improve: [
+        { t: 'Nie podano widełek cenowych — klient pytał o koszt', sev: 'high' },
+        { t: 'Brak propozycji konkretnego terminu oględzin', sev: 'high' },
+        { t: 'Nie zaproponowano dodatkowych usług (frezowanie pni, nasadzenia)', sev: 'mid' },
+        { t: 'Brak pytania o pilność / oczekiwany termin realizacji', sev: 'mid' },
+      ],
+      tips: 'Zawsze podawaj orientacyjne widełki („zwykle 600–900 zł za drzewo tej wielkości") i umawiaj termin oględzin w trakcie rozmowy — to podnosi konwersję o ~30%.' },
+    { client: 'Park Handlowy Aura', date: 'wczoraj 12:40', len: '6:38', score: 91,
+      transcript: [
+        { who: 'Klient', t: 'Potrzebujemy przeglądu i cięć sanitarnych na parkingu.' },
+        { who: 'Wyceniający', t: 'Jasne. Ile drzew i jaki gatunek? Mają Państwo preferowany termin?' },
+        { who: 'Klient', t: 'Około 14 lip. Najlepiej w przyszłym tygodniu.' },
+        { who: 'Wyceniający', t: 'Przy 14 lipach orientacyjnie 5–8 tys. netto. Przyjadę w środę zrobić obmiar, ofertę wyślę tego samego dnia.' },
+      ],
+      strengths: ['Podano widełki cenowe od razu', 'Zaproponowano konkretny termin oględzin i ofertę', 'Dopytano o gatunek i termin klienta'],
+      improve: [
+        { t: 'Można dopytać o cykliczność (umowa roczna na pielęgnację)', sev: 'mid' },
+        { t: 'Brak wzmianki o utylizacji/wywozie w cenie', sev: 'low' },
+      ],
+      tips: 'Świetna rozmowa. Następny krok: proponuj umowy serwisowe — stały przychód i wyższy LTV klienta.' },
+    { client: 'Wspólnota Zielona 12', date: 'wczoraj 09:15', len: '3:05', score: 64,
+      transcript: [
+        { who: 'Klient', t: 'Dzwonię w sprawie pielęgnacji drzew na osiedlu.' },
+        { who: 'Wyceniający', t: 'Dobrze, proszę o adres, podeślę ofertę.' },
+        { who: 'Klient', t: 'A nie chce Pan wiedzieć ile drzew?' },
+        { who: 'Wyceniający', t: 'A, tak, ile?' },
+      ],
+      strengths: ['Gotowość do przygotowania oferty'],
+      improve: [
+        { t: 'Nie przejęto inicjatywy — klient musiał naprowadzać', sev: 'high' },
+        { t: 'Brak dopytania o zakres, gatunki, dostęp, termin', sev: 'high' },
+        { t: 'Brak widełek cenowych i terminu oględzin', sev: 'high' },
+        { t: 'Ton bierny — niska kontrola nad rozmową', sev: 'mid' },
+      ],
+      tips: 'Prowadź rozmowę: od razu zadaj 3 pytania (ile drzew, jaki zakres, kiedy), podaj widełki i umów oględziny. Klient oczekuje eksperta.' },
+  ];
+  openCoach() { this.setState({ coachOpen: true, recId: 0, recPlaying: false, recProg: 0 }); }
+  closeCoach() { clearInterval(this._rp); this.setState({ coachOpen: false, recPlaying: false }); }
+  pickRec(i) { clearInterval(this._rp); this.setState({ recId: i, recPlaying: false, recProg: 0 }); }
+  runAnalysis() {
+    const i = this.state.recId; const rec = this.recordings[i];
+    if (!window.ArborBridge || !window.ArborBridge.runCallAnalysis) { this.flash('Analiza AI niedostępna offline'); return; }
+    this.setState({ aiLoading: true });
+    const transcript = (rec.transcript || []).map(l => l.who + ': ' + l.t).join('\n');
+    window.ArborBridge.runCallAnalysis('rec-' + i, { transcript })
+      .then((a) => {
+        const improve = (a.improve || []).map(x => ({ t: x.text || x.t || '', sev: x.sev || 'mid' }));
+        this.setState({ aiLoading: false, aiAnalysis: { ...this.state.aiAnalysis, [i]: { score: a.score, strengths: a.strengths || [], improve, tips: a.tips || '', source: a.source || 'demo' } } });
+        this.flash(a.source === 'ai' ? 'Analiza AI gotowa' : 'Analiza (tryb demo) gotowa');
+      })
+      .catch((e) => { console.warn('runAnalysis', e); this.setState({ aiLoading: false }); this.flash('Błąd analizy rozmowy'); });
+  }
+  togglePlay() {
+    if (this.state.recPlaying) { clearInterval(this._rp); this.setState({ recPlaying: false }); return; }
+    this.setState({ recPlaying: true });
+    clearInterval(this._rp);
+    this._rp = setInterval(() => {
+      const p = this.state.recProg + 1.5;
+      if (p >= 100) { clearInterval(this._rp); this.setState({ recProg: 0, recPlaying: false }); }
+      else this.setState({ recProg: p });
+    }, 90);
+  }
+
+  renderVals() {
+    const fmt = (n) => Math.round(n).toLocaleString('pl-PL') + ' zł';
+    const reqs = this.state.requests;
+    const queue = reqs.map((r, i) => {
+      const on = i === this.state.activeId; const pm = this.priMeta(r.pri);
+      return { client: r.client, service: r.service, channel: r.channel, time: r.time, pri: r.pri, ogl: r.ogl || '—',
+        priBg: pm.bg, priFg: pm.fg, pick: () => this.pick(i),
+        bg: on ? 'rgba(160,175,20,0.16)' : 'rgba(255,255,255,0.05)', bd: on ? '#A0AF14' : 'rgba(255,255,255,0.09)',
+        nameFg: '#fff', subFg: on ? '#dbe7b0' : '#c7bda3', metaFg: on ? '#b9ca7e' : '#9a8e76' };
+    });
+    const active = reqs[this.state.activeId] || reqs[0] || { client: '—', service: '—', address: '—', tel: 'tel:', ogl: '—' };
+    const items = this.state.items.map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price, unit: it.unit,
+      line: fmt(it.qty * it.price), onName: this.field(it.id, 'name'), onQty: this.field(it.id, 'qty'),
+      onPrice: this.field(it.id, 'price'), onUnit: this.field(it.id, 'unit'), remove: () => this.removeItem(it.id) }));
+    const net = this.state.items.reduce((s, it) => s + it.qty * it.price, 0);
+    const discountPct = this.state.discount ? 10 : 0;
+    const discount = net * discountPct / 100;
+    const afterDisc = net - discount;
+    const vat = afterDisc * 0.23;
+    const totals = { net: fmt(net), discountPct: discountPct + '%', discount: '−' + fmt(discount), vat: fmt(vat), gross: fmt(afterDisc + vat) };
+    const presets = this.presetItems.map(p => ({ label: p.label, add: () => this.addPreset(p) }));
+    const sentList = [
+      { client: 'Hotel Park', id: 'WY-0192', date: 'dziś 11:20', value: '4 200 zł', status: 'Zaakceptowana', bg: '#e4efd6', fg: '#456b1f' },
+      { client: 'Spółdzielnia Bryza', id: 'WY-0191', date: 'dziś 09:40', value: '9 400 zł', status: 'Wysłana', bg: '#f1f3d6', fg: '#5d6a0b' },
+      { client: 'Zarząd Zieleni', id: 'WY-0190', date: 'wczoraj', value: '2 900 zł', status: 'Negocjacje', bg: '#fae7d2', fg: '#995510' },
+      { client: 'Wspólnota Brzozowa', id: 'WY-0188', date: '18.06', value: '5 600 zł', status: 'Odrzucona', bg: '#f4e1db', fg: '#9a3a2a' },
+    ];
+    const stats = { sent: this.state.sent, won: 4, pending: reqs.length, value: '38k' };
+
+    return {
+      queue, queueCount: reqs.length,
+      authLoggedOut: this.state.authLoggedOut, authLogin: this.state.authLogin, authPassword: this.state.authPassword,
+      authError: this.state.authError, authSubmitLabel: this.state.authBusy ? 'Loguję...' : 'Zaloguj',
+      onAuthLogin: (e) => this.onAuthLogin(e), onAuthPassword: (e) => this.onAuthPassword(e), authSubmit: () => this.loginAccount(),
+      active: { id: 'WY-' + (193 + this.state.sent), client: active.client, service: active.service, address: active.address, tel: active.tel, ogl: active.ogl || '—' },
+      openBook: () => this.openBook(), closeBook: () => this.closeBook(), confirmBook: () => this.confirmBook(),
+      bookOpen: this.state.bookOpen, bookClient: this.state.bookClient, bookService: this.state.bookService, bookDate: this.state.bookDate,
+      onBookClient: this.bookField('bookClient'), onBookService: this.bookField('bookService'), onBookDate: this.bookField('bookDate'), onBookPri: this.bookField('bookPri'),
+      items, totals, presets, note: this.state.note, onNote: (e) => this.onNote(e),
+      addItem: () => this.addItem(), removeItem: (id) => this.removeItem(id),
+      toggleDiscount: () => this.toggleDiscount(), discountLabel: this.state.discount ? 'Rabat 10% ✓' : 'Dodaj rabat 10%',
+      sendQuote: () => this.sendQuote(), sentList, stats,
+      openCoach: () => this.openCoach(), closeCoach: () => this.closeCoach(), coachOpen: this.state.coachOpen,
+      togglePlay: () => this.togglePlay(), recPlaying: this.state.recPlaying, recProg: this.state.recProg + '%',
+      coachAvgScore: Math.round(this.recordings.reduce((s, r) => s + r.score, 0) / this.recordings.length),
+      growth: (() => {
+        const trend = [{ m: 'Sty', v: 58 }, { m: 'Lut', v: 64 }, { m: 'Mar', v: 67 }, { m: 'Kwi', v: 72 }, { m: 'Maj', v: 76 }, { m: 'Cze', v: 81 }];
+        const max = 100;
+        return {
+          bars: trend.map(t => ({ m: t.m, v: t.v, h: Math.round(t.v / max * 100) + '%' })),
+          delta: '+23', first: trend[0].v, last: trend[trend.length - 1].v,
+          goals: [
+            { label: 'Podawanie widełek cenowych', val: 88, w: '88%', color: '#7f8c12' },
+            { label: 'Umawianie terminu oględzin', val: 74, w: '74%', color: '#A0AF14' },
+            { label: 'Proponowanie usług dodatkowych', val: 52, w: '52%', color: '#BD701E' },
+            { label: 'Przejęcie inicjatywy w rozmowie', val: 80, w: '80%', color: '#7f8c12' },
+          ],
+          ranking: [
+            { name: 'Ewa Wycena', score: 81, me: true, init: 'EW' },
+            { name: 'Robert Kwiat', score: 86, me: false, init: 'RK' },
+            { name: 'Marta Liść', score: 79, me: false, init: 'ML' },
+          ].sort((a, b) => b.score - a.score).map((p, i) => ({ ...p, pos: i + 1, bg: p.me ? '#f1f3d6' : '#faf8f1', bd: p.me ? '#A0AF14' : '#f0ebdd' })),
+        };
+      })(),
+      recItems: this.recordings.map((r, i) => ({ client: r.client, date: r.date, len: r.len, score: r.score,
+        on: i === this.state.recId, pick: () => this.pickRec(i),
+        bg: i === this.state.recId ? '#f1f3d6' : '#faf8f1', bd: i === this.state.recId ? '#A0AF14' : '#f0ebdd',
+        scoreFg: r.score >= 85 ? '#456b1f' : r.score >= 70 ? '#995510' : '#a3402a' })),
+      rec: (() => {
+        const base = this.recordings[this.state.recId];
+        const ai = this.state.aiAnalysis[this.state.recId];
+        const r = ai ? { ...base, score: ai.score, strengths: ai.strengths, improve: ai.improve, tips: ai.tips } : base;
+        const sevMeta = { high: { bg: '#f6e0d9', fg: '#a3402a', label: 'Ważne' }, mid: { bg: '#fae7d2', fg: '#995510', label: 'Średnie' }, low: { bg: '#ede7da', fg: '#574629', label: 'Drobne' } };
+        return { client: base.client, date: base.date, len: base.len, score: r.score, tips: r.tips,
+          analyze: () => this.runAnalysis(),
+          analyzeLabel: this.state.aiLoading ? 'Analizuję…' : 'Analizuj (AI)',
+          aiSource: ai ? ai.source : '',
+          aiBadge: ai ? (ai.source === 'ai' ? 'Źródło: AI' : 'Źródło: demo') : '',
+          scoreFg: r.score >= 85 ? '#456b1f' : r.score >= 70 ? '#995510' : '#a3402a',
+          scoreBg: r.score >= 85 ? '#e4efd6' : r.score >= 70 ? '#fae7d2' : '#f6e0d9',
+          transcript: base.transcript.map(l => ({ who: l.who, t: l.t, mine: l.who === 'Wyceniający',
+            bg: l.who === 'Wyceniający' ? '#f1f3d6' : '#faf8f1', align: l.who === 'Wyceniający' ? 'flex-end' : 'flex-start', whoFg: l.who === 'Wyceniający' ? '#5d6a0b' : '#8a8069' })),
+          strengths: r.strengths || [],
+          improve: (r.improve || []).map(x => { const m = sevMeta[x.sev] || sevMeta.mid; return { t: x.t, bg: m.bg, fg: m.fg, label: m.label }; }) };
+      })(),
+      toast: this.state.toast, toastY: this.state.toastOn ? '0' : '120px', toastOp: this.state.toastOn ? '1' : '0',
+    };
+  }
+}
+</script>
+</body>
+</html>

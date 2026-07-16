@@ -1,0 +1,80 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #2a1d0f;
+}
+
+.prototype-host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.prototype-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #f1eee2;
+}
+
+.prototype-switcher {
+  position: fixed;
+  z-index: 20;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  gap: 4px;
+  max-width: calc(100vw - 28px);
+  padding: 4px;
+  border: 1px solid rgba(236, 230, 215, 0.34);
+  border-radius: 12px;
+  background: rgba(42, 29, 15, 0.88);
+  box-shadow: 0 16px 38px rgba(43, 29, 15, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.prototype-switcher button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #efe9da;
+  background: transparent;
+  font: 700 12px/1 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.prototype-switcher button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.prototype-switcher button.active {
+  color: #23260a;
+  background: #a0af14;
+}
+
+@media (max-width: 720px) {
+  .prototype-switcher {
+    right: 8px;
+    bottom: 8px;
+    overflow-x: auto;
+  }
+
+  .prototype-switcher button {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+}

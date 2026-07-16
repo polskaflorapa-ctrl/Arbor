@@ -1,0 +1,8 @@
+node_modules/
+dist/
+server/data/
+prisma/dev.db
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
