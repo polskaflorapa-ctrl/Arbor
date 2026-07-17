@@ -1,50 +1,58 @@
 import { getRoleDisplayName } from './utils/roleDisplay';
 
-// ARBOR-OS — ciemny motyw: głębokie zielenie + akcent szmaragd (spójne z index.css)
+export const BRAND_COLORS = Object.freeze({
+  darkBrown: '#3B2A18',
+  lightBrown: '#766440',
+  primaryGreen: '#A0AF14',
+  lightGreen: '#B4C232',
+  orangeBrown: '#BD701E',
+});
+
+// Polska Flora — semantic aliases backed by the approved brand-book palette.
 export const COLORS = {
-  bg: '#f4faf5',
+  bg: '#f7f4ec',
   bgCard: '#ffffff',
-  bgCard2: '#f9fdfb',
-  bgAlt: '#eef8f1',
-  sidebar: '#06331f',
+  bgCard2: '#fbfaf6',
+  bgAlt: '#f1ecdd',
+  sidebar: BRAND_COLORS.darkBrown,
 
-  accent: '#14834f',
-  accentDark: '#0f6b3f',
-  accentLight: '#28b66c',
-  accentBg: 'rgba(20,131,79,0.1)',
+  accent: BRAND_COLORS.primaryGreen,
+  accentDark: '#88950f',
+  accentLight: BRAND_COLORS.lightGreen,
+  accentBg: 'rgba(160,175,20,0.12)',
 
-  text: '#102218',
-  textSub: '#3f5f4b',
-  textMuted: '#6a7c70',
+  text: BRAND_COLORS.darkBrown,
+  textSub: '#5e4d31',
+  textMuted: BRAND_COLORS.lightBrown,
   white: '#FFFFFF',
 
-  success: '#14834f',
-  successBg: 'rgba(20,131,79,0.1)',
-  warning: '#b7791f',
-  warningBg: 'rgba(183,121,31,0.11)',
+  success: '#5f6a0b',
+  successBg: 'rgba(160,175,20,0.14)',
+  warning: '#8b4e0d',
+  warningBg: 'rgba(189,112,30,0.13)',
   danger: '#dc2626',
   dangerBg: 'rgba(220,38,38,0.09)',
-  info: '#177eaa',
-  infoBg: 'rgba(23,126,170,0.11)',
-  purple: '#5f6faf',
-  purpleBg: 'rgba(95,111,175,0.1)',
+  info: BRAND_COLORS.lightBrown,
+  infoBg: 'rgba(118,100,64,0.12)',
+  purple: '#675d7a',
+  purpleBg: 'rgba(103,93,122,0.1)',
 
-  border: 'rgba(15,95,58,0.12)',
-  borderLight: 'rgba(40,182,108,0.24)',
-  shadow: 'rgba(15,95,58,0.13)',
+  border: 'rgba(59,42,24,0.14)',
+  borderLight: 'rgba(160,175,20,0.28)',
+  shadow: 'rgba(59,42,24,0.14)',
 
-  primary: '#14834f',
-  primaryDark: '#0f6b3f',
-  primaryLight: '#28b66c',
-  primaryVeryLight: 'rgba(20,131,79,0.1)',
-  primaryBorder: 'rgba(40,182,108,0.24)',
-  secondary: '#06331f',
+  primary: BRAND_COLORS.primaryGreen,
+  primaryDark: '#88950f',
+  primaryLight: BRAND_COLORS.lightGreen,
+  primaryVeryLight: 'rgba(160,175,20,0.12)',
+  primaryBorder: 'rgba(160,175,20,0.3)',
+  secondary: BRAND_COLORS.darkBrown,
 };
 
 export const SHADOWS = {
-  sm: '0 12px 32px rgba(16,34,24,0.08)',
-  md: '0 18px 44px rgba(15,95,58,0.12)',
-  lg: '0 28px 68px rgba(15,95,58,0.16)',
+  sm: '0 12px 32px rgba(59,42,24,0.08)',
+  md: '0 18px 44px rgba(59,42,24,0.12)',
+  lg: '0 28px 68px rgba(59,42,24,0.16)',
 };
 
 // CANONICAL SOURCE — must stay in sync with mobile/constants/theme.ts ROLA_COLORS.

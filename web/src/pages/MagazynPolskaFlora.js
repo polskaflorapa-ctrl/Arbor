@@ -60,9 +60,9 @@ export default function MagazynPolskaFlora({
   });
 
   return (
-    <div style={ui.shell}>
+    <div className="app-shell warehouse-shell warehouse-polska-flora-shell" style={ui.shell}>
       <Sidebar />
-      <main style={ui.main}>
+      <main className="app-main warehouse-main warehouse-polska-flora-main" style={ui.main}>
         <div style={ui.header}>
           <div>
             <h1 style={ui.title}>Magazyn</h1>

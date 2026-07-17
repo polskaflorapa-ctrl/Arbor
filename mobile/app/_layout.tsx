@@ -4,10 +4,11 @@ import { OfflineQueueSync } from '../components/offline-queue-sync';
 import { LanguageProvider } from '../constants/LanguageContext';
 import { ThemeProvider } from '../constants/ThemeContext';
 import { Stack, router, usePathname } from 'expo-router';
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
-import { InteractionManager, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, InteractionManager, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { hydrateAppRemoteFlags } from '../utils/app-remote-flags';
 import { hydrateOddzialFeatureOverrides } from '../utils/oddzial-feature-overrides';
@@ -18,9 +19,11 @@ import { setRuntimeApiUrl, CUSTOM_API_URL_STORAGE_KEY } from '../constants/api';
 import { getNotificationDeepLink as resolveNotificationDeepLink } from '../utils/notification-deeplink';
 import { saveAppErrorReport } from '../utils/app-error-report';
 import { captureAppError, initErrorMonitoring } from '../utils/error-monitoring';
+import { POLSKA_FLORA_COLORS, ROAD_UA, ROAD_UA_ASSETS } from '../constants/brand';
 import {
+  canUseTestMode,
+  clearUnavailableTestModeState,
   installMobileTestModeFetchInterceptor,
-  installMobileTestModeAxiosAdapter,
 } from '../utils/testMode';
 
 /** Maks. wiek powiadomienia przy zimnym starcie — unikamy nawigacji „w tyle”. */
@@ -82,11 +85,11 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
   }
 }
 const ebStyles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#1a1a1a' },
-  sub: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 24 },
-  btn: { backgroundColor: '#2F8A3B', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  btnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: POLSKA_FLORA_COLORS.white },
+  title: { fontFamily: ROAD_UA.extraBold, fontSize: 20, marginBottom: 12, color: POLSKA_FLORA_COLORS.darkBrown },
+  sub: { fontFamily: ROAD_UA.regular, fontSize: 14, color: POLSKA_FLORA_COLORS.lightBrown, textAlign: 'center', marginBottom: 24 },
+  btn: { backgroundColor: POLSKA_FLORA_COLORS.primaryGreen, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  btnText: { color: POLSKA_FLORA_COLORS.darkBrown, fontFamily: ROAD_UA.bold, fontSize: 15 },
 });
 
 function isWebRuntime() {
@@ -132,26 +135,49 @@ function notificationPath(data: Record<string, unknown> | undefined) {
 
 export default function Layout() {
   const [hasSession, setHasSession] = useState(false);
+  const [fontWaitExpired, setFontWaitExpired] = useState(false);
   const pathname = usePathname();
+  const [fontsLoaded, fontError] = useFonts(ROAD_UA_ASSETS);
 
   useEffect(() => {
+    if (fontsLoaded || fontError) return;
+    const timeoutId = setTimeout(() => setFontWaitExpired(true), 4000);
+    return () => clearTimeout(timeoutId);
+  }, [fontError, fontsLoaded]);
+
+  useEffect(() => {
+    let disposed = false;
+    let cleanupTestModeFetch: () => void = () => {};
+
     void (async () => {
+      await clearUnavailableTestModeState();
+      const cleanup = await installMobileTestModeFetchInterceptor();
+      if (disposed) {
+        cleanup();
+        return;
+      }
+      cleanupTestModeFetch = cleanup;
+
       // Run all local AsyncStorage reads in parallel — none of these make
       // network calls so order between them doesn't matter.
       const [customUrl, { token }] = await Promise.all([
         AsyncStorage.getItem(CUSTOM_API_URL_STORAGE_KEY).catch(() => null),
         getStoredSession(),
-        installMobileTestModeFetchInterceptor(),
-        installMobileTestModeAxiosAdapter(),
         hydrateOddzialFeatureOverrides(),
         hydrateAppRemoteFlags(),
       ]);
 
+      if (disposed) return;
       if (customUrl) setRuntimeApiUrl(customUrl);
       setHasSession(Boolean(token));
       // Fire remote config fetch in the background — non-blocking
       if (token) void fetchAndApplyMobileRemoteConfig(token);
     })();
+
+    return () => {
+      disposed = true;
+      cleanupTestModeFetch();
+    };
   }, []);
 
   useEffect(() => {
@@ -211,6 +237,14 @@ export default function Layout() {
     })();
   }, []);
 
+  if (!fontsLoaded && !fontError && !fontWaitExpired) {
+    return (
+      <View style={ebStyles.container}>
+        <ActivityIndicator size="large" color={POLSKA_FLORA_COLORS.primaryGreen} />
+      </View>
+    );
+  }
+
   return (
     <AppErrorBoundary>
     <SafeAreaProvider>
@@ -246,7 +280,7 @@ export default function Layout() {
           <Stack.Screen name="harmonogram" />
           <Stack.Screen name="raporty-mobilne" />
           <Stack.Screen name="wycena" />
-          <Stack.Screen name="test-mode" />
+          {canUseTestMode() ? <Stack.Screen name="test-mode" /> : null}
           <Stack.Screen name="wyceny-terenowe" />
           <Stack.Screen name="wycena-rysuj" />
           <Stack.Screen name="nowe-zlecenie" />

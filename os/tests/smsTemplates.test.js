@@ -1,3 +1,7 @@
+// Deterministyczna baza linków trackingu: env to snapshot zamrażany przy pierwszym
+// require, więc wartość musi być ustawiona PRZED importami (CI nie ma pliku .env).
+process.env.PUBLIC_BASE_URL = 'http://localhost:3005';
+
 const {
   formatSmsPlanParts,
   renderSmsStatusTemplate,

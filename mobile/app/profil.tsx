@@ -24,12 +24,13 @@ import {
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
-import { THEME_LABELS, ThemeName, themes, getRolaColor } from '../constants/theme';
+import { THEME_LABELS, ThemeName, themes } from '../constants/theme';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
 import { getRoleDisplayName } from '../utils/role-display';
 import { clearStoredSession, getStoredSession, type StoredUser } from '../utils/session';
+import { canUseTestMode } from '../utils/testMode';
 import { unregisterExpoPushTokenWithBackend } from '../utils/expo-push-backend';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -39,7 +40,7 @@ export default function ProfilScreen() {
   const { theme, themeName, setTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const rolaKolorMap = useMemo(() => ({
-    Dyrektor: getRolaColor('Dyrektor'),
+    Dyrektor: theme.warning,
     Administrator: theme.warning,
     Kierownik: theme.info,
     Brygadzista: theme.success,
@@ -56,6 +57,7 @@ export default function ProfilScreen() {
   const [devTapCount, setDevTapCount] = useState(0);
   const [profileNotice, setProfileNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
   const router = useRouter();
+  const testModeAvailable = canUseTestMode();
 
   const showProfileNotice = useCallback((message: string, tone: 'success' | 'warning' = 'success') => {
     setProfileNotice({ message, tone });
@@ -89,6 +91,7 @@ export default function ProfilScreen() {
   };
 
   const handleDevTap = () => {
+    if (!testModeAvailable) return;
     const newCount = devTapCount + 1;
     setDevTapCount(newCount);
     if (newCount === 7) {
@@ -197,7 +200,11 @@ export default function ProfilScreen() {
         <View style={S.heroLeaf}>
           <Ionicons name="leaf-outline" size={20} color={theme.accent} />
         </View>
-        <TouchableOpacity onPress={handleDevTap} style={S.avatar}>
+        <TouchableOpacity
+          disabled={!testModeAvailable}
+          onPress={testModeAvailable ? handleDevTap : undefined}
+          style={S.avatar}
+        >
           <Text style={S.avatarText}>{initials}</Text>
         </TouchableOpacity>
         <Text style={S.heroEyebrow}>Profil pracownika</Text>

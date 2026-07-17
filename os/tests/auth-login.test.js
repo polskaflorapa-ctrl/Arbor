@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 jest.mock('../src/config/database', () => ({
+  connect: jest.fn(),
   query: jest.fn(),
 }));
 
@@ -19,12 +20,67 @@ const { env } = require('../src/config/env');
 describe('Auth routes', () => {
   const app = createTestApp('/api/auth', authRoutes);
 
+  const mockPasswordResetTransactions = ({ availableUses = 1, userId = 7, userUpdateError } = {}) => {
+    let remainingUses = availableUses;
+    let passwordUpdates = 0;
+    const clients = [];
+
+    pool.connect.mockImplementation(async () => {
+      let claimedToken = false;
+      let committed = false;
+      const client = {
+        query: jest.fn(async (sql) => {
+          const statement = String(sql);
+          if (statement === 'BEGIN') return { rows: [], rowCount: null };
+          if (statement.includes('UPDATE password_reset_tokens AS prt')) {
+            if (remainingUses <= 0) return { rows: [], rowCount: 0 };
+            remainingUses -= 1;
+            claimedToken = true;
+            return { rows: [{ user_id: userId }], rowCount: 1 };
+          }
+          if (statement.startsWith('UPDATE users SET haslo_hash')) {
+            if (userUpdateError) throw userUpdateError;
+            passwordUpdates += 1;
+            return { rows: [], rowCount: 1 };
+          }
+          if (statement === 'COMMIT') {
+            committed = true;
+            return { rows: [], rowCount: null };
+          }
+          if (statement === 'ROLLBACK') {
+            if (claimedToken && !committed) {
+              remainingUses += 1;
+              claimedToken = false;
+            }
+            return { rows: [], rowCount: null };
+          }
+          throw new Error(`Unexpected query in password reset test: ${statement}`);
+        }),
+        release: jest.fn(),
+      };
+      clients.push(client);
+      return client;
+    });
+
+    return {
+      clients,
+      get passwordUpdates() {
+        return passwordUpdates;
+      },
+    };
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     pool.query.mockReset();
+    pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    pool.connect.mockReset();
     sendSystemEmailOptional.mockReset();
     if (typeof authRoutes.__resetLoginLimiterForTests === 'function') {
       authRoutes.__resetLoginLimiterForTests();
+    }
+    if (typeof authRoutes.__resetPasswordResetLimitersForTests === 'function') {
+      authRoutes.__resetPasswordResetLimitersForTests();
     }
   });
 
@@ -233,19 +289,68 @@ describe('Auth routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
+      expect(res.body.email).toEqual({ sent: true });
+      expect(res.body.expires_at).toEqual(expect.any(String));
+      expect(res.body.dev_reset_url).toContain('/#/login?resetToken=');
       expect(sendSystemEmailOptional).not.toHaveBeenCalled();
       expect(pool.query).toHaveBeenCalledTimes(3);
+    });
+
+    it('returns the same neutral response shape when an account exists or is missing', async () => {
+      sendSystemEmailOptional.mockResolvedValue({ sent: false, skipped: 'no_smtp' });
+      pool.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 7, login: 'jan', imie: 'Jan', email: 'jan@example.com' }],
+        })
+        .mockResolvedValueOnce({ rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const existing = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ identifier: 'jan@example.com' });
+      const missing = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ identifier: 'ghost@example.com' });
+
+      expect(existing.status).toBe(200);
+      expect(missing.status).toBe(200);
+      expect(Object.keys(existing.body).sort()).toEqual(Object.keys(missing.body).sort());
+      expect(existing.body).toEqual(expect.objectContaining({
+        ok: true,
+        message: missing.body.message,
+        email: missing.body.email,
+      }));
+      expect(existing.body.email).toEqual({ sent: true });
+    });
+
+    it('limits password reset requests independently from login attempts', async () => {
+      pool.query.mockResolvedValue({ rows: [] });
+
+      for (let i = 0; i < 5; i += 1) {
+        const accepted = await request(app)
+          .post('/api/auth/forgot-password')
+          .send({ identifier: `ghost-${i}@example.com` });
+        expect(accepted.status).toBe(200);
+      }
+
+      const blocked = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ identifier: 'another@example.com' });
+
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.code).toBe('RATE_LIMIT_EXCEEDED');
+      expect(blocked.body.error).toBe('Za duzo prob resetu hasla. Sprobuj ponownie pozniej.');
+      expect(blocked.headers['retry-after']).toBeDefined();
     });
   });
 
   describe('POST /api/auth/reset-password', () => {
     it('updates password hash and marks the reset token as used', async () => {
-      pool.query
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [{ id: 11, user_id: 7 }] })
-        .mockResolvedValueOnce({ rowCount: 1 })
-        .mockResolvedValueOnce({ rowCount: 1 });
+      const transaction = mockPasswordResetTransactions();
 
       const res = await request(app)
         .post('/api/auth/reset-password')
@@ -253,25 +358,22 @@ describe('Auth routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ ok: true, message: 'Haslo zostalo zmienione. Mozesz sie zalogowac.' });
-      expect(pool.query).toHaveBeenCalledWith(
-        expect.stringContaining('FROM password_reset_tokens'),
+      expect(transaction.clients).toHaveLength(1);
+      expect(transaction.clients[0].query).toHaveBeenCalledWith('BEGIN');
+      expect(transaction.clients[0].query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE password_reset_tokens AS prt'),
         [expect.stringMatching(/^[a-f0-9]{64}$/)]
       );
-      expect(pool.query).toHaveBeenCalledWith(
-        'UPDATE users SET haslo_hash = $1 WHERE id = $2',
+      expect(transaction.clients[0].query).toHaveBeenCalledWith(
+        'UPDATE users SET haslo_hash = $1 WHERE id = $2 AND aktywny = true',
         [expect.any(String), 7]
       );
-      expect(pool.query).toHaveBeenCalledWith(
-        'UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1',
-        [11]
-      );
+      expect(transaction.clients[0].query).toHaveBeenCalledWith('COMMIT');
+      expect(transaction.clients[0].release).toHaveBeenCalledTimes(1);
     });
 
     it('rejects an expired or invalid reset token', async () => {
-      pool.query
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] });
+      const transaction = mockPasswordResetTransactions({ availableUses: 0 });
 
       const res = await request(app)
         .post('/api/auth/reset-password')
@@ -279,6 +381,73 @@ describe('Auth routes', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Link resetujacy jest nieprawidlowy albo wygasl');
+      expect(transaction.clients[0].query).toHaveBeenCalledWith('ROLLBACK');
+      expect(transaction.clients[0].release).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects reuse of a token after the first successful password change', async () => {
+      const transaction = mockPasswordResetTransactions();
+      const payload = { token: 'single-use-token', haslo: 'nowe-haslo123' };
+
+      const first = await request(app).post('/api/auth/reset-password').send(payload);
+      const second = await request(app).post('/api/auth/reset-password').send(payload);
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(400);
+      expect(transaction.passwordUpdates).toBe(1);
+      expect(transaction.clients).toHaveLength(2);
+    });
+
+    it('allows only one of two concurrent requests to consume the same token', async () => {
+      const transaction = mockPasswordResetTransactions();
+      const payload = { token: 'concurrent-token', haslo: 'nowe-haslo123' };
+
+      const responses = await Promise.all([
+        request(app).post('/api/auth/reset-password').send(payload),
+        request(app).post('/api/auth/reset-password').send(payload),
+      ]);
+
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 400]);
+      expect(transaction.passwordUpdates).toBe(1);
+      expect(transaction.clients).toHaveLength(2);
+      expect(transaction.clients.every((client) => client.release.mock.calls.length === 1)).toBe(true);
+    });
+
+    it('rolls back internal failures without exposing database details', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const transaction = mockPasswordResetTransactions({
+        userUpdateError: new Error('postgres-password-secret'),
+      });
+
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: 'reset-token', haslo: 'nowe-haslo123' });
+
+      expect(res.status).toBe(500);
+      expect(JSON.stringify(res.body)).not.toContain('postgres-password-secret');
+      expect(res.body.code).toBe('INTERNAL_ERROR');
+      expect(transaction.clients[0].query).toHaveBeenCalledWith('ROLLBACK');
+      expect(transaction.clients[0].release).toHaveBeenCalledTimes(1);
+      consoleSpy.mockRestore();
+    });
+
+    it('limits invalid reset confirmations without hashing unaccepted requests', async () => {
+      const transaction = mockPasswordResetTransactions({ availableUses: 0 });
+
+      for (let i = 0; i < 10; i += 1) {
+        const rejected = await request(app)
+          .post('/api/auth/reset-password')
+          .send({ token: `invalid-${i}`, haslo: 'nowe-haslo123' });
+        expect(rejected.status).toBe(400);
+      }
+
+      const blocked = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: 'invalid-last', haslo: 'nowe-haslo123' });
+
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.code).toBe('RATE_LIMIT_EXCEEDED');
+      expect(transaction.clients).toHaveLength(10);
     });
   });
 

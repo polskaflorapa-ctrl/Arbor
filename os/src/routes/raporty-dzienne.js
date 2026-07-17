@@ -1,12 +1,18 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
+const {
+  authMiddleware,
+  isAdministrator,
+  isDyrektor,
+  isKierownik,
+} = require('../middleware/auth');
 const { env } = require('../config/env');
 const nodemailer = require('nodemailer');
 const { logAudit } = require('../services/audit');
 const { dispatchWebhook } = require('../services/webhook');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
+const { createRetryableInitializer } = require('../lib/retryable-initializer');
 const { z } = require('zod');
 
 const router = express.Router();
@@ -61,14 +67,54 @@ const dailyReportUpsertSchema = z.object({
     .optional(),
 });
 
-const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
-const isKierownik = (user) => user.rola === 'Kierownik';
+function canAccessReport(user, report) {
+  if (isDyrektor(user)) return true;
+  if (isAdministrator(user) || isKierownik(user)) {
+    return Number(report.oddzial_id) === Number(user.oddzial_id);
+  }
+  return Number(report.user_id) === Number(user.id);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function safeImageUrl(value) {
+  const raw = String(value || '').trim();
+  if (raw.length > 400000) return '';
+
+  const rasterData = raw.match(/^data:image\/(png|jpeg);base64,([a-z0-9+/=]+)$/i);
+  if (rasterData) return raw;
+
+  const svgData = raw.match(/^data:image\/svg\+xml;base64,([a-z0-9+/=]+)$/i);
+  if (svgData) {
+    try {
+      const svg = Buffer.from(svgData[1], 'base64').toString('utf8');
+      const appConfirmationSvg = /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="300" height="150"><text x="50" y="80" font-size="24" fill="#[0-9a-f]{6}">Podpisano<\/text><\/svg>$/i;
+      return appConfirmationSvg.test(svg) ? raw : '';
+    } catch {
+      return '';
+    }
+  }
+
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' ? escapeHtml(url.href) : '';
+  } catch {
+    return '';
+  }
+}
 
 // ============================================
 // FUNKCJE POMOCNICZE
 // ============================================
 
-const ensureTablesExist = async () => {
+const ensureTablesExist = createRetryableInitializer(async () => {
   // Tabela daily_reports
   await pool.query(`
     CREATE TABLE IF NOT EXISTS daily_reports (
@@ -120,7 +166,8 @@ const ensureTablesExist = async () => {
     CREATE INDEX IF NOT EXISTS idx_daily_report_tasks_report ON daily_report_tasks(report_id);
     CREATE INDEX IF NOT EXISTS idx_daily_report_materials_report ON daily_report_materials(report_id);
   `);
-};
+  return true;
+});
 
 const formatMinutes = (minutes) => {
   if (!minutes) return '0h 0min';
@@ -143,15 +190,14 @@ router.get('/', authMiddleware, validateQuery(raportyListQuerySchema), async (re
     let params = [];
     let idx = 1;
 
-    if (req.user.rola === 'Brygadzista') {
+    if (isDyrektor(req.user)) {
+      // Directors can review reports globally.
+    } else if (isAdministrator(req.user) || isKierownik(req.user)) {
+      where += ` AND r.oddzial_id = $${idx++}`;
+      params.push(req.user.oddzial_id);
+    } else {
       where += ` AND r.user_id = $${idx++}`;
       params.push(req.user.id);
-    } else if (isKierownik(req.user)) {
-      where += ` AND r.oddzial_id = $${idx++}`;
-      params.push(req.user.oddzial_id);
-    } else if (!isDyrektor(req.user)) {
-      where += ` AND r.oddzial_id = $${idx++}`;
-      params.push(req.user.oddzial_id);
     }
 
     if (data) {
@@ -293,10 +339,7 @@ router.get('/:id', authMiddleware, validateParams(dailyReportIdParamsSchema), as
     
     const raport = result.rows[0];
     
-    if (req.user.rola === 'Brygadzista' && raport.user_id !== req.user.id) {
-      return res.status(403).json({ error: req.t('errors.raportyDaily.reportAccessDenied') });
-    }
-    if (isKierownik(req.user) && raport.oddzial_id !== req.user.oddzial_id) {
+    if (!canAccessReport(req.user, raport)) {
       return res.status(403).json({ error: req.t('errors.raportyDaily.reportAccessDenied') });
     }
 
@@ -345,6 +388,7 @@ router.post('/', authMiddleware, validateBody(dailyReportUpsertSchema), async (r
     if (existing.rows.length > 0) {
       reportId = existing.rows[0].id;
       if (existing.rows[0].status === 'Wyslany') {
+        await client.query('ROLLBACK');
         return res.status(400).json({ error: req.t('errors.raportyDaily.cannotEditSent') });
       }
       
@@ -398,7 +442,7 @@ router.post('/', authMiddleware, validateBody(dailyReportUpsertSchema), async (r
   } catch (err) {
     await client.query('ROLLBACK');
     logger.error('Blad zapisu raportu dziennego', { message: err.message, requestId: req.requestId });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
   } finally {
     client.release();
   }
@@ -430,7 +474,7 @@ router.post('/:id/wyslij', authMiddleware, validateParams(dailyReportIdParamsSch
     
     const raport = raportRes.rows[0];
     
-    if (req.user.rola === 'Brygadzista' && raport.user_id !== req.user.id) {
+    if (!canAccessReport(req.user, raport)) {
       return res.status(403).json({ error: req.t('errors.raportyDaily.reportAccessDenied') });
     }
 
@@ -462,76 +506,81 @@ router.post('/:id/wyslij', authMiddleware, validateParams(dailyReportIdParamsSch
 
     const zadaniaHtml = zadania.rows.map(z => `
       <tr>
-        <td style="padding:8px;border:1px solid #e5e7eb">${z.klient_nazwa || '-'}</td>
-        <td style="padding:8px;border:1px solid #e5e7eb">${z.adres || '-'}</td>
-        <td style="padding:8px;border:1px solid #e5e7eb">${z.typ_uslugi || '-'}</td>
-        <td style="padding:8px;border:1px solid #e5e7eb">${formatMinutes(z.czas_minuty || 0)}</td>
-        <td style="padding:8px;border:1px solid #e5e7eb">${z.uwagi || '-'}</td>
+        <td style="padding:8px;border:1px solid #766440">${escapeHtml(z.klient_nazwa || '-')}</td>
+        <td style="padding:8px;border:1px solid #766440">${escapeHtml(z.adres || '-')}</td>
+        <td style="padding:8px;border:1px solid #766440">${escapeHtml(z.typ_uslugi || '-')}</td>
+        <td style="padding:8px;border:1px solid #766440">${formatMinutes(z.czas_minuty || 0)}</td>
+        <td style="padding:8px;border:1px solid #766440">${escapeHtml(z.uwagi || '-')}</td>
       </tr>
     `).join('');
 
     const materialyHtml = materialy.rows.length > 0 
       ? materialy.rows.map(m => `
         <tr>
-          <td style="padding:8px;border:1px solid #e5e7eb">${m.nazwa}</td>
-          <td style="padding:8px;border:1px solid #e5e7eb">${m.ilosc} ${m.jednostka}</td>
-          <td style="padding:8px;border:1px solid #e5e7eb">${m.koszt_jednostkowy > 0 ? m.koszt_jednostkowy.toFixed(2) + ' PLN' : '-'}</td>
+          <td style="padding:8px;border:1px solid #766440">${escapeHtml(m.nazwa)}</td>
+          <td style="padding:8px;border:1px solid #766440">${escapeHtml(m.ilosc)} ${escapeHtml(m.jednostka)}</td>
+          <td style="padding:8px;border:1px solid #766440">${Number(m.koszt_jednostkowy) > 0 ? `${Number(m.koszt_jednostkowy).toFixed(2)} PLN` : '-'}</td>
         </tr>
       `).join('') 
-      : '<tr><td colspan="3" style="padding:8px;text-align:center;color:#9ca3af">Brak zuzytych materialow</td></tr>';
+      : '<tr><td colspan="3" style="padding:8px;text-align:center;color:#766440">Brak zuzytych materialow</td></tr>';
 
+    const signatureUrl = safeImageUrl(raport.podpis_url);
+    const safeWorkerName = escapeHtml(raport.pracownik_nazwa || '-');
+    const safeBranchName = escapeHtml(raport.oddzial_nazwa || '-');
+    const safeReportDate = escapeHtml(raport.data_raportu || '-');
+    const safeDescription = escapeHtml(raport.opis_pracy || '').replace(/\r?\n/g, '<br>');
     const html = `
       <!DOCTYPE html>
       <html>
       <head><meta charset="UTF-8"><title>Raport dzienny ARBOR-OS</title></head>
-      <body style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto">
-        <div style="background:#111111;color:#f4f4f5;padding:20px;border-radius:8px 8px 0 0">
+      <body style="font-family:'Road UA',Arial,sans-serif;max-width:700px;margin:0 auto;color:#3B2A18">
+        <div style="background:#3B2A18;color:#FFFFFF;padding:20px;border-bottom:8px solid #A0AF14">
           <h2 style="margin:0">ARBOR-OS - Raport dzienny</h2>
-          <p style="margin:8px 0 0 0;opacity:0.8">${raport.oddzial_nazwa}</p>
+          <p style="margin:8px 0 0 0;opacity:0.8">${safeBranchName}</p>
         </div>
-        <div style="background:#fff;padding:24px;border:1px solid #e5e7eb">
+        <div style="background:#FFFFFF;padding:24px;border:1px solid #766440">
           <div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap">
             <div>
-              <div style="font-size:12px;color:#9ca3af">Brygadzista</div>
-              <div style="font-weight:bold;font-size:16px">${raport.pracownik_nazwa}</div>
+              <div style="font-size:12px;color:#766440">Brygadzista</div>
+              <div style="font-weight:bold;font-size:16px">${safeWorkerName}</div>
             </div>
             <div>
-              <div style="font-size:12px;color:#9ca3af">Data</div>
-              <div style="font-weight:bold;font-size:16px">${raport.data_raportu}</div>
+              <div style="font-size:12px;color:#766440">Data</div>
+              <div style="font-weight:bold;font-size:16px">${safeReportDate}</div>
             </div>
             <div>
-              <div style="font-size:12px;color:#9ca3af">Laczny czas pracy</div>
-              <div style="font-weight:bold;font-size:16px;color:#111111">${formatMinutes(raport.czas_pracy_minuty || 0)}</div>
+              <div style="font-size:12px;color:#766440">Laczny czas pracy</div>
+              <div style="font-weight:bold;font-size:16px;color:#3B2A18">${formatMinutes(raport.czas_pracy_minuty || 0)}</div>
             </div>
           </div>
-          <h3 style="color:#1F2937;border-bottom:2px solid #f3f4f6;padding-bottom:8px">Wykonane zlecenia</h3>
+          <h3 style="color:#3B2A18;border-bottom:2px solid #A0AF14;padding-bottom:8px">Wykonane zlecenia</h3>
           <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
             <thead>
-              <tr style="background:#f9fafb">
-                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Klient</th>
-                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Adres</th>
-                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Typ</th>
-                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Czas</th>
-                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Uwagi</th>
+              <tr style="background:#B4C232;color:#3B2A18">
+                <th style="padding:8px;border:1px solid #766440;text-align:left">Klient</th>
+                <th style="padding:8px;border:1px solid #766440;text-align:left">Adres</th>
+                <th style="padding:8px;border:1px solid #766440;text-align:left">Typ</th>
+                <th style="padding:8px;border:1px solid #766440;text-align:left">Czas</th>
+                <th style="padding:8px;border:1px solid #766440;text-align:left">Uwagi</th>
               </tr>
             </thead>
-            <tbody>${zadaniaHtml || '<tr><td colspan="5" style="padding:8px;text-align:center;color:#9ca3af">Brak zlecen</td></tr>'}</tbody>
+            <tbody>${zadaniaHtml || '<tr><td colspan="5" style="padding:8px;text-align:center;color:#766440">Brak zlecen</td></tr>'}</tbody>
           </table>
-          <h3 style="color:#1F2937;border-bottom:2px solid #f3f4f6;padding-bottom:8px">Zuyte materialy</h3>
+          <h3 style="color:#3B2A18;border-bottom:2px solid #A0AF14;padding-bottom:8px">Zuyte materialy</h3>
           <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
             <thead>
-              <tr style="background:#f9fafb">
-                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Material</th>
-                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Ilosc</th>
-                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Koszt</th>
+              <tr style="background:#B4C232;color:#3B2A18">
+                <th style="padding:8px;border:1px solid #766440;text-align:left">Material</th>
+                <th style="padding:8px;border:1px solid #766440;text-align:left">Ilosc</th>
+                <th style="padding:8px;border:1px solid #766440;text-align:left">Koszt</th>
               </tr>
             </thead>
             <tbody>${materialyHtml}</tbody>
           </table>
-          ${raport.opis_pracy ? `<h3 style="color:#1F2937">Opis pracy</h3><p style="color:#374151;background:#f9fafb;padding:12px;border-radius:8px">${raport.opis_pracy.replace(/\n/g, '<br>')}</p>` : ''}
-          ${raport.podpis_url ? `<h3 style="color:#1F2937">Podpis brygadzisty</h3><img src="${raport.podpis_url}" style="border:1px solid #e5e7eb;border-radius:8px;max-width:300px" />` : ''}
+          ${safeDescription ? `<h3 style="color:#3B2A18">Opis pracy</h3><p style="color:#3B2A18;background:#FFFFFF;padding:12px;border-left:6px solid #A0AF14">${safeDescription}</p>` : ''}
+          ${signatureUrl ? `<h3 style="color:#3B2A18">Podpis brygadzisty</h3><img src="${signatureUrl}" style="border:1px solid #766440;max-width:300px" />` : ''}
         </div>
-        <div style="background:#f9fafb;padding:12px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;border-top:none;text-align:center;color:#9ca3af;font-size:12px">
+        <div style="background:#3B2A18;padding:12px;border-top:4px solid #A0AF14;text-align:center;color:#FFFFFF;font-size:12px">
           Wygenerowano automatycznie przez ARBOR-OS ${new Date().toLocaleString('pl-PL')}
         </div>
       </body>
@@ -585,7 +634,7 @@ router.post('/:id/wyslij', authMiddleware, validateParams(dailyReportIdParamsSch
     });
   } catch (err) {
     logger.error('Blad wysylania raportu dziennego', { message: err.message, requestId: req.requestId });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
 
@@ -597,7 +646,7 @@ router.delete('/:id', authMiddleware, validateParams(dailyReportIdParamsSchema),
     const { id } = req.params;
     
     const check = await pool.query(
-      'SELECT user_id, status FROM daily_reports WHERE id = $1',
+      'SELECT user_id, oddzial_id, status FROM daily_reports WHERE id = $1',
       [id]
     );
     
@@ -611,7 +660,7 @@ router.delete('/:id', authMiddleware, validateParams(dailyReportIdParamsSchema),
       return res.status(400).json({ error: req.t('errors.raportyDaily.cannotDeleteSent') });
     }
     
-    if (req.user.rola === 'Brygadzista' && raport.user_id !== req.user.id) {
+    if (!canAccessReport(req.user, raport)) {
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
     

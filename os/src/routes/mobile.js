@@ -13,6 +13,7 @@ const { companySettingsWriteSchema } = require('../schemas/company-settings');
 const { buildTeamDayReport, loadTeamDayEnrichment } = require('../services/payrollTeamDay');
 const { getRaportyMobileAggregates } = require('../services/raportyMobileStats');
 const { ensureGpsTables } = require('../services/juwentus-gps');
+const { allocateInvoiceNumber, invoiceIdScope } = require('../services/invoices');
 
 const router = express.Router();
 
@@ -124,18 +125,6 @@ router.put('/ustawienia', authMiddleware, requireNieBrygadzista, validateBody(co
   } catch (err) { logger.error('Blad zapisu ustawien firmy', { message: err.message, requestId: req.requestId }); res.status(500).json({ error: req.t('errors.http.serverError') }); }
 });
 
-const getNumerFaktury = async (oddzial_id) => {
-  const rok = new Date().getFullYear();
-  const tableCheck = await pool.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'invoices')`);
-  if (!tableCheck.rows[0].exists) return `FV/${rok}/001`;
-  const result = await pool.query(
-    `SELECT COUNT(*) as cnt FROM invoices WHERE EXTRACT(YEAR FROM data_wystawienia) = $1 AND oddzial_id = $2`,
-    [rok, oddzial_id]
-  );
-  const nr = parseInt(result.rows[0].cnt) + 1;
-  return `FV/${rok}/${String(nr).padStart(3, '0')}`;
-};
-
 // GET /api/mobile/faktury
 router.get('/faktury', authMiddleware, requireNieBrygadzista, validateQuery(mobileFakturyListQuerySchema), async (req, res) => {
   try {
@@ -194,10 +183,12 @@ router.get('/faktury/:id', authMiddleware, requireNieBrygadzista, validateParams
   try {
     const tableCheck = await pool.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'invoices')`);
     if (!tableCheck.rows[0].exists) return res.status(404).json({ error: req.t('errors.mobile.invoicesTableMissing') });
+    const scope = invoiceIdScope(req.user, 'i');
     const result = await pool.query(
       `SELECT i.*, b.nazwa as oddzial_nazwa, u.imie || ' ' || u.nazwisko as wystawil_nazwa
        FROM invoices i LEFT JOIN branches b ON i.oddzial_id = b.id LEFT JOIN users u ON i.wystawil_id = u.id
-       WHERE i.id = $1`, [req.params.id]
+       WHERE ${scope.clause}`,
+      [req.params.id, ...scope.params]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: req.t('errors.mobile.invoiceNotFound') });
     const itemsCheck = await pool.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'invoice_items')`);
@@ -217,7 +208,7 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
     await client.query('BEGIN');
     const { task_id, klient_nazwa, klient_nip, klient_adres, klient_email, klient_typ, data_wystawienia, data_sprzedazy, termin_platnosci, forma_platnosci, uwagi, pozycje, oddzial_id } = req.body;
     const finalOddzialId = isDyrektor(req.user) ? (oddzial_id || req.user.oddzial_id) : req.user.oddzial_id;
-    const numer = await getNumerFaktury(finalOddzialId);
+    const dataWyst = data_wystawienia || new Date().toISOString().split('T')[0];
     let netto = 0, vat_kwota = 0, brutto = 0;
     for (const p of pozycje) {
       const wNetto = parseFloat(p.ilosc) * parseFloat(p.cena_netto);
@@ -225,7 +216,6 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
       netto += wNetto; vat_kwota += wVat; brutto += wNetto + wVat;
     }
     const vat_stawka = pozycje[0]?.vat_stawka || 23;
-    const dataWyst = data_wystawienia || new Date().toISOString().split('T')[0];
     await client.query(`CREATE TABLE IF NOT EXISTS invoices (
       id SERIAL PRIMARY KEY, numer VARCHAR(50) UNIQUE NOT NULL, task_id INTEGER, oddzial_id INTEGER, wystawil_id INTEGER,
       klient_nazwa VARCHAR(200) NOT NULL, klient_nip VARCHAR(20), klient_adres TEXT, klient_email VARCHAR(100), klient_typ VARCHAR(20) DEFAULT 'firma',
@@ -233,18 +223,19 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
       uwagi TEXT, netto DECIMAL(10,2) NOT NULL, vat_stawka DECIMAL(5,2) NOT NULL, vat_kwota DECIMAL(10,2) NOT NULL,
       brutto DECIMAL(10,2) NOT NULL, status VARCHAR(50) DEFAULT 'Nieoplacona', created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`);
-    const invResult = await client.query(
-      `INSERT INTO invoices (numer,task_id,oddzial_id,wystawil_id,klient_nazwa,klient_nip,klient_adres,klient_email,klient_typ,data_wystawienia,data_sprzedazy,termin_platnosci,forma_platnosci,uwagi,netto,vat_stawka,vat_kwota,brutto,status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'Nieoplacona') RETURNING id`,
-      [numer, task_id||null, finalOddzialId, req.user.id, klient_nazwa, klient_nip||null, klient_adres||null, klient_email||null, klient_typ||'firma', dataWyst, data_sprzedazy||dataWyst, termin_platnosci||null, forma_platnosci||'przelew', uwagi||null, netto.toFixed(2), vat_stawka, vat_kwota.toFixed(2), brutto.toFixed(2)]
-    );
-    const invoiceId = invResult.rows[0].id;
     await client.query(`CREATE TABLE IF NOT EXISTS invoice_items (
       id SERIAL PRIMARY KEY, invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
       nazwa VARCHAR(200) NOT NULL, jednostka VARCHAR(20) DEFAULT 'szt', ilosc DECIMAL(10,2) NOT NULL,
       cena_netto DECIMAL(10,2) NOT NULL, vat_stawka DECIMAL(5,2) NOT NULL, wartosc_netto DECIMAL(10,2) NOT NULL,
       wartosc_brutto DECIMAL(10,2) NOT NULL, created_at TIMESTAMP DEFAULT NOW()
     )`);
+    const numer = await allocateInvoiceNumber(client, dataWyst);
+    const invResult = await client.query(
+      `INSERT INTO invoices (numer,task_id,oddzial_id,wystawil_id,klient_nazwa,klient_nip,klient_adres,klient_email,klient_typ,data_wystawienia,data_sprzedazy,termin_platnosci,forma_platnosci,uwagi,netto,vat_stawka,vat_kwota,brutto,status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'Nieoplacona') RETURNING id`,
+      [numer, task_id||null, finalOddzialId, req.user.id, klient_nazwa, klient_nip||null, klient_adres||null, klient_email||null, klient_typ||'firma', dataWyst, data_sprzedazy||dataWyst, termin_platnosci||null, forma_platnosci||'przelew', uwagi||null, netto.toFixed(2), vat_stawka, vat_kwota.toFixed(2), brutto.toFixed(2)]
+    );
+    const invoiceId = invResult.rows[0].id;
     for (const p of pozycje) {
       const wNetto = parseFloat(p.ilosc) * parseFloat(p.cena_netto);
       const wBrutto = wNetto * (1 + parseFloat(p.vat_stawka) / 100);
@@ -255,7 +246,7 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
     }
     await client.query('COMMIT');
     res.json({ success: true, id: invoiceId, numer });
-  } catch (err) { await client.query('ROLLBACK'); logger.error('Blad tworzenia faktury mobilnej', { message: err.message, requestId: req.requestId }); res.status(500).json({ error: err.message }); }
+  } catch (err) { await client.query('ROLLBACK'); logger.error('Blad tworzenia faktury mobilnej', { message: err.message, requestId: req.requestId }); res.status(500).json({ error: req.t('errors.http.serverError') }); }
   finally { client.release(); }
 });
 
@@ -263,9 +254,14 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
 router.put('/faktury/:id/status', authMiddleware, requireNieBrygadzista, validateParams(invoiceIdParamsSchema), validateBody(invoiceStatusBodySchema), async (req, res) => {
   try {
     const { status } = req.body;
-    const check = await pool.query('SELECT id FROM invoices WHERE id = $1', [req.params.id]);
-    if (check.rows.length === 0) return res.status(404).json({ error: req.t('errors.mobile.invoiceNotFound') });
-    await pool.query('UPDATE invoices SET status = $1, updated_at = NOW() WHERE id = $2', [status, req.params.id]);
+    const scope = invoiceIdScope(req.user, 'invoices', 2);
+    const updated = await pool.query(
+      `UPDATE invoices SET status = $1, updated_at = NOW()
+       WHERE ${scope.clause}
+       RETURNING id`,
+      [status, req.params.id, ...scope.params]
+    );
+    if (!updated.rows.length) return res.status(404).json({ error: req.t('errors.mobile.invoiceNotFound') });
     res.json({ success: true, message: 'Status zmieniony' });
   } catch (err) { logger.error('Blad aktualizacji statusu faktury', { message: err.message, requestId: req.requestId }); res.status(500).json({ error: req.t('errors.http.serverError') }); }
 });

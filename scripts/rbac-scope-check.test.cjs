@@ -106,3 +106,15 @@ test("RBAC permissions keep finance/admin global and operations scoped", () => {
   assert.equal(buildAppPermissions("Brygadzista").taskScope, "assigned_team_only");
   assert.equal(buildAppPermissions("Brygadzista").canViewFinance, false);
 });
+
+test("RBAC contract accepts centralized web role groups", () => {
+  withFixture((root) => {
+    writeFixtureFile(root, "web/src/App.js", "import { ROLE_GROUPS } MANAGEMENT: MGMT ProtectedRoute roles={ADMIN} ProtectedRoute roles={MGMT}");
+    writeFixtureFile(root, "web/src/utils/routeAccess.js", "const ADMIN const MANAGEMENT const FINANCE ROLE_GROUPS ROUTE_ROLE_POLICY canRoleAccessRoute");
+
+    assert.doesNotThrow(() => assertNeedleMap({
+      "web/src/App.js": ["import { ROLE_GROUPS }", "MANAGEMENT: MGMT"],
+      "web/src/utils/routeAccess.js": ["ROLE_GROUPS", "ROUTE_ROLE_POLICY", "canRoleAccessRoute"],
+    }, root));
+  });
+});

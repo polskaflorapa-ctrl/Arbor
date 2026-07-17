@@ -23,6 +23,7 @@ import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { localDateKey } from '../utils/localDateKey';
 
 const ALERT_WINDOW_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -89,13 +90,13 @@ const FLEET_DOCUMENT_OPTIONS = ['OC', 'UDT', 'Gwarancja', 'Instrukcja', 'Faktura
 const ACTIVE_RESERVATION_STATUSES = new Set(['Zarezerwowane', 'Wydane']);
 
 function todayYmd() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateKey();
 }
 
 function addMonthsYmd(months) {
   const date = new Date();
   date.setMonth(date.getMonth() + months);
-  return date.toISOString().slice(0, 10);
+  return localDateKey(date);
 }
 
 function reservationIsActive(reservation) {
@@ -1105,7 +1106,7 @@ export default function Flota() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `flota-naprawy-${todayYmd()}.csv`;
+    link.download = `flota-naprawy-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };

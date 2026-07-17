@@ -55,6 +55,13 @@ const routes = [
   '/powiadomienia',
   '/zadania',
   '/arbor-os-spec',
+  '/reference',
+  '/reference/arbor-os',
+  '/reference/arbor-os-deck',
+  '/reference/portal-klienta',
+  '/portal-klienta',
+  '/reference/gabinet-wyceniajacego',
+  '/reference/arbor-mobile',
 ];
 
 const criticalMobileRoutes = [

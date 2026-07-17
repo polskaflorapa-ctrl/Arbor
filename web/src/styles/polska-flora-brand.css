@@ -1,0 +1,604 @@
+/* Polska Flora brand book — final, shared web identity layer. */
+
+:root,
+#root,
+body.theme-light,
+body.theme-light #root {
+  /* Approved primitives. */
+  --brand-dark-brown: #3b2a18;
+  --brand-light-brown: #766440;
+  --brand-primary-green: #a0af14;
+  --brand-light-green: #b4c232;
+  --brand-orange-brown: #bd701e;
+  --brand-white: #ffffff;
+  --brand-paper: #f7f4ec;
+  --brand-paper-soft: #fbfaf6;
+  --brand-paper-deep: #f1ecdd;
+  --brand-paper-edge: #e8e0d0;
+  --brand-line: #e4dccb;
+  --brand-line-strong: #cec2a9;
+  --brand-subtle-ink: #5e4d31;
+  --brand-green-dark: #88950f;
+  --brand-dark-deep: #2c1e11;
+  --brand-dark-surface: #493725;
+  --brand-dark-surface-raised: #503d29;
+  --brand-dark-edge: #5a472f;
+  --brand-warm-white: #fffaf0;
+  --status-success: #5f6a0b;
+  --status-warning: #8b4e0d;
+  --status-info: #66563a;
+  --status-danger: #b42318;
+
+  /* Core application semantics. */
+  --bg: var(--brand-paper) !important;
+  --bg-card: #ffffff !important;
+  --bg-card2: var(--brand-paper-soft) !important;
+  --bg-deep: var(--brand-paper-deep) !important;
+  --bg-edge: var(--brand-paper-edge) !important;
+  --sidebar: var(--brand-dark-brown) !important;
+  --accent: var(--brand-primary-green) !important;
+  --accent-dk: var(--brand-green-dark) !important;
+  --on-accent: var(--brand-dark-brown) !important;
+  --text: var(--brand-dark-brown) !important;
+  --text-sub: var(--brand-subtle-ink) !important;
+  --text-muted: var(--brand-light-brown) !important;
+  --border: rgba(59, 42, 24, 0.14) !important;
+  --border2: rgba(160, 175, 20, 0.3) !important;
+  --input-bg: #fffefa !important;
+  --focus-ring: rgba(160, 175, 20, 0.38) !important;
+  --nav-active-bg: var(--brand-primary-green) !important;
+  --nav-hover-bg: rgba(160, 175, 20, 0.12) !important;
+  --logo-tint-bg: rgba(160, 175, 20, 0.12) !important;
+  --logo-tint-border: rgba(160, 175, 20, 0.3) !important;
+  --accent-surface: rgba(160, 175, 20, 0.12) !important;
+  --surface-raised: linear-gradient(180deg, #ffffff, var(--brand-paper-soft)) !important;
+  --surface-glass: rgba(255, 255, 255, 0.94) !important;
+  --surface-field: #fffefa !important;
+  --accent-gradient: linear-gradient(135deg, var(--brand-primary-green), var(--brand-light-green)) !important;
+  --success: var(--status-success) !important;
+  --success-surface: rgba(160, 175, 20, 0.14) !important;
+  --warning: var(--status-warning) !important;
+  --warning-surface: rgba(189, 112, 30, 0.13) !important;
+  --info: var(--status-info) !important;
+  --danger: var(--status-danger) !important;
+  --danger-surface: rgba(180, 35, 24, 0.1) !important;
+  --glass-bg: rgba(255, 255, 255, 0.9) !important;
+  --glass-bg-strong: rgba(255, 255, 255, 0.97) !important;
+  --glass-border: rgba(59, 42, 24, 0.14) !important;
+  --shadow: 0 18px 48px rgba(59, 42, 24, 0.12) !important;
+  --shadow-sm: 0 1px 2px rgba(59, 42, 24, 0.06), 0 10px 24px rgba(59, 42, 24, 0.06) !important;
+  --shadow-md: 0 16px 36px rgba(59, 42, 24, 0.11) !important;
+  --shadow-lg: 0 26px 56px rgba(59, 42, 24, 0.16) !important;
+
+  /* Existing reference and command layers consume these aliases. */
+  --pf-font: 'Road UA', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  --pf-brown: var(--brand-dark-brown) !important;
+  --pf-brown-2: var(--brand-dark-brown) !important;
+  --pf-brown-3: var(--brand-light-brown) !important;
+  --pf-brown-soft: var(--brand-light-brown) !important;
+  --pf-brown-orange: var(--brand-orange-brown) !important;
+  --pf-ink: var(--brand-dark-brown) !important;
+  --pf-muted: var(--brand-light-brown) !important;
+  --pf-muted-2: #9d9073 !important;
+  --pf-paper: var(--brand-paper) !important;
+  --pf-paper-2: var(--brand-paper-deep) !important;
+  --pf-card: #ffffff !important;
+  --pf-card-soft: var(--brand-paper-soft) !important;
+  --pf-panel: #ffffff !important;
+  --pf-line: var(--brand-line) !important;
+  --pf-line-strong: var(--brand-line-strong) !important;
+  --pf-green: var(--brand-primary-green) !important;
+  --pf-green-2: var(--brand-light-green) !important;
+  --pf-green-3: var(--brand-green-dark) !important;
+  --pf-green-soft: var(--brand-light-green) !important;
+  --pf-forest: var(--brand-light-brown) !important;
+  --pf-orange: var(--brand-orange-brown) !important;
+  --pf-orange-2: var(--status-warning) !important;
+  --pf-focus: rgba(160, 175, 20, 0.42) !important;
+  --pf-shadow: 0 16px 40px rgba(59, 42, 24, 0.12) !important;
+  --pf-shadow-soft: 0 1px 2px rgba(59, 42, 24, 0.06) !important;
+
+  --command-bg: var(--brand-paper) !important;
+  --command-surface: #ffffff !important;
+  --command-surface-soft: var(--brand-paper-soft) !important;
+  --command-sidebar: var(--brand-dark-brown) !important;
+  --command-sidebar-2: var(--brand-light-brown) !important;
+  --command-accent: var(--brand-primary-green) !important;
+  --command-accent-2: var(--brand-light-green) !important;
+  --command-text: var(--brand-dark-brown) !important;
+  --command-sub: var(--brand-subtle-ink) !important;
+  --command-muted: var(--brand-light-brown) !important;
+  --command-line: rgba(59, 42, 24, 0.12) !important;
+  --command-line-strong: rgba(160, 175, 20, 0.3) !important;
+  --command-amber: var(--brand-orange-brown) !important;
+  --command-shadow: 0 10px 28px rgba(59, 42, 24, 0.09) !important;
+
+  --font-sans: 'Road UA', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  --font-display: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
+  --landing-green: var(--brand-primary-green) !important;
+  --landing-green-2: var(--brand-light-green) !important;
+  --landing-amber: var(--brand-orange-brown) !important;
+  --arbor-green: var(--brand-primary-green) !important;
+  --arbor-green-2: var(--brand-light-green) !important;
+  --arbor-ink: var(--brand-dark-brown) !important;
+  --arbor-paper: var(--brand-paper) !important;
+  --arbor-muted: var(--brand-light-brown) !important;
+  --arbor-app-brown: var(--brand-dark-brown) !important;
+  --arbor-app-brown-2: var(--brand-dark-brown) !important;
+  --arbor-app-ink: var(--brand-dark-brown) !important;
+  --arbor-app-muted: var(--brand-light-brown) !important;
+  --arbor-app-paper: var(--brand-paper) !important;
+  --arbor-app-soft: var(--brand-paper-deep) !important;
+  --arbor-app-panel: #ffffff !important;
+  --arbor-app-card: var(--brand-paper-soft) !important;
+  --arbor-app-line: var(--brand-line) !important;
+  --arbor-app-green: var(--brand-primary-green) !important;
+  --arbor-app-green-2: var(--brand-light-green) !important;
+  --arbor-app-orange: var(--brand-orange-brown) !important;
+  --laser-emerald: var(--brand-primary-green) !important;
+  --supernova-orange: var(--brand-orange-brown) !important;
+  --cc-primary: var(--brand-dark-brown) !important;
+  --cc-on-primary: #ffffff !important;
+  --cc-secondary: var(--brand-light-brown) !important;
+  --cc-accent: var(--brand-primary-green) !important;
+  --cc-accent-strong: var(--brand-green-dark) !important;
+  --cc-accent-soft: rgba(160, 175, 20, 0.12) !important;
+  --cc-bg: var(--brand-paper) !important;
+  --cc-fg: var(--brand-dark-brown) !important;
+  --cc-surface: #ffffff !important;
+  --cc-surface-2: var(--brand-paper-soft) !important;
+  --cc-muted: var(--brand-light-brown) !important;
+  --cc-border: var(--brand-line) !important;
+  --cc-warning: var(--status-warning) !important;
+  --cc-success: var(--status-success) !important;
+  --cc-info: var(--status-info) !important;
+  --cc-ring: rgba(160, 175, 20, 0.38) !important;
+  --cc-font-sans: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
+  --cc-font-display: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
+  --ux-bg: var(--brand-dark-brown) !important;
+  --ux-bg-2: var(--brand-dark-deep) !important;
+  --ux-panel: var(--brand-dark-surface) !important;
+  --ux-panel-2: var(--brand-dark-surface-raised) !important;
+  --ux-panel-3: var(--brand-dark-edge) !important;
+  --ux-text: var(--brand-warm-white) !important;
+  --ux-text-2: #e8dfc9 !important;
+  --ux-muted: #c5b99f !important;
+  --ux-border: rgba(255, 250, 240, 0.18) !important;
+  --ux-border-strong: rgba(180, 194, 50, 0.34) !important;
+  --ux-accent: var(--brand-primary-green) !important;
+  --ux-accent-2: var(--brand-light-green) !important;
+  --ux-blue: var(--brand-light-brown) !important;
+  --ux-amber: var(--brand-orange-brown) !important;
+  --ux-ring: rgba(160, 175, 20, 0.38) !important;
+}
+
+body.theme-dark,
+body.theme-dark #root,
+body.theme-green,
+body.theme-green #root {
+  --bg: var(--brand-dark-brown) !important;
+  --bg-card: var(--brand-dark-surface) !important;
+  --bg-card2: var(--brand-dark-surface-raised) !important;
+  --bg-deep: var(--brand-dark-deep) !important;
+  --bg-edge: var(--brand-dark-edge) !important;
+  --sidebar: var(--brand-dark-deep) !important;
+  --accent: var(--brand-light-green) !important;
+  --accent-dk: var(--brand-primary-green) !important;
+  --on-accent: var(--brand-dark-brown) !important;
+  --text: var(--brand-warm-white) !important;
+  --text-sub: #e8dfc9 !important;
+  --text-muted: #c5b99f !important;
+  --border: rgba(255, 250, 240, 0.14) !important;
+  --border2: rgba(180, 194, 50, 0.32) !important;
+  --input-bg: var(--brand-dark-surface) !important;
+  --nav-active-bg: var(--brand-light-green) !important;
+  --nav-hover-bg: rgba(180, 194, 50, 0.12) !important;
+  --accent-surface: rgba(180, 194, 50, 0.14) !important;
+  --surface-raised: linear-gradient(180deg, var(--brand-dark-surface-raised), var(--brand-dark-surface)) !important;
+  --surface-glass: rgba(73, 55, 37, 0.94) !important;
+  --surface-field: var(--brand-dark-surface) !important;
+  --glass-bg: rgba(73, 55, 37, 0.88) !important;
+  --glass-bg-strong: rgba(59, 42, 24, 0.97) !important;
+  --glass-border: rgba(255, 250, 240, 0.14) !important;
+  --command-bg: var(--brand-dark-brown) !important;
+  --command-surface: var(--brand-dark-surface) !important;
+  --command-surface-soft: var(--brand-dark-surface-raised) !important;
+  --command-text: var(--brand-warm-white) !important;
+  --command-sub: #e8dfc9 !important;
+  --command-muted: #c5b99f !important;
+  --command-line: rgba(255, 250, 240, 0.12) !important;
+}
+
+html,
+body,
+#root,
+#root .MuiTypography-root,
+#root .MuiButton-root,
+#root .MuiInputBase-root,
+#root button,
+#root input,
+#root select,
+#root textarea {
+  font-family: 'Road UA', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-synthesis: none;
+}
+
+#root :where(*):not(code):not(pre):not(kbd):not(samp) {
+  font-family: 'Road UA', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+#root h1 {
+  font-family: 'Road UA', sans-serif !important;
+  font-weight: 800 !important;
+}
+
+#root :is(h2, h3, h4, h5, h6) {
+  font-family: 'Road UA', sans-serif !important;
+  font-weight: 700 !important;
+}
+
+#root :is(button, .MuiButton-root, strong, b) {
+  font-weight: 700;
+}
+
+body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+body::before {
+  content: '' !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  display: block !important;
+  background: url('/brand/patterns/light-brown.png') repeat !important;
+  background-size: 720px auto !important;
+  opacity: 0.024 !important;
+  pointer-events: none !important;
+}
+
+body.theme-dark::before,
+body.theme-green::before {
+  background-image: url('/brand/patterns/light-green.png') !important;
+  opacity: 0.035 !important;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+.pf-brand-picture,
+.pf-brand-logo {
+  display: block;
+}
+
+.pf-brand-picture {
+  line-height: 0;
+}
+
+.pf-brand-logo {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* Approved dark-background lock-up in every application rail. */
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) {
+  isolation: isolate;
+  background: linear-gradient(180deg, #3b2a18, #2c1e11) !important;
+  color: #fffaf0 !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url('/brand/patterns/light-brown.png') repeat;
+  background-size: 460px auto;
+  opacity: 0.055;
+  pointer-events: none;
+}
+
+#root .pf-sidebar > div:first-child,
+#root .command-native-brand {
+  min-height: 76px !important;
+  padding: 8px 4px 18px !important;
+  border-bottom-color: rgba(255, 250, 240, 0.12) !important;
+}
+
+#root :is(.command-native-logo-frame, .pf-sidebar-logo-mark) {
+  display: block !important;
+  width: 184px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+#root :is(.command-native-logo-frame, .pf-sidebar-logo-mark) .pf-brand-logo {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar)
+  :is(button, a, [role='button']).is-active,
+#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar)
+  :is(button, a, [role='button'])[aria-current='page'] {
+  background: var(--brand-primary-green) !important;
+  color: var(--brand-dark-brown) !important;
+}
+
+/* Login uses an approved descriptor lock-up and the corporate pattern. */
+#root .login-shell {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 50vw) !important;
+  place-items: stretch !important;
+  padding: 0 !important;
+  overflow-x: hidden !important;
+  background: var(--brand-paper) !important;
+}
+
+#root .login-command-panel {
+  display: flex !important;
+  isolation: isolate;
+  background: linear-gradient(150deg, var(--brand-dark-brown), var(--brand-dark-deep)) !important;
+  color: var(--brand-warm-white) !important;
+}
+
+#root .login-command-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url('/brand/patterns/light-green.png') repeat;
+  background-size: 580px auto;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+#root .login-command-logo {
+  width: min(520px, 100%);
+  margin: 0 0 34px;
+}
+
+#root .login-command-panel :is(p, span, div) {
+  color: var(--brand-warm-white) !important;
+}
+
+#root .login-command-panel .login-feature-icon {
+  background: var(--brand-primary-green) !important;
+  color: var(--brand-dark-brown) !important;
+  box-shadow: none !important;
+}
+
+#root .login-card {
+  width: min(100%, 528px) !important;
+  max-width: 528px !important;
+  padding: 40px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  isolation: isolate;
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: var(--brand-dark-brown) !important;
+  box-shadow: none !important;
+}
+
+#root .login-card::before {
+  content: none !important;
+  display: none !important;
+}
+
+#root .login-card::after {
+  content: '';
+  position: absolute;
+  right: -5%;
+  bottom: -18%;
+  z-index: -1;
+  width: 38%;
+  height: 72%;
+  background: url('/brand/tree/light-green.png') right bottom / contain no-repeat;
+  opacity: 0.055;
+  pointer-events: none;
+}
+
+#root .login-card-brand-logo {
+  width: min(260px, 70%);
+  margin: 0 0 34px;
+}
+
+#root .login-card :is(h1, label, input) {
+  color: var(--brand-dark-brown) !important;
+}
+
+#root .login-card h1,
+#root .login-card .login-logo-row h1 {
+  color: var(--brand-dark-brown) !important;
+  -webkit-text-fill-color: var(--brand-dark-brown) !important;
+  font-size: 28px !important;
+}
+
+#root .login-card :is(p, label, span, div) {
+  color: var(--brand-subtle-ink) !important;
+}
+
+#root .login-card :is(input, select, textarea) {
+  border-color: var(--brand-line) !important;
+  background: #fffefa !important;
+  color: var(--brand-dark-brown) !important;
+}
+
+#root .login-input-wrap input:focus,
+#root .login-card input:focus {
+  border-color: var(--brand-primary-green) !important;
+  box-shadow: 0 0 0 3px rgba(160, 175, 20, 0.28) !important;
+}
+
+#root .login-card .login-eye-toggle {
+  position: absolute !important;
+  top: 50% !important;
+  right: 8px !important;
+  left: auto !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 4px !important;
+  transform: translateY(-50%) !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#root .login-card .login-demo-panel {
+  border-color: var(--brand-line) !important;
+  background: var(--brand-paper-deep) !important;
+}
+
+#root .login-card .login-demo-btn {
+  border-color: var(--brand-line) !important;
+  background: #ffffff !important;
+  color: var(--brand-dark-brown) !important;
+}
+
+#root .login-card .login-demo-btn:hover {
+  border-color: var(--brand-primary-green) !important;
+  background: var(--brand-paper-soft) !important;
+}
+
+#root .login-card .login-demo-btn span {
+  color: inherit !important;
+}
+
+#root .login-card .login-link {
+  color: var(--status-success) !important;
+}
+
+#root .login-card .login-submit,
+#root .landing-button-primary,
+#root .arbor-os-primary-button,
+#root .MuiButton-containedPrimary {
+  border-color: var(--brand-primary-green) !important;
+  background: var(--brand-primary-green) !important;
+  color: var(--brand-dark-brown) !important;
+  box-shadow: none !important;
+}
+
+#root .login-card .login-submit:hover,
+#root .landing-button-primary:hover,
+#root .arbor-os-primary-button:hover,
+#root .MuiButton-containedPrimary:hover {
+  background: var(--brand-light-green) !important;
+  color: var(--brand-dark-brown) !important;
+}
+
+#root .login-card .login-submit :is(span, svg),
+#root .arbor-os-primary-button :is(span, svg) {
+  color: var(--brand-dark-brown) !important;
+}
+
+/* Public landing uses the correct contrast variant on each surface. */
+#root .landing-brand-logo {
+  width: 172px;
+}
+
+#root .landing-ops-logo-img {
+  width: 154px;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+/* Brand-book tree treatment on prominent application headers. */
+#root :is(.command-surface-hero, .dashboard-command-hero, .module-page-header-hero) {
+  isolation: isolate;
+}
+
+#root :is(.command-surface-hero, .dashboard-command-hero)::after {
+  content: '';
+  position: absolute;
+  right: clamp(12px, 3vw, 36px);
+  bottom: -28%;
+  z-index: -1;
+  width: clamp(90px, 14vw, 180px);
+  height: 132%;
+  background: url('/brand/tree/light-green.png') right bottom / contain no-repeat;
+  opacity: 0.11;
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  #root :is(.command-native-logo-frame, .pf-sidebar-logo-mark) {
+    width: 42px !important;
+    height: 52px !important;
+    max-height: 52px !important;
+  }
+
+  #root :is(.command-native-logo-frame, .pf-sidebar-logo-mark) .pf-brand-logo {
+    width: 42px !important;
+    height: 52px !important;
+    object-fit: contain !important;
+  }
+
+  #root .pf-sidebar > div:first-child,
+  #root .command-native-brand {
+    min-height: 64px !important;
+    padding: 4px 0 10px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #root .login-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+    place-items: center !important;
+    padding: 16px !important;
+  }
+
+  #root .login-command-panel {
+    display: none !important;
+  }
+
+  #root .login-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 28px 22px !important;
+    border: 1px solid var(--brand-line) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--shadow-md) !important;
+  }
+
+  #root .login-command-logo {
+    width: min(360px, 86vw);
+  }
+
+  #root .login-card-brand-logo {
+    width: min(230px, 70vw);
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1080px) {
+  #root .login-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+    place-items: center !important;
+    padding: 24px !important;
+  }
+
+  #root .login-command-panel {
+    display: none !important;
+  }
+
+  #root .login-card {
+    border: 1px solid var(--brand-line) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--shadow-md) !important;
+  }
+}

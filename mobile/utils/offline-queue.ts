@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { fetchWithTimeout } from './api-client';
+import { apiUrl, fetchWithTimeout } from './api-client';
 import { emitOfflineFlushDone } from './offline-queue-sync-events';
 
 const OFFLINE_QUEUE_KEY = 'offline_queue_v1';
@@ -8,6 +8,9 @@ const MAX_QUEUE_ITEMS = 250;
 const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 const SAFE_REPLAY_REASONS = new Set(['TASK_ALREADY_FINISHED']);
 const RETRYABLE_CONFLICT_REASONS = new Set(['IDEMPOTENCY_INCOMPLETE']);
+
+let queueMutationTail: Promise<void> = Promise.resolve();
+let activeFlush: Promise<{ flushed: number; left: number }> | null = null;
 
 type HttpMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -47,6 +50,37 @@ export interface OfflineQueueStatus {
 type OfflineQueueInput = Omit<OfflineQueueItem, 'id' | 'createdAt'> & {
   id?: string;
 };
+
+type FlushOutcome =
+  | { kind: 'remove' }
+  | { kind: 'replace'; item: OfflineQueueItem };
+
+function withQueueMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = queueMutationTail.then(operation, operation);
+  queueMutationTail = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+function itemVersion(item: OfflineQueueItem): string {
+  return `${item.id}\u0000${item.createdAt}`;
+}
+
+function resolveSafeReplayUrl(url: string): string {
+  const currentApiUrl = apiUrl('/');
+  const targetUrl = apiUrl(url);
+  try {
+    if (new URL(currentApiUrl).origin !== new URL(targetUrl).origin) {
+      throw new Error('OFFLINE_REPLAY_ORIGIN_MISMATCH');
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'OFFLINE_REPLAY_ORIGIN_MISMATCH') throw error;
+    throw new Error('OFFLINE_REPLAY_INVALID_URL');
+  }
+  return targetUrl;
+}
 
 export const createOfflineRequestId = (prefix = 'offline'): string => {
   const safePrefix = String(prefix || 'offline')
@@ -103,29 +137,31 @@ const responseReason = (text: string): string => {
 export const enqueueOfflineRequest = async (
   item: OfflineQueueInput,
 ): Promise<void> => {
-  const queue = await readQueue();
-  const dedupeKey = item.dedupeKey?.trim();
-  const dedupedQueue =
-    dedupeKey && dedupeKey.length > 0
-      ? queue.filter((row) => row.dedupeKey !== dedupeKey)
-      : queue;
-  dedupedQueue.push({
-    ...item,
-    ...(dedupeKey ? { dedupeKey } : {}),
-    id: item.id || createOfflineRequestId(),
-    createdAt: new Date().toISOString(),
-    attempts: 0,
+  await withQueueMutation(async () => {
+    const queue = await readQueue();
+    const dedupeKey = item.dedupeKey?.trim();
+    const dedupedQueue =
+      dedupeKey && dedupeKey.length > 0
+        ? queue.filter((row) => row.dedupeKey !== dedupeKey)
+        : queue;
+    dedupedQueue.push({
+      ...item,
+      ...(dedupeKey ? { dedupeKey } : {}),
+      id: item.id || createOfflineRequestId(),
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+    });
+    await writeQueue(dedupedQueue);
   });
-  await writeQueue(dedupedQueue);
 };
 
 export const getOfflineQueueSize = async (): Promise<number> => {
-  const queue = await readQueue();
+  const queue = await withQueueMutation(readQueue);
   return queue.length;
 };
 
 export const getOfflineQueueStatus = async (): Promise<OfflineQueueStatus> => {
-  const queue = await readQueue();
+  const queue = await withQueueMutation(readQueue);
   const now = Date.now();
   const retryBlocked = queue.filter((item) => !canRetryNow(item, now)).length;
   const withErrors = queue.filter((item) => item.lastError);
@@ -145,21 +181,25 @@ export const queueRequestWithOfflineFallback = async (
   return getOfflineQueueSize();
 };
 
-export const flushOfflineQueue = async (token: string): Promise<{ flushed: number; left: number }> => {
-  const queue = await readQueue();
+export const clearOfflineQueue = async (): Promise<void> => {
+  await withQueueMutation(() => AsyncStorage.removeItem(OFFLINE_QUEUE_KEY));
+};
+
+async function flushOfflineQueueOnce(token: string): Promise<{ flushed: number; left: number }> {
+  const queue = await withQueueMutation(readQueue);
   if (!queue.length) return { flushed: 0, left: 0 };
 
-  const remaining: OfflineQueueItem[] = [];
+  const outcomes = new Map<string, FlushOutcome>();
   let flushed = 0;
 
   for (const item of queue) {
     const now = Date.now();
     if (!canRetryNow(item, now)) {
-      remaining.push(item);
       continue;
     }
 
     try {
+      const replayUrl = resolveSafeReplayUrl(item.url);
       const headers: Record<string, string> = {
         Authorization: `Bearer ${token}`,
         // Stabilne ID wpisu kolejki — retry / flush bez podwójnego skutku po stronie API.
@@ -182,7 +222,7 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
         body = item.body ? JSON.stringify(item.body) : undefined;
       }
 
-      const res = await fetchWithTimeout(item.url, {
+      const res = await fetchWithTimeout(replayUrl, {
         method: item.method,
         headers,
         body,
@@ -190,25 +230,58 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
 
       if (res.ok) {
         flushed += 1;
+        outcomes.set(itemVersion(item), { kind: 'remove' });
       } else if (res.status === 400 || res.status === 409) {
         const text = await res.text().catch(() => '');
         const reason = responseReason(text);
-        if (SAFE_REPLAY_REASONS.has(reason)) flushed += 1;
-        else if (RETRYABLE_CONFLICT_REASONS.has(reason)) remaining.push(markAttemptFailed(item, reason, now));
-        else remaining.push(markAttemptFailed(item, text || `HTTP ${res.status}`, now));
+        if (SAFE_REPLAY_REASONS.has(reason)) {
+          flushed += 1;
+          outcomes.set(itemVersion(item), { kind: 'remove' });
+        } else if (RETRYABLE_CONFLICT_REASONS.has(reason)) {
+          outcomes.set(itemVersion(item), { kind: 'replace', item: markAttemptFailed(item, reason, now) });
+        } else {
+          outcomes.set(itemVersion(item), {
+            kind: 'replace',
+            item: markAttemptFailed(item, text || `HTTP ${res.status}`, now),
+          });
+        }
       } else {
         const text = await res.text().catch(() => '');
-        remaining.push(markAttemptFailed(item, text || `HTTP ${res.status}`, now));
+        outcomes.set(itemVersion(item), {
+          kind: 'replace',
+          item: markAttemptFailed(item, text || `HTTP ${res.status}`, now),
+        });
       }
     } catch (error) {
-      remaining.push(markAttemptFailed(item, error instanceof Error ? error.message : 'Network error', now));
+      outcomes.set(itemVersion(item), {
+        kind: 'replace',
+        item: markAttemptFailed(item, error instanceof Error ? error.message : 'Network error', now),
+      });
     }
   }
 
-  await writeQueue(remaining);
-  const left = remaining.length;
+  const left = await withQueueMutation(async () => {
+    const latestQueue = await readQueue();
+    if (!outcomes.size) return latestQueue.length;
+    const mergedQueue = latestQueue.flatMap((item) => {
+      const outcome = outcomes.get(itemVersion(item));
+      if (!outcome) return [item];
+      return outcome.kind === 'remove' ? [] : [outcome.item];
+    });
+    await writeQueue(mergedQueue);
+    return mergedQueue.length;
+  });
   if (flushed > 0) emitOfflineFlushDone({ flushed, left });
   return { flushed, left };
+}
+
+export function flushOfflineQueue(token: string): Promise<{ flushed: number; left: number }> {
+  if (activeFlush) return activeFlush;
+  const pendingFlush = flushOfflineQueueOnce(token).finally(() => {
+    if (activeFlush === pendingFlush) activeFlush = null;
+  });
+  activeFlush = pendingFlush;
+  return pendingFlush;
 };
 
 /** Kolejka wysłania zdjęcia (POST multipart `/tasks/:id/zdjecia`) po powrocie online. */

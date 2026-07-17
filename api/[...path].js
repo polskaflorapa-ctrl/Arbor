@@ -7,9 +7,10 @@ process.env.METRICS_ENABLED = process.env.METRICS_ENABLED || 'false';
 const fs = require('node:fs');
 const path = require('node:path');
 const { createApp } = require('../os/src/app');
+const { initSentry } = require('../os/src/config/sentry');
+const { createRetryableInitializer } = require('../os/src/lib/retryable-initializer');
 
 let app;
-let readyPromise;
 
 async function runColdStartMigrations() {
   if (process.env.VERCEL_RUN_MIGRATIONS !== '1') {
@@ -30,18 +31,10 @@ async function runColdStartMigrations() {
   await pool.query(fs.readFileSync(migratePath, 'utf8'));
 }
 
-async function getApp() {
-  if (!readyPromise) {
-    readyPromise = (async () => {
-      await runColdStartMigrations();
-      return app || (app = createApp());
-    })().catch((error) => {
-      readyPromise = null;
-      throw error;
-    });
-  }
-  return readyPromise;
-}
+const getApp = createRetryableInitializer(async () => {
+  await runColdStartMigrations();
+  return app || (app = createApp({ sentry: initSentry() }));
+});
 
 module.exports = async (req, res) => {
   try {

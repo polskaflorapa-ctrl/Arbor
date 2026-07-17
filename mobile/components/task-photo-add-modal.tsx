@@ -30,7 +30,7 @@ type Props = {
   uploadingPhoto: boolean;
   photoTypeMeta: PhotoTypeMeta;
   evidenceQuickCards: EvidenceCard[];
-  photos: Array<{ typ?: unknown }>;
+  photos: { typ?: unknown }[];
   resolvePhotoTypeLabel: (key: PhotoTypeKey) => string;
   onChangeOpis: (value: string) => void;
   onChangeTagi: (value: string) => void;

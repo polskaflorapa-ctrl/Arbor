@@ -19,7 +19,7 @@ const { register, metricsMiddleware, metricsEnabled, bindPoolMetrics } = require
 const { HTTP_NOT_FOUND } = require('./constants/error-codes');
 const { assertProductionSecurityConfig } = require('./config/security-hardening');
 
-const { getSentry } = require('./config/sentry');
+const { getSentry, setupSentryErrorHandler } = require('./config/sentry');
 
 const authRoutes = require('./routes/auth');
 const tasksRoutes = require('./routes/tasks');
@@ -72,7 +72,7 @@ const buildMobileConfigPayload = () => ({
   generatedAt: new Date().toISOString(),
 });
 
-const createApp = () => {
+const createApp = ({ sentry = getSentry() } = {}) => {
   assertProductionSecurityConfig(env);
 
   const app = express();
@@ -346,14 +346,7 @@ const createApp = () => {
     });
   });
 
-  const sentry = getSentry();
-  if (sentry) {
-    app.use(sentry.Handlers.errorHandler({
-      shouldHandleError() {
-        return env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';
-      },
-    }));
-  }
+  setupSentryErrorHandler(app, sentry);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

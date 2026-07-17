@@ -25,12 +25,11 @@ const initDatabase = async () => {
 
 const PORT = env.PORT;
 const tasksRoutes = require('./routes/tasks');
-const app = createApp();
+const app = createApp({ sentry: initSentry() });
 let serverInstance = null;
 let shutdownInProgress = false;
 
 const startServer = async () => {
-  initSentry();
   try {
     const dbConnected = await pool.testConnection();
     if (!dbConnected) {

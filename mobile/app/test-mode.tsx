@@ -11,19 +11,24 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useTheme } from '../constants/ThemeContext';
 import {
+  canUseTestMode,
   isTestModeEnabledMobile,
   toggleTestModeMobile,
   loginTestUserMobile,
-  logoutTestUserMobile,
   getCurrentTestRoleMobile,
   TEST_USERS_MOBILE,
 } from '../utils/testMode';
 import { getRoleDisplayName } from '../utils/role-display';
 
 export default function TestModeScreen() {
+  if (!canUseTestMode()) return <Redirect href="/" />;
+  return <EnabledTestModeScreen />;
+}
+
+function EnabledTestModeScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const [testModeEnabled, setTestModeEnabled] = useState(false);
@@ -64,7 +69,6 @@ export default function TestModeScreen() {
         }
       } else {
         // Wyłącz tryb testowy
-        await logoutTestUserMobile();
         await toggleTestModeMobile(false);
         setTestModeEnabled(false);
         showNotice('Wylogowano testowego użytkownika', 'warning');

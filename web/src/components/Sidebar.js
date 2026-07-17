@@ -8,7 +8,9 @@ import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName, hasAnyRole } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { clearAuthSession } from '../utils/authSession';
+import { filterNavigationItemsByRole } from '../utils/routeAccess';
 import LanguageSwitcher from './LanguageSwitcher';
+import BrandLogo from './BrandLogo';
 // ─── Stałe ───────────────────────────────────────────────────────────────────
 const NOTIF_KOLOR = {
   problem: '#F87171', potrzebuje_czasu: '#FBBF24', skonczylem_wczesniej: 'var(--accent)',
@@ -275,8 +277,7 @@ export default function Sidebar() {
       { path: '/zarzadzaj-rolami',  labelKey: 'nav.roles',         icon: 'uzytkownicy', roles: ADMIN },
     ];
     if (!currentUser?.rola) return [];
-    return all
-      .filter(l => hasAnyRole(currentUser.rola, l.roles))
+    return filterNavigationItemsByRole(all, currentUser.rola)
       .map((link) => ({
         ...link,
         primary: link.primary === false ? false : isPrimaryNavPath(link.path, currentUser.rola),
@@ -416,15 +417,12 @@ export default function Sidebar() {
   return (
     <aside className="pf-sidebar" style={pfSb.root}>
       <div style={pfSb.logo}>
-        <div style={pfSb.logoIcon}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M12 22V12M12 12C12 7 7 3 3 3c0 4 2 8 5 10M12 12C12 7 17 3 21 3c0 4-2 8-5 10" />
-          </svg>
-        </div>
-        <div>
-          <div style={pfSb.logoName}>Polska Flora</div>
-          <div style={pfSb.logoSub}>Zarządzanie usługami terenowymi</div>
-        </div>
+        <BrandLogo
+          background="dark"
+          responsiveVertical
+          className="pf-sidebar-logo-mark"
+          alt="Polska Flora"
+        />
       </div>
 
       <nav style={pfSb.nav}>

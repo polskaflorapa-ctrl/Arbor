@@ -10,14 +10,10 @@ const {
   invoiceStatusBodySchema,
 } = require('../schemas/invoice');
 const { companySettingsWriteSchema } = require('../schemas/company-settings');
+const { allocateInvoiceNumber, invoiceIdScope } = require('../services/invoices');
 
 const router = express.Router();
 const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
-
-function invoiceIdScope(user, alias = 'i', startParam = 1) {
-  if (isDyrektor(user)) return { clause: `${alias}.id=$${startParam}`, params: [] };
-  return { clause: `${alias}.id=$${startParam} AND ${alias}.oddzial_id=$${startParam + 1}`, params: [user.oddzial_id] };
-}
 
 const fakturyListQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),
@@ -45,28 +41,9 @@ router.put('/ustawienia', authMiddleware, requireNieBrygadzista, validateBody(co
   } catch (err) { logger.error('Blad ksiegowosc /ustawienia PUT', { message: err.message, requestId: req.requestId }); res.status(500).json({ error: req.t('errors.http.serverError') }); }
 });
 
-function invoiceYearFromDate(value) {
-  const date = value ? new Date(value) : new Date();
-  return Number.isFinite(date.getTime()) ? date.getFullYear() : new Date().getFullYear();
-}
-
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
-
-const getNumerFaktury = async (client, oddzial_id, data_wystawienia) => {
-  const rok = invoiceYearFromDate(data_wystawienia);
-  await client.query('SELECT pg_advisory_xact_lock($1, $2)', [rok, Number(oddzial_id)]);
-  const result = await client.query(
-    `SELECT COUNT(*) as cnt
-     FROM invoices
-     WHERE EXTRACT(YEAR FROM COALESCE(data_wystawienia, created_at))=$1
-       AND oddzial_id=$2`,
-    [rok, oddzial_id]
-  );
-  const nr = parseInt(result.rows[0].cnt, 10) + 1;
-  return `FV/${rok}/${String(nr).padStart(3,'0')}`;
-};
 
 router.get('/faktury', authMiddleware, requireNieBrygadzista, validateQuery(fakturyListQuerySchema), async (req, res) => {
   try {
@@ -140,7 +117,7 @@ router.post('/faktury', authMiddleware, requireNieBrygadzista, validateBody(invo
     }
     const issueDate = data_wystawienia || todayIsoDate();
     const saleDate = data_sprzedazy || issueDate;
-    const numer = await getNumerFaktury(client, oddzial_id, issueDate);
+    const numer = await allocateInvoiceNumber(client, issueDate);
     let netto=0, vat_kwota=0, brutto=0;
     for (const p of pozycje) {
       const wNetto = parseFloat(p.ilosc)*parseFloat(p.cena_netto);

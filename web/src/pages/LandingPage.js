@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { getReactApiBase } from '../utils/apiBase';
 import './LandingPage.css';
+import BrandLogo from '../components/BrandLogo';
 
 const DEMO_REQUEST_STORAGE_KEY = 'arbor-landing-demo-requests';
 
@@ -216,7 +217,7 @@ export default function LandingPage() {
     <main className="landing-page">
       <header className="landing-nav" aria-label="Polska Flora">
         <a className="landing-brand" href="#top" aria-label="Polska Flora home">
-          <img className="landing-brand-logo" src="/brand/polska-flora-logo.svg" alt="Polska Flora" />
+          <BrandLogo className="landing-brand-logo" alt="Polska Flora" />
         </a>
         <nav>
           <a href="#product">Produkt</a>
@@ -236,7 +237,7 @@ export default function LandingPage() {
         <a className="landing-sr-login" href="#/login">Zaloguj</a>
         <aside className="landing-ops-rail">
           <div className="landing-ops-logo">
-            <img className="landing-ops-logo-img" src="/brand/polska-flora-logo.svg" alt="Polska Flora" />
+            <BrandLogo background="dark" className="landing-ops-logo-img" alt="Polska Flora" />
             <b>«</b>
           </div>
           <div className="landing-ops-branch">

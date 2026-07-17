@@ -1,11 +1,12 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, isDyrektorOrAdmin } = require('../middleware/auth');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const { z } = require('zod');
 
 const router = express.Router();
+const ALL_HOURS_ROLES = new Set(['Prezes', 'Dyrektor', 'Administrator', 'Kierownik']);
 
 const godzinyCreateSchema = z.object({
   task_id: z.coerce.number().int().positive(),
@@ -126,7 +127,10 @@ router.get('/do-potwierdzenia', authMiddleware, validateQuery(godzinyListQuerySc
 
 router.get('/wszystkie', authMiddleware, validateQuery(godzinyListQuerySchema), async (req, res) => {
   try {
-    const isKierownik = req.user.rola === 'Kierownik';
+    if (!ALL_HOURS_ROLES.has(req.user.rola)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+
     const { limit, offset } = req.query;
     let base = `
       FROM godziny_potwierdzenia g
@@ -134,7 +138,7 @@ router.get('/wszystkie', authMiddleware, validateQuery(godzinyListQuerySchema), 
       LEFT JOIN users ph ON g.pomocnik_id = ph.id
       LEFT JOIN users br ON g.brygadzista_id = br.id`;
     const params = [];
-    if (isKierownik) {
+    if (!isDyrektorOrAdmin(req.user)) {
       base += ' WHERE t.oddzial_id=$1';
       params.push(req.user.oddzial_id);
     }

@@ -23,7 +23,7 @@ function loadRateLimitModule(envOverrides = {}, { redisMock, redisStoreMock } = 
   return require('../src/middleware/rate-limit');
 }
 
-describe('login limiter store factory', () => {
+describe('auth limiter store factory', () => {
   afterEach(() => {
     process.env = { ...ORIGINAL_ENV };
     jest.resetModules();
@@ -86,9 +86,50 @@ describe('login limiter store factory', () => {
 
     expect(store).toBeInstanceOf(MockRedisStore);
     expect(createClient).toHaveBeenCalledWith({ url: 'redis://127.0.0.1:6379' });
-    expect(connect).toHaveBeenCalledTimes(2);
+    // Wszystkie limitery auth współdzielą JEDEN klient Redis (jedno połączenie
+    // per proces), niezależnie od liczby sklepów utworzonych przy imporcie modułu.
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(store.options.prefix).toBe('arbor:rl:login:');
 
     await store.options.sendCommand('PING');
     expect(sendCommand).toHaveBeenCalledWith(['PING']);
+  });
+
+  it('uses a separate redis namespace for each password reset limiter', () => {
+    const connect = jest.fn().mockResolvedValue(undefined);
+    const createClient = jest.fn(() => ({
+      isOpen: false,
+      connect,
+      sendCommand: jest.fn(),
+    }));
+
+    class MockRedisStore {
+      constructor(options) {
+        this.options = options;
+      }
+
+      init() {}
+      increment() {}
+      decrement() {}
+      resetKey() {}
+    }
+
+    const { __createAuthLimiterStore } = loadRateLimitModule(
+      {
+        LOGIN_RATE_LIMIT_STORE: 'redis',
+        LOGIN_RATE_LIMIT_REDIS_URL: 'redis://127.0.0.1:6379',
+      },
+      {
+        redisMock: { createClient },
+        redisStoreMock: { default: MockRedisStore },
+      }
+    );
+
+    const forgotStore = __createAuthLimiterStore('forgot-password');
+    const confirmStore = __createAuthLimiterStore('reset-password');
+
+    expect(forgotStore.options.prefix).toBe('arbor:rl:forgot-password:');
+    expect(confirmStore.options.prefix).toBe('arbor:rl:reset-password:');
   });
 });

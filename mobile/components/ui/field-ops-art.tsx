@@ -19,7 +19,7 @@ type FieldOpsCockpitProps = {
 
 export function FieldOpsBackdrop() {
   const { theme } = useTheme();
-  const ink = theme.name === 'dark' ? '#D8FFE8' : '#123326';
+  const ink = theme.text;
   const route = theme.accent;
   const haze = theme.info;
 
@@ -90,9 +90,9 @@ export function FieldOpsHeroImage({ size = 88, variant = 'dispatch', style }: Fi
   const accent = theme.accent;
   const info = theme.info;
   const warning = theme.warning;
-  const ink = theme.name === 'dark' ? '#E9FFF2' : '#10251B';
-  const ground = theme.name === 'dark' ? '#12241D' : '#E8F1EC';
-  const panel = theme.name === 'dark' ? '#07100D' : '#FFFFFF';
+  const ink = theme.text;
+  const ground = theme.surface2;
+  const panel = theme.surface;
 
   return (
     <View style={[styles.heroImage, { width: size, height: size * 0.82 }, style]}>
@@ -132,9 +132,9 @@ export function FieldOpsCockpit({ variant = 'dispatch', style }: FieldOpsCockpit
   const info = theme.info;
   const warning = theme.warning;
   const danger = theme.danger;
-  const ink = theme.name === 'dark' ? '#E9FFF2' : '#10251B';
-  const panel = theme.name === 'dark' ? '#07100D' : '#FFFFFF';
-  const surface = theme.name === 'dark' ? '#0D1B16' : '#EEF5F1';
+  const ink = theme.text;
+  const panel = theme.surface;
+  const surface = theme.surface2;
   const focusTone = variant === 'crew' ? warning : variant === 'inspection' ? accent : info;
 
   return (

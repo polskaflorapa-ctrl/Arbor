@@ -4,6 +4,8 @@ const logger = require('./logger');
 let Sentry = null;
 
 function initSentry() {
+  if (Sentry) return Sentry;
+
   if (env.NODE_ENV !== 'production' && env.NODE_ENV !== 'staging') {
     logger.info('Sentry disabled (not production/staging)');
     return null;
@@ -60,6 +62,24 @@ function getSentry() {
   return Sentry;
 }
 
+function shouldCaptureExpressError(error) {
+  const status = Number(error?.statusCode || error?.status);
+  return !Number.isFinite(status) || status >= 500;
+}
+
+function setupSentryErrorHandler(app, sentry = Sentry) {
+  if (!sentry) return false;
+  if (typeof sentry.setupExpressErrorHandler !== 'function') {
+    logger.warn('Sentry Express error handler unavailable');
+    return false;
+  }
+
+  sentry.setupExpressErrorHandler(app, {
+    shouldHandleError: shouldCaptureExpressError,
+  });
+  return true;
+}
+
 function captureException(error, context = {}) {
   if (!Sentry) return;
   Sentry.withScope((scope) => {
@@ -87,12 +107,18 @@ function setUserContext(user) {
 
 function startTransaction(name, op = 'http.server') {
   if (!Sentry) return { finish: () => {} };
-  return Sentry.startTransaction({ name, op });
+  const span = Sentry.startInactiveSpan({ name, op });
+  return {
+    span,
+    finish: () => span.end(),
+  };
 }
 
 module.exports = {
   initSentry,
   getSentry,
+  setupSentryErrorHandler,
+  shouldCaptureExpressError,
   captureException,
   captureMessage,
   setUserContext,

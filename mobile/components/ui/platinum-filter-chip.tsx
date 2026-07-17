@@ -62,7 +62,7 @@ export function PlatinumFilterChip({ label, active, color, onPress, style }: Pla
           style,
         ]}
       >
-        <Animated.Text style={[styles.label, { color: textColor }]}>{label}</Animated.Text>
+        <Animated.Text style={[styles.label, { color: textColor, fontFamily: theme.fontExtraBold }]}>{label}</Animated.Text>
       </Animated.View>
     </Pressable>
   );
@@ -79,7 +79,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '800',
     letterSpacing: 0,
   },
 });

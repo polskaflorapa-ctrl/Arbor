@@ -666,7 +666,7 @@ export default function Ogledziny() {
   return (
     <div className="app-shell ogledziny-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <CommandSidebar active="orders" />
-      <div className="ogledziny-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh' }}>
+      <div className="app-main command-content-main ogledziny-main ogledziny-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh' }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
         <div className="ogledziny-list-panel" style={{ width: 390, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>

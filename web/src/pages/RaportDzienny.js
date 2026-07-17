@@ -26,6 +26,7 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
+import { localDateKey } from '../utils/localDateKey';
 
 function ymdFromPlan(d) {
   if (!d) return '';
@@ -40,7 +41,7 @@ export default function RaportDzienny() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { message: msg, showMessage: showMsg } = useTimedMessage();
-  const [dataRaportu, setDataRaportu] = useState(() => new Date().toISOString().split('T')[0]);
+  const [dataRaportu, setDataRaportu] = useState(() => localDateKey());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);

@@ -309,9 +309,9 @@ export default function Uzytkownicy() {
   };
   const activeUsers = uzytkownicy.filter((u) => u.aktywny).length;
   const inactiveUsers = Math.max(0, uzytkownicy.length - activeUsers);
-  const fieldRoles = new Set(['Brygadzista', 'Pomocnik', 'Pomocnik bez doĹ›wiadczenia', 'Pomocnik bez doswiadczenia', 'WyceniajÄ…cy', 'Wyceniajacy', 'Specjalista', 'Magazynier']);
+  const fieldRoles = new Set(['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Pomocnik bez doswiadczenia', 'Wyceniający', 'Wyceniajacy', 'Specjalista', 'Magazynier']);
   const fieldUsers = uzytkownicy.filter((u) => fieldRoles.has(u.rola)).length;
-  const adminUsers = uzytkownicy.filter((u) => ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyrektor SprzedaĹĽy', 'Dyrektor Sprzedazy'].includes(u.rola)).length;
+  const adminUsers = uzytkownicy.filter((u) => ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyrektor Sprzedaży', 'Dyrektor Sprzedazy'].includes(u.rola)).length;
   const coveredBranches = new Set(uzytkownicy.map((u) => u.oddzial_id || u.oddzial_nazwa).filter(Boolean)).size;
  
   return (

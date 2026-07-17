@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Fira+Sans:wght@400;500;600;700;800&display=swap');
-
 :root {
   --ux-bg: #020617;
   --ux-bg-2: #07111f;
@@ -7376,5 +7374,1495 @@ body.theme-dark #root .arbor-sidebar {
   #root .notifications-main > .module-page-header-plain h1,
   #root .notifications-main > .module-page-header-hero h1 {
     font-size: 24px !important;
+  }
+}
+
+/* Arbor OS reference pass: dashboard rebuilt from the supplied exported HTML direction. */
+#root .arbor-os-shell {
+  --arbor-brown: #2c2011;
+  --arbor-brown-2: #3b2a18;
+  --arbor-ink: #2c2011;
+  --arbor-muted: #8a8069;
+  --arbor-soft: #f0ebdd;
+  --arbor-paper: #faf8f1;
+  --arbor-panel: #fffdf8;
+  --arbor-line: #e6ddc9;
+  --arbor-green: #a0af14;
+  --arbor-green-2: #7f8c12;
+  --arbor-orange: #bd701e;
+  --arbor-red: #c0492f;
+  --arbor-shadow: 0 18px 42px rgba(44, 32, 17, 0.09);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 98% 0%, rgba(160, 175, 20, 0.12), transparent 28%),
+    linear-gradient(90deg, rgba(44, 32, 17, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(44, 32, 17, 0.025) 1px, transparent 1px),
+    linear-gradient(180deg, #faf8f1 0%, #f0ebdd 100%);
+  background-size: auto, 54px 54px, 54px 54px, auto;
+  color: var(--arbor-ink);
+  font-family: "Road UA", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#root .arbor-os-shell * {
+  box-sizing: border-box;
+  letter-spacing: 0;
+}
+
+#root .arbor-os-compat-copy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+#root .arbor-os-shell .command-native-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 40;
+  width: 248px;
+  height: 100vh;
+  padding: 20px 14px;
+  overflow-y: auto;
+  background: var(--arbor-brown);
+  color: #efe9da;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+#root .arbor-os-shell .command-native-sidebar button {
+  font-family: inherit;
+}
+
+#root .arbor-os-shell .command-native-brand {
+  min-height: 62px;
+  padding: 0 0 16px;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(236, 230, 215, 0.12);
+  background: transparent;
+  color: #fff;
+}
+
+#root .arbor-os-shell .command-native-brand > span,
+#root .arbor-os-shell .command-native-user > span {
+  width: 45px;
+  height: 45px;
+  border-radius: 8px;
+  background: var(--arbor-green);
+  color: var(--arbor-brown);
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+#root .arbor-os-shell .command-native-brand strong {
+  color: #fff;
+  font-size: 17px !important;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+#root .arbor-os-shell .command-native-brand small {
+  color: var(--arbor-green) !important;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+#root .arbor-os-shell .command-native-session {
+  display: none;
+}
+
+#root .arbor-os-shell .command-native-nav {
+  padding: 14px 0;
+  gap: 8px;
+}
+
+#root .arbor-os-shell .command-native-nav-group {
+  margin: 0;
+}
+
+#root .arbor-os-shell .command-native-nav-group > small {
+  display: none;
+}
+
+#root .arbor-os-shell .command-native-nav button {
+  min-height: 45px;
+  margin: 0 0 5px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: rgba(250, 248, 241, 0.78);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+#root .arbor-os-shell .command-native-nav button span {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: transparent;
+  border: 1.7px solid currentColor;
+  opacity: 0.85;
+}
+
+#root .arbor-os-shell .command-native-nav button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+#root .arbor-os-shell .command-native-nav button.is-active {
+  background: var(--arbor-green);
+  color: var(--arbor-brown);
+  box-shadow: none;
+}
+
+#root .arbor-os-shell .command-native-actions {
+  margin-top: auto;
+  padding: 14px;
+  border: 1px solid rgba(236, 230, 215, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#root .arbor-os-shell .command-native-actions > span {
+  color: rgba(250, 248, 241, 0.62);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+#root .arbor-os-shell .command-native-actions button {
+  min-height: 34px;
+  padding: 0;
+  color: rgba(250, 248, 241, 0.82);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+#root .arbor-os-shell .command-native-actions button::before {
+  background: var(--arbor-green);
+}
+
+#root .arbor-os-shell .command-native-system {
+  min-height: 86px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(236, 230, 215, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+#root .arbor-os-shell .command-native-system strong,
+#root .arbor-os-shell .command-native-user strong {
+  color: #fff;
+}
+
+#root .arbor-os-shell .command-native-system small,
+#root .arbor-os-shell .command-native-user small {
+  color: rgba(250, 248, 241, 0.62);
+}
+
+#root .arbor-os-shell .command-native-user {
+  min-height: 55px;
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+#root .arbor-os-main {
+  min-height: 100vh;
+  margin-left: 248px;
+  padding: 18px 28px 48px;
+  color: var(--arbor-ink);
+}
+
+#root .arbor-os-topbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto minmax(220px, 280px) auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  margin-bottom: 34px;
+}
+
+#root .arbor-os-title span {
+  display: block;
+  color: #5d6a0b;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+#root .arbor-os-title h1 {
+  margin: 3px 0 0;
+  color: var(--arbor-ink);
+  font-size: clamp(25px, 2.2vw, 34px);
+  line-height: 1;
+  font-weight: 900;
+}
+
+#root .arbor-os-view-toggle,
+#root .arbor-os-segments,
+#root .arbor-os-search,
+#root .arbor-os-icon-button,
+#root .arbor-os-primary-button,
+#root .arbor-os-range-row > div {
+  border: 1px solid var(--arbor-line);
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.76);
+  box-shadow: 0 10px 24px rgba(44, 32, 17, 0.05);
+}
+
+#root .arbor-os-view-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 18px);
+  gap: 9px;
+  padding: 7px;
+}
+
+#root .arbor-os-view-toggle span {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: #8a8069;
+}
+
+#root .arbor-os-view-toggle span.is-active {
+  background: var(--arbor-green);
+  outline: 3px solid var(--arbor-brown);
+  outline-offset: 2px;
+}
+
+#root .arbor-os-segments,
+#root .arbor-os-range-row > div {
+  display: inline-flex;
+  padding: 4px;
+  gap: 2px;
+}
+
+#root .arbor-os-segments button,
+#root .arbor-os-range-row button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #7a7059;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+#root .arbor-os-segments button.is-active,
+#root .arbor-os-range-row button.is-active {
+  background: var(--arbor-brown);
+  color: #fff;
+}
+
+#root .arbor-os-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+  color: #8a8069;
+}
+
+#root .arbor-os-search input {
+  min-width: 0;
+  width: 100%;
+  min-height: 34px;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--arbor-ink) !important;
+  box-shadow: none !important;
+  font: inherit;
+  font-weight: 700;
+}
+
+#root .arbor-os-search kbd {
+  min-width: 30px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: rgba(44, 32, 17, 0.08);
+  color: #8a8069;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 900;
+  text-align: center;
+}
+
+#root .arbor-os-icon-button,
+#root .arbor-os-primary-button,
+#root .arbor-os-panel-head button {
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--arbor-line);
+  font-family: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+#root .arbor-os-icon-button {
+  position: relative;
+  width: 46px;
+  background: rgba(255, 253, 248, 0.8);
+  color: var(--arbor-brown);
+}
+
+#root .arbor-os-icon-button span {
+  position: absolute;
+  right: -6px;
+  top: -8px;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--arbor-red);
+  color: #fff;
+  font-size: 11px;
+}
+
+#root .arbor-os-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 18px;
+  border: 0;
+  background: var(--arbor-green);
+  color: var(--arbor-brown);
+  box-shadow: 0 14px 26px rgba(160, 175, 20, 0.24);
+}
+
+#root .arbor-os-primary-button span {
+  font-size: 22px;
+  line-height: 1;
+}
+
+#root .arbor-os-range-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 34px;
+}
+
+#root .arbor-os-range-row p {
+  margin: 0;
+  color: #8a8069;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+#root .arbor-os-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+#root .arbor-os-kpi-card {
+  min-height: 122px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid rgba(230, 221, 201, 0.7);
+  border-radius: 18px;
+  background: rgba(255, 253, 248, 0.32);
+  color: var(--arbor-ink);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  opacity: 0.78;
+}
+
+#root .arbor-os-kpi-card span {
+  color: #8a8069;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+#root .arbor-os-kpi-card strong {
+  color: var(--arbor-ink);
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+#root .arbor-os-kpi-card small {
+  color: #a89f8c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+#root .arbor-os-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+#root .arbor-os-panel {
+  border: 1px solid var(--arbor-line);
+  border-radius: 18px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: var(--arbor-shadow);
+  overflow: hidden;
+}
+
+#root .arbor-os-queue-panel,
+#root .arbor-os-field-panel,
+#root .arbor-os-ops-panel {
+  grid-column: auto;
+}
+
+#root .arbor-os-panel-head {
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--arbor-line);
+}
+
+#root .arbor-os-panel-head.compact {
+  min-height: 58px;
+}
+
+#root .arbor-os-panel-head h2 {
+  margin: 0;
+  color: var(--arbor-ink);
+  font-size: 20px;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+#root .arbor-os-panel-head p {
+  margin: 4px 0 0;
+  color: #8a8069;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+#root .arbor-os-panel-head button {
+  padding: 0 14px;
+  background: #f1f3d6;
+  color: #5d6a0b;
+}
+
+#root .arbor-os-queue-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+#root .arbor-os-queue-column {
+  min-height: 136px;
+  padding: 14px;
+  border: 1px solid var(--arbor-line);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.72);
+}
+
+#root .arbor-os-queue-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #5a5040;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+#root .arbor-os-queue-column-head strong {
+  min-width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #f1f3d6;
+  color: #5d6a0b;
+  font-size: 12px;
+}
+
+#root .arbor-os-queue-items {
+  display: grid;
+  gap: 8px;
+}
+
+#root .arbor-os-queue-card {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding: 13px;
+  border: 1px solid #e9dfca;
+  border-radius: 12px;
+  background: #fbfaf6;
+  color: var(--arbor-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+#root .arbor-os-queue-title {
+  grid-column: 1 / 2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--arbor-ink);
+  font-size: 15px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#root .arbor-os-queue-card small {
+  grid-column: 1 / 2;
+  color: #8a8069;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#root .arbor-os-queue-card em {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  color: #a89f8c;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+#root .arbor-os-side-stack {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+#root .arbor-os-risk-list,
+#root .arbor-os-team-list,
+#root .arbor-os-readiness-list,
+#root .arbor-os-money-grid,
+#root .arbor-os-service-list,
+#root .arbor-os-ops-grid {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+#root .arbor-os-risk-list button {
+  min-height: 90px;
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #efcfbd;
+  border-radius: 14px;
+  background: #fae7d2;
+  color: #995510;
+  text-align: left;
+  cursor: pointer;
+}
+
+#root .arbor-os-risk-list button[data-tone='danger'] {
+  border-color: #ecc7bf;
+  background: #f8e1d9;
+  color: #a13b28;
+}
+
+#root .arbor-os-risk-list button[data-tone='good'] {
+  border-color: #dce5a8;
+  background: #f1f3d6;
+  color: #5d6a0b;
+}
+
+#root .arbor-os-risk-list button strong {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+#root .arbor-os-risk-list button span {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  opacity: 0.76;
+}
+
+#root .arbor-os-team-list button {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-bottom: 1px solid var(--arbor-line);
+  background: transparent;
+  color: var(--arbor-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+#root .arbor-os-team-list button span {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+}
+
+#root .arbor-os-team-list i {
+  width: 9px;
+  height: 9px;
+  grid-row: 1 / 3;
+  border-radius: 50%;
+  background: #c7bda3;
+}
+
+#root .arbor-os-team-list i.is-active {
+  background: var(--arbor-green-2);
+}
+
+#root .arbor-os-team-list strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#root .arbor-os-team-list small {
+  color: #8a8069;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#root .arbor-os-team-list b {
+  color: #7a7059;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+#root .arbor-os-field-panel {
+  margin-bottom: 18px;
+}
+
+#root .arbor-os-field-table {
+  display: grid;
+}
+
+#root .arbor-os-field-table button {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 10px minmax(180px, 1.2fr) minmax(150px, 0.9fr) minmax(120px, 0.7fr) 90px 120px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  border: 0;
+  border-bottom: 1px solid var(--arbor-line);
+  background: #fbfaf6 !important;
+  color: var(--arbor-ink) !important;
+  text-align: left;
+  cursor: pointer;
+}
+
+#root .arbor-os-field-table button:hover,
+#root .arbor-os-queue-card:hover,
+#root .arbor-os-kpi-card:hover,
+#root .arbor-os-money-grid button:hover,
+#root .arbor-os-readiness-list button:hover,
+#root .arbor-os-ops-grid > div:hover {
+  transform: translateY(-2px);
+  border-color: rgba(160, 175, 20, 0.44);
+  box-shadow: 0 18px 34px rgba(44, 32, 17, 0.1);
+}
+
+#root .arbor-os-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--arbor-orange);
+}
+
+#root .arbor-os-field-table strong {
+  color: var(--arbor-ink) !important;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+#root .arbor-os-field-table small,
+#root .arbor-os-field-table span,
+#root .arbor-os-field-table em {
+  color: #8a8069;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+#root .arbor-os-field-table b {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+#root .arbor-os-field-table em {
+  color: #5d6a0b !important;
+  justify-self: end;
+  min-height: 25px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: #f1f3d6;
+  color: #5d6a0b;
+}
+
+#root .arbor-os-analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr) minmax(280px, 0.72fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+#root .arbor-os-score {
+  color: var(--arbor-green-2);
+  font-size: 24px;
+  font-weight: 900;
+}
+
+#root .arbor-os-progress,
+#root .arbor-os-service-list div div,
+#root .arbor-os-ops-grid > div div {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #efe9da;
+}
+
+#root .arbor-os-progress {
+  margin: 0 18px 8px;
+}
+
+#root .arbor-os-progress span,
+#root .arbor-os-service-list i,
+#root .arbor-os-ops-grid i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--arbor-green);
+}
+
+#root .arbor-os-readiness-list button,
+#root .arbor-os-money-grid button {
+  min-height: 68px;
+  display: grid;
+  gap: 4px;
+  padding: 13px;
+  border: 1px solid var(--arbor-line);
+  border-radius: 12px;
+  background: #fbfaf6;
+  color: var(--arbor-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+#root .arbor-os-readiness-list button {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+#root .arbor-os-readiness-list button > span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+#root .arbor-os-readiness-list button > span > strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--arbor-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#root .arbor-os-readiness-list b {
+  color: #5d6a0b;
+  font-size: 16px;
+}
+
+#root .arbor-os-blocker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+#root .arbor-os-blocker-chips small {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #f0ebdd;
+}
+
+#root .arbor-os-money-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#root .arbor-os-money-preview {
+  display: grid;
+  gap: 8px;
+}
+
+#root .arbor-os-money-preview button {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--arbor-line);
+  border-radius: 12px;
+  background: #fbfaf6;
+  color: var(--arbor-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+#root .arbor-os-money-grid button strong {
+  color: var(--arbor-ink);
+  font-size: 32px;
+  line-height: 1;
+}
+
+#root .arbor-os-money-grid button span,
+#root .arbor-os-money-preview span,
+#root .arbor-os-readiness-list small,
+#root .arbor-os-money-grid small,
+#root .arbor-os-money-preview small {
+  color: #8a8069;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+#root .arbor-os-money-preview strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#root .arbor-os-service-list > div {
+  display: grid;
+  grid-template-columns: 125px minmax(0, 1fr) 32px;
+  gap: 10px;
+  align-items: center;
+  color: #5a5040;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+#root .arbor-os-ops-panel {
+  margin-bottom: 18px;
+}
+
+#root .arbor-os-ops-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+#root .arbor-os-ops-grid > div {
+  min-height: 108px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--arbor-line);
+  border-radius: 14px;
+  background: #fbfaf6;
+  color: var(--arbor-ink);
+}
+
+#root .arbor-os-ops-grid span {
+  color: #8a8069;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+#root .arbor-os-ops-grid strong {
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+#root .arbor-os-ops-grid small {
+  color: #8a8069;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+#root .arbor-os-empty-mini,
+#root .arbor-os-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 76px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #fbfaf6;
+  color: #8a8069;
+  font-weight: 850;
+  text-align: center;
+}
+
+#root .arbor-os-empty-state {
+  min-height: 160px;
+  gap: 6px;
+}
+
+#root .arbor-os-empty-state strong {
+  color: var(--arbor-ink);
+  font-size: 18px;
+}
+
+#root .arbor-os-skeleton-row {
+  height: 78px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #f0ebdd 0%, #fbfaf6 42%, #f0ebdd 84%);
+  background-size: 220% 100%;
+  animation: arborOsShimmer 1.25s linear infinite;
+}
+
+#root .arbor-os-skeleton-row.wide {
+  height: 58px;
+  margin: 0 18px 10px;
+}
+
+#root .arbor-os-shell :is(button, input):focus-visible {
+  outline: 3px solid rgba(160, 175, 20, 0.4);
+  outline-offset: 2px;
+}
+
+#root .arbor-os-shell button,
+#root .arbor-os-shell .arbor-os-ops-grid > div {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+@keyframes arborOsShimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+@media (max-width: 1280px) {
+  #root .arbor-os-topbar,
+  #root .arbor-os-board,
+  #root .arbor-os-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #root .arbor-os-topbar {
+    align-items: stretch;
+  }
+
+  #root .arbor-os-segments,
+  #root .arbor-os-range-row > div {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  #root .arbor-os-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  #root .arbor-os-shell .command-native-sidebar {
+    width: 60px;
+    padding: 12px 8px;
+  }
+
+  #root .arbor-os-shell .command-native-brand,
+  #root .arbor-os-shell .command-native-user,
+  #root .arbor-os-shell .command-native-system {
+    justify-content: center;
+  }
+
+  #root .arbor-os-shell .command-native-brand div,
+  #root .arbor-os-shell .command-native-user div,
+  #root .arbor-os-shell .command-native-system,
+  #root .arbor-os-shell .command-native-actions,
+  #root .arbor-os-shell .command-native-nav button:not(.is-active) {
+    display: none;
+  }
+
+  #root .arbor-os-shell .command-native-nav button {
+    justify-content: center;
+    padding: 0;
+  }
+
+  #root .arbor-os-main {
+    margin-left: 60px;
+    padding: 14px 12px 34px;
+  }
+
+  #root .arbor-os-range-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #root .arbor-os-kpis,
+  #root .arbor-os-queue-grid,
+  #root .arbor-os-money-grid,
+  #root .arbor-os-ops-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #root .arbor-os-field-table button {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    min-height: 82px;
+    padding: 12px;
+  }
+
+  #root .arbor-os-field-table button small,
+  #root .arbor-os-field-table button > span:nth-of-type(2),
+  #root .arbor-os-field-table b {
+    grid-column: 2 / 3;
+  }
+
+  #root .arbor-os-field-table em {
+    grid-column: 3 / 4;
+    grid-row: 1 / 2;
+  }
+}
+
+@media (max-width: 560px) {
+  #root .arbor-os-title h1 {
+    font-size: 28px;
+  }
+
+  #root .arbor-os-topbar {
+    gap: 8px;
+  }
+
+  #root .arbor-os-view-toggle {
+    width: max-content;
+  }
+
+  #root .arbor-os-panel-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #root .arbor-os-panel-head button,
+  #root .arbor-os-primary-button,
+  #root .arbor-os-icon-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root .arbor-os-shell *,
+  #root .arbor-os-skeleton-row {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Arbor OS all-modules pass: shared production skin for every authenticated module. */
+#root {
+  --arbor-app-brown: #2c2011;
+  --arbor-app-brown-2: #3b2a18;
+  --arbor-app-ink: #2c2011;
+  --arbor-app-muted: #8a8069;
+  --arbor-app-paper: #faf8f1;
+  --arbor-app-soft: #f0ebdd;
+  --arbor-app-panel: #fffdf8;
+  --arbor-app-card: #fbfaf6;
+  --arbor-app-line: #e6ddc9;
+  --arbor-app-green: #a0af14;
+  --arbor-app-green-2: #7f8c12;
+  --arbor-app-orange: #bd701e;
+  --arbor-app-red: #c0492f;
+  --arbor-app-shadow: 0 18px 42px rgba(44, 32, 17, 0.09);
+}
+
+body:not(.theme-dark) {
+  background: var(--arbor-app-paper) !important;
+}
+
+#root .command-native-logo-frame,
+#root .pf-sidebar-logo-mark {
+  width: 58px !important;
+  min-width: 58px !important;
+  height: 42px !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(230, 221, 201, 0.8) !important;
+  border-radius: 12px !important;
+  background: #faf8f1 !important;
+  color: var(--arbor-app-brown) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+#root .command-native-logo-frame img,
+#root .pf-sidebar-logo-mark img {
+  width: 50px !important;
+  height: auto !important;
+  max-width: 50px !important;
+  max-height: 32px !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+#root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell) {
+  min-height: 100vh !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(160, 175, 20, 0.12), transparent 30%),
+    linear-gradient(90deg, rgba(44, 32, 17, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(44, 32, 17, 0.025) 1px, transparent 1px),
+    linear-gradient(180deg, #faf8f1 0%, #f0ebdd 100%) !important;
+  background-size: auto, 54px 54px, 54px 54px, auto !important;
+  color: var(--arbor-app-ink) !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+#root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar)) {
+  display: block !important;
+}
+
+#root :is(.app-shell, [class*='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar)) {
+  display: block !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) {
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  z-index: 80 !important;
+  width: 252px !important;
+  height: 100vh !important;
+  padding: 20px 14px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: var(--arbor-app-brown) !important;
+  color: #efe9da !important;
+  box-shadow: none !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(160, 175, 20, 0.5) rgba(255, 255, 255, 0.04);
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) * {
+  letter-spacing: 0 !important;
+}
+
+#root .pf-sidebar [style],
+#root .command-native-sidebar [style] {
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button']) {
+  border-radius: 8px !important;
+  color: rgba(250, 248, 241, 0.78) !important;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button']):hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button'], .ios-inset-row)[aria-current='page'],
+#root :is(.pf-sidebar, .command-native-sidebar) :is(button, [role='button']).is-active {
+  background: var(--arbor-app-green) !important;
+  color: var(--arbor-app-brown) !important;
+  box-shadow: none !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(svg, path, rect, circle, line, polyline, polygon) {
+  filter: none !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(strong, b),
+#root :is(.pf-sidebar, .command-native-sidebar) [style*='color: #ffffff'] {
+  color: #ffffff !important;
+}
+
+#root :is(.pf-sidebar, .command-native-sidebar) :is(small, .ios-section-title),
+#root :is(.pf-sidebar, .command-native-sidebar) [style*='uppercase'] {
+  color: rgba(250, 248, 241, 0.62) !important;
+}
+
+#root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+  > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar) {
+  min-height: 100vh !important;
+  margin-left: 252px !important;
+  padding: 22px 28px 48px !important;
+  color: var(--arbor-app-ink) !important;
+  background: transparent !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+#root :is(.app-shell, [class*='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+  > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar) {
+  min-height: 100vh !important;
+  margin-left: 252px !important;
+  padding: 22px 28px 48px !important;
+  color: var(--arbor-app-ink) !important;
+  background: transparent !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+#root > [class*='-shell']:not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell)
+  > :is([class*='-main'], main):not(.pf-sidebar):not(.command-native-sidebar) {
+  min-height: 100vh !important;
+  margin-left: 252px !important;
+  padding: 22px 28px 48px !important;
+  color: var(--arbor-app-ink) !important;
+  background: transparent !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+#root .ogledziny-main {
+  padding: 0 !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+
+#root .explore-command-shell > .explore-command-main {
+  margin-left: 252px !important;
+}
+
+#root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+  > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar)::before {
+  display: none !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main),
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main) * {
+  letter-spacing: 0 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.module-page-header, .module-page-header-plain, .module-page-header-hero, [class*='topbar'], [class*='header']):not(.MuiTableCell-root) {
+  border-color: var(--arbor-app-line) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(h1, h2, h3, h4, .MuiTypography-h1, .MuiTypography-h2, .MuiTypography-h3) {
+  color: var(--arbor-app-ink) !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(p, small, label, .MuiTypography-body2, .MuiFormHelperText-root) {
+  color: var(--arbor-app-muted) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card'], [class*='box'], [class*='Box']):not(.arbor-sidebar):not(.pf-sidebar):not(.command-native-sidebar):not(.route-loading-card) {
+  border: 1px solid var(--arbor-app-line) !important;
+  border-radius: 14px !important;
+  background: rgba(255, 253, 248, 0.94) !important;
+  color: var(--arbor-app-ink) !important;
+  box-shadow: var(--arbor-app-shadow) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.modern-data-row, .ios-inset-row, .MuiTableRow-root, [class*='row'], [class*='Row']):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *) {
+  border-color: var(--arbor-app-line) !important;
+  background: #fbfaf6 !important;
+  color: var(--arbor-app-ink) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.modern-data-row:hover, .ios-inset-row:hover, .MuiTableRow-root:hover, [class*='row']:hover, [class*='Row']:hover):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *) {
+  background: #f6f1e5 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is([class*='command-strip'], [class*='CommandStrip'], [class*='hero'], [class*='Hero']) {
+  border: 1px solid var(--arbor-app-line) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 253, 248, 0.94) !important;
+  color: var(--arbor-app-ink) !important;
+  box-shadow: var(--arbor-app-shadow) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is([class*='command-card'], [class*='CommandCard'], [class*='kpi'], [class*='Kpi'], [class*='metric'], [class*='Metric']) {
+  border-color: var(--arbor-app-line) !important;
+  background: #fbfaf6 !important;
+  color: var(--arbor-app-ink) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(button, .MuiButton-root, a[role='button']):not(.MuiIconButton-root):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *) {
+  min-height: 38px;
+  border-radius: 10px !important;
+  border-color: var(--arbor-app-line) !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
+  font-weight: 850 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(button, .MuiButton-root, a[role='button']):not(.MuiIconButton-root):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *):hover {
+  transform: translateY(-1px);
+  border-color: rgba(160, 175, 20, 0.44) !important;
+  box-shadow: 0 14px 28px rgba(44, 32, 17, 0.1) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(input, select, textarea, .MuiInputBase-root, .MuiSelect-select) {
+  border-color: var(--arbor-app-line) !important;
+  border-radius: 10px !important;
+  background: #fffdf8 !important;
+  color: var(--arbor-app-ink) !important;
+  font-family: "Road UA", ui-sans-serif, system-ui, sans-serif !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(input, select, textarea, button, a, .MuiButton-root, .MuiInputBase-root):focus-visible {
+  outline: 3px solid rgba(160, 175, 20, 0.4) !important;
+  outline-offset: 2px !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main) table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  color: var(--arbor-app-ink) !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main) th {
+  background: #f0ebdd !important;
+  color: #5a5040 !important;
+  font-weight: 900 !important;
+}
+
+#root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+  :is(.modern-data-empty, [class*='empty'], [class*='Empty'], [class*='loading'], [class*='Loading']) {
+  border-color: var(--arbor-app-line) !important;
+  background: #fbfaf6 !important;
+  color: var(--arbor-app-muted) !important;
+}
+
+#root .AiChat,
+#root [class*='ai-chat'],
+#root [class*='chat'] {
+  z-index: 95;
+}
+
+@media (max-width: 900px) {
+  #root :is(.pf-sidebar, .command-native-sidebar) {
+    width: 60px !important;
+    padding: 12px 8px !important;
+  }
+
+  #root :is(.pf-sidebar, .command-native-sidebar) :is(.command-native-brand, [style*='logo']) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    margin: 0 auto 14px !important;
+    overflow: visible !important;
+  }
+
+  #root :is(.pf-sidebar, .command-native-sidebar) :is(.command-native-logo-frame, .pf-sidebar-logo-mark) {
+    display: grid !important;
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+    padding: 0 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow: hidden !important;
+  }
+
+  #root :is(.pf-sidebar, .command-native-sidebar) :is(.command-native-logo-frame img, .pf-sidebar-logo-mark img) {
+    display: block !important;
+    width: 34px !important;
+    max-width: 34px !important;
+    min-width: 34px !important;
+    max-height: 34px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    object-fit: contain !important;
+  }
+
+  #root :is(.pf-sidebar, .command-native-sidebar) :is(.command-native-brand div, .command-native-session, .command-native-actions, .command-native-system, .command-native-user div),
+  #root .pf-sidebar :is(nav span:not(:first-child), [style*='logoName'], [style*='logoSub']) {
+    display: none !important;
+  }
+
+  #root .pf-sidebar > div:first-child {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    margin: 0 auto 14px !important;
+    overflow: visible !important;
+  }
+
+  #root .pf-sidebar > div:first-child > div:not(.pf-sidebar-logo-mark) {
+    display: none !important;
+  }
+
+  #root :is(.app-shell, [class$='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+    > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar) {
+    margin-left: 60px !important;
+    padding: 14px 12px 34px !important;
+  }
+
+  #root :is(.app-shell, [class*='-shell']):not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell):has(> :is(.pf-sidebar, .command-native-sidebar))
+    > :is(.app-main, .command-content-main, main, div[class*='-main']):not(.pf-sidebar):not(.command-native-sidebar) {
+    margin-left: 60px !important;
+    padding: 14px 12px 34px !important;
+  }
+
+  #root > [class*='-shell']:not(.login-shell):not(.explore-command-shell):not(.landing-shell):not(.arbor-os-shell):not(.client-portal-shell)
+    > :is([class*='-main'], main):not(.pf-sidebar):not(.command-native-sidebar) {
+    margin-left: 60px !important;
+    padding: 14px 12px 34px !important;
+  }
+
+  #root .ogledziny-main {
+    padding: 0 !important;
+  }
+
+  #root .explore-command-shell > .explore-command-main {
+    margin-left: 60px !important;
+  }
+
+  #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
+    :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card']) {
+    border-radius: 12px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root :is(.app-main, .command-content-main, .pf-sidebar, .command-native-sidebar) *,
+  #root :is(.app-main, .command-content-main, .pf-sidebar, .command-native-sidebar) *::before,
+  #root :is(.app-main, .command-content-main, .pf-sidebar, .command-native-sidebar) *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

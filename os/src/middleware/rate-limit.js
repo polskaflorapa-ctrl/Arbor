@@ -116,7 +116,29 @@ const webhookLimiter = rateLimit({
   },
 });
 
-function createLoginLimiterStore() {
+// Jeden wspólny klient Redis dla WSZYSTKICH limiterów auth (login, forgot-password,
+// reset-password) — sklepy różnią się tylko prefiksem kluczy. Osobny klient per sklep
+// niepotrzebnie mnożyłby połączenia (istotne przy limitach połączeń i wielu workerach).
+let sharedAuthRedis = null;
+
+function getSharedAuthRedis() {
+  if (sharedAuthRedis) return sharedAuthRedis;
+  const { createClient } = require('redis');
+  const client = createClient({ url: env.LOGIN_RATE_LIMIT_REDIS_URL });
+
+  let ready = Promise.resolve();
+  if (typeof client.connect === 'function' && !client.isOpen) {
+    ready = client.connect().catch((error) => {
+      const detail = error && error.message ? error.message : String(error);
+      console.warn(`[rate-limit] Failed to connect auth limiter Redis client: ${detail}`);
+    });
+  }
+
+  sharedAuthRedis = { client, ready };
+  return sharedAuthRedis;
+}
+
+function createAuthLimiterStore(prefix = 'login') {
   if (env.LOGIN_RATE_LIMIT_STORE !== 'redis') {
     return new rateLimit.MemoryStore();
   }
@@ -129,21 +151,12 @@ function createLoginLimiterStore() {
   }
 
   try {
-    const { createClient } = require('redis');
     const redisStorePackage = require('rate-limit-redis');
     const RedisStore = resolveRedisStoreConstructor(redisStorePackage);
-    const client = createClient({ url: env.LOGIN_RATE_LIMIT_REDIS_URL });
-
-    let ready = Promise.resolve();
-    if (typeof client.connect === 'function' && !client.isOpen) {
-      ready = client.connect().catch((error) => {
-        const detail = error && error.message ? error.message : String(error);
-        console.warn(`[rate-limit] Failed to connect login limiter Redis client: ${detail}`);
-      });
-    }
+    const { client, ready } = getSharedAuthRedis();
 
     return new RedisStore({
-      prefix: 'arbor:rl:login:',
+      prefix: `arbor:rl:${prefix}:`,
       sendCommand: async (...command) => {
         await ready;
         return client.sendCommand(command);
@@ -155,6 +168,8 @@ function createLoginLimiterStore() {
     return new rateLimit.MemoryStore();
   }
 }
+
+const createLoginLimiterStore = () => createAuthLimiterStore('login');
 
 /**
  * Limit logowania - 10 prob / 15 min / IP.
@@ -179,6 +194,45 @@ const loginLimiter = rateLimit({
   },
 });
 
+const PASSWORD_RESET_REQUEST_WINDOW_MS = 15 * 60 * 1000;
+const PASSWORD_RESET_REQUEST_MAX_ATTEMPTS = 5;
+const PASSWORD_RESET_CONFIRM_WINDOW_MS = 15 * 60 * 1000;
+const PASSWORD_RESET_CONFIRM_MAX_ATTEMPTS = 10;
+
+const passwordResetLimitHandler = (req, res) => {
+  res.status(429).json({
+    error: 'Za duzo prob resetu hasla. Sprobuj ponownie pozniej.',
+    code: RATE_LIMIT_EXCEEDED,
+    requestId: req.requestId,
+  });
+};
+
+/**
+ * Osobne buckety ograniczaja zarowno wysylke wiadomosci resetujacych, jak i
+ * zgadywanie tokenow. Korzystaja z tej samej konfiguracji Redis co logowanie.
+ */
+const forgotPasswordLimiterStore = createAuthLimiterStore('forgot-password');
+const forgotPasswordLimiter = rateLimit({
+  windowMs: PASSWORD_RESET_REQUEST_WINDOW_MS,
+  max: PASSWORD_RESET_REQUEST_MAX_ATTEMPTS,
+  store: forgotPasswordLimiterStore,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => String(process.env.RATE_LIMIT_DISABLED || '').toLowerCase() === 'true',
+  handler: passwordResetLimitHandler,
+});
+
+const resetPasswordLimiterStore = createAuthLimiterStore('reset-password');
+const resetPasswordLimiter = rateLimit({
+  windowMs: PASSWORD_RESET_CONFIRM_WINDOW_MS,
+  max: PASSWORD_RESET_CONFIRM_MAX_ATTEMPTS,
+  store: resetPasswordLimiterStore,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => String(process.env.RATE_LIMIT_DISABLED || '').toLowerCase() === 'true',
+  handler: passwordResetLimitHandler,
+});
+
 /**
  * Reset limitera dla testow.
  * Przy RedisStore resetAll moze byc niedostepne, dlatego bezpieczny fallback.
@@ -189,11 +243,23 @@ const resetLoginLimiterForTests = () => {
   return loginLimiterStore.resetAll();
 };
 
+const resetPasswordResetLimitersForTests = () => {
+  if (env.NODE_ENV !== 'test') return undefined;
+  for (const store of [forgotPasswordLimiterStore, resetPasswordLimiterStore]) {
+    if (typeof store.resetAll === 'function') store.resetAll();
+  }
+  return undefined;
+};
+
 module.exports = {
   costlyApiLimiter,
+  forgotPasswordLimiter,
   loginLimiter,
   publicTokenLimiter,
   resetLoginLimiterForTests,
+  resetPasswordLimiter,
+  resetPasswordResetLimitersForTests,
   webhookLimiter,
+  __createAuthLimiterStore: createAuthLimiterStore,
   __createLoginLimiterStore: createLoginLimiterStore,
 };

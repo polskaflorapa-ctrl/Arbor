@@ -18,6 +18,7 @@ const requiredFiles = [
   "web/src/App.js",
   "web/src/components/ProtectedRoute.js",
   "web/src/utils/permissions.js",
+  "web/src/utils/routeAccess.js",
 ];
 
 const requiredScripts = {
@@ -60,9 +61,10 @@ const codeNeedles = {
   "os/src/routes/audit.js": ["requireRole('Prezes', 'Dyrektor', 'Administrator', 'Kierownik')", "listAuditLogs"],
   "os/src/routes/uzytkownicy.js": ["canCreateUserWithRole", "canManageTargetUser", "HIGH_PRIVILEGE_ROLES", "oddzial_id"],
   "os/src/routes/dispatch.js": ["scopedOddzialId", "canDispatch", "oddzial_id"],
-  "web/src/App.js": ["const ADMIN", "const MGMT", "const FINANCE", "ProtectedRoute roles={ADMIN}", "ProtectedRoute roles={MGMT}", "ProtectedRoute roles={FINANCE}"],
+  "web/src/App.js": ["import { ROLE_GROUPS }", "MANAGEMENT: MGMT", "ProtectedRoute roles={ADMIN}", "ProtectedRoute roles={MGMT}", "ProtectedRoute roles={FINANCE}"],
   "web/src/components/ProtectedRoute.js": ["roles", "require: permKey", "readPermissions", "hasAnyRole"],
   "web/src/utils/permissions.js": ["canViewFinance", "buildFallbackPermissions", "taskScope", "assigned_team_only", "canManageUsers"],
+  "web/src/utils/routeAccess.js": ["const ADMIN", "const MANAGEMENT", "const FINANCE", "ROLE_GROUPS", "ROUTE_ROLE_POLICY", "canRoleAccessRoute"],
 };
 
 const docsNeedles = {

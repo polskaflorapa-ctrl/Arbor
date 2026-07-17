@@ -33,15 +33,15 @@ export function OfflineQueueSync() {
 
   const tryFlush = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (flushingRef.current) return;
-    const pendingBefore = await getOfflineQueueSize();
-    if (pendingBefore <= 0) return;
-
-    if (!silent) {
-      setBanner({ kind: 'syncing', message: `Synchronizuję kolejkę offline (${pendingBefore})...` });
-    }
-
     flushingRef.current = true;
     try {
+      const pendingBefore = await getOfflineQueueSize();
+      if (pendingBefore <= 0) return;
+
+      if (!silent) {
+        setBanner({ kind: 'syncing', message: `Synchronizuję kolejkę offline (${pendingBefore})...` });
+      }
+
       const { token } = await getStoredSession();
       if (!token) return;
       const { flushed, left } = await flushOfflineQueue(token);

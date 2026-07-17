@@ -14,7 +14,12 @@
 const express = require('express');
 const pool    = require('../config/database');
 const logger  = require('../config/logger');
-const { authMiddleware, isDyrektorOrAdmin } = require('../middleware/auth');
+const {
+  authMiddleware,
+  isBrygadzista,
+  isDyrektorOrAdmin,
+  isKierownik,
+} = require('../middleware/auth');
 const { z }   = require('zod');
 
 const router = express.Router();
@@ -23,10 +28,41 @@ router.use(authMiddleware);
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Role uprawnione do zatwierdzania godzin pomocników. */
-const APPROVE_ROLES = ['Brygadzista', 'Kierownik', 'Administrator', 'Dyrektor'];
+const APPROVE_ROLES = ['Brygadzista', 'Kierownik', 'Administrator', 'Dyrektor', 'Prezes'];
 
 /** Role które mogą edytować rozliczenie finansowe zlecenia. */
-const CALC_ROLES = ['Brygadzista', 'Kierownik', 'Administrator', 'Dyrektor'];
+const CALC_ROLES = ['Brygadzista', 'Kierownik', 'Administrator', 'Dyrektor', 'Prezes'];
+
+function settlementTaskScope(user, alias = 't', startParam = 2) {
+  if (isDyrektorOrAdmin(user)) return { clause: 'TRUE', params: [] };
+  if (isKierownik(user)) {
+    return { clause: `${alias}.oddzial_id = $${startParam}`, params: [user.oddzial_id] };
+  }
+  if (isBrygadzista(user)) {
+    return {
+      clause: `${alias}.ekipa_id IN (
+        SELECT tm.team_id FROM team_members tm WHERE tm.user_id = $${startParam}
+        UNION
+        SELECT te.id FROM teams te WHERE te.brygadzista_id = $${startParam}
+      )`,
+      params: [user.id],
+    };
+  }
+  return null;
+}
+
+async function loadAccessibleSettlementTask(db, taskId, user, { lock = false } = {}) {
+  const scope = settlementTaskScope(user);
+  if (!scope) return null;
+  const result = await db.query(
+    `SELECT t.id, t.oddzial_id, t.ekipa_id
+       FROM tasks t
+      WHERE t.id = $1 AND ${scope.clause}
+      ${lock ? 'FOR UPDATE' : ''}`,
+    [taskId, ...scope.params],
+  );
+  return result.rows[0] || null;
+}
 
 function num(v) {
   const n = parseFloat(v);
@@ -82,17 +118,21 @@ async function recalcTask(client, taskId) {
 
 router.get('/zadanie/:taskId', async (req, res) => {
   try {
+    if (!CALC_ROLES.includes(req.user.rola)) {
+      return res.status(403).json({ error: 'Brak uprawnien do rozliczenia zadania' });
+    }
     const taskId = parseInt(req.params.taskId, 10);
     if (!Number.isFinite(taskId)) return res.status(400).json({ error: 'Nieprawidłowe task_id' });
 
     // Zadanie
+    const scope = settlementTaskScope(req.user);
     const { rows: taskRows } = await pool.query(
-      `SELECT t.id, t.klient_nazwa, t.adres, t.miasto, t.ekipa_id,
+      `SELECT t.id, t.klient_nazwa, t.adres, t.miasto, t.ekipa_id, t.oddzial_id,
               e.nazwa AS ekipa_nazwa
          FROM tasks t
          LEFT JOIN teams e ON e.id = t.ekipa_id
-        WHERE t.id = $1`,
-      [taskId],
+        WHERE t.id = $1 AND ${scope.clause}`,
+      [taskId, ...scope.params],
     );
     if (!taskRows.length) return res.status(404).json({ error: 'Zadanie nie istnieje' });
     const task = taskRows[0];
@@ -152,6 +192,9 @@ const godzinySchema = z.object({
 
 router.post('/zadanie/:taskId/godziny', async (req, res) => {
   try {
+    if (!CALC_ROLES.includes(req.user.rola)) {
+      return res.status(403).json({ error: 'Brak uprawnien do edycji godzin' });
+    }
     const taskId = parseInt(req.params.taskId, 10);
     if (!Number.isFinite(taskId)) return res.status(400).json({ error: 'Nieprawidłowe task_id' });
 
@@ -164,6 +207,12 @@ router.post('/zadanie/:taskId/godziny', async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const task = await loadAccessibleSettlementTask(client, taskId, req.user, { lock: true });
+      if (!task) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Zadanie nie istnieje' });
+      }
 
       // Upsert godzin pomocnika
       const { rows } = await client.query(
@@ -216,14 +265,18 @@ router.put('/godziny/:id/zatwierdz', async (req, res) => {
 
     const { status } = parsed.data;
 
+    const scope = settlementTaskScope(req.user, 't', 3);
     const { rows } = await pool.query(
-      `UPDATE task_pomocnik_godziny
+      `UPDATE task_pomocnik_godziny g
           SET status          = $1,
               potwierdzone_at = CASE WHEN $1 = 'Potwierdzone' THEN NOW() ELSE NULL END,
               updated_at      = NOW()
-        WHERE id = $2
-        RETURNING *`,
-      [status, id],
+         FROM tasks t
+        WHERE g.id = $2
+          AND t.id = g.task_id
+          AND ${scope.clause}
+        RETURNING g.*`,
+      [status, id, ...scope.params],
     );
 
     if (!rows.length) return res.status(404).json({ error: 'Wpis godzin nie istnieje' });
@@ -270,15 +323,8 @@ router.post('/zadanie/:taskId/koszty-operacyjne', async (req, res) => {
     const parsed = operationalCostSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Nieprawidlowe dane', details: parsed.error.errors });
 
-    const { rows: taskRows } = await pool.query(
-      'SELECT id, oddzial_id FROM tasks WHERE id = $1',
-      [taskId],
-    );
-    if (!taskRows.length) return res.status(404).json({ error: 'Zadanie nie istnieje' });
-    const task = taskRows[0];
-    if (!isDyrektorOrAdmin(req.user) && String(task.oddzial_id || '') !== String(req.user.oddzial_id || '')) {
-      return res.status(403).json({ error: 'Brak dostepu do oddzialu zadania' });
-    }
+    const task = await loadAccessibleSettlementTask(pool, taskId, req.user);
+    if (!task) return res.status(404).json({ error: 'Zadanie nie istnieje' });
 
     const { category, amount, label, note } = parsed.data;
     const resolvedLabel = label || {
@@ -325,15 +371,8 @@ router.post('/zadanie/:taskId/materialy', async (req, res) => {
     const parsed = materialCostSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Nieprawidlowe dane', details: parsed.error.errors });
 
-    const { rows: taskRows } = await pool.query(
-      'SELECT id, oddzial_id FROM tasks WHERE id = $1',
-      [taskId],
-    );
-    if (!taskRows.length) return res.status(404).json({ error: 'Zadanie nie istnieje' });
-    const task = taskRows[0];
-    if (!isDyrektorOrAdmin(req.user) && String(task.oddzial_id || '') !== String(req.user.oddzial_id || '')) {
-      return res.status(403).json({ error: 'Brak dostepu do oddzialu zadania' });
-    }
+    const task = await loadAccessibleSettlementTask(pool, taskId, req.user);
+    if (!task) return res.status(404).json({ error: 'Zadanie nie istnieje' });
 
     const { nazwa, ilosc, jednostka, koszt_jednostkowy, koszt_laczny, notatka } = parsed.data;
     const qty = Number.isFinite(Number(ilosc)) ? Number(ilosc) : null;
@@ -400,6 +439,12 @@ router.post('/zadanie/:taskId', async (req, res) => {
     try {
       await client.query('BEGIN');
 
+      const task = await loadAccessibleSettlementTask(client, taskId, req.user, { lock: true });
+      if (!task) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Zadanie nie istnieje' });
+      }
+
       const previousSettlement = await client.query(
         `SELECT wartosc_brutto, vat_stawka, wartosc_netto,
                 koszt_pomocnikow, podstawa_brygadzisty,
@@ -447,7 +492,7 @@ router.post('/zadanie/:taskId', async (req, res) => {
         entityType: 'task',
         entityId: taskId,
         metadata: {
-          oddzial_id: req.user.oddzial_id ?? null,
+          oddzial_id: task.oddzial_id ?? req.user.oddzial_id ?? null,
           previous: previousSettlement.rows[0] || null,
           next: rows[0],
           changed_fields: [
@@ -481,19 +526,34 @@ router.get('/dzien/:userId', async (req, res) => {
     const userId = parseInt(req.params.userId, 10);
     if (!Number.isFinite(userId)) return res.status(400).json({ error: 'Nieprawidłowe userId' });
 
-    // Kierownik może zobaczyć każdego; pracownik — tylko siebie
+    // Pracownik widzi tylko siebie; kierownik wyłącznie swój oddział.
     const u = req.user;
-    if (!['Kierownik', 'Administrator', 'Dyrektor'].includes(u.rola) && u.id !== userId) {
-      return res.status(403).json({ error: 'Brak uprawnień' });
+    const isSelf = Number(u.id) === userId;
+    if (!isSelf) {
+      if (!CALC_ROLES.includes(u.rola) || isBrygadzista(u)) {
+        return res.status(403).json({ error: 'Brak uprawnień' });
+      }
+      if (!isDyrektorOrAdmin(u)) {
+        const target = await pool.query('SELECT id, oddzial_id FROM users WHERE id = $1', [userId]);
+        if (!target.rows.length) return res.status(404).json({ error: 'Użytkownik nie istnieje' });
+        if (Number(target.rows[0].oddzial_id) !== Number(u.oddzial_id)) {
+          return res.status(403).json({ error: 'Brak uprawnień' });
+        }
+      }
     }
 
     const data = req.query.data || new Date().toISOString().slice(0, 10);
+    const canViewTeamFinance = CALC_ROLES.includes(u.rola);
+    const settlementFields = canViewTeamFinance
+      ? `r.wartosc_brutto, r.wartosc_netto,
+               r.koszt_pomocnikow, r.wynagrodzenie_brygadzisty`
+      : `NULL::numeric AS wartosc_brutto, NULL::numeric AS wartosc_netto,
+               NULL::numeric AS koszt_pomocnikow, NULL::numeric AS wynagrodzenie_brygadzisty`;
 
     // Podsumowanie zadań (zlecenia) dnia
     const zleceniaQ = await pool.query(
       `SELECT t.id, t.klient_nazwa, t.adres, t.miasto,
-              r.wartosc_brutto, r.wartosc_netto,
-              r.koszt_pomocnikow, r.wynagrodzenie_brygadzisty
+              ${settlementFields}
          FROM tasks t
          JOIN teams te ON te.id = t.ekipa_id
          JOIN team_members tm ON tm.team_id = te.id AND tm.user_id = $1
@@ -518,7 +578,8 @@ router.get('/dzien/:userId', async (req, res) => {
          JOIN tasks t ON t.id = g.task_id
          JOIN teams te ON te.id = t.ekipa_id
          JOIN team_members tm ON tm.team_id = te.id AND tm.user_id = $1
-        WHERE g.data_pracy = $2::date
+         WHERE g.data_pracy = $2::date
+           ${canViewTeamFinance ? '' : 'AND g.pomocnik_id = $1'}
         ORDER BY u.nazwisko, u.imie`,
       [userId, data],
     );

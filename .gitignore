@@ -82,3 +82,4 @@ blobs/
 
 # Manifests cache
 manifests/
+.tmp-locked-*/

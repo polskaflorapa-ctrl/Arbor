@@ -9,6 +9,7 @@ const requiredFiles = [
   "os/src/routes/ksiegowosc.js",
   "os/src/routes/tasks.js",
   "os/src/schemas/invoice.js",
+  "os/src/services/invoices.js",
   "os/src/services/taskSettlement.js",
   "os/tests/demoRequests.test.js",
   "os/tests/ksiegowosc.test.js",
@@ -44,10 +45,16 @@ const readinessNeedles = {
     "Szansa #",
   ],
   "os/src/routes/ksiegowosc.js": [
-    "pg_advisory_xact_lock",
+    "allocateInvoiceNumber",
     "invoiceIdScope",
     "ROLLBACK",
     "INSERT INTO invoice_items",
+  ],
+  "os/src/services/invoices.js": [
+    "pg_advisory_xact_lock",
+    "MAX(",
+    "FV/",
+    "invoiceIdScope",
   ],
   "os/src/schemas/invoice.js": [
     "Cena netto nie moze byc ujemna",

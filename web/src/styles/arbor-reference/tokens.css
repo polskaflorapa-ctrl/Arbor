@@ -1,0 +1,86 @@
+#root {
+  --pf-font: "Road UA", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --pf-brown: #3b2a18;
+  --pf-brown-2: #3b2a18;
+  --pf-brown-3: #766440;
+  --pf-ink: #3b2a18;
+  --pf-muted: #766440;
+  --pf-muted-2: #9d9073;
+  --pf-paper: #faf9f3;
+  --pf-paper-2: #f1eee2;
+  --pf-card: #ffffff;
+  --pf-card-soft: #faf8f1;
+  --pf-line: #ece6d7;
+  --pf-line-strong: #d8d1bf;
+  --pf-green: #a0af14;
+  --pf-green-2: #b4c232;
+  --pf-green-3: #88950f;
+  --pf-forest: #766440;
+  --pf-orange: #bd701e;
+  --pf-orange-2: #995510;
+  --pf-red: #a3402a;
+  --pf-focus: rgba(160, 175, 20, 0.42);
+  --pf-shadow: 0 16px 40px rgba(43, 29, 15, 0.12);
+  --pf-shadow-soft: 0 1px 2px rgba(43, 29, 15, 0.05);
+  --pf-radius-sm: 10px;
+  --pf-radius-md: 13px;
+  --pf-radius-lg: 18px;
+  --pf-sidebar-w: 248px;
+}
+
+html,
+body,
+#root {
+  font-family: var(--pf-font) !important;
+}
+
+body:not(.theme-dark) {
+  color: var(--pf-ink) !important;
+  background:
+    radial-gradient(circle at 90% -6%, rgba(160, 175, 20, 0.1), transparent 32rem),
+    linear-gradient(180deg, var(--pf-paper) 0%, var(--pf-paper-2) 100%) !important;
+}
+
+body,
+#root {
+  letter-spacing: 0 !important;
+}
+
+#root * {
+  text-wrap: pretty;
+}
+
+#root :is(button, a, input, select, textarea, [role='button']):focus-visible {
+  outline: 3px solid var(--pf-focus) !important;
+  outline-offset: 2px !important;
+}
+
+#root :is(button, [role='button'], a) {
+  touch-action: manipulation;
+}
+
+#root :is(button, [role='button']):not(:disabled) {
+  cursor: pointer;
+}
+
+#root :is(button, [role='button']):disabled,
+#root :is(input, select, textarea):disabled {
+  cursor: not-allowed !important;
+  opacity: 0.58 !important;
+}
+
+#root ::selection {
+  background: rgba(160, 175, 20, 0.28);
+  color: var(--pf-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root *,
+  #root *::before,
+  #root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}

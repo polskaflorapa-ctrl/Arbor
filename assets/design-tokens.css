@@ -1,0 +1,227 @@
+/* Polska Flora design tokens.
+ * Source of truth: docs/brand-guidelines.md and assets/design-tokens.json.
+ * Asset URLs are relative to this file when served from the repository root.
+ */
+
+@font-face {
+  font-family: "Road UA";
+  src: url("./brand/polska-flora/fonts/road-ua/RoadUA-Thin.otf") format("opentype");
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("./brand/polska-flora/fonts/road-ua/RoadUA-ExtraLight.otf") format("opentype");
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("./brand/polska-flora/fonts/road-ua/RoadUA-Light.otf") format("opentype");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("./brand/polska-flora/fonts/road-ua/RoadUA-Regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("./brand/polska-flora/fonts/road-ua/RoadUA-Medium.otf") format("opentype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("./brand/polska-flora/fonts/road-ua/RoadUA-Bold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("./brand/polska-flora/fonts/road-ua/RoadUA-ExtraBold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("./brand/polska-flora/fonts/road-ua/RoadUA-Black.otf") format("opentype");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
+
+/* Layer 1: primitive tokens. Raw approved values only. */
+:root {
+  --pf-color-dark-brown: #3B2A18;
+  --pf-color-light-brown: #766440;
+  --pf-color-primary-green: #A0AF14;
+  --pf-color-light-green: #B4C232;
+  --pf-color-orange-brown: #BD701E;
+  --pf-color-white: #FFFFFF;
+  --pf-color-transparent: transparent;
+
+  --pf-font-family-brand: "Road UA", Arial, sans-serif;
+  --pf-font-weight-thin: 100;
+  --pf-font-weight-extra-light: 200;
+  --pf-font-weight-light: 300;
+  --pf-font-weight-regular: 400;
+  --pf-font-weight-medium: 500;
+  --pf-font-weight-bold: 700;
+  --pf-font-weight-extra-bold: 800;
+  --pf-font-weight-black: 900;
+
+  --pf-font-size-caption: 0.75rem;
+  --pf-font-size-small: 0.875rem;
+  --pf-font-size-body: 1rem;
+  --pf-font-size-heading-second: 2rem;
+  --pf-font-size-heading-first: 4rem;
+
+  --pf-line-height-tight: 1.1;
+  --pf-line-height-heading: 1.2;
+  --pf-line-height-body: 1.5;
+  --pf-line-height-relaxed: 1.625;
+  --pf-letter-spacing-tight: -0.02em;
+  --pf-letter-spacing-normal: 0;
+  --pf-letter-spacing-wide: 0.05em;
+
+  --pf-space-0: 0;
+  --pf-space-1: 0.25rem;
+  --pf-space-2: 0.5rem;
+  --pf-space-3: 0.75rem;
+  --pf-space-4: 1rem;
+  --pf-space-6: 1.5rem;
+  --pf-space-8: 2rem;
+  --pf-space-12: 3rem;
+  --pf-space-16: 4rem;
+
+  --pf-radius-none: 0;
+  --pf-radius-small: 0.25rem;
+  --pf-radius-medium: 0.5rem;
+  --pf-radius-large: 0.75rem;
+  --pf-radius-full: 9999px;
+
+  --pf-shadow-small: 0 1px 2px rgb(59 42 24 / 0.12);
+  --pf-shadow-medium: 0 8px 24px rgb(59 42 24 / 0.16);
+  --pf-duration-fast: 120ms;
+  --pf-duration-normal: 200ms;
+}
+
+/* Layer 2: semantic tokens. Purpose aliases for the light/default theme. */
+:root {
+  --color-background: var(--pf-color-white);
+  --color-foreground: var(--pf-color-dark-brown);
+  --color-surface: var(--pf-color-white);
+  --color-surface-inverse: var(--pf-color-dark-brown);
+  --color-primary: var(--pf-color-primary-green);
+  --color-primary-hover: var(--pf-color-light-green);
+  --color-primary-active: var(--pf-color-dark-brown);
+  --color-primary-active-foreground: var(--pf-color-white);
+  --color-primary-foreground: var(--pf-color-dark-brown);
+  --color-secondary: var(--pf-color-dark-brown);
+  --color-secondary-hover: var(--pf-color-light-brown);
+  --color-secondary-foreground: var(--pf-color-white);
+  --color-accent: var(--pf-color-orange-brown);
+  --color-accent-foreground: var(--pf-color-dark-brown);
+  --color-muted-foreground: var(--pf-color-light-brown);
+  --color-border: var(--pf-color-light-brown);
+  --color-focus: var(--pf-color-dark-brown);
+  --color-success: var(--pf-color-primary-green);
+  --color-warning: var(--pf-color-orange-brown);
+
+  --font-family-heading: var(--pf-font-family-brand);
+  --font-family-body: var(--pf-font-family-brand);
+  --font-size-heading-first: var(--pf-font-size-heading-first);
+  --font-size-heading-second: var(--pf-font-size-heading-second);
+  --font-size-body: var(--pf-font-size-body);
+  --font-weight-heading-first: var(--pf-font-weight-extra-bold);
+  --font-weight-heading-second: var(--pf-font-weight-bold);
+  --font-weight-body: var(--pf-font-weight-regular);
+  --line-height-heading-first: var(--pf-line-height-tight);
+  --line-height-heading-second: var(--pf-line-height-heading);
+  --line-height-body: var(--pf-line-height-body);
+
+  --spacing-inline: var(--pf-space-4);
+  --spacing-stack: var(--pf-space-6);
+  --spacing-section: var(--pf-space-12);
+}
+
+[data-theme="dark"] {
+  --color-background: var(--pf-color-dark-brown);
+  --color-foreground: var(--pf-color-white);
+  --color-surface: var(--pf-color-dark-brown);
+  --color-primary: var(--pf-color-light-green);
+  --color-primary-hover: var(--pf-color-primary-green);
+  --color-primary-active: var(--pf-color-white);
+  --color-primary-active-foreground: var(--pf-color-dark-brown);
+  --color-primary-foreground: var(--pf-color-dark-brown);
+  --color-secondary: var(--pf-color-white);
+  --color-secondary-foreground: var(--pf-color-dark-brown);
+  --color-muted-foreground: var(--pf-color-light-green);
+  --color-border: var(--pf-color-light-brown);
+  --color-focus: var(--pf-color-white);
+}
+
+/* Layer 3: component tokens. Components should consume this layer. */
+:root {
+  --button-primary-background: var(--color-primary);
+  --button-primary-foreground: var(--color-primary-foreground);
+  --button-primary-hover-background: var(--color-primary-hover);
+  --button-primary-active-background: var(--color-primary-active);
+  --button-primary-active-foreground: var(--color-primary-active-foreground);
+  --button-secondary-background: var(--color-secondary);
+  --button-secondary-foreground: var(--color-secondary-foreground);
+  --button-focus-ring: var(--color-focus);
+  --button-padding-inline: var(--pf-space-4);
+  --button-padding-block: var(--pf-space-2);
+  --button-radius: var(--pf-radius-medium);
+  --button-font-weight: var(--pf-font-weight-bold);
+
+  --card-background: var(--color-surface);
+  --card-foreground: var(--color-foreground);
+  --card-border: var(--color-border);
+  --card-padding: var(--pf-space-6);
+  --card-radius: var(--pf-radius-large);
+  --card-shadow: var(--pf-shadow-small);
+
+  --input-background: var(--color-background);
+  --input-foreground: var(--color-foreground);
+  --input-border: var(--color-border);
+  --input-focus-border: var(--color-focus);
+  --input-placeholder: var(--color-muted-foreground);
+  --input-padding-inline: var(--pf-space-3);
+  --input-padding-block: var(--pf-space-2);
+  --input-radius: var(--pf-radius-medium);
+
+  --navigation-background: var(--color-surface-inverse);
+  --navigation-foreground: var(--pf-color-white);
+  --navigation-active-background: var(--color-primary);
+  --navigation-active-foreground: var(--color-primary-foreground);
+  --navigation-focus-ring: var(--pf-color-white);
+
+  --badge-background: var(--color-primary);
+  --badge-foreground: var(--color-primary-foreground);
+  --badge-radius: var(--pf-radius-full);
+  --badge-padding-inline: var(--pf-space-2);
+  --badge-padding-block: var(--pf-space-1);
+
+  --logo-clear-space-factor: 1.5;
+  --logo-minimum-width-horizontal: 56mm;
+  --logo-minimum-width-vertical: 25mm;
+}

@@ -4,6 +4,8 @@ const npmCommand = process.execPath;
 const npmArgsPrefix = [process.env.npm_execpath].filter(Boolean);
 const steps = [
   ['module resolution', [npmCommand, [...npmArgsPrefix, 'run', 'test:module-resolution']]],
+  ['test mode guard and session tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:test-mode']]],
+  ['session boundary tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:session-boundary']]],
   ['typecheck', [npmCommand, [...npmArgsPrefix, 'run', 'typecheck']]],
   ['lint', [npmCommand, [...npmArgsPrefix, 'run', 'lint']]],
   ['offline queue tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:offline-queue']]],

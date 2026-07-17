@@ -37,7 +37,7 @@ export function PlatinumCard({ style, elevated = true, glow = false, children, .
 const styles = StyleSheet.create({
   base: {
     borderWidth: 1,
-    padding: 12,
+    padding: 16,
     overflow: 'hidden',
   },
 });

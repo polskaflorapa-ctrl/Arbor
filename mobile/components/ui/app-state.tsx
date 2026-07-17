@@ -38,7 +38,7 @@ export function LoadingState({
   return (
     <View style={[styles.center, { backgroundColor: bg }]}>
       <ActivityIndicator size="large" color={c} />
-      <Text style={[styles.loadingText, { color: theme.textSub }]}>{message}</Text>
+      <Text style={[styles.loadingText, { color: theme.textSub, fontFamily: theme.fontBold }]}>{message}</Text>
     </View>
   );
 }
@@ -67,8 +67,8 @@ export function EmptyState({
       <View style={[styles.iconRing, { backgroundColor: colorWithAlpha(ic, 0.1), borderColor: colorWithAlpha(ic, 0.22) }]}>
         <Ionicons name={icon} size={30} color={ic} />
       </View>
-      <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-      {subtitle ? <Text style={[styles.subtitle, { color: theme.textMuted }]}>{subtitle}</Text> : null}
+      <Text style={[styles.title, { color: theme.text, fontFamily: theme.fontExtraBold }]}>{title}</Text>
+      {subtitle ? <Text style={[styles.subtitle, { color: theme.textMuted, fontFamily: theme.fontBold }]}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -78,7 +78,7 @@ export function ErrorBanner({ message }: ErrorBannerProps) {
   return (
     <View style={[styles.errorBox, { backgroundColor: theme.dangerBg, borderColor: colorWithAlpha(theme.danger, 0.38) }]}>
       <Ionicons name="warning-outline" size={16} color={theme.danger} />
-      <Text style={[styles.errorText, { color: theme.danger }]}>{message}</Text>
+      <Text style={[styles.errorText, { color: theme.danger, fontFamily: theme.fontExtraBold }]}>{message}</Text>
     </View>
   );
 }
@@ -89,6 +89,7 @@ export function OfflineQueueBanner({
   warningBackgroundColor,
   borderColor,
 }: OfflineQueueBannerProps) {
+  const { theme } = useTheme();
   if (count <= 0) return null;
 
   return (
@@ -96,7 +97,7 @@ export function OfflineQueueBanner({
       <View style={[styles.offlineIconBox, { borderColor: warningColor + '66' }]}>
         <Ionicons name="cloud-offline-outline" size={14} color={warningColor} />
       </View>
-      <Text style={[styles.offlineInfoText, { color: warningColor }]}>W kolejce offline: {count}</Text>
+      <Text style={[styles.offlineInfoText, { color: warningColor, fontFamily: theme.fontExtraBold }]}>W kolejce offline: {count}</Text>
     </View>
   );
 }
@@ -127,9 +128,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: { fontSize: 13, fontWeight: '700' },
-  title: { fontWeight: '900', fontSize: 15, textAlign: 'center' },
-  subtitle: { fontSize: 13, lineHeight: 18, textAlign: 'center', fontWeight: '700' },
+  loadingText: { fontSize: 13 },
+  title: { fontSize: 15, textAlign: 'center' },
+  subtitle: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
   errorBox: {
     borderRadius: 6,
     borderWidth: 1,
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
-  errorText: { fontSize: 13, flex: 1, fontWeight: '800', lineHeight: 18 },
+  errorText: { fontSize: 13, flex: 1, lineHeight: 18 },
   offlineInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -165,6 +166,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     lineHeight: 16,
-    fontWeight: '900',
   },
 });

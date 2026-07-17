@@ -23,7 +23,12 @@ const eslintBin = eslintBinCandidates.find((candidate) => existsSync(candidate))
 const eslintJs = eslintJsCandidates.find((candidate) => existsSync(candidate));
 
 const command = eslintBin ? eslintBin : process.execPath;
-const args = eslintBin ? ['app', '--ext', 'ts,tsx'] : eslintJs ? [eslintJs, 'app', '--ext', 'ts,tsx'] : null;
+const lintTargets = ['app', 'components', 'hooks', 'utils', 'constants'];
+const args = eslintBin
+  ? [...lintTargets, '--ext', 'ts,tsx']
+  : eslintJs
+    ? [eslintJs, ...lintTargets, '--ext', 'ts,tsx']
+    : null;
 
 if (!args) {
   console.error('Could not locate ESLint binary or eslint/bin/eslint.js in mobile or repo root node_modules.');

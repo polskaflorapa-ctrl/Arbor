@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { localDateKey } from '../utils/localDateKey';
 import CommandSidebar from '../components/CommandSidebar';
 
 const TEAM_ROW_H = 154;
@@ -51,7 +52,7 @@ const STATUS_COLOR = {
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-const toISO = (d) => d.toISOString().split('T')[0];
+const toISO = (date) => localDateKey(date);
 
 function dateFromRouteSearch(search) {
   const value = new URLSearchParams(search || '').get('date') || '';

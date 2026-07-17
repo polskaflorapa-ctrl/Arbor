@@ -15,7 +15,7 @@ import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
-import { getRolaColor, type Theme } from '../constants/theme';
+import { type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getRoleDisplayName } from '../utils/role-display';
@@ -48,7 +48,7 @@ interface OddzialDetail {
 export default function OddzialyScreen() {
   const { theme } = useTheme();
   const rolaKolorMap = useMemo(() => ({
-    Dyrektor: getRolaColor('Dyrektor'),
+    Dyrektor: theme.warning,
     Administrator: theme.warning,
     Kierownik: theme.info,
     Brygadzista: theme.success,

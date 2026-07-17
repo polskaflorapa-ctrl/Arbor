@@ -64,6 +64,20 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+test('renders the approved logo variants for dark and light surfaces', () => {
+  renderLogin();
+
+  expect(screen.getByRole('main')).toHaveClass('login-shell');
+  expect(screen.getByRole('img', { name: /Nature Integrator/i })).toHaveAttribute(
+    'src',
+    '/brand/logo/with-descriptor-horizontal-dark.svg',
+  );
+  expect(screen.getByRole('img', { name: 'Polska Flora' })).toHaveAttribute(
+    'src',
+    '/brand/logo/without-descriptor-horizontal-light.svg',
+  );
+});
+
 test('fills a demo account and stores session data after login', async () => {
   api.post.mockResolvedValue({
     data: {
