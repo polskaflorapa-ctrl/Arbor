@@ -131,7 +131,13 @@
     "up": "node ./scripts/up.cjs",
     "up:force": "node ./scripts/up.cjs --force",
     "down": "node ./scripts/down.cjs",
-    "restart:force": "node ./scripts/restart-force.cjs"
+    "restart:force": "node ./scripts/restart-force.cjs",
+    "platform": "npm --prefix platform run dev:full",
+    "platform:install": "npm --prefix platform install",
+    "platform:seed": "npm --prefix platform run db:seed",
+    "platform:build": "npm --prefix platform run build",
+    "platform:smoke": "npm --prefix platform run smoke:all",
+    "platform:backup": "npm --prefix platform run db:backup"
   },
   "devDependencies": {
     "@emotion/react": "^11.14.0",
@@ -139,6 +145,7 @@
     "@types/react": "19.2.14",
     "concurrently": "^9.2.1",
     "react-native": "0.85.3",
+    "vitest": "4.1.10",
     "yaml": "^2.9.0"
   },
   "overrides": {

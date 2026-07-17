@@ -1,0 +1,1896 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<script src="./prototype-api-bridge.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; background: radial-gradient(circle at 50% 0%, #efeadd, #e3ded0); display:grid; place-items:center; min-height:100vh; padding:32px 0; }
+  @keyframes mSlide { from { opacity:0; transform: translateX(14px); } to { opacity:1; transform:none; } }
+  @keyframes scanLine { 0%,100% { top:24px; } 50% { top:200px; } }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline: 2.5px solid #A0AF14 !important; outline-offset: 2px !important; border-radius: 9px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; } }</style>
+</helmet>
+
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" title="" hint-size="393px,852px">
+  <div style="display:flex; flex-direction:column; height:100%; background:#faf9f3; font-family:'Hanken Grotesk',sans-serif; color:#2c2011;">
+
+    <sc-if value="{{ authLoggedOut }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; z-index:80; display:flex; align-items:center; justify-content:center; padding:22px; background:rgba(42,29,15,0.72); backdrop-filter:blur(5px);">
+        <div style="width:100%; background:#faf9f3; border:1px solid #e7e2d4; border-radius:18px; box-shadow:0 24px 70px rgba(0,0,0,0.35); overflow:hidden;">
+          <div style="padding:18px 18px 14px; border-bottom:1px solid #e7e2d4;"><div style="font-size:10.5px; font-weight:900; letter-spacing:0.12em; text-transform:uppercase; color:#5d6a0b;">Arbor OS Mobile</div><h2 style="margin:5px 0 0; font-size:20px; line-height:1.1; color:#2c2011;">Wybierz konto</h2><p style="margin:7px 0 0; font-size:12.5px; color:#8a8069;">Po wylogowaniu aplikacja nie wraca sama na domyślnego użytkownika.</p></div>
+          <div style="padding:14px 18px; display:flex; flex-direction:column; gap:8px;">
+            <sc-for list="{{ authAccountRows }}" as="acc" hint-placeholder-count="5">
+              <button onClick="{{ acc.login }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:11px; width:100%; padding:11px 12px; border:1px solid #ece6d7; border-radius:13px; background:#fff;" style-active="transform:scale(0.99);"><span style="width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:#A0AF14; color:#23260a; font-size:12px; font-weight:900;">{{ acc.init }}</span><span style="min-width:0;"><span style="display:block; font-size:13.5px; font-weight:900; color:#2c2011;">{{ acc.label }}</span><span style="display:block; font-size:11.5px; color:#8a8069;">{{ acc.sub }}</span></span></button>
+            </sc-for>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+              <input value="{{ authLogin }}" onInput="{{ onAuthLogin }}" placeholder="login" style="min-width:0; height:40px; border:1px solid #e0d9c8; border-radius:11px; padding:0 11px; font-size:13.5px; color:#2c2011; background:#faf8f1;"/>
+              <div style="display:flex; gap:8px;">
+                <input value="{{ authPassword }}" onInput="{{ onAuthPassword }}" type="password" placeholder="hasło / PIN (jeśli ustawione)" style="min-width:0; flex:1; height:40px; border:1px solid #e0d9c8; border-radius:11px; padding:0 11px; font-size:13.5px; color:#2c2011; background:#faf8f1;"/>
+                <button onClick="{{ authSubmit }}" style="all:unset; box-sizing:border-box; cursor:pointer; padding:0 13px; min-height:40px; border-radius:11px; color:#23260a; background:#A0AF14; font-size:12.5px; font-weight:900;">{{ authSubmitLabel }}</button>
+              </div>
+            </div>
+            <div style="min-height:16px; font-size:11.5px; font-weight:700; color:#a3402a;">{{ authError }}</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== HEADER ===== -->
+    <div style="flex:0 0 auto; padding:8px 20px 16px; color:#efe9da; background:linear-gradient(180deg,#3B2A18,#2a1d0f);">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:34px; height:34px; border-radius:10px; background:#A0AF14; display:grid; place-items:center; flex:0 0 auto;">
+            <svg viewBox="155 -8 323 458" width="16" height="23" fill="#2a1d0f"><path d="M356.69 402.64l-39.89 0 0 -64.68 114.04 -65.02 0 -45.49 -114.04 65.02 0 -45.49 114.04 -65.02 0 -181.96 -153.68 87.62 0 91.28 -114.05 -65.02 0 181.96 114.05 65.02 0 41.78 -74.42 0 0 39.63 267.73 0 0 -127.24 -36.78 -20.97 -39.9 22.74 37.04 21.12 0 64.72 -34.52 0 0 -38.57 -39.63 0 0 38.57zm-39.89 -201.15l0 -90.98 74.41 -42.43 0 90.98 -74.41 42.43zm-39.63 22.89l0 90.98 -74.42 -42.43 0 -90.98 74.42 42.43z"/></svg>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <strong style="font-size:13px; font-weight:800; letter-spacing:0.02em; line-height:1;">POLSKA FLORA</strong>
+            <span style="font-size:9px; color:#A0AF14; letter-spacing:0.16em; text-transform:uppercase; font-weight:700; line-height:1;">{{ headEyebrow }}</span>
+            <span style="display:inline-flex; align-items:center; gap:4px; font-size:8.5px; color:#8fb56a; font-weight:700; margin-top:2px;"><span style="width:5px; height:5px; border-radius:50%; background:#A0AF14; box-shadow:0 0 0 2px rgba(160,175,20,0.3);"></span>NA ŻYWO</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:9px;">
+          <div style="position:relative;">
+            <button onClick="{{ toggleNotif }}" aria-label="Powiadomienia" aria-haspopup="true" style="all:unset; box-sizing:border-box; cursor:pointer; position:relative; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:rgba(255,255,255,0.1); color:#efe9da;" style-active="transform:scale(0.95);">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M10.5 21a1.8 1.8 0 0 0 3 0"/></svg>
+              <sc-if value="{{ notifHasUnread }}" hint-placeholder-val="{{ true }}"><span style="position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; display:grid; place-items:center; font-size:9.5px; font-weight:800; color:#fff; background:#c0492f; border:2px solid #2a1d0f;">{{ notifUnread }}</span></sc-if>
+            </button>
+            <sc-if value="{{ notifOpen }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ toggleNotif }}" style="position:fixed; inset:0; z-index:40;"></div>
+              <div style="position:absolute; right:-104px; top:42px; z-index:41; width:300px; max-width:calc(100vw - 24px); background:#fff; border:1px solid #ece6d7; border-radius:14px; box-shadow:0 20px 50px rgba(43,29,15,0.3); overflow:hidden; animation:mSlide .18s ease both;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 14px; border-bottom:1px solid #f0ebdd;"><span style="font-size:13px; font-weight:800; color:#2c2011;">Powiadomienia</span><button onClick="{{ readAllNotif }}" style="all:unset; box-sizing:border-box; cursor:pointer; font-size:11px; font-weight:700; color:#5d6a0b;">Oznacz</button></div>
+                <div style="max-height:300px; overflow-y:auto;">
+                  <sc-for list="{{ notifs }}" as="n" hint-placeholder-count="3">
+                    <button onClick="{{ n.open }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; gap:10px; width:100%; padding:11px 14px; border-bottom:1px solid #f4f0e6; background:{{ n.bg }};" style-active="opacity:0.7;">
+                      <span style="width:6px; height:6px; margin-top:5px; flex:0 0 auto; border-radius:50%; background:{{ n.dot }};"></span>
+                      <span style="flex:1; min-width:0; text-align:left;"><span style="display:inline-block; padding:1px 7px; border-radius:5px; font-size:9.5px; font-weight:800; background:{{ n.chBg }}; color:{{ n.chFg }};">{{ n.ch }}</span><span style="display:block; font-size:12px; color:#2c2011; margin-top:4px; line-height:1.35;">{{ n.text }}</span><span style="display:block; font-size:10px; color:#a89f8c; margin-top:3px;">{{ n.time }} temu</span></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+          <button onClick="{{ toggleOffline }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:9px; font-size:11px; font-weight:700; color:#fff; background:{{ offlineBg }};">
+            <span style="width:7px; height:7px; border-radius:50%; background:#fff;"></span>{{ offlineLabel }}
+          </button>
+          <div style="position:relative;">
+            <button onClick="{{ toggleRole }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:6px;"><div style="width:36px; height:36px; border-radius:11px; background:#BD701E; color:#fff; display:grid; place-items:center; font-size:12px; font-weight:800;">{{ roleInit }}</div><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#bfa888" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+            <sc-if value="{{ roleOpen }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ toggleRole }}" style="position:fixed; inset:0; z-index:18;"></div>
+              <div style="position:absolute; right:0; top:46px; z-index:19; width:248px; background:#fff; border:1px solid #ece6d7; border-radius:14px; box-shadow:0 20px 50px rgba(43,29,15,0.28); overflow:hidden; animation:mSlide .18s ease both;">
+                <div style="padding:11px 14px; font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#9a907a; border-bottom:1px solid #f0ebdd;">Przełącz rolę</div>
+                <sc-for list="{{ roleOptions }}" as="r" hint-placeholder-count="4">
+                  <button onClick="{{ r.pick }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:11px; width:100%; padding:11px 14px; background:{{ r.bg }}; border-bottom:1px solid #f4f0e6;" style-active="opacity:0.7;">
+                    <span style="width:34px; height:34px; flex:0 0 auto; border-radius:10px; background:#efeadd; color:#BD701E; display:grid; place-items:center; font-size:12px; font-weight:800;">{{ r.init }}</span>
+                    <span style="flex:1; min-width:0; text-align:left;"><span style="display:block; font-size:13.5px; font-weight:800; color:#2c2011;">{{ r.label }}</span><span style="display:block; font-size:11px; color:#8a8069;">{{ r.sub }}</span></span>
+                  </button>
+                </sc-for>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px 12px; background:#faf8f1;">
+                  <button onClick="{{ accountRefresh }}" style="all:unset; box-sizing:border-box; cursor:pointer; text-align:center; padding:9px 8px; border-radius:10px; font-size:12px; font-weight:800; color:#5d6a0b; background:#f1f3d6;">Odśwież</button>
+                  <button onClick="{{ accountLogout }}" style="all:unset; box-sizing:border-box; cursor:pointer; text-align:center; padding:9px 8px; border-radius:10px; font-size:12px; font-weight:800; color:#3B2A18; background:#A0AF14;">Wyloguj</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <div style="font-size:11px; color:#b6ab93; font-weight:600;">{{ headDate }}</div>
+        <div style="font-size:21px; font-weight:800; letter-spacing:-0.01em; margin-top:1px;">{{ headTitle }}</div>
+      </div>
+    </div>
+
+    <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:9px 16px; background:{{ offlineBannerBg }}; color:{{ offlineBannerFg }};">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12a8 8 0 0 1 14-5.3L20 8M20 4v4h-4M20 12a8 8 0 0 1-14 5.3L4 16M4 20v-4h4"/></svg>
+        <span style="font-size:12px; font-weight:700;">{{ offlineBannerText }}</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{ syncing }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:9px 16px; background:#f1f3d6; color:#5d6a0b;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="animation:scanLine 0.8s linear infinite;"><path d="M4 12a8 8 0 0 1 14-5.3L20 8M20 4v4h-4"/></svg>
+        <span style="font-size:12px; font-weight:700;">Synchronizacja zmian…</span>
+      </div>
+    </sc-if>
+    <!-- ===== HOME / DASHBOARD ===== -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px;">
+        <sc-if value="{{ isMgmt }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+            <sc-for list="{{ mgmtKpi }}" as="k" hint-placeholder-count="4">
+              <div style="padding:14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;"><div style="font-size:21px; font-weight:800; color:{{ k.c }};">{{ k.v }}</div><div style="font-size:11px; color:#8a8069; margin-top:2px;">{{ k.l }}</div></div>
+            </sc-for>
+          </div>
+          <button onClick="{{ goRaporty }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:13px; width:100%; padding:16px; border-radius:16px; background:#2c2011; color:#efe9da; margin-bottom:14px;" style-active="transform:scale(0.99);">
+            <span style="width:44px; height:44px; flex:0 0 auto; border-radius:13px; background:rgba(160,175,20,0.18); color:#A0AF14; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 16v-5M13 16V8M18 16v-3"/></svg></span>
+            <span style="flex:1;"><span style="display:block; font-size:16px; font-weight:800;">Raporty brygad</span><span style="display:block; font-size:12px; color:#bfa888; margin-top:2px;">Wydajność i rozliczenie ekip</span></span>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#bfa888" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </sc-if>
+        <sc-if value="{{ isWyc }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ goGabinet }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:13px; width:100%; padding:16px; border-radius:16px; background:linear-gradient(135deg,#A0AF14,#7f8c12); color:#23260a; margin-bottom:14px;" style-active="transform:scale(0.99);">
+            <span style="width:44px; height:44px; flex:0 0 auto; border-radius:13px; background:rgba(42,29,15,0.16); color:#2a1d0f; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span>
+            <span style="flex:1;"><span style="display:block; font-size:16px; font-weight:800;">Gabinet wyceniającego</span><span style="display:block; font-size:12px; color:#3a4106; margin-top:2px;">Kolejka, grafik ekip, rezerwacja sprzętu</span></span>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3a4106" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </sc-if>
+        <sc-if value="{{ isKsieg }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ goRaporty }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:13px; width:100%; padding:16px; border-radius:16px; background:linear-gradient(135deg,#A0AF14,#7f8c12); color:#23260a; margin-bottom:14px;" style-active="transform:scale(0.99);">
+            <span style="width:44px; height:44px; flex:0 0 auto; border-radius:13px; background:rgba(42,29,15,0.16); color:#2a1d0f; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 16v-5M13 16V8M18 16v-3"/></svg></span>
+            <span style="flex:1;"><span style="display:block; font-size:16px; font-weight:800;">Raporty brygad</span><span style="display:block; font-size:12px; color:#3a4106; margin-top:2px;">Wydajność ekip · wpisz dane</span></span>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3a4106" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </sc-if>
+        <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:4px; margin-bottom:16px;">
+          <button onClick="{{ goAktualnosci }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto;" style-active="transform:scale(0.96);">
+            <span style="width:62px; height:62px; border-radius:50%; background:#efeadd; border:2.5px dashed #cfc6b2; display:grid; place-items:center; color:#8a8069;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            <span style="font-size:10.5px; color:#8a8069; font-weight:600;">Dodaj</span>
+          </button>
+          <sc-for list="{{ stories }}" as="s" hint-placeholder-count="4">
+            <button onClick="{{ goAktualnosci }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto; width:62px;" style-active="transform:scale(0.96);">
+              <span style="width:62px; height:62px; border-radius:50%; padding:2.5px; background:{{ s.ring }}; display:grid; place-items:center;"><span style="width:100%; height:100%; border-radius:50%; background:{{ s.img }}; border:2px solid #faf9f3; display:grid; place-items:center; color:rgba(255,255,255,0.92); font-size:11px; font-weight:800; text-align:center; line-height:1.1;">{{ s.label }}</span></span>
+              <span style="font-size:10.5px; color:#2c2011; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:62px;">{{ s.who }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <button onClick="{{ goList }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:13px; width:100%; padding:16px; border-radius:16px; background:#2c2011; color:#efe9da; margin-bottom:14px;" style-active="transform:scale(0.99);">
+          <span style="width:44px; height:44px; flex:0 0 auto; border-radius:13px; background:rgba(160,175,20,0.18); color:#A0AF14; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 13h4"/></svg></span>
+          <span style="flex:1;"><span style="display:block; font-size:16px; font-weight:800;">Misja dnia</span><span style="display:block; font-size:12px; color:#bfa888; margin-top:2px;">{{ stats.done }}/{{ stats.total }} ukończone · następne {{ stats.next }}</span></span>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#bfa888" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <sc-if value="{{ isBryg }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+          <sc-for list="{{ myStats }}" as="k" hint-placeholder-count="4">
+            <div style="padding:14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;"><div style="font-size:21px; font-weight:800; color:#2c2011;">{{ k.v }}</div><div style="font-size:11px; color:#8a8069; margin-top:2px;">{{ k.l }}</div></div>
+          </sc-for>
+        </div>
+        </sc-if>
+        <sc-if value="{{ isBryg }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ goZglos }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:13px; width:100%; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7; margin-bottom:14px;" style-active="transform:scale(0.99);">
+          <span style="width:44px; height:44px; flex:0 0 auto; border-radius:13px; background:#fae7d2; color:#995510; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 8h18M5 8l1 13h12l1-13"/><path d="M9 8V5h6v3"/></svg></span>
+          <span style="flex:1;"><span style="display:block; font-size:16px; font-weight:800; color:#2c2011;">Zgłoszenia</span><span style="display:block; font-size:12px; color:#8a8069; margin-top:2px;">Poproś o sprzęt lub zgłoś info</span></span>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#cbbfa8" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        </sc-if>
+
+        <button onClick="{{ goTeren }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:13px; width:100%; padding:16px; border-radius:16px; background:linear-gradient(135deg,#A0AF14,#7f8c12); color:#23260a; margin-bottom:14px;" style-active="transform:scale(0.99);">
+          <span style="width:44px; height:44px; flex:0 0 auto; border-radius:13px; background:rgba(42,29,15,0.16); color:#2a1d0f; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h3l1.5-2h5L16 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.4"/></svg></span>
+          <span style="flex:1;"><span style="display:block; font-size:16px; font-weight:800;">Wycena terenowa</span><span style="display:block; font-size:12px; color:#3a4106; margin-top:2px;">Zdjęcia, rysowanie, filmy → do biura</span></span>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3a4106" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <button onClick="{{ openScan }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M4 12h16"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Skaner sprzętu</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Wydanie / zwrot</span></span>
+          </button>
+          <button onClick="{{ goWycena }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Wyceny</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Wyceń na miejscu</span></span>
+          </button>
+          <button onClick="{{ goPhone }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#e4efd6; color:#456b1f; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Telefon</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Dzwoń do klienta / biura</span></span>
+          </button>
+          <div style="display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;">
+            <span style="width:42px; height:42px; border-radius:12px; background:#efeadd; color:#BD701E; display:grid; place-items:center; font-size:14px; font-weight:800;">{{ roleInit }}</span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">{{ roleName }}</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">{{ roleSub }}</span></span>
+          </div>
+          <sc-if value="{{ showCompany }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ goCrm }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#e4efd6; color:#456b1f; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 5.2a3 3 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-3-4.9"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Klienci</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Baza i kontakty</span></span>
+          </button>
+          <button onClick="{{ goFaktury }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#fae7d2; color:#995510; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2Z"/><path d="M9 7h6M9 11h6"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Faktury</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Płatności i statusy</span></span>
+          </button>
+          <button onClick="{{ goMagazyn }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8 12 4l9 4v9l-9 4-9-4Z"/><path d="M3 8l9 4 9-4M12 12v8"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Magazyn</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Stany materiałów</span></span>
+          </button>
+          </sc-if>
+          <button onClick="{{ goGps }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#2c2011; color:#efe9da;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:rgba(160,175,20,0.18); color:#A0AF14; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800;">Śledzenie GPS</span><span style="display:block; font-size:11.5px; color:#bfa888; margin-top:1px;">Ekipy na żywo</span></span>
+          </button>
+          <button onClick="{{ openGeo }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#fae7d2; color:#995510; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 3"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Geofencing</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Auto-start na miejscu</span></span>
+          </button>
+          <button onClick="{{ goAktualnosci }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#fae7d2; color:#995510; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12l-18-5ZM7 12v6a1 1 0 0 0 1 1h2"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Aktualności</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Ogłoszenia i stories</span></span>
+          </button>
+          <sc-if value="{{ canManage }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ goZadania }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+              <span style="width:42px; height:42px; border-radius:12px; background:#e4efd6; color:#456b1f; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+              <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Zadania</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Wyślij pracownikom</span></span>
+            </button>
+          </sc-if>
+          <button onClick="{{ goProfil }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#efeadd; color:#BD701E; display:grid; place-items:center; font-size:14px; font-weight:800;">{{ roleInit }}</span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Mój profil</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">{{ roleLabel }}</span></span>
+          </button>
+          <button onClick="{{ goBhp }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#f6e0d9; color:#a3402a; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6Z"/><path d="M9 12l2 2 4-4"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">BHP</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Przed pracą</span></span>
+          </button>
+          <button onClick="{{ goDokumenty }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:11px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);">
+            <span style="width:42px; height:42px; border-radius:12px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span>
+            <span><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">Dokumenty</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">Umowy i badania</span></span>
+          </button>
+        </div>
+
+        <div style="margin-top:16px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7;">
+          <div style="font-size:12px; font-weight:800; letter-spacing:0.03em; text-transform:uppercase; color:#9a907a; margin-bottom:12px;">Dziś w skrócie</div>
+          <div style="display:flex; gap:10px;">
+            <div style="flex:1; text-align:center; padding:11px; border-radius:12px; background:#faf8f1;"><div style="font-size:20px; font-weight:800; color:#2c2011;">{{ stats.total }}</div><div style="font-size:10.5px; color:#8a8069; margin-top:2px;">zleceń</div></div>
+            <div style="flex:1; text-align:center; padding:11px; border-radius:12px; background:#faf8f1;"><div style="font-size:20px; font-weight:800; color:#456b1f;">{{ stats.done }}</div><div style="font-size:10.5px; color:#8a8069; margin-top:2px;">gotowe</div></div>
+            <div style="flex:1; text-align:center; padding:11px; border-radius:12px; background:#faf8f1;"><div style="font-size:20px; font-weight:800; color:#5d6a0b;">{{ stats.km }}</div><div style="font-size:10.5px; color:#8a8069; margin-top:2px;">trasa</div></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== ŚLEDZENIE GPS ===== -->
+    <sc-if value="{{ isGps }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; min-height:0; display:flex; flex-direction:column; animation:mSlide .25s ease both;">
+        <div style="padding:14px 16px 0;"><button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button></div>
+        <div style="position:relative; margin:12px 16px 0; height:280px; border-radius:18px; overflow:hidden; background:radial-gradient(circle at 50% 40%, #eef1e0, #dce0cc);">
+          <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(124,140,18,0.13) 1px,transparent 1px),linear-gradient(90deg,rgba(124,140,18,0.13) 1px,transparent 1px); background-size:34px 34px;"></div>
+          <span style="position:absolute; left:12px; top:12px; padding:5px 11px; border-radius:9px; background:rgba(42,29,15,0.7); color:#fff; font-size:11px; font-weight:700;">● LIVE · aktualizacja {{ gpsUpdated }}</span>
+          <sc-for list="{{ gpsCrews }}" as="c" hint-placeholder-count="3">
+            <div style="position:absolute; left:{{ c.px }}; top:{{ c.py }}; transform:translate(-50%,-50%); transition:left 1.4s linear, top 1.4s linear;">
+              <div style="width:18px; height:18px; border-radius:50%; background:{{ c.color }}; border:3px solid #fff; box-shadow:{{ c.pulse }};"></div>
+              <span style="position:absolute; top:-26px; left:50%; transform:translateX(-50%); white-space:nowrap; padding:2px 8px; border-radius:6px; background:#2c2011; color:#fff; font-size:10px; font-weight:700;">{{ c.name }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:16px;">
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <sc-for list="{{ gpsCrews }}" as="c" hint-placeholder-count="3">
+              <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+                <span style="width:12px; height:12px; flex:0 0 auto; border-radius:50%; background:{{ c.color }};"></span>
+                <span style="flex:1; min-width:0;"><span style="display:block; font-size:14px; font-weight:800; color:#2c2011;">{{ c.name }}</span><span style="display:block; font-size:11.5px; color:#8a8069; font-variant-numeric:tabular-nums;">{{ c.lat }}, {{ c.lng }}</span></span>
+                <span style="text-align:right;"><span style="display:block; font-size:13px; font-weight:700; color:#456b1f;">{{ c.spd }}</span><span style="display:block; font-size:11px; color:#8a8069; margin-top:1px;">{{ c.status }}</span></span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:14px; padding:13px 14px; border-radius:13px; background:#f1f3d6; font-size:12px; color:#5d6a0b; line-height:1.5;">Pozycje GPS z urządzeń ekip · integracja z systemami flotowymi (np. GPS tracker pojazdu). W produkcji: WebSocket z lokalizacją w czasie rzeczywistym.</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== AKTUALNOŚCI / OGŁOSZENIA ===== -->
+    <sc-if value="{{ isAktualnosci }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; margin-bottom:16px;">
+          <sc-for list="{{ stories }}" as="s" hint-placeholder-count="4">
+            <div style="flex:0 0 auto; width:104px; height:160px; border-radius:16px; background:{{ s.img }}; position:relative; overflow:hidden;"><span style="position:absolute; left:8px; top:8px; padding:3px 8px; border-radius:6px; background:rgba(42,29,15,0.55); color:#fff; font-size:9.5px; font-weight:700;">{{ s.label }}</span><span style="position:absolute; left:8px; bottom:8px; right:8px; color:#fff; font-size:12px; font-weight:800; text-shadow:0 1px 4px rgba(0,0,0,0.4);">{{ s.who }}</span></div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ canManage }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px; border-radius:15px; background:#fff; border:1px solid #ece6d7; margin-bottom:16px;">
+            <div style="font-size:13px; font-weight:800; color:#2c2011; margin-bottom:9px;">Nowe ogłoszenie</div>
+            <textarea value="{{ announceDraft }}" onInput="{{ onAnnounce }}" placeholder="Napisz do całej firmy…" style="width:100%; min-height:72px; border:1px solid #e0d9c8; border-radius:11px; padding:11px; font-size:13.5px; line-height:1.5; background:#faf8f1; color:#2c2011; outline:none; resize:vertical; font-family:inherit;"></textarea>
+            <button onClick="{{ sendAnnounce }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:12px; border-radius:12px; margin-top:10px; font-size:13.5px; font-weight:800; color:#23260a; background:#A0AF14;" style-active="transform:scale(0.99);">Opublikuj dla wszystkich</button>
+          </div>
+        </sc-if>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <sc-for list="{{ announcements }}" as="a" hint-placeholder-count="3">
+            <div style="padding:14px; border-radius:15px; background:#fff; border:1px solid #ece6d7;">
+              <div style="display:flex; align-items:center; gap:9px; margin-bottom:8px;"><span style="padding:3px 9px; border-radius:6px; font-size:10.5px; font-weight:700; background:{{ a.tagBg }}; color:{{ a.tagFg }};">{{ a.tag }}</span><span style="font-size:12px; font-weight:700; color:#2c2011;">{{ a.who }}</span><span style="font-size:11px; color:#a89f8c; margin-left:auto;">{{ a.time }}</span></div>
+              <div style="font-size:13.5px; color:#3b3120; line-height:1.5;">{{ a.text }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== ZADANIA DLA PRACOWNIKÓW ===== -->
+    <sc-if value="{{ isZadania }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="padding:15px; border-radius:15px; background:#fff; border:1px solid #ece6d7;">
+          <div style="font-size:14px; font-weight:800; color:#2c2011; margin-bottom:12px;">Wyślij zadanie pracownikowi</div>
+          <label style="display:flex; flex-direction:column; gap:5px; margin-bottom:11px;"><span style="font-size:12px; font-weight:700; color:#5a5040;">Pracownik</span><select value="{{ taskWho }}" onChange="{{ setTaskWho }}" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 12px; font-size:14px; background:#faf8f1; color:#2c2011;"><sc-for list="{{ workers }}" as="w" hint-placeholder-count="5"><option value="{{ w }}">{{ w }}</option></sc-for></select></label>
+          <label style="display:flex; flex-direction:column; gap:5px;"><span style="font-size:12px; font-weight:700; color:#5a5040;">Treść zadania</span><textarea value="{{ taskDraft }}" onInput="{{ onTask }}" placeholder="np. Dojazd na ul. Leśną 14 na 8:00, zabrać podnośnik" style="width:100%; min-height:90px; border:1px solid #e0d9c8; border-radius:11px; padding:11px; font-size:13.5px; line-height:1.5; background:#faf8f1; color:#2c2011; outline:none; resize:vertical; font-family:inherit;"></textarea></label>
+          <button onClick="{{ sendTask }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border-radius:12px; margin-top:13px; font-size:14px; font-weight:800; color:#23260a; background:#A0AF14;" style-active="transform:scale(0.99);"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>Wyślij zadanie</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== PROFIL ===== -->
+    <sc-if value="{{ isProfil }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:8px 0 18px;">
+          <image-slot id="arbor-profil-foto" shape="circle" placeholder="Dodaj zdjęcie" style="width:104px; height:104px;"></image-slot>
+          <div style="text-align:center;"><div style="font-size:20px; font-weight:800; color:#2c2011;">{{ roleName }}</div><div style="font-size:13px; color:#8a8069; margin-top:2px;">{{ roleSub }}</div></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:13px; background:#fff; border:1px solid #ece6d7;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#a89f8c" stroke-width="1.9"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg><span style="flex:1; font-size:13.5px; color:#3b3120;">+48 500 100 100</span></div>
+          <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:13px; background:#fff; border:1px solid #ece6d7;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#a89f8c" stroke-width="1.9"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 5 8-5"/></svg><span style="flex:1; font-size:13.5px; color:#3b3120;">{{ roleInit }}@polskaflora.pl</span></div>
+          <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:13px; background:#fff; border:1px solid #ece6d7;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#a89f8c" stroke-width="1.9"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="flex:1; font-size:13.5px; color:#3b3120;">Rola: {{ roleLabel }}</span></div>
+        </div>
+        <div style="margin-top:16px; padding:13px 14px; border-radius:13px; background:#f1f3d6; font-size:12px; color:#5d6a0b; line-height:1.5;">Przeciągnij lub kliknij kółko powyżej, aby dodać zdjęcie profilowe. Zdjęcie zapisuje się automatycznie.</div>
+      </div>
+    </sc-if>
+
+    <!-- ===== BHP ===== -->
+    <sc-if value="{{ isBhp }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="padding:16px; border-radius:16px; background:#2c2011; color:#efe9da; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:40px; height:40px; flex:0 0 auto; border-radius:12px; background:rgba(189,112,30,0.26); color:#f0a559; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6Z"/><path d="M9 12l2 2 4-4"/></svg></span><div><div style="font-size:16px; font-weight:800; color:#fff;">Lista BHP przed pracą</div><div style="font-size:12px; color:#bfa888; margin-top:2px;">Wymagana przed startem zlecenia · {{ bhpDone }}/6</div></div></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <sc-for list="{{ bhpItems }}" as="b" hint-placeholder-count="6">
+            <button onClick="{{ b.toggle }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:13px; padding:14px; border-radius:14px; background:{{ b.bg }}; border:1px solid #ece6d7;" style-active="transform:scale(0.99);">
+              <span style="width:26px; height:26px; flex:0 0 auto; border-radius:8px; display:grid; place-items:center; background:{{ b.box }}; border:2px solid {{ b.bd }};"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ b.tick }};"><path d="M5 12l5 5L20 6"/></svg></span>
+              <span style="font-size:14px; font-weight:600; color:#2c2011;">{{ b.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <button onClick="{{ confirmBhp }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; width:100%; padding:16px; border-radius:16px; margin-top:16px; font-size:15.5px; font-weight:800; color:#23260a; background:#A0AF14; box-shadow:0 10px 24px rgba(160,175,20,0.3);" style-active="transform:scale(0.99);"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>Potwierdź i rozpocznij pracę</button>
+      </div>
+    </sc-if>
+
+    <!-- ===== DOKUMENTY PRACOWNIKA ===== -->
+    <sc-if value="{{ isDokumenty }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <sc-if value="{{ docExpiring }}" hint-placeholder-val="1">
+          <div style="display:flex; align-items:center; gap:9px; padding:12px 14px; border-radius:13px; background:#f6e0d9; color:#a3402a; font-size:12.5px; font-weight:700; margin-bottom:14px;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4 2 20h20L12 4ZM12 10v4M12 17h.01"/></svg>{{ docExpiring }} dokument wkrótce wygasa</div>
+        </sc-if>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <sc-for list="{{ documents }}" as="d" hint-placeholder-count="6">
+            <div style="display:flex; align-items:center; gap:13px; padding:14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <span style="width:40px; height:40px; flex:0 0 auto; border-radius:11px; background:{{ d.tagBg }}; color:{{ d.tagFg }}; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/></svg></span>
+              <span style="flex:1; min-width:0;"><span style="display:block; font-size:14px; font-weight:700; color:#2c2011;">{{ d.name }}</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">{{ d.meta }}</span></span>
+              <span style="padding:3px 9px; border-radius:6px; font-size:10.5px; font-weight:700; background:{{ d.tagBg }}; color:{{ d.tagFg }};">{{ d.tag }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <button style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:14px; border-radius:13px; margin-top:14px; font-size:14px; font-weight:800; color:#5d6a0b; background:#f1f3d6;" style-active="transform:scale(0.99);"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 15V3M8 7l4-4 4 4M5 21h14"/></svg>Dodaj dokument</button>
+      </div>
+    </sc-if>
+
+    <!-- ===== GABINET WYCENIAJĄCEGO ===== -->
+    <sc-if value="{{ isGabinet }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+
+        <div style="font-size:12px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:10px;">Do wyceny · oględziny</div>
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:22px;">
+          <sc-for list="{{ gabQueue }}" as="q" hint-placeholder-count="3">
+            <div style="padding:14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <div style="display:flex; align-items:start; justify-content:space-between; gap:8px;"><span style="font-size:14.5px; font-weight:800; color:#2c2011;">{{ q.client }}</span><span style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; background:{{ q.pBg }}; color:{{ q.pFg }};">{{ q.pri }}</span></div>
+              <div style="font-size:12.5px; color:#7a7059; margin-top:4px;">{{ q.svc }}</div>
+              <div style="display:inline-flex; align-items:center; gap:6px; margin-top:9px; padding:4px 9px; border-radius:7px; background:#f1f3d6; font-size:11.5px; font-weight:700; color:#5d6a0b;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Oględziny {{ q.ogl }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="font-size:12px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:10px;">Grafik ekip · dostępność</div>
+        <div style="display:flex; flex-direction:column; gap:9px; margin-bottom:22px;">
+          <sc-for list="{{ gabTeams }}" as="t" hint-placeholder-count="3">
+            <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <span style="width:10px; height:10px; flex:0 0 auto; border-radius:50%; background:{{ t.dot }};"></span>
+              <span style="flex:1; min-width:0;"><span style="display:block; font-size:14px; font-weight:800; color:#2c2011;">{{ t.name }}</span><span style="display:block; font-size:11.5px; color:#8a8069;">{{ t.day }}</span></span>
+              <span style="font-size:11.5px; font-weight:700; color:#456b1f; text-align:right;">{{ t.free }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="font-size:12px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:10px;">Rezerwacja sprzętu dla ekip</div>
+        <div style="display:flex; flex-direction:column; gap:9px;">
+          <sc-for list="{{ gabEquip }}" as="e" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <span style="flex:1; min-width:0;"><span style="display:block; font-size:14px; font-weight:700; color:#2c2011;">{{ e.name }}</span><span style="display:block; font-size:11.5px; color:#8a8069;">{{ e.status }}</span></span>
+              <sc-if value="{{ e.ok }}" hint-placeholder-val="{{ true }}"><button onClick="{{ e.reserve }}" style="all:unset; box-sizing:border-box; cursor:pointer; padding:8px 14px; border-radius:10px; font-size:12.5px; font-weight:800; color:#23260a; background:#A0AF14;" style-active="transform:scale(0.97);">Rezerwuj</button></sc-if>
+              <sc-if value="{{ e.ok }}" hint-placeholder-val="{{ false }}"><span style="padding:8px 13px; border-radius:10px; font-size:12px; font-weight:700; color:#8a8069; background:#efeadd;">Niedostępny</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== ZGŁOSZENIA (brygadzista) ===== -->
+    <sc-if value="{{ isZglos }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="padding:16px; border-radius:16px; background:#fff; border:1px solid #ece6d7; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; gap:3px; padding:3px; border-radius:11px; background:#efeadd; border:1px solid #e1dbcb; width:max-content; margin-bottom:14px;">
+            <button onClick="{{ setZgSprzet }}" style="all:unset; box-sizing:border-box; cursor:pointer; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; color:{{ zgSprzetFg }}; background:{{ zgSprzetBg }};">Prośba o sprzęt</button>
+            <button onClick="{{ setZgInfo }}" style="all:unset; box-sizing:border-box; cursor:pointer; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; color:{{ zgInfoFg }}; background:{{ zgInfoBg }};">Informacja</button>
+          </div>
+          <sc-if value="{{ zgIsSprzet }}" hint-placeholder-val="{{ true }}">
+            <label style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;"><span style="font-size:12.5px; font-weight:700; color:#5a5040;">Sprzęt</span><select value="{{ zgItem }}" onChange="{{ onZgItem }}" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 12px; font-size:14px; background:#faf8f1; color:#2c2011;"><sc-for list="{{ zgEquip }}" as="e" hint-placeholder-count="6"><option value="{{ e }}">{{ e }}</option></sc-for></select></label>
+            <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:12.5px; font-weight:700; color:#5a5040;">Na kiedy</span><input type="date" value="{{ zgDate }}" onInput="{{ onZgDate }}" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 12px; font-size:14px; background:#faf8f1; color:#2c2011; outline:none;"/></label>
+          </sc-if>
+          <sc-if value="{{ zgIsInfo }}" hint-placeholder-val="{{ false }}">
+            <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:12.5px; font-weight:700; color:#5a5040;">Treść dla menedżera</span><textarea value="{{ zgNote }}" onInput="{{ onZgNote }}" placeholder="np. brak paliwa na Leśnej, potrzebny dodatkowy pilarz…" style="width:100%; min-height:96px; border:1px solid #e0d9c8; border-radius:11px; padding:11px; font-size:13.5px; line-height:1.5; background:#faf8f1; color:#2c2011; outline:none; resize:vertical; font-family:inherit;"></textarea></label>
+          </sc-if>
+          <button onClick="{{ sendZglos }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:14px; border-radius:13px; margin-top:14px; font-size:14px; font-weight:800; color:#23260a; background:#A0AF14;" style-active="transform:scale(0.99);"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>Wyślij do menedżera</button>
+        </div>
+        <div style="font-size:12px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:10px;">Moje zgłoszenia</div>
+        <div style="display:flex; flex-direction:column; gap:9px;">
+          <sc-for list="{{ zgSent }}" as="z" hint-placeholder-count="3">
+            <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <span style="flex:1; min-width:0; font-size:13.5px; font-weight:600; color:#2c2011;">{{ z.t }}</span>
+              <span style="padding:4px 10px; border-radius:7px; font-size:11px; font-weight:700; background:{{ z.bg }}; color:{{ z.fg }}; white-space:nowrap;">{{ z.st }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== RAPORTY BRYGAD ===== -->
+    <sc-if value="{{ isRaporty }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="font-size:13px; color:#8a8069; margin-bottom:14px;">Raport tygodniowy · {{ headDate2 }}</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <sc-for list="{{ brigReports }}" as="b" hint-placeholder-count="3">
+            <div style="padding:15px; border-radius:15px; background:#fff; border:1px solid #ece6d7;">
+              <div style="display:flex; align-items:start; justify-content:space-between; gap:10px;">
+                <div><div style="font-size:15px; font-weight:800; color:#2c2011;">{{ b.team }}</div><div style="font-size:12px; color:#8a8069; margin-top:1px;">{{ b.lead }}</div></div>
+                <span style="padding:4px 10px; border-radius:8px; font-size:11.5px; font-weight:800; background:#f1f3d6; color:#5d6a0b;">{{ b.util }}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:13px;">
+                <div style="text-align:center; padding:9px; border-radius:10px; background:#faf8f1;"><div style="font-size:16px; font-weight:800; color:#2c2011;">{{ b.done }}</div><div style="font-size:10px; color:#8a8069; margin-top:1px;">zrobione</div></div>
+                <div style="text-align:center; padding:9px; border-radius:10px; background:#faf8f1;"><div style="font-size:16px; font-weight:800; color:#2c2011;">{{ b.hours }}</div><div style="font-size:10px; color:#8a8069; margin-top:1px;">w toku</div></div>
+                <div style="text-align:center; padding:9px; border-radius:10px; background:#faf8f1;"><div style="font-size:15px; font-weight:800; color:#456b1f;">{{ b.value }}</div><div style="font-size:10px; color:#8a8069; margin-top:1px;">przychód</div></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:16px; padding:16px; border-radius:15px; background:#fff; border:1px solid #ece6d7;">
+          <div style="font-size:13px; font-weight:800; color:#2c2011; margin-bottom:11px;">Wpisz dane do rozliczenia</div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <label style="display:flex; flex-direction:column; gap:5px;"><span style="font-size:12px; font-weight:700; color:#5a5040;">Ekipa</span><select style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 12px; font-size:14px; background:#faf8f1; color:#2c2011;"><option>Ekipa A1</option><option>Ekipa A2</option><option>Ekipa K1</option></select></label>
+            <div style="display:flex; gap:10px;">
+              <label style="flex:1; display:flex; flex-direction:column; gap:5px;"><span style="font-size:12px; font-weight:700; color:#5a5040;">Godziny</span><input inputmode="decimal" placeholder="np. 38" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 12px; font-size:14px; background:#faf8f1; color:#2c2011; outline:none;"/></label>
+              <label style="flex:1; display:flex; flex-direction:column; gap:5px;"><span style="font-size:12px; font-weight:700; color:#5a5040;">Przychód zł</span><input inputmode="decimal" placeholder="np. 14800" style="min-height:44px; border:1px solid #e0d9c8; border-radius:11px; padding:0 12px; font-size:14px; background:#faf8f1; color:#2c2011; outline:none;"/></label>
+            </div>
+          </div>
+          <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:14px; border-radius:13px; margin-top:14px; font-size:14px; font-weight:800; color:#23260a; background:#A0AF14;" style-active="transform:scale(0.99);">Zapisz raport</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== KLIENCI (CRM) ===== -->
+    <sc-if value="{{ isCrm }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <sc-for list="{{ crmClients }}" as="c" hint-placeholder-count="5">
+            <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <span style="width:42px; height:42px; flex:0 0 auto; border-radius:12px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center; font-size:14px; font-weight:800;">{{ c.initials }}</span>
+              <span style="flex:1; min-width:0;"><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">{{ c.name }}</span><span style="display:block; font-size:12px; color:#8a8069; margin-top:1px;">{{ c.city }} · LTV {{ c.ltv }}</span></span>
+              <a href="{{ c.tel }}" style="text-decoration:none; width:40px; height:40px; flex:0 0 auto; border-radius:50%; background:#e4efd6; color:#456b1f; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg></a>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== FAKTURY ===== -->
+    <sc-if value="{{ isFaktury }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="display:flex; gap:9px; margin-bottom:16px;">
+          <sc-for list="{{ fakturyKpi }}" as="k" hint-placeholder-count="3">
+            <div style="flex:1; padding:12px 11px; border-radius:13px; background:#fff; border:1px solid #ece6d7;"><div style="font-size:15px; font-weight:800; color:{{ k.c }};">{{ k.v }}</div><div style="font-size:10.5px; color:#8a8069; margin-top:3px;">{{ k.l }}</div></div>
+          </sc-for>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <sc-for list="{{ faktury }}" as="f" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <span style="flex:1; min-width:0;"><span style="display:block; font-size:14px; font-weight:800; color:#2c2011;">{{ f.client }}</span><span style="display:block; font-size:12px; color:#8a8069; margin-top:1px;">{{ f.id }}</span></span>
+              <span style="text-align:right;"><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">{{ f.gross }}</span><span style="display:inline-flex; align-items:center; gap:5px; margin-top:3px; padding:3px 8px; border-radius:6px; font-size:10.5px; font-weight:700; background:{{ f.bg }}; color:{{ f.fg }};"><span style="width:6px; height:6px; border-radius:50%; background:{{ f.dot }};"></span>{{ f.label }}</span></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== MAGAZYN ===== -->
+    <sc-if value="{{ isMagazyn }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="display:inline-flex; align-items:center; gap:8px; padding:9px 13px; border-radius:11px; background:#f6e0d9; color:#a3402a; font-size:12.5px; font-weight:700; margin-bottom:14px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4 2 20h20L12 4ZM12 10v4M12 17h.01"/></svg>{{ magLow }} pozycji poniżej minimum</div>
+        <div style="display:flex; flex-direction:column; gap:9px;">
+          <sc-for list="{{ magazyn }}" as="m" hint-placeholder-count="6">
+            <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <span style="flex:1; min-width:0;"><span style="display:block; font-size:14px; font-weight:700; color:#2c2011;">{{ m.name }}</span><span style="display:block; font-size:11.5px; color:#8a8069; margin-top:1px;">{{ m.min }}</span></span>
+              <span style="font-size:14.5px; font-weight:800; color:{{ m.low }};">{{ m.stock }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== WYCENA TERENOWA ===== -->
+    <sc-if value="{{ isTeren }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; min-height:0; display:flex; flex-direction:column; animation:mSlide .25s ease both;">
+
+        <sc-if value="{{ teren.isBrief }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1; overflow-y:auto; padding:16px 16px 28px;">
+            <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+            <div style="padding:16px; border-radius:16px; background:#2c2011; color:#efe9da;">
+              <div style="font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#A0AF14;">Zlecenie od biura</div>
+              <div style="font-size:21px; font-weight:800; color:#fff; margin-top:6px;">Dom Seniora Parkowy</div>
+              <div style="font-size:13px; color:#c7bda3; margin-top:4px;">Wycena ogrodu + suchy konar nad altaną</div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.12); font-size:13px; color:#d8cdba;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#A0AF14" stroke-width="2"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>al. Lipowa 8, Warszawa</div>
+            </div>
+            <div style="margin-top:16px; display:flex; flex-direction:column; gap:11px;">
+              <div style="display:flex; align-items:center; gap:11px; padding:13px; border-radius:13px; background:#fff; border:1px solid #ece6d7;"><span style="width:30px; height:30px; flex:0 0 auto; border-radius:9px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center; font-weight:800; font-size:13px;">1</span><span style="font-size:13.5px; color:#3b3120;">Zrób zdjęcia obiektu i drzew</span></div>
+              <div style="display:flex; align-items:center; gap:11px; padding:13px; border-radius:13px; background:#fff; border:1px solid #ece6d7;"><span style="width:30px; height:30px; flex:0 0 auto; border-radius:9px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center; font-weight:800; font-size:13px;">2</span><span style="font-size:13.5px; color:#3b3120;">Zaznacz na zdjęciach zakres prac</span></div>
+              <div style="display:flex; align-items:center; gap:11px; padding:13px; border-radius:13px; background:#fff; border:1px solid #ece6d7;"><span style="width:30px; height:30px; flex:0 0 auto; border-radius:9px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center; font-weight:800; font-size:13px;">3</span><span style="font-size:13.5px; color:#3b3120;">Wyślij do potwierdzenia w biurze</span></div>
+            </div>
+            <a href="tel:+48500666555" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:16px; padding:12px; border-radius:13px; font-size:13.5px; font-weight:700; color:#2c2011; background:#fff; border:1px solid #ece6d7;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#7f8c12" stroke-width="2"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg>Zadzwoń do klienta</a>
+            <button onClick="{{ terenStart }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; width:100%; padding:16px; border-radius:16px; margin-top:11px; font-size:15.5px; font-weight:800; color:#23260a; background:#A0AF14; box-shadow:0 10px 24px rgba(160,175,20,0.3);" style-active="transform:scale(0.99);"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h3l1.5-2h5L16 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.4"/></svg>Rozpocznij wycenę</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ teren.isFoto }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1; overflow-y:auto; padding:16px 16px 120px;">
+            <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Dom Seniora Parkowy</button>
+
+            <!-- canvas nad zdjęciem -->
+            <div style="position:relative; width:100%; aspect-ratio:4/3; border-radius:16px; overflow:hidden; background:linear-gradient(135deg,#6f7d3a,#3f4a1e); border:1px solid #ece6d7;">
+              <div style="position:absolute; inset:0; display:grid; place-items:center; color:rgba(255,255,255,0.5);"><svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 7h3l1.5-2h5L16 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.4"/></svg></div>
+              <span style="position:absolute; left:12px; top:12px; padding:4px 10px; border-radius:8px; background:rgba(42,29,15,0.6); color:#fff; font-size:11px; font-weight:700;">Zdjęcie {{ teren.photoCount }} · rysuj palcem</span>
+              <canvas ref="{{ teren.canvasRef }}" style="position:absolute; inset:0; width:100%; height:100%; touch-action:none; cursor:crosshair;"></canvas>
+            </div>
+
+            <!-- paleta kolorów + wyczyść -->
+            <div style="display:flex; align-items:center; gap:10px; margin-top:12px;">
+              <span style="font-size:12.5px; font-weight:700; color:#8a8069;">Kolor:</span>
+              <sc-for list="{{ teren.colors }}" as="c" hint-placeholder-count="4">
+                <button onClick="{{ c.pick }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:30px; height:30px; border-radius:50%; outline:{{ c.ring }}; outline-offset:2px; background:{{ c.c }};"></button>
+              </sc-for>
+              <button onClick="{{ clearDraw }}" style="all:unset; box-sizing:border-box; cursor:pointer; margin-left:auto; padding:8px 13px; border-radius:10px; font-size:12.5px; font-weight:700; color:#7a7059; background:#efeadd;" style-active="transform:scale(0.97);">Wyczyść</button>
+            </div>
+
+            <!-- akcje: dodaj zdjęcie / film -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-top:14px;">
+              <button onClick="{{ addTerenPhoto }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:7px; padding:16px; border-radius:14px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);"><span style="width:40px; height:40px; border-radius:12px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h3l1.5-2h5L16 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.4"/></svg></span><span style="font-size:13px; font-weight:700; color:#2c2011;">Dodaj zdjęcie</span></button>
+              <button onClick="{{ addTerenVideo }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:7px; padding:16px; border-radius:14px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.98);"><span style="width:40px; height:40px; border-radius:12px; background:#fae7d2; color:#995510; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3Z"/></svg></span><span style="font-size:13px; font-weight:700; color:#2c2011;">Nagraj film {{ teren.videos }}</span></button>
+            </div>
+
+            <div style="margin-top:14px; font-size:12.5px; color:#8a8069;">Zdjęć: <strong style="color:#2c2011;">{{ teren.photoCount }}</strong> · filmów: <strong style="color:#2c2011;">{{ teren.videos }}</strong></div>
+          </div>
+          <div style="position:absolute; left:0; right:0; bottom:0; padding:14px 16px 30px; background:linear-gradient(180deg,rgba(250,249,243,0),#faf9f3 28%);">
+            <button onClick="{{ terenSend }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; width:100%; padding:16px; border-radius:16px; font-size:15.5px; font-weight:800; color:#23260a; background:#A0AF14; box-shadow:0 10px 24px rgba(160,175,20,0.3);" style-active="transform:scale(0.99);"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>Wyślij do potwierdzenia</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ teren.isSent }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:30px; text-align:center;">
+            <div style="width:74px; height:74px; border-radius:22px; background:#A0AF14; display:grid; place-items:center; box-shadow:0 14px 30px rgba(160,175,20,0.34);"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="#23260a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></div>
+            <div style="font-size:20px; font-weight:800; color:#2c2011; margin-top:18px;">Wysłano do biura</div>
+            <div style="font-size:13.5px; color:#8a8069; max-width:260px; line-height:1.5;">{{ teren.photoCount }} zdjęć i {{ teren.videos }} filmów trafiło do potwierdzenia. Biuro zatwierdzi wycenę i przydzieli ekipę.</div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:18px; padding:11px 16px; border-radius:12px; background:#f1f3d6; color:#5d6a0b; font-size:12.5px; font-weight:700;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Status: oczekuje na potwierdzenie</div>
+            <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; margin-top:22px; padding:13px 24px; border-radius:13px; font-size:14px; font-weight:800; color:#fff; background:#2c2011;" style-active="transform:scale(0.98);">Wróć do pulpitu</button>
+          </div>
+        </sc-if>
+
+      </div>
+    </sc-if>
+
+    <!-- ===== WYCENA ===== -->
+    <sc-if value="{{ isWycena }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px; animation:mSlide .25s ease both;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:12px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="font-size:13px; color:#8a8069; margin-bottom:4px;">Wycena dla</div>
+        <div style="font-size:19px; font-weight:800; color:#2c2011; margin-bottom:16px;">{{ quote.client }}</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <sc-for list="{{ quote.items }}" as="it" hint-placeholder-count="3">
+            <div style="padding:13px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+              <div style="display:flex; align-items:center; gap:9px;">
+                <input value="{{ it.name }}" onInput="{{ it.onName }}" style="flex:1; min-width:0; min-height:40px; border:1px solid #e8e1d2; border-radius:10px; padding:0 11px; font-size:14px; font-weight:600; background:#faf8f1; color:#2c2011; outline:none;"/>
+                <button onClick="{{ it.remove }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:36px; height:36px; flex:0 0 auto; border-radius:10px; display:grid; place-items:center; color:#a3402a; background:#f6e0d9;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+              </div>
+              <div style="display:flex; align-items:center; gap:9px; margin-top:9px;">
+                <div style="flex:1;"><span style="font-size:11px; color:#8a8069;">Ilość</span><input value="{{ it.qty }}" onInput="{{ it.onQty }}" inputmode="decimal" style="width:100%; min-height:40px; border:1px solid #e8e1d2; border-radius:10px; padding:0 11px; font-size:14px; background:#faf8f1; color:#2c2011; text-align:right; outline:none;"/></div>
+                <div style="flex:1;"><span style="font-size:11px; color:#8a8069;">Cena zł</span><input value="{{ it.price }}" onInput="{{ it.onPrice }}" inputmode="decimal" style="width:100%; min-height:40px; border:1px solid #e8e1d2; border-radius:10px; padding:0 11px; font-size:14px; background:#faf8f1; color:#2c2011; text-align:right; outline:none;"/></div>
+                <div style="flex:1; text-align:right;"><span style="font-size:11px; color:#8a8069;">Wartość</span><div style="min-height:40px; display:flex; align-items:center; justify-content:flex-end; font-size:15px; font-weight:800; color:#2c2011;">{{ it.line }}</div></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <button onClick="{{ qAdd }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border-radius:13px; margin-top:12px; font-size:13.5px; font-weight:800; color:#5d6a0b; background:#f1f3d6;" style-active="transform:scale(0.99);"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Dodaj pozycję</button>
+        <div style="margin-top:16px; padding:16px; border-radius:16px; background:#2c2011; color:#efe9da;">
+          <div style="display:flex; align-items:center; justify-content:space-between; font-size:13.5px;"><span style="color:#c7bda3;">Netto</span><span style="font-weight:700; color:#fff;">{{ quote.net }}</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; font-size:13.5px; margin-top:8px;"><span style="color:#c7bda3;">VAT 23%</span><span style="color:#c7bda3;">{{ quote.vat }}</span></div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.12);"><span style="font-size:14px; font-weight:700; color:#fff;">Brutto</span><span style="font-size:24px; font-weight:800; color:#fff;">{{ quote.gross }}</span></div>
+        </div>
+        <button onClick="{{ qSend }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; width:100%; padding:16px; border-radius:16px; margin-top:12px; font-size:15.5px; font-weight:800; color:#23260a; background:#A0AF14; box-shadow:0 10px 24px rgba(160,175,20,0.3);" style-active="transform:scale(0.99);"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>Wyślij wycenę klientowi</button>
+      </div>
+    </sc-if>
+
+    <!-- ===== TELEFON ===== -->
+    <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; min-height:0; display:flex; flex-direction:column; animation:mSlide .25s ease both;">
+        <sc-if value="{{ phone.isIdle }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1; overflow-y:auto; padding:16px 16px 28px;">
+            <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:14px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+            <div style="font-size:12px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#9a907a; margin-bottom:11px;">Szybkie połączenia</div>
+            <div style="display:flex; flex-direction:column; gap:9px; margin-bottom:20px;">
+              <sc-for list="{{ quickCalls }}" as="c" hint-placeholder-count="3">
+                <button onClick="{{ c.start }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; background:#fff; border:1px solid #ece6d7;" style-active="transform:scale(0.99);">
+                  <span style="width:40px; height:40px; flex:0 0 auto; border-radius:50%; background:#e4efd6; color:#456b1f; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg></span>
+                  <span style="flex:1; min-width:0;"><span style="display:block; font-size:14.5px; font-weight:800; color:#2c2011;">{{ c.name }}</span><span style="display:block; font-size:12px; color:#8a8069;">{{ c.sub }}</span></span>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#cbbfa8" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+              </sc-for>
+            </div>
+            <div style="text-align:center; font-size:24px; font-weight:700; min-height:32px; letter-spacing:0.04em; color:#2c2011;">{{ phone.dial }}</div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:14px;">
+              <sc-for list="{{ phone.dialKeys }}" as="k" hint-placeholder-count="12">
+                <button onClick="{{ k.press }}" style="all:unset; box-sizing:border-box; cursor:pointer; aspect-ratio:1.5; border-radius:14px; display:grid; place-items:center; font-size:24px; font-weight:600; background:#fff; border:1px solid #ece6d7; color:#2c2011;" style-active="background:#f1f3d6;">{{ k.d }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex; align-items:center; gap:14px; margin-top:14px;">
+              <span style="flex:1;"></span>
+              <button onClick="{{ dialStart }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:64px; height:64px; border-radius:50%; display:grid; place-items:center; background:#3fa564; color:#fff; box-shadow:0 8px 20px rgba(63,165,100,0.4);" style-active="transform:scale(0.96);"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg></button>
+              <button onClick="{{ dialDel }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:1; display:grid; place-items:center; color:#a89f8c;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 5H8L2 12l6 7h13a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1ZM18 9l-6 6M12 9l6 6"/></svg></button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ phone.isDialing }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:linear-gradient(180deg,#3b2a18,#2a1d0f); color:#efe9da; padding:24px;">
+            <div style="width:96px; height:96px; border-radius:50%; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center; font-size:34px; font-weight:800;">JK</div>
+            <div style="font-size:23px; font-weight:800; color:#fff; margin-top:16px;">{{ phone.name }}</div>
+            <div style="font-size:14px; color:#bfa888;">Dzwonię…</div>
+            <button onClick="{{ callEnd }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:64px; height:64px; border-radius:50%; margin-top:26px; display:grid; place-items:center; background:#c0492f; color:#fff;" style-active="transform:scale(0.96);"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" style="transform:rotate(135deg);"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg></button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ phone.isActive }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:linear-gradient(180deg,#3b2a18,#2a1d0f); color:#efe9da; padding:24px;">
+            <div style="width:96px; height:96px; border-radius:50%; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center; font-size:34px; font-weight:800;">JK</div>
+            <div style="font-size:23px; font-weight:800; color:#fff; margin-top:16px;">{{ phone.name }}</div>
+            <div style="display:inline-flex; align-items:center; gap:7px; font-size:15px; color:#A0AF14; font-variant-numeric:tabular-nums;"><span style="width:8px; height:8px; border-radius:50%; background:#c0492f;"></span>{{ phone.timer }}</div>
+            <button onClick="{{ callEnd }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:64px; height:64px; border-radius:50%; margin-top:26px; display:grid; place-items:center; background:#c0492f; color:#fff;" style-active="transform:scale(0.96);"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" style="transform:rotate(135deg);"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg></button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ===== LIST VIEW ===== -->
+    <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 28px;">
+        <button onClick="{{ goHome }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:12px;" style-active="opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Pulpit</button>
+        <div style="display:flex; gap:9px; margin-bottom:16px;">
+          <div style="flex:1; padding:12px 13px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+            <div style="font-size:22px; font-weight:800; color:#2c2011; line-height:1;">{{ stats.done }}/{{ stats.total }}</div>
+            <div style="font-size:11px; color:#8a8069; margin-top:4px;">Ukończone</div>
+          </div>
+          <div style="flex:1; padding:12px 13px; border-radius:14px; background:#fff; border:1px solid #ece6d7;">
+            <div style="font-size:22px; font-weight:800; color:#5d6a0b; line-height:1;">{{ stats.km }}</div>
+            <div style="font-size:11px; color:#8a8069; margin-top:4px;">Trasa dziś</div>
+          </div>
+          <div style="flex:1; padding:12px 13px; border-radius:14px; background:#2c2011; color:#fff;">
+            <div style="font-size:22px; font-weight:800; line-height:1;">{{ stats.next }}</div>
+            <div style="font-size:11px; color:#bfa888; margin-top:4px;">Następne</div>
+          </div>
+        </div>
+
+        <button onClick="{{ openScan }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:12px; width:100%; padding:13px 15px; border-radius:14px; background:#2c2011; color:#efe9da; margin-bottom:14px;" style-active="transform:scale(0.99);">
+          <span style="width:38px; height:38px; flex:0 0 auto; border-radius:11px; background:rgba(160,175,20,0.18); color:#A0AF14; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M4 12h16"/></svg></span>
+          <span style="flex:1;"><span style="display:block; font-size:14.5px; font-weight:800;">Skanuj sprzęt</span><span style="display:block; font-size:11.5px; color:#bfa888; margin-top:1px;">Wydanie lub zwrot z magazynu</span></span>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#bfa888" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <sc-for list="{{ jobs }}" as="j" hint-placeholder-count="4">
+            <button onClick="{{ j.open }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:block; border-radius:16px; background:#fff; border:1px solid #ece6d7; overflow:hidden;" style-active="transform:scale(0.985);">
+              <div style="height:4px; background:{{ j.bar }};"></div>
+              <div style="padding:14px 15px;">
+                <div style="display:flex; align-items:start; justify-content:space-between; gap:10px;">
+                  <div style="min-width:0;">
+                    <div style="display:flex; align-items:center; gap:7px;"><span style="font-size:11px; font-weight:700; color:#a89f8c;">#{{ j.id }}</span><span style="display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; color:{{ j.pri.fg }};"><span style="width:6px; height:6px; border-radius:50%; background:{{ j.pri.dot }};"></span>{{ j.pri.label }}</span></div>
+                    <div style="font-size:16px; font-weight:800; color:#2c2011; margin-top:3px;">{{ j.klient }}</div>
+                  </div>
+                  <span style="flex:0 0 auto; padding:5px 10px; border-radius:8px; font-size:11px; font-weight:700; background:{{ j.status.bg }}; color:{{ j.status.fg }};">{{ j.status.label }}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:7px; margin-top:9px; font-size:13px; color:#6a604c;">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#a89f8c" stroke-width="1.9"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>{{ j.addr }}
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-top:11px; padding-top:11px; border-top:1px solid #f4f0e6;">
+                  <span style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:#6a604c;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#a89f8c" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{ j.window }}</span>
+                  <span style="font-size:13px; font-weight:700; color:#5d6a0b;">{{ j.typ }}</span>
+                </div>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== JOB DETAIL VIEW ===== -->
+    <sc-if value="{{ isJob }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; overflow-y:auto; padding:0 0 110px; animation:mSlide .25s ease both;">
+        <div style="padding:14px 16px 16px;">
+          <button onClick="{{ back }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:700; color:#7a7059; margin-bottom:12px;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Misja dnia</button>
+
+          <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:12px; font-weight:700; color:#a89f8c;">#{{ job.id }}</span><span style="padding:4px 10px; border-radius:7px; font-size:11px; font-weight:700; background:{{ job.status.bg }}; color:{{ job.status.fg }};">{{ job.status.label }}</span></div>
+          <h2 style="margin:6px 0 2px; font-size:23px; font-weight:800; letter-spacing:-0.01em;">{{ job.klient }}</h2>
+          <div style="font-size:13.5px; color:#7a7059;">{{ job.typ }} · {{ job.addr }}</div>
+
+          <div style="display:flex; gap:9px; margin-top:14px;">
+            <a href="{{ job.tel }}" style="flex:1; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:11px; border-radius:13px; background:#fff; border:1px solid #ece6d7; font-size:13px; font-weight:700; color:#2c2011;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#7f8c12" stroke-width="2"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg>Zadzwoń</a>
+            <a href="{{ job.nav }}" style="flex:1; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:11px; border-radius:13px; background:#fff; border:1px solid #ece6d7; font-size:13px; font-weight:700; color:#2c2011;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#7f8c12" stroke-width="2"><path d="M3 11 21 3l-8 18-2-7-8-3Z"/></svg>Nawiguj</a>
+            <button onClick="{{ openChat }}" style="all:unset; box-sizing:border-box; cursor:pointer; position:relative; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:11px; border-radius:13px; background:#2c2011; font-size:13px; font-weight:700; color:#efe9da;" style-active="transform:scale(0.98);"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#A0AF14" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></svg>Biuro<span style="position:absolute; top:5px; right:10px; width:8px; height:8px; border-radius:50%; background:#A0AF14;"></span></button>
+          </div>
+        </div>
+
+        <!-- map strip -->
+        <div style="height:120px; margin:0 16px; border-radius:16px; overflow:hidden; position:relative; background:radial-gradient(circle at 60% 40%, #eef1e0, #e3e7d4);">
+          <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(124,140,18,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(124,140,18,0.12) 1px, transparent 1px); background-size:30px 30px;"></div>
+          <div style="position:absolute; left:50%; top:54%; transform:translate(-50%,-100%);"><svg viewBox="0 0 24 30" width="28" height="35"><path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 30 12 30s12-10 12-18.4C24 5.2 18.6 0 12 0Z" fill="{{ job.pri.dot }}"/><circle cx="12" cy="11.5" r="4.4" fill="#fff"/></svg></div>
+        </div>
+
+        <!-- checklist -->
+        <div style="padding:18px 16px 8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:11px;"><h3 style="margin:0; font-size:15px; font-weight:800;">Lista kontrolna</h3><span style="font-size:12px; font-weight:700; color:#5d6a0b;">{{ checkDone }}/{{ checkTotal }}</span></div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="4">
+              <button onClick="{{ c.toggle }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:13px; background:{{ c.bg }}; border:1px solid {{ c.line }};">
+                <span style="width:24px; height:24px; border-radius:8px; flex:0 0 auto; display:grid; place-items:center; background:{{ c.boxBg }}; border:2px solid {{ c.boxBd }};"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ c.tickOp }};"><path d="M5 12l5 5L20 6"/></svg></span>
+                <span style="font-size:14px; font-weight:600; color:#2c2011; text-decoration:{{ c.strike }};">{{ c.label }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- photos -->
+        <div style="padding:10px 16px 8px;">
+          <h3 style="margin:0 0 11px; font-size:15px; font-weight:800;">Dokumentacja</h3>
+          <div style="display:flex; gap:10px;">
+            <sc-for list="{{ photos }}" as="p" hint-placeholder-count="3">
+              <button onClick="{{ p.add }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:1; aspect-ratio:1; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; background:{{ p.bg }}; border:1.5px {{ p.style }} {{ p.line }}; color:{{ p.fg }};">
+                <sc-if value="{{ p.filled }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h3l1.5-2h5L16 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.2"/></svg></sc-if>
+                <sc-if value="{{ p.empty }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></sc-if>
+                <span style="font-size:10.5px; font-weight:700;">{{ p.label }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- sticky action -->
+      <div style="position:absolute; left:0; right:0; bottom:0; padding:14px 16px 30px; background:linear-gradient(180deg, rgba(250,249,243,0), #faf9f3 28%);">
+        <button onClick="{{ job.advance }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; width:100%; padding:16px; border-radius:16px; font-size:15.5px; font-weight:800; color:{{ job.ctaFg }}; background:{{ job.ctaBg }}; box-shadow:0 10px 24px rgba(124,140,18,0.30);" style-active="transform:scale(0.985);">{{ job.cta }}
+        </button>
+      </div>
+    </sc-if>
+
+    <!-- ===== SIGNATURE SHEET ===== -->
+    <sc-if value="{{ signing }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; justify-content:flex-end;">
+        <div onClick="{{ closeSign }}" style="position:absolute; inset:0; background:rgba(43,29,15,0.45);"></div>
+        <div style="position:relative; background:#faf9f3; border-radius:22px 22px 0 0; padding:20px 18px 26px; box-shadow:0 -16px 40px rgba(43,29,15,0.3); animation:mSlide .25s ease both;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+            <h3 style="margin:0; font-size:18px; font-weight:800; color:#2c2011;">Potwierdzenie odbioru</h3>
+            <button onClick="{{ closeSign }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; background:#efeadd; color:#7a7059;"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </div>
+          <p style="margin:0 0 12px; font-size:13px; color:#8a8069;">{{ job.klient }} · zlecenie #{{ job.id }}. Poproś klienta o podpis, aby zamknąć zlecenie.</p>
+          <canvas ref="{{ sigRef }}" style="width:100%; height:180px; border-radius:14px; background:#fff; border:1.5px dashed #d8d1bf; touch-action:none; display:block;"></canvas>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
+            <span style="font-size:12px; font-weight:600; color:{{ signHintColor }};">{{ signHint }}</span>
+            <button onClick="{{ clearSig }}" style="all:unset; box-sizing:border-box; cursor:pointer; font-size:12.5px; font-weight:700; color:#995510;">Wyczyść</button>
+          </div>
+          <button onClick="{{ confirmSign }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; width:100%; padding:15px; border-radius:14px; margin-top:14px; font-size:15px; font-weight:800; color:#23260a; background:#A0AF14; box-shadow:0 10px 24px rgba(160,175,20,0.30);" style-active="transform:scale(0.99);">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>Zatwierdź i zakończ
+          </button>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== CHAT SHEET ===== -->
+    <sc-if value="{{ chatOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; z-index:32; display:flex; flex-direction:column;">
+        <div onClick="{{ closeChat }}" style="flex:0 0 auto; height:72px; background:rgba(43,29,15,0.4);"></div>
+        <div style="flex:1; min-height:0; background:#faf9f3; border-radius:22px 22px 0 0; box-shadow:0 -16px 40px rgba(43,29,15,0.3); display:flex; flex-direction:column; animation:mSlide .25s ease both; overflow:hidden;">
+          <div style="flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #ece6d7;">
+            <div style="display:flex; align-items:center; gap:11px;">
+              <div style="width:38px; height:38px; border-radius:11px; background:#2c2011; color:#A0AF14; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h12"/></svg></div>
+              <div><div style="font-size:15px; font-weight:800; color:#2c2011;">Biuro · dyspozytor</div><div style="font-size:11.5px; color:#7f8c12;">● online · {{ job.klient }}</div></div>
+            </div>
+            <button onClick="{{ closeChat }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; background:#efeadd; color:#7a7059;"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </div>
+          <div style="flex:1; min-height:0; overflow-y:auto; padding:16px 16px 8px; display:flex; flex-direction:column; gap:10px;">
+            <sc-for list="{{ chatMsgs }}" as="m" hint-placeholder-count="3">
+              <div style="display:flex; flex-direction:column; align-items:{{ m.align }}; gap:3px;">
+                <div style="max-width:78%; padding:10px 13px; border-radius:15px; background:{{ m.bubbleBg }}; color:{{ m.bubbleFg }}; border:1px solid {{ m.border }}; font-size:13.5px; line-height:1.35;">{{ m.text }}</div>
+                <span style="font-size:10.5px; color:#a89f8c; padding:0 4px;">{{ m.who }} · {{ m.time }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:0 0 auto; padding:8px 12px; display:flex; gap:7px; overflow-x:auto; border-top:1px solid #f0ebdd;">
+            <sc-for list="{{ quickReplies }}" as="q" hint-placeholder-count="4">
+              <button onClick="{{ q.send }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:0 0 auto; padding:8px 13px; border-radius:18px; font-size:12.5px; font-weight:700; color:#5d6a0b; background:#f1f3d6; white-space:nowrap;" style-active="transform:scale(0.97);">{{ q.label }}</button>
+            </sc-for>
+          </div>
+          <div style="flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:12px 14px 22px; border-top:1px solid #ece6d7; background:#fff;">
+            <input value="{{ chatDraft }}" onInput="{{ onChatDraft }}" placeholder="Napisz do biura…" style="flex:1; min-height:44px; border:1px solid #e0d9c8; border-radius:22px; padding:0 16px; font-size:14px; background:#faf8f1; color:#2c2011; outline:none;"/>
+            <button onClick="{{ sendChat }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:44px; height:44px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center; background:#A0AF14; color:#23260a;" style-active="transform:scale(0.95);"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== SCANNER SHEET ===== -->
+    <sc-if value="{{ scanOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; z-index:34; display:flex; flex-direction:column; background:#11100d;">
+        <div style="flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:14px 18px; color:#efe9da;">
+          <div style="font-size:15px; font-weight:800;">Skaner sprzętu</div>
+          <button onClick="{{ closeScan }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; background:rgba(255,255,255,0.1); color:#efe9da;"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+
+        <sc-if value="{{ scanScanning }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:24px;">
+            <div style="position:relative; width:240px; height:240px;">
+              <div style="position:absolute; inset:0; border-radius:24px; background:linear-gradient(135deg,#1c1a14,#2a261b);"></div>
+              <div style="position:absolute; left:14px; top:14px; width:36px; height:36px; border-top:3px solid #A0AF14; border-left:3px solid #A0AF14; border-radius:8px 0 0 0;"></div>
+              <div style="position:absolute; right:14px; top:14px; width:36px; height:36px; border-top:3px solid #A0AF14; border-right:3px solid #A0AF14; border-radius:0 8px 0 0;"></div>
+              <div style="position:absolute; left:14px; bottom:14px; width:36px; height:36px; border-bottom:3px solid #A0AF14; border-left:3px solid #A0AF14; border-radius:0 0 0 8px;"></div>
+              <div style="position:absolute; right:14px; bottom:14px; width:36px; height:36px; border-bottom:3px solid #A0AF14; border-right:3px solid #A0AF14; border-radius:0 0 8px 0;"></div>
+              <div style="position:absolute; left:24px; right:24px; height:2.5px; background:#A0AF14; box-shadow:0 0 14px 2px rgba(160,175,20,0.7); border-radius:2px; animation:scanLine 1.5s ease-in-out infinite; top:24px;"></div>
+            </div>
+            <div style="text-align:center;"><div style="font-size:15px; font-weight:700; color:#efe9da;">Skanowanie kodu QR…</div><div style="font-size:12.5px; color:#8a8069; margin-top:4px;">Skieruj aparat na naklejkę sprzętu</div></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ scanResult }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1; min-height:0; display:flex; flex-direction:column; justify-content:flex-end; padding:0;">
+            <div style="background:#faf9f3; border-radius:22px 22px 0 0; padding:22px 18px 26px; animation:mSlide .25s ease both;">
+              <div style="display:flex; align-items:center; gap:9px; margin-bottom:16px;"><span style="width:26px; height:26px; border-radius:50%; background:#A0AF14; color:#23260a; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span><span style="font-size:13px; font-weight:800; color:#5d6a0b; letter-spacing:0.02em;">KOD ROZPOZNANY</span></div>
+              <div style="display:flex; align-items:center; gap:13px; padding:14px; border-radius:15px; background:#fff; border:1px solid #ece6d7;">
+                <div style="width:48px; height:48px; flex:0 0 auto; border-radius:12px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 7h3l1.5-2h5L16 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.4"/></svg></div>
+                <div style="flex:1; min-width:0;"><div style="font-size:16px; font-weight:800; color:#2c2011;">{{ scannedItem.name }}</div><div style="font-size:12px; color:#8a8069; margin-top:2px; font-variant-numeric:tabular-nums;">{{ scannedItem.code }} · {{ scannedItem.cat }}</div></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:11px; padding:10px 13px; border-radius:11px; background:#f1f3d6;"><span style="font-size:12px; color:#5d6a0b;">Status:</span><span style="font-size:12.5px; font-weight:700; color:#2c2011;">{{ scannedItem.status }}</span></div>
+              <div style="display:flex; gap:10px; margin-top:16px;">
+                <sc-if value="{{ scanInStock }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ confirmOut }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:1; text-align:center; padding:15px; border-radius:14px; font-size:14.5px; font-weight:800; color:#23260a; background:#A0AF14;" style-active="transform:scale(0.98);">Wydaj na ekipę</button>
+                </sc-if>
+                <sc-if value="{{ scanNotInStock }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ confirmIn }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:1; text-align:center; padding:15px; border-radius:14px; font-size:14.5px; font-weight:800; color:#fff; background:#BD701E;" style-active="transform:scale(0.98);">Zwróć do magazynu</button>
+                </sc-if>
+                <button onClick="{{ rescan }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:0 0 auto; padding:15px 18px; border-radius:14px; font-size:14px; font-weight:700; color:#5a5040; background:#efeadd;" style-active="transform:scale(0.98);">Skanuj ponownie</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ===== AI ASYSTENT (FAB + sheet) ===== -->
+    <button onClick="{{ openAi }}" style="all:unset; box-sizing:border-box; cursor:pointer; position:absolute; right:16px; bottom:22px; z-index:30; width:56px; height:56px; border-radius:50%; display:grid; place-items:center; background:linear-gradient(135deg,#A0AF14,#7f8c12); color:#23260a; box-shadow:0 12px 30px rgba(160,175,20,0.42);" style-active="transform:scale(0.94);">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M5 12H2M22 12h-3M12 8a4 4 0 0 0-4 4 4 4 0 0 0 8 0 4 4 0 0 0-4-4Z"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>
+    </button>
+    <sc-if value="{{ aiOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; z-index:36; display:flex; flex-direction:column; justify-content:flex-end;">
+        <div onClick="{{ closeAi }}" style="flex:1; background:rgba(43,29,15,0.4);"></div>
+        <div style="flex:0 0 auto; background:#faf9f3; border-radius:22px 22px 0 0; box-shadow:0 -16px 40px rgba(43,29,15,0.3); padding:20px 18px 28px; animation:mSlide .25s ease both;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:10px;"><span style="width:36px; height:36px; border-radius:11px; background:#2c2011; color:#A0AF14; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M5 12H2M22 12h-3M12 8a4 4 0 0 0-4 4 4 4 0 0 0 8 0 4 4 0 0 0-4-4Z"/></svg></span><div><div style="font-size:15px; font-weight:800; color:#2c2011;">Asystent AI</div><div style="font-size:11.5px; color:#8a8069;">Dyktuj raport głosem</div></div></div>
+            <button onClick="{{ closeAi }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; background:#efeadd; color:#7a7059;"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </div>
+          <div style="min-height:96px; padding:14px; border-radius:14px; background:#fff; border:1px solid #ece6d7; font-size:14px; line-height:1.5; color:#2c2011;">
+            <sc-if value="{{ aiHasText }}" hint-placeholder-val="{{ true }}">{{ aiText }}</sc-if>
+            <sc-if value="{{ aiIdle }}" hint-placeholder-val="{{ false }}"><span style="color:#a89f8c;">Naciśnij mikrofon i mów — zamienię mowę na raport zlecenia…</span></sc-if>
+          </div>
+          <sc-if value="{{ aiListening }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; justify-content:center; gap:5px; margin-top:14px; height:30px;"><span style="width:4px; height:14px; border-radius:2px; background:#A0AF14; animation:scanLine 0.6s ease-in-out infinite;"></span><span style="width:4px; height:24px; border-radius:2px; background:#7f8c12; animation:scanLine 0.6s ease-in-out infinite 0.1s;"></span><span style="width:4px; height:18px; border-radius:2px; background:#A0AF14; animation:scanLine 0.6s ease-in-out infinite 0.2s;"></span><span style="width:4px; height:28px; border-radius:2px; background:#BD701E; animation:scanLine 0.6s ease-in-out infinite 0.15s;"></span><span style="width:4px; height:16px; border-radius:2px; background:#7f8c12; animation:scanLine 0.6s ease-in-out infinite 0.25s;"></span></div>
+          </sc-if>
+          <div style="display:flex; gap:10px; margin-top:16px;">
+            <sc-if value="{{ aiDone }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ aiSave }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:1; text-align:center; padding:15px; border-radius:14px; font-size:14.5px; font-weight:800; color:#23260a; background:#A0AF14;" style-active="transform:scale(0.98);">Zapisz raport</button>
+            </sc-if>
+            <sc-if value="{{ aiDone }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ aiDictate }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:1; display:flex; align-items:center; justify-content:center; gap:9px; padding:15px; border-radius:14px; font-size:14.5px; font-weight:800; color:#fff; background:#2c2011;" style-active="transform:scale(0.98);"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3ZM5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dyktuj raport</button>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== GEOFENCING ===== -->
+    <sc-if value="{{ geoOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; z-index:36; display:flex; flex-direction:column; background:linear-gradient(180deg,#2a1d0f,#1b130b); color:#efe9da; animation:mSlide .25s ease both;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px;">
+          <div style="font-size:15px; font-weight:800;">Geofencing</div>
+          <button onClick="{{ closeGeo }}" style="all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; background:rgba(255,255,255,0.1); color:#efe9da;"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px;">
+          <div style="position:relative; width:200px; height:200px; display:grid; place-items:center;">
+            <div style="position:absolute; inset:0; border-radius:50%; border:2px dashed rgba(160,175,20,0.4); animation:scanLine 3s linear infinite;"></div>
+            <div style="position:absolute; inset:34px; border-radius:50%; background:rgba(160,175,20,0.08); border:1px solid rgba(160,175,20,0.3);"></div>
+            <div style="position:absolute; inset:68px; border-radius:50%; background:rgba(160,175,20,0.14);"></div>
+            <sc-if value="{{ geoStarted }}" hint-placeholder-val="{{ false }}"><div style="width:64px; height:64px; border-radius:50%; background:#A0AF14; display:grid; place-items:center; color:#23260a;"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></div></sc-if>
+            <sc-if value="{{ geoStarted }}" hint-placeholder-val="{{ true }}"><div style="width:48px; height:48px; border-radius:50%; background:#BD701E; border:3px solid #fff; box-shadow:0 0 0 6px rgba(189,112,30,0.2);"></div></sc-if>
+          </div>
+          <div style="font-size:13px; color:#bfa888; margin-top:24px;">{{ geoStatusText }}</div>
+          <div style="font-size:34px; font-weight:800; color:#fff; margin-top:6px;">{{ geoDist }}</div>
+          <div style="font-size:12px; color:#9a8e76; margin-top:2px;">do strefy zlecenia · Wspólnota Leśna</div>
+          <div style="width:100%; max-width:280px; height:8px; border-radius:5px; background:rgba(255,255,255,0.12); overflow:hidden; margin-top:22px;"><div style="height:100%; width:{{ geoBar }}; background:#A0AF14; transition:width 0.6s linear;"></div></div>
+        </div>
+        <div style="padding:0 18px 30px; font-size:11.5px; color:#9a8e76; text-align:center; line-height:1.5;">Po wjeździe w 100 m strefę zlecenie startuje automatycznie i rejestruje czas dojazdu. Działa w tle (Geolocation API).</div>
+      </div>
+    </sc-if>
+
+  </div>
+</x-import>
+
+<!-- toast -->
+<div style="position:fixed; left:50%; bottom:46px; z-index:40; transform:translate(-50%,{{ toastY }}); opacity:{{ toastOp }}; transition:transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s; pointer-events:none;">
+  <div style="display:flex; align-items:center; gap:9px; padding:11px 17px; border-radius:13px; background:#2c2011; color:#fff; box-shadow:0 14px 34px rgba(43,29,15,0.4); font-size:13px; font-weight:600;">
+    <span style="display:grid; place-items:center; width:19px; height:19px; border-radius:50%; background:#A0AF14; color:#23260a;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span>{{ toast }}
+  </div>
+</div>
+
+<template id="__bundler_thumbnail" data-bg-color="#2a1d0f">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#2a1d0f"/>
+    <rect x="490" y="280" width="220" height="220" rx="56" fill="#A0AF14"/>
+    <g fill="#2a1d0f" transform="translate(556,316) scale(0.26)"><path d="M356.69 402.64l-39.89 0 0 -64.68 114.04 -65.02 0 -45.49 -114.04 65.02 0 -45.49 114.04 -65.02 0 -181.96 -153.68 87.62 0 91.28 -114.05 -65.02 0 181.96 114.05 65.02 0 41.78 -74.42 0 0 39.63 267.73 0 0 -127.24 -36.78 -20.97 -39.9 22.74 37.04 21.12 0 64.72 -34.52 0 0 -38.57 -39.63 0 0 38.57zm-39.89 -201.15l0 -90.98 74.41 -42.43 0 90.98 -74.41 42.43zm-39.63 22.89l0 90.98 -74.42 -42.43 0 -90.98 74.42 42.43z"/></g>
+    <text x="600" y="600" font-family="sans-serif" font-size="40" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="2">Arbor Mobile</text>
+  </svg>
+</template></x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:520,&quot;height&quot;:920}}">
+class Component extends DCLogic {
+  state = {
+    view: 'home', jobId: 1, toast: '', toastOn: false,
+    role: 'brygadzista', roleOpen: false, authLoggedOut: false, authLogin: 'brygadzista', authPassword: '', authError: '', authBusy: false,
+    gpsTick: 0, announceDraft: '', taskDraft: '', taskWho: 'Marek Wójcik', bhpChecks: {},
+    notifOpen: false, notifRead: {},
+    aiOpen: false, aiState: 'idle', aiText: '',
+    geoOpen: false, geoState: 'far', geoProgress: 0,
+    statusOv: {}, checks: {}, photos: {},
+    quoteItems: [
+      { id: 1, name: 'Wycinka drzewa', qty: 2, price: 450 },
+      { id: 2, name: 'Frezowanie pnia', qty: 2, price: 120 },
+      { id: 3, name: 'Wywóz gałęzi', qty: 1, price: 300 },
+    ], quoteNextId: 4, quoteClient: 'Wspólnota Leśna',
+    phoneState: 'idle', dial: '', callSecs: 0, callName: '',
+    terenStep: 'brief', terenColor: '#c0492f', terenPhotos: [], terenVideos: 0, terenHasDraw: false,
+    signing: false, signed: {}, hasInk: false, offline: false, pendingSync: 0, syncing: false,
+    chatOpen: false, chatMsgs: {}, chatDraft: '',
+    scanOpen: false, scanState: 'idle', scannedItem: null,
+    offlineMutations: [],
+  };
+
+  jobs = [
+    { id: 102, klient: 'Hotel Park', addr: 'al. Klonowa 5, Warszawa', typ: 'Pielęgnacja', pri: 'WYSOKI', status: 'W_REALIZACJI', window: '08:00–12:00', tel: 'tel:+48225551122',
+      checklist: ['Zabezpieczenie terenu i oznakowanie', 'Pielęgnacja koron (5 drzew)', 'Uprzątnięcie gałęzi', 'Wywóz zrębków'] },
+    { id: 101, klient: 'Wspólnota Leśna', addr: 'ul. Leśna 14, Warszawa', typ: 'Wycinka', pri: 'PILNY', status: 'ZAPLANOWANE', window: '12:30–15:00', tel: 'tel:+48501200100',
+      checklist: ['Kontakt z zarządcą na miejscu', 'Zabezpieczenie strefy upadku', 'Wycinka topoli (zagrożenie)', 'Frezowanie pnia', 'Dokumentacja po pracach'] },
+    { id: 104, klient: 'Park Miejski', addr: 'ul. Dębowa 3, Warszawa', typ: 'Frezowanie', pri: 'NORMALNY', status: 'ZAPLANOWANE', window: '15:30–17:00', tel: 'tel:+48221112233',
+      checklist: ['Lokalizacja pni do frezowania', 'Frezowanie (4 szt.)', 'Wyrównanie terenu'] },
+    { id: 107, klient: 'Dom Seniora Parkowy', addr: 'al. Lipowa 8, Warszawa', typ: 'Ogrodnictwo', pri: 'WYSOKI', status: 'NOWE', window: 'do ustalenia', tel: 'tel:+48500666555',
+      checklist: ['Oględziny i wycena na miejscu', 'Ustalenie zakresu z klientem', 'Zdjęcia stanu obecnego'] },
+  ];
+
+  statusOrder = ['NOWE', 'ZAPLANOWANE', 'W_REALIZACJI', 'ZAKONCZONE'];
+  statusMeta(s) {
+    return {
+      NOWE: { label: 'Nowe', bg: '#ede7da', fg: '#574629' },
+      ZAPLANOWANE: { label: 'Zaplanowane', bg: '#f1f3d6', fg: '#5d6a0b' },
+      W_REALIZACJI: { label: 'W toku', bg: '#fae7d2', fg: '#995510' },
+      ZAKONCZONE: { label: 'Zrobione', bg: '#e4efd6', fg: '#456b1f' },
+    }[s] || { label: s, bg: '#ede7da', fg: '#574629' };
+  }
+  priMeta(p) {
+    return {
+      PILNY: { label: 'Pilny', fg: '#a3402a', dot: '#c0492f' },
+      WYSOKI: { label: 'Wysoki', fg: '#995510', dot: '#BD701E' },
+      NORMALNY: { label: 'Normalny', fg: '#6a604c', dot: '#8a7a55' },
+    }[p] || { label: p, fg: '#6a604c', dot: '#8a7a55' };
+  }
+  barColor(s) { return { NOWE: '#8a7a55', ZAPLANOWANE: '#A0AF14', W_REALIZACJI: '#BD701E', ZAKONCZONE: '#7f8c12' }[s] || '#A0AF14'; }
+  st(j) { return this.state.statusOv[j.id] || j.status; }
+  mapArborOrder(order) {
+    const client = (this._arborClients || []).find(c => c.id === order.clientId) || {};
+    const typeMap = {
+      'Wycinka świerka': 'Wycinka',
+      'Pielęgnacja koron': 'Pielęgnacja',
+      'Usunięcie posuszu': 'Pielęgnacja',
+      'Frezowanie pnia': 'Frezowanie',
+    };
+    const priMap = { pilny: 'PILNY', wysoki: 'WYSOKI', normalny: 'NORMALNY', niski: 'NORMALNY' };
+    const at = order.scheduledAt ? new Date(order.scheduledAt) : null;
+    const window = at && !isNaN(at) ? at.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + '–' + new Date(at.getTime() + 2 * 60 * 60 * 1000).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : 'do ustalenia';
+    return {
+      id: order.id,
+      backendId: order.id,
+      klient: client.name || order.clientId || 'Klient',
+      addr: (order.address || client.address || '—') + ', ' + (order.city || ''),
+      typ: typeMap[order.type] || order.type || 'Prace',
+      pri: priMap[order.priority] || 'NORMALNY',
+      status: order.status || 'NOWE',
+      window,
+      tel: client.phone ? 'tel:' + client.phone.replace(/\s/g, '') : 'tel:',
+      checklist: (order.checklist || []).map(x => x.label || x).filter(Boolean).length ? (order.checklist || []).map(x => x.label || x) : ['BHP przed pracą', 'Zdjęcia przed', 'Podpis klienta'],
+    };
+  }
+  roleLogin(r) {
+    return { brygadzista: 'brygadzista', kierownik: 'kierownik', dyrektor: 'dyrektor', ksiegowa: 'ksiegowa', wyceniajacy: 'wycena' }[r] || r || 'brygadzista';
+  }
+  _fmtZl(n) { return (Math.round(Number(n) || 0)).toLocaleString('pl-PL') + ' zł'; }
+  _backendConnected() { return Boolean(this._arborUser); }
+  _grossZl(net) { return (Number(net) || 0) * 1.23; }
+  _crmClientsVal(fallback) {
+    if (!this._backendConnected()) return fallback;
+    return (this._arborClients || []).map((c) => {
+      const name = c.name || 'Klient';
+      const initials = name.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+      const city = (c.address || '').split(',').pop().trim() || '—';
+      return { name, city, ltv: this._fmtZl(c.ltv), initials, tel: c.phone ? 'tel:' + String(c.phone).replace(/\s/g, '') : 'tel:' };
+    });
+  }
+  _invoiceMeta(status) {
+    return {
+      oplacona: { label: 'Opłacona', bg: '#e4efd6', fg: '#456b1f', dot: '#7f8c12' },
+      wyslana: { label: 'Wysłana', bg: '#f1f3d6', fg: '#5d6a0b', dot: '#A0AF14' },
+      po_terminie: { label: 'Po terminie', bg: '#f6e0d9', fg: '#a3402a', dot: '#c0492f' },
+      szkic: { label: 'Szkic', bg: '#ede7da', fg: '#574629', dot: '#8a7a55' },
+    }[status] || { label: status || '—', bg: '#ede7da', fg: '#574629', dot: '#8a7a55' };
+  }
+  _fakturyVal(fallback) {
+    if (!this._backendConnected()) return fallback;
+    const clients = this._arborClients || [];
+    return (this._arborInvoices || []).map((f) => {
+      const client = clients.find((c) => c.id === f.clientId) || {};
+      const meta = this._invoiceMeta(f.status);
+      return { id: f.number || f.id, client: client.name || f.clientId || '—', gross: this._fmtZl(this._grossZl(f.net)), label: meta.label, bg: meta.bg, fg: meta.fg, dot: meta.dot };
+    });
+  }
+  _fakturyKpiVal(fallback) {
+    if (!this._backendConnected()) return fallback;
+    const gross = (rows) => this._fmtZl(rows.reduce((s, f) => s + this._grossZl(f.net), 0));
+    const byStatus = (statuses) => (this._arborInvoices || []).filter((f) => statuses.includes(f.status));
+    return [
+      { v: gross(byStatus(['oplacona'])), l: 'Opłacone', c: '#456b1f' },
+      { v: gross(byStatus(['wyslana', 'szkic'])), l: 'Oczekuje', c: '#5d6a0b' },
+      { v: gross(byStatus(['po_terminie'])), l: 'Po terminie', c: '#a3402a' },
+    ];
+  }
+  _brigReportsVal(fallback) {
+    if (!this._backendConnected()) return fallback;
+    const orders = this._arborOrders || [];
+    const users = this._arborUsers || [];
+    return (this._arborCrews || []).map((c) => {
+      const mine = orders.filter((o) => o.teamId === c.id);
+      const done = mine.filter((o) => o.status === 'ZAKONCZONE').length;
+      const leader = users.find((u) => u.id === c.leaderId);
+      const lead = leader ? ((leader.firstName || '') + ' ' + (leader.lastName || '')).trim() : (c.members || [])[0] || '—';
+      const inProgress = mine.filter((o) => o.status === 'W_REALIZACJI').length;
+      return { team: c.name || c.id, lead, done, hours: inProgress, value: this._fmtZl(mine.reduce((s, o) => s + (Number(o.value) || 0), 0)), util: (c.utilization != null ? c.utilization : '—') + '%' };
+    });
+  }
+  _magazynVal(fallback) {
+    if (!this._backendConnected()) return fallback;
+    // Próg spójny z backendem (dashboard liczy stock <= minStock jako niski stan).
+    return (this._arborWarehouseItems || []).map((it) => ({
+      name: it.name || it.id,
+      stock: (it.stock != null ? it.stock : '—') + ' ' + (it.unit || 'szt'),
+      min: 'min ' + (it.minStock != null ? it.minStock : '—'),
+      low: Number(it.stock) <= Number(it.minStock) ? '#a3402a' : '#2c2011',
+    }));
+  }
+  loginRoleFromAccount(login) {
+    return { brygadzista: 'brygadzista', kierownik: 'kierownik', dyrektor: 'dyrektor', ksiegowa: 'ksiegowa', wycena: 'wyceniajacy', admin: 'dyrektor' }[login] || 'brygadzista';
+  }
+  logoutAccount() {
+    if (!window.ArborBridge?.logout) return;
+    window.ArborBridge.logout();
+    this._arborUser = null;
+    this.setState({ authLoggedOut: true, roleOpen: false, authError: '' });
+    this.flash('Wylogowano');
+  }
+  onAuthLogin(e) { this.setState({ authLogin: e.target.value, authError: '' }); }
+  onAuthPassword(e) { this.setState({ authPassword: e.target.value, authError: '' }); }
+  loginAccount(login) {
+    const nextLogin = login || this.state.authLogin || 'brygadzista';
+    if (!window.ArborBridge?.login) { this.setState({ authError: 'Backend logowania niedostępny' }); return; }
+    this.setState({ authBusy: true, authLogin: nextLogin, authError: '' });
+    window.ArborBridge.login(nextLogin, this.state.authPassword || undefined)
+      .then((user) => {
+        this._arborUser = user || null;
+        this.setState({ authLoggedOut: false, authBusy: false, authPassword: '', role: this.loginRoleFromAccount(nextLogin), roleOpen: false });
+        this.loadArborBackend();
+        this.flash('Zalogowano: ' + nextLogin);
+      })
+      .catch(() => this.setState({ authBusy: false, authError: 'Nie zalogowano: sprawdź login i hasło' }));
+  }
+  _ingestArborData(data) {
+    this._arborClients = data.clients || [];
+    this._arborOrders = data.orders || [];
+    this._arborUsers = data.users || [];
+    this._arborCrews = data.crews || [];
+    this._arborInvoices = data.invoices || [];
+    this._arborWarehouseItems = data.warehouseItems || [];
+    if (data.currentUserId) this._arborUser = (data.users || []).find((u) => u.id === data.currentUserId) || this._arborUser || null;
+  }
+  loadArborBackend(opts = {}) {
+    if (!window.ArborBridge) return;
+    window.ArborBridge.bootstrap()
+      .then((data) => {
+        this._ingestArborData(data);
+        const mapped = (data.orders || []).map(order => this.mapArborOrder(order));
+        if (mapped.length) {
+          this.jobs = mapped;
+          const selectionValid = mapped.some((job) => job.id === this.state.jobId);
+          if (!opts.silent || !selectionValid) this.setState({ jobId: mapped[0].id });
+        }
+        if (!opts.silent) this.flash('Mobile połączony z backendem · ' + mapped.length + ' zleceń');
+        else this.forceUpdate();
+      })
+      .catch((error) => {
+        console.warn('ArborBridge mobile bootstrap failed', error);
+        if (error && error.code === 'LOGGED_OUT') {
+          this.setState({ authLoggedOut: true, authError: '' });
+          return;
+        }
+        this.flash('Backend niedostępny · mobile działa lokalnie');
+      });
+  }
+  queueMutation(type, payload) {
+    const mutation = { id: 'm-' + Date.now() + '-' + Math.random().toString(16).slice(2), type, payload };
+    if (this.state.offline || !window.ArborBridge) {
+      this.setState({ offlineMutations: this.state.offlineMutations.concat(mutation), pendingSync: this.state.pendingSync + 1 });
+      return Promise.resolve(null);
+    }
+    return fetch(window.ArborBridge.apiUrl + '/api/sync/mutations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('arbor.demo.token') },
+      body: JSON.stringify({ mutations: [mutation] }),
+    }).then(r => r.ok ? r.json() : Promise.reject(r));
+  }
+
+  flash(m) { this.setState({ toast: m, toastOn: true }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toastOn: false }), 2400); }
+  open(id) { this.setState({ view: 'job', jobId: id }); }
+  back() { this.setState({ view: 'list' }); }
+  goHome() { this.setState({ view: 'home' }); }
+  fmtDur(s) { const m = Math.floor(s / 60), x = s % 60; return m + ':' + (x < 10 ? '0' : '') + x; }
+  goList() { this.setState({ view: 'list' }); }
+  goWycena() { this.setState({ view: 'wycena' }); }
+  goPhone() { this.setState({ view: 'phone', phoneState: 'idle', dial: '' }); }
+  goTeren() { this.setState({ view: 'teren', terenStep: 'brief' }); }
+  goCrm() { this.setState({ view: 'crm' }); }
+  sendZglos() {
+    const t = this.state.zgType || 'sprzet';
+    let payload, label;
+    if (t === 'sprzet') {
+      const item = this.state.zgItem || 'Podnośnik 22m';
+      const date = this.state.zgDate || '';
+      payload = { type: 'equipment', equipment: item, neededAt: date, subject: 'Prośba o sprzęt: ' + item };
+      label = 'Prośba: ' + item + (date ? ' na ' + date.split('-').reverse().join('.') : '');
+    } else {
+      const note = (this.state.zgNote || '').trim();
+      if (!note) { this.flash('Wpisz treść zgłoszenia'); return; }
+      payload = { type: 'info', subject: note.slice(0, 60), note };
+      label = 'Info: ' + note.slice(0, 42);
+    }
+    const mine = { t: label, st: 'Wysłane', bg: '#fae7d2', fg: '#995510' };
+    this.setState({ zgMine: [mine, ...(this.state.zgMine || [])], zgNote: '' });
+    this.flash(t === 'sprzet' ? 'Wysłano prośbę o sprzęt do menedżera' : 'Zgłoszenie wysłane do menedżera');
+    if (window.ArborBridge && window.ArborBridge.createRequest) {
+      window.ArborBridge.createRequest(payload)
+        .then(() => this.flash('Zgłoszenie zapisane · menedżer powiadomiony'))
+        .catch((e) => { console.warn('sendZglos', e); this.flash('Wysłano lokalnie · backend niedostępny'); });
+    }
+  }
+  goFaktury() { this.setState({ view: 'faktury' }); }
+  goMagazyn() { this.setState({ view: 'magazyn' }); }
+  setRole(r) {
+    this.setState({ role: r, roleOpen: false, view: 'home' });
+    const login = this.roleLogin(r);
+    if (!window.ArborBridge) { this.flash('Rola: ' + this.roleMeta(r).name); return; }
+    window.ArborBridge.login(login)
+      .then((u) => {
+        this._arborUser = u || null;
+        return fetch(window.ArborBridge.apiUrl + '/api/bootstrap', { headers: { Authorization: 'Bearer ' + localStorage.getItem('arbor.demo.token') } });
+      })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data) => {
+        this._ingestArborData(data);
+        const mapped = (data.orders || []).map((o) => this.mapArborOrder(o));
+        if (mapped.length) this.jobs = mapped;
+        this.setState({ jobId: mapped[0] ? mapped[0].id : this.state.jobId });
+        this.flash('Zalogowano: ' + (this._arborUser ? this._arborUser.firstName + ' ' + this._arborUser.lastName : login));
+      })
+      .catch(() => this.flash('Rola: ' + this.roleMeta(r).name));
+  }
+  toggleRole() { this.setState({ roleOpen: !this.state.roleOpen }); }
+  roleMeta(r) {
+    return {
+      brygadzista: { name: 'Jan Kowalski', sub: 'Brygadzista · Ekipa A1', init: 'JK', label: 'Brygadzista' },
+      kierownik: { name: 'Anna Kierownik', sub: 'Kierownik · Warszawa', init: 'AK', label: 'Kierownik' },
+      dyrektor: { name: 'Tomasz Dyrektor', sub: 'Dyrektor · wszystkie oddziały', init: 'TD', label: 'Dyrektor' },
+      ksiegowa: { name: 'Maria Księgowa', sub: 'Księgowość', init: 'MK', label: 'Księgowa' },
+      wyceniajacy: { name: 'Ewa Wycena', sub: 'Wyceniający · Warszawa', init: 'EW', label: 'Wyceniający' },
+    }[r] || { name: 'Jan Kowalski', sub: 'Brygadzista', init: 'JK', label: 'Brygadzista' };
+  }
+  terenStart() { this.setState({ terenStep: 'foto' }); }
+  setTerenColor(c) { this.setState({ terenColor: c }); }
+  addTerenPhoto() {
+    const id = this.state.terenPhotos.length + 1;
+    this.setState({ terenPhotos: this.state.terenPhotos.concat({ id }) });
+    setTimeout(() => this.initDraw(), 60);
+    this.flash('Zdjęcie dodane — rysuj po nim');
+  }
+  addTerenVideo() { this.setState({ terenVideos: this.state.terenVideos + 1 }); this.flash('Film dodany (' + (this.state.terenVideos + 1) + ')'); }
+  clearDraw() {
+    const c = this._canvas; if (c) { const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); }
+    this.setState({ terenHasDraw: false });
+  }
+  terenSend() {
+    this.setState({ terenStep: 'sent' });
+    if (window.ArborBridge && (window.ArborBridge.simulateFieldMeeting || window.ArborBridge.createMobileMeetingRecording || window.ArborBridge.createValuation)) {
+      const orders = this._arborOrders || [];
+      const order = orders.find((o) => o.status !== 'ZAKONCZONE' && o.status !== 'ANULOWANE') || orders[0];
+      if (!order) { this.flash('Wysłano (brak zlecenia w backendzie)'); return; }
+      if (window.ArborBridge.simulateFieldMeeting || window.ArborBridge.createMobileMeetingRecording) {
+        const transcript = [
+          { speaker: 'Wyceniający', text: 'Jestem na miejscu. Dokumentuję zdjęcia, dostęp sprzętu, ryzyka i zakres prac.', atSec: 0 },
+          { speaker: 'Klient', text: 'Proszę uwzględnić wywóz gałęzi, uporządkowanie terenu i najbliższy możliwy termin.', atSec: 45 },
+          { speaker: 'Wyceniający', text: 'Przygotuję wycenę z pozycjami, ryzykami i rekomendacją dla biura do potwierdzenia.', atSec: 96 },
+        ];
+        const payload = {
+          orderId: order.id,
+          subject: 'Spotkanie terenowe wyceniającego - mobile',
+          durationSec: 420,
+          recordingUrl: '/recordings/demo/mobile-field-meeting.m4a',
+          recordingId: 'mobile-' + Date.now(),
+          recordingSource: 'mobile_meeting',
+          recordingStatus: 'ready',
+          transcriptStatus: 'ready',
+          transcript,
+          media: ['zdjęcie obiektu', 'zaznaczony zakres prac'].concat(this.state.terenVideos ? ['film terenu'] : []),
+          notes: 'Wycena terenowa - zdjęcia, szkic i notatki z aplikacji mobilnej',
+          status: 'do_potwierdzenia',
+          autoAnalyze: true,
+        };
+        const req = window.ArborBridge.simulateFieldMeeting ? window.ArborBridge.simulateFieldMeeting(payload) : window.ArborBridge.createMobileMeetingRecording(payload);
+        req.then((result) => {
+          const score = result && result.analysis ? ' · AI ' + result.analysis.score + '/100' : '';
+          this.flash('Spotkanie zapisane w CRM · wycena do potwierdzenia' + score);
+        }).catch((e) => { console.warn('terenSend meeting', e); this.flash('Brak uprawnień (wyceniający) lub błąd — zapisano lokalnie'); });
+        return;
+      }
+      window.ArborBridge.createValuation({
+        orderId: order.id,
+        status: 'do_potwierdzenia',
+        notes: 'Wycena terenowa — zdjęcia i zaznaczony zakres prac',
+        media: ['zdjęcie obiektu', 'zaznaczony zakres prac'],
+      })
+        .then(() => this.flash('Wycena wysłana do biura · do potwierdzenia'))
+        .catch((e) => { console.warn('terenSend', e); this.flash('Brak uprawnień (wyceniający) lub błąd — zapisano lokalnie'); });
+    }
+  }
+  initDraw() {
+    const c = this._canvas; if (!c) return;
+    const rect = c.getBoundingClientRect();
+    c.width = rect.width; c.height = rect.height;
+    const ctx = c.getContext('2d'); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    let drawing = false, lx = 0, ly = 0;
+    const pos = (e) => { const r = c.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
+    const down = (e) => { e.preventDefault(); drawing = true; const p = pos(e); lx = p.x; ly = p.y; };
+    const move = (e) => { if (!drawing) return; e.preventDefault(); const p = pos(e); ctx.strokeStyle = this.state.terenColor; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(p.x, p.y); ctx.stroke(); lx = p.x; ly = p.y; if (!this.state.terenHasDraw) this.setState({ terenHasDraw: true }); };
+    const up = () => { drawing = false; };
+    c.onpointerdown = down; c.onpointermove = move; c.onpointerup = up; c.onpointerleave = up;
+  }
+  canvasRef(el) { if (el) { this._canvas = el; setTimeout(() => this.initDraw(), 40); } }
+
+  // ---- wycena na miejscu ----
+  qField(id, k) { return (e) => { const v = k === 'name' ? e.target.value : (parseFloat(e.target.value) || 0); this.setState({ quoteItems: this.state.quoteItems.map(it => it.id === id ? { ...it, [k]: v } : it) }); }; }
+  qAdd() { const id = this.state.quoteNextId; this.setState({ quoteItems: this.state.quoteItems.concat({ id, name: 'Nowa pozycja', qty: 1, price: 0 }), quoteNextId: id + 1 }); }
+  qRemove(id) { this.setState({ quoteItems: this.state.quoteItems.filter(it => it.id !== id) }); }
+  qSend() { this.flash('Wycena wysłana do: ' + this.state.quoteClient); }
+
+  // ---- telefon ----
+  dialPress(d) { this.setState({ dial: (this.state.dial + d).slice(0, 15) }); }
+  dialDel() { this.setState({ dial: this.state.dial.slice(0, -1) }); }
+  callStart(name, num) {
+    this.setState({ view: 'phone', phoneState: 'dialing', callName: name || this.state.dial || 'Nowy numer', dial: num || this.state.dial, callSecs: 0 });
+    clearTimeout(this._cd); this._cd = setTimeout(() => { this.setState({ phoneState: 'active', callSecs: 0 }); clearInterval(this._ct); this._ct = setInterval(() => this.setState({ callSecs: this.state.callSecs + 1 }), 1000); }, 1500);
+  }
+  callEnd() { clearInterval(this._ct); clearTimeout(this._cd); const s = this.state.callSecs; this.setState({ phoneState: 'idle', dial: '' }); this.flash('Połączenie zakończone' + (s ? ' · ' + this.fmtDur(s) : '')); }
+
+  // ---- skaner sprzętu (QR) ----
+  scanItems = [
+    { code: 'PF-PIL-018', name: 'Pilarka STIHL MS 400', cat: 'Pilarki', status: 'W magazynie' },
+    { code: 'PF-POD-022', name: 'Podnośnik koszowy 22m', cat: 'Maszyny', status: 'Wydany · Ekipa A2' },
+    { code: 'PF-REB-007', name: 'Rębak Bandit 990', cat: 'Maszyny', status: 'W magazynie' },
+    { code: 'PF-LIN-014', name: 'Zestaw lin 11.5mm', cat: 'Sprzęt wysokościowy', status: 'W magazynie' },
+  ];
+  openScan() { this.setState({ scanOpen: true, scanState: 'scanning', scannedItem: null }); clearTimeout(this._scan); this._scan = setTimeout(() => this.finishScan(), 1700); }
+  finishScan() {
+    const it = this.scanItems[Math.floor(Math.random() * this.scanItems.length)];
+    this.setState({ scanState: 'result', scannedItem: it });
+  }
+  rescan() { this.setState({ scanState: 'scanning', scannedItem: null }); clearTimeout(this._scan); this._scan = setTimeout(() => this.finishScan(), 1700); }
+  closeScan() { clearTimeout(this._scan); this.setState({ scanOpen: false, scanState: 'idle', scannedItem: null }); }
+  confirmScan(action) {
+    const it = this.state.scannedItem;
+    this.setState({ scanOpen: false, scanState: 'idle', scannedItem: null });
+    this.flash((action === 'out' ? 'Wydano: ' : 'Zwrócono: ') + (it ? it.name : 'sprzęt'));
+  }
+
+  // ---- czat z biurem ----
+  baseChat = {
+    102: [
+      { from: 'office', who: 'Biuro · Anna', text: 'Klient prosi o dodatkowe zabezpieczenie rabaty pod koroną.', time: '08:12' },
+      { from: 'team', who: 'Ty', text: 'Przyjąłem, zabezpieczamy folią. Start za 10 min.', time: '08:15' },
+      { from: 'office', who: 'Biuro · Anna', text: 'Super. Zdjęcia „przed" wrzuć na zlecenie.', time: '08:16' },
+    ],
+  };
+  quickReplies = ['Jesteśmy na miejscu', 'Zakończone, jadę dalej', 'Potrzebny sprzęt', 'Opóźnienie ~30 min'];
+  openChat() { this.setState({ chatOpen: true }); }
+  closeChat() { this.setState({ chatOpen: false }); }
+  chatThread(jid) { return (this.state.chatMsgs[jid] || this.baseChat[jid] || []); }
+  onChatDraft(e) { this.setState({ chatDraft: e.target.value }); }
+  sendChat(text) {
+    const jid = this.state.jobId;
+    const body = (text != null ? text : this.state.chatDraft).trim();
+    if (!body) return;
+    const now = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+    const thread = this.chatThread(jid).concat({ from: 'team', who: 'Ty', text: body, time: now });
+    this.setState({ chatMsgs: { ...this.state.chatMsgs, [jid]: thread }, chatDraft: '' });
+    // auto-odpowiedź biura
+    clearTimeout(this._chatReply);
+    this._chatReply = setTimeout(() => {
+      const t2 = (this.state.chatMsgs[jid] || thread).concat({ from: 'office', who: 'Biuro · Anna', text: 'Odebrałam, dzięki za info 👍', time: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) });
+      this.setState({ chatMsgs: { ...this.state.chatMsgs, [jid]: t2 } });
+    }, 1400);
+  }
+  toggleCheck(jid, i) {
+    const k = jid + ':' + i;
+    const nextDone = !this.state.checks[k];
+    this.setState({ checks: { ...this.state.checks, [k]: nextDone } });
+    const job = this.jobs.find(x => x.id === jid);
+    const label = job && job.checklist ? job.checklist[i] : 'Punkt checklisty';
+    this.queueMutation('order.checklist', { orderId: job && job.backendId ? job.backendId : jid, label, done: nextDone }).catch((error) => {
+      console.warn('Mobile checklist sync failed', error);
+      this.setState({ pendingSync: this.state.pendingSync + 1 });
+    });
+  }
+  addPhoto(jid, i) { const k = jid + ':' + i; this.setState({ photos: { ...this.state.photos, [k]: !this.state.photos[k] } }); this.flash(this.state.photos[k] ? 'Zdjęcie usunięte' : 'Zdjęcie dodane'); }
+
+  advance(j) {
+    const cur = this.st(j);
+    const i = this.statusOrder.indexOf(cur);
+    if (i >= this.statusOrder.length - 1) { this.flash('Zlecenie już zakończone'); return; }
+    // ostatni krok → wymagaj podpisu klienta
+    if (this.statusOrder[i + 1] === 'ZAKONCZONE') { this.openSign(); return; }
+    const next = this.statusOrder[i + 1];
+    this.setState({ statusOv: { ...this.state.statusOv, [j.id]: next } });
+    this.flash('Status → ' + this.statusMeta(next).label);
+    this.queueMutation('order.status', { orderId: j.backendId || j.id, status: next }).catch((error) => {
+      console.warn('Mobile status sync failed', error);
+      this.setState({ offlineMutations: this.state.offlineMutations.concat({ id: 'm-' + Date.now(), type: 'order.status', payload: { orderId: j.backendId || j.id, status: next } }), pendingSync: this.state.pendingSync + 1 });
+      this.flash('Status zapisany lokalnie · synchronizacja później');
+    });
+  }
+
+  toggleOffline() {
+    if (this.state.offline) {
+      // wracamy online → synchronizacja kolejki
+      this.setState({ offline: false });
+      if (this.state.pendingSync > 0) {
+        this.setState({ syncing: true });
+        this.flash('Synchronizacja ' + this.state.pendingSync + ' zmian…');
+        clearTimeout(this._sync);
+        const mutations = this.state.offlineMutations;
+        if (window.ArborBridge && mutations.length) {
+          fetch(window.ArborBridge.apiUrl + '/api/sync/mutations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('arbor.demo.token') },
+            body: JSON.stringify({ mutations }),
+          }).then(r => r.ok ? r.json() : Promise.reject(r))
+            .then((result) => {
+              this.setState({ syncing: false, pendingSync: result.conflicts && result.conflicts.length ? result.conflicts.length : 0, offlineMutations: [] });
+              this.flash(result.conflicts && result.conflicts.length ? 'Część zmian wymaga sprawdzenia' : 'Zsynchronizowano — wszystko aktualne');
+            })
+            .catch((error) => {
+              console.warn('Mobile offline sync failed', error);
+              this.setState({ syncing: false, offline: true });
+              this.flash('Nie udało się zsynchronizować · nadal offline');
+            });
+        } else {
+          this._sync = setTimeout(() => { this.setState({ syncing: false, pendingSync: 0, offlineMutations: [] }); this.flash('Zsynchronizowano — wszystko aktualne'); }, 1800);
+        }
+      } else { this.flash('Online'); }
+    } else {
+      this.setState({ offline: true });
+      this.flash('Tryb offline — zmiany zapisują się lokalnie');
+    }
+  }
+  toggleNotif() { this.setState({ notifOpen: !this.state.notifOpen }); }
+  openAi() { this.setState({ aiOpen: true, aiState: 'idle', aiText: '' }); }
+  closeAi() { clearInterval(this._ai); this.setState({ aiOpen: false, aiState: 'idle' }); }
+  aiDictate() {
+    this.setState({ aiState: 'listening', aiText: '' });
+    const full = 'Zakończyliśmy wycinkę trzech topoli przy ulicy Leśnej. Sprzątnięto gałęzie, sfrezowano pnie. Zużyto 38 litrów paliwa. Klient zadowolony, podpisał odbiór.';
+    const words = full.split(' '); let i = 0;
+    clearInterval(this._ai);
+    this._ai = setInterval(() => {
+      i++; this.setState({ aiText: words.slice(0, i).join(' ') });
+      if (i >= words.length) { clearInterval(this._ai); this.setState({ aiState: 'done' }); }
+    }, 110);
+  }
+  aiSave() { clearInterval(this._ai); this.setState({ aiOpen: false, aiState: 'idle' }); this.flash('Raport zapisany do zlecenia'); }
+  openGeo() { this.setState({ geoOpen: true, geoState: 'far', geoProgress: 12 }); this.runGeo(); }
+  closeGeo() { clearInterval(this._geo); this.setState({ geoOpen: false }); }
+  runGeo() {
+    clearInterval(this._geo);
+    this._geo = setInterval(() => {
+      let p = this.state.geoProgress + 6 + Math.random() * 5;
+      if (p >= 100) {
+        p = 100; clearInterval(this._geo);
+        this.setState({ geoProgress: 100, geoState: 'arrived' });
+        setTimeout(() => { if (this.state.geoState === 'arrived') { this.setState({ geoState: 'started' }); this.flash('Geofencing: auto-start zlecenia #101'); } }, 1400);
+      } else {
+        this.setState({ geoProgress: p, geoState: p > 70 ? 'near' : 'far' });
+      }
+    }, 700);
+  }
+  readNotif(i) { this.setState({ notifRead: { ...this.state.notifRead, [i]: true } }); }
+  readAllNotif() { const r = {}; this.notifFor().forEach((_, i) => { r[i] = true; }); this.setState({ notifRead: r }); this.flash('Oznaczono wszystkie'); }
+  notifFor() {
+    const r = this.state.role;
+    const all = {
+      brygadzista: [
+        { ch: 'Zlecenie', text: 'Nowe zlecenie #108 — ul. Topolowa 4, na dziś 13:00', time: '5 min', tone: 'lime' },
+        { ch: 'Zadanie', text: 'Anna K.: zabierz podnośnik na Klonową 5', time: '22 min', tone: 'orange' },
+        { ch: 'Ogłoszenie', text: 'BHP: kontrole kasków w tym tygodniu', time: '2 h', tone: 'red' },
+      ],
+      kierownik: [
+        { ch: 'GPS', text: 'Ekipa A2 dotarła na miejsce — al. Klonowa 5', time: 'teraz', tone: 'lime' },
+        { ch: 'Wycena', text: 'Nowa wycena terenowa do potwierdzenia (WT-318)', time: '14 min', tone: 'orange' },
+        { ch: 'Alert', text: 'Wywrotka MAN — ryzyko awarii 72%', time: '1 h', tone: 'red' },
+      ],
+      dyrektor: [
+        { ch: 'Wynik', text: 'Przychód tygodnia +12% względem planu', time: '1 h', tone: 'lime' },
+        { ch: 'Faktura', text: 'FV/06/116 po terminie — Wspólnota Leśna', time: '3 h', tone: 'red' },
+        { ch: 'Kadry', text: '2 badania pracowników wygasają w tym tygodniu', time: '5 h', tone: 'orange' },
+      ],
+      ksiegowa: [
+        { ch: 'Faktura', text: 'Spółdzielnia Bryza opłaciła FV/06/118', time: '30 min', tone: 'lime' },
+        { ch: 'Raport', text: 'Raport brygad A1–K1 gotowy do rozliczenia', time: '2 h', tone: 'orange' },
+        { ch: 'Termin', text: 'FV/06/116 — 1 dzień po terminie płatności', time: '4 h', tone: 'red' },
+      ],
+    };
+    return all[r] || all.brygadzista;
+  }
+
+  // ---- podpis klienta (canvas) ----
+  openSign() { this.setState({ signing: true, hasInk: false }); }
+  closeSign() { this.setState({ signing: false }); }
+  sigRef(node) {
+    if (!node || node === this._sigNode) return;
+    this._sigNode = node;
+    const ratio = window.devicePixelRatio || 1;
+    const rect = node.getBoundingClientRect();
+    const w = rect.width || 360, h = rect.height || 180;
+    node.width = w * ratio; node.height = h * ratio;
+    const ctx = node.getContext('2d');
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#2c2011';
+    this._ctx = ctx; this._w = w; this._h = h;
+    let drawing = false, last = null;
+    const pos = (e) => { const r = node.getBoundingClientRect(); const p = e.touches ? e.touches[0] : e; return { x: p.clientX - r.left, y: p.clientY - r.top }; };
+    const start = (e) => { e.preventDefault(); drawing = true; last = pos(e); if (!this.state.hasInk) this.setState({ hasInk: true }); };
+    const move = (e) => { if (!drawing) return; e.preventDefault(); const p = pos(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; };
+    const end = () => { drawing = false; };
+    node.addEventListener('pointerdown', start);
+    node.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    node.addEventListener('touchstart', start, { passive: false });
+    node.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', end);
+  }
+  clearSig() { if (this._ctx) this._ctx.clearRect(0, 0, this._w, this._h); this.setState({ hasInk: false }); }
+  confirmSign() {
+    if (!this.state.hasInk) { this.flash('Poproś klienta o podpis'); return; }
+    const j = this.jobs.find(x => x.id === this.state.jobId);
+    this.setState({
+      signing: false,
+      signed: { ...this.state.signed, [this.state.jobId]: true },
+      statusOv: { ...this.state.statusOv, [this.state.jobId]: 'ZAKONCZONE' },
+    });
+    this._sigNode = null;
+    this.flash(this.state.offline ? 'Zakończone — zapis offline' : 'Zlecenie zakończone, podpisano');
+    this.queueMutation('order.status', { orderId: j.backendId || j.id, status: 'ZAKONCZONE' }).catch((error) => console.warn('Mobile sign sync failed', error));
+  }
+
+  componentDidMount() {
+    this._ck = setInterval(() => this.forceUpdate(), 30000);
+    this._gps = setInterval(() => this.setState({ gpsTick: this.state.gpsTick + 1 }), 1500);
+    this.loadArborBackend();
+    // Realtime: zmiany z biura/innych urządzeń → cichy re-bootstrap.
+    if (window.ArborBridge && window.ArborBridge.onRefresh) {
+      window.ArborBridge.onRefresh(() => { if (!this.state.authLoggedOut) this.loadArborBackend({ silent: true }); });
+    }
+  }
+  componentWillUnmount() { clearInterval(this._ck); clearTimeout(this._t); clearInterval(this._gps); }
+  goGps() { this.setState({ view: 'gps' }); }
+  goProfil() { this.setState({ view: 'profil' }); }
+  goAktualnosci() { this.setState({ view: 'aktualnosci' }); }
+  goZadania() { this.setState({ view: 'zadania' }); }
+  goBhp() { this.setState({ view: 'bhp' }); }
+  goDokumenty() { this.setState({ view: 'dokumenty' }); }
+  toggleBhp(i) { const b = { ...this.state.bhpChecks, [i]: !this.state.bhpChecks[i] }; const inc = this.state.offline ? { pendingSync: this.state.pendingSync + 1 } : {}; this.setState({ bhpChecks: b, ...inc }); }
+  confirmBhp() {
+    const total = 6, done = Object.keys(this.state.bhpChecks).filter(k => this.state.bhpChecks[k]).length;
+    if (done < total) { this.flash('Zaznacz wszystkie punkty BHP'); return; }
+    this.flash('BHP potwierdzone — można rozpocząć pracę'); this.setState({ view: 'home' });
+  }
+  onAnnounce(e) { this.setState({ announceDraft: e.target.value }); }
+  sendAnnounce() { if (!this.state.announceDraft.trim()) { this.flash('Wpisz treść ogłoszenia'); return; } this.setState({ announceDraft: '' }); this.flash('Ogłoszenie opublikowane dla wszystkich'); }
+  onTask(e) { this.setState({ taskDraft: e.target.value }); }
+  setTaskWho(e) { this.setState({ taskWho: e.target.value }); }
+  sendTask() { if (!this.state.taskDraft.trim()) { this.flash('Wpisz treść zadania'); return; } this.flash('Zadanie wysłane do: ' + this.state.taskWho); this.setState({ taskDraft: '' }); }
+
+  renderVals() {
+    const now = new Date();
+    const days = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
+    const months = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+    const headDate = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()];
+    const accountMeta = [
+      { login: 'brygadzista', label: 'Brygadzista', sub: 'Ekipa i zlecenia terenowe', init: 'BR' },
+      { login: 'wycena', label: 'Wyceniający', sub: 'Oględziny i wyceny', init: 'WY' },
+      { login: 'kierownik', label: 'Kierownik', sub: 'Oddział i ekipy', init: 'KI' },
+      { login: 'admin', label: 'Admin', sub: 'Cała firma i ustawienia', init: 'AD' },
+      { login: 'ksiegowa', label: 'Księgowa', sub: 'Faktury i płatności', init: 'KS' },
+    ];
+    const authAccountRows = accountMeta.map((account) => ({ ...account, login: () => this.loginAccount(account.login) }));
+
+    const jobsV = this.jobs.map(j => {
+      const s = this.st(j);
+      return {
+        id: j.id, klient: j.klient, addr: j.addr, typ: j.typ, window: j.window,
+        status: this.statusMeta(s), pri: this.priMeta(j.pri), bar: this.barColor(s),
+        open: () => this.open(j.id),
+      };
+    });
+
+    const total = this.jobs.length;
+    const done = this.jobs.filter(j => this.st(j) === 'ZAKONCZONE').length;
+    const nextJob = this.jobs.find(j => this.st(j) !== 'ZAKONCZONE');
+    const stats = { total, done, km: '34 km', next: nextJob ? nextJob.window.split('–')[0] : '—' };
+
+    // detail
+    const j = this.jobs.find(x => x.id === this.state.jobId) || this.jobs[0];
+    const s = this.st(j);
+    const si = this.statusOrder.indexOf(s);
+    const checklist = j.checklist.map((label, i) => {
+      const on = !!this.state.checks[j.id + ':' + i];
+      return {
+        label, toggle: () => this.toggleCheck(j.id, i),
+        bg: on ? '#f1f6e0' : '#fff', line: on ? '#d3da93' : '#ece6d7',
+        boxBg: on ? '#7f8c12' : '#fff', boxBd: on ? '#7f8c12' : '#cfc6b2',
+        tickOp: on ? '1' : '0', strike: on ? 'line-through' : 'none',
+      };
+    });
+    const checkDone = j.checklist.filter((_, i) => this.state.checks[j.id + ':' + i]).length;
+
+    const photoLabels = ['Przed', 'W trakcie', 'Po'];
+    const photos = photoLabels.map((label, i) => {
+      const filled = !!this.state.photos[j.id + ':' + i];
+      return {
+        label, add: () => this.addPhoto(j.id, i), filled, empty: !filled,
+        bg: filled ? '#f1f6e0' : '#faf8f1', line: filled ? '#A0AF14' : '#d8d1bf',
+        style: filled ? 'solid' : 'dashed', fg: filled ? '#5d6a0b' : '#a89f8c',
+      };
+    });
+
+    const last = si >= this.statusOrder.length - 1;
+    const ctaMap = { NOWE: 'Rozpocznij dojazd', ZAPLANOWANE: 'Rozpocznij pracę', W_REALIZACJI: 'Zakończ zlecenie' };
+    const job = {
+      id: j.id, klient: j.klient, addr: j.addr, typ: j.typ, pri: this.priMeta(j.pri),
+      status: this.statusMeta(s), tel: j.tel, nav: 'https://maps.google.com',
+      advance: () => this.advance(j),
+      cta: last ? 'Zlecenie zakończone' : (ctaMap[s] || 'Następny etap'),
+      ctaBg: last ? '#e4efd6' : '#A0AF14', ctaFg: last ? '#456b1f' : '#23260a',
+    };
+
+    return {
+      headDate, headTitle: this.roleMeta(this.state.role).sub,
+      authLoggedOut: this.state.authLoggedOut, authAccountRows, authLogin: this.state.authLogin, authPassword: this.state.authPassword, authError: this.state.authError,
+      onAuthPassword: (e) => this.onAuthPassword(e),
+      authSubmitLabel: this.state.authBusy ? 'Loguję...' : 'Wejdź',
+      onAuthLogin: (e) => this.onAuthLogin(e), authSubmit: () => this.loginAccount(),
+      accountRefresh: () => { this.setState({ roleOpen: false }); this.loadArborBackend(); },
+      accountLogout: () => this.logoutAccount(),
+      role: this.state.role, roleOpen: this.state.roleOpen,
+      roleName: (this._arborUser ? (this._arborUser.firstName + ' ' + this._arborUser.lastName) : this.roleMeta(this.state.role).name), roleSub: this.roleMeta(this.state.role).sub,
+      roleInit: (this._arborUser ? ((this._arborUser.firstName || '?')[0] + (this._arborUser.lastName || '')[0]).toUpperCase() : this.roleMeta(this.state.role).init), roleLabel: this.roleMeta(this.state.role).label,
+      toggleRole: () => this.toggleRole(),
+      roleOptions: ['brygadzista', 'wyceniajacy', 'kierownik', 'dyrektor', 'ksiegowa'].map(r => ({
+        label: this.roleMeta(r).label, sub: this.roleMeta(r).sub, init: this.roleMeta(r).init,
+        on: r === this.state.role, pick: () => this.setRole(r),
+        bg: r === this.state.role ? '#f1f3d6' : '#fff', bd: r === this.state.role ? '#A0AF14' : '#ece6d7',
+      })),
+      isBryg: this.state.role === 'brygadzista', isKier: this.state.role === 'kierownik',
+      isDyr: this.state.role === 'dyrektor', isKsieg: this.state.role === 'ksiegowa',
+      isWyc: this.state.role === 'wyceniajacy',
+      myStats: (() => {
+        const orders = this._arborOrders || [];
+        if (!orders.length) return [
+          { v: '6', l: 'zleceń w tym tyg.' },
+          { v: '38 h', l: 'przepracowane' },
+          { v: '2 280 zł', l: 'mój zarobek' },
+          { v: '96%', l: 'terminowość' },
+        ];
+        const done = orders.filter((o) => o.status === 'ZAKONCZONE');
+        const active = orders.filter((o) => ['NOWE', 'ZAPLANOWANE', 'W_REALIZACJI'].includes(o.status));
+        const realized = done.reduce((s, o) => s + (o.value || 0), 0);
+        return [
+          { v: String(orders.length), l: 'moich zleceń' },
+          { v: String(done.length), l: 'zakończone' },
+          { v: String(active.length), l: 'w realizacji' },
+          { v: realized.toLocaleString('pl-PL') + ' zł', l: 'zrealizowana wartość' },
+        ];
+      })(),
+      goGabinet: () => this.setState({ view: 'gabinet' }), isGabinet: this.state.view === 'gabinet',
+      gabQueue: [
+        { client: 'Dom Seniora Parkowy', svc: 'Wycena ogrodu + suchy konar', ogl: '07.09 · 10:00', pri: 'PILNY', pBg: '#f6e0d9', pFg: '#a3402a' },
+        { client: 'Wspólnota Zielona 12', svc: 'Pielęgnacja koron — 12 drzew', ogl: '09.09 · 12:30', pri: 'WYSOKI', pBg: '#fae7d2', pFg: '#995510' },
+        { client: 'Park Handlowy Aura', svc: 'Cięcia sanitarne', ogl: '11.09 · 09:00', pri: 'NORMALNY', pBg: '#ede7da', pFg: '#574629' },
+      ],
+      gabTeams: [
+        { name: 'Ekipa A1', day: 'Pn–Śr zajęta', free: 'wolna od czw 11.09', dot: '#BD701E' },
+        { name: 'Ekipa A2', day: 'wolna dziś', free: 'rezerwacja: 09.09', dot: '#7f8c12' },
+        { name: 'Ekipa K1', day: 'urlop do 08.09', free: 'wolna od 09.09', dot: '#8a7a55' },
+      ],
+      gabEquip: [
+        { name: 'Podnośnik 22m', status: 'Wolny', ok: true },
+        { name: 'Rębak Bandit', status: 'Zarezerw. 09.09', ok: false },
+        { name: 'Frezarka do pni', status: 'Wolna', ok: true },
+        { name: 'Wywrotka MAN', status: 'Serwis', ok: false },
+      ].map(e => ({ ...e, reserve: () => this.flash('Zarezerwowano: ' + e.name + ' dla ekipy') })),
+      isMgmt: this.state.role === 'kierownik' || this.state.role === 'dyrektor',
+      showCompany: this.state.role !== 'brygadzista',
+      goZglos: () => this.setState({ view: 'zglos' }), isZglos: this.state.view === 'zglos',
+      zgEquip: this.zgEquip || ['Podnośnik 22m', 'Rębak Bandit', 'Frezarka do pni', 'Pilarka STIHL', 'Wywrotka MAN', 'Zestaw lin'],
+      zgType: this.state.zgType || 'sprzet', zgIsSprzet: (this.state.zgType || 'sprzet') === 'sprzet', zgIsInfo: this.state.zgType === 'info',
+      zgItem: this.state.zgItem || 'Podnośnik 22m', zgDate: this.state.zgDate || '2026-09-09', zgNote: this.state.zgNote || '',
+      zgSprzetBg: (this.state.zgType || 'sprzet') === 'sprzet' ? '#3B2A18' : '#efeadd', zgSprzetFg: (this.state.zgType || 'sprzet') === 'sprzet' ? '#fff' : '#6a604c',
+      zgInfoBg: this.state.zgType === 'info' ? '#3B2A18' : '#efeadd', zgInfoFg: this.state.zgType === 'info' ? '#fff' : '#6a604c',
+      setZgSprzet: () => this.setState({ zgType: 'sprzet' }), setZgInfo: () => this.setState({ zgType: 'info' }),
+      onZgItem: (e) => this.setState({ zgItem: e.target.value }), onZgDate: (e) => this.setState({ zgDate: e.target.value }), onZgNote: (e) => this.setState({ zgNote: e.target.value }),
+      sendZglos: () => this.sendZglos(),
+      zgSent: (this.state.zgMine || []).concat([
+        { t: 'Prośba: Rębak Bandit na 05.09', st: 'Zaakceptowano', bg: '#e4efd6', fg: '#456b1f' },
+        { t: 'Info: brak paliwa na Leśnej', st: 'Przeczytane', bg: '#f1f3d6', fg: '#5d6a0b' },
+        { t: 'Prośba: dodatkowy pilarz', st: 'Oczekuje', bg: '#fae7d2', fg: '#995510' },
+      ]),
+      goRaporty: () => this.setState({ view: 'raporty' }), isRaporty: this.state.view === 'raporty',
+      goGps: () => this.goGps(), isGps: this.state.view === 'gps',
+      goProfil: () => this.goProfil(), isProfil: this.state.view === 'profil',
+      goAktualnosci: () => this.goAktualnosci(), isAktualnosci: this.state.view === 'aktualnosci',
+      goZadania: () => this.goZadania(), isZadania: this.state.view === 'zadania',
+      goBhp: () => this.goBhp(), isBhp: this.state.view === 'bhp',
+      goDokumenty: () => this.goDokumenty(), isDokumenty: this.state.view === 'dokumenty',
+      bhpItems: [
+        { i: 0, label: 'Ocena ryzyka na miejscu pracy' },
+        { i: 1, label: 'Kask, okulary, ochronniki słuchu' },
+        { i: 2, label: 'Uprząż i zabezpieczenie wysokościowe' },
+        { i: 3, label: 'Strefa upadku oznakowana i odgrodzona' },
+        { i: 4, label: 'Sprawność pił i sprzętu sprawdzona' },
+        { i: 5, label: 'Apteczka i kontakt alarmowy dostępne' },
+      ].map(x => ({ label: x.label, on: !!this.state.bhpChecks[x.i], toggle: () => this.toggleBhp(x.i),
+        bg: this.state.bhpChecks[x.i] ? '#e4efd6' : '#fff', box: this.state.bhpChecks[x.i] ? '#7f8c12' : '#fff', bd: this.state.bhpChecks[x.i] ? '#7f8c12' : '#cfc6b2', tick: this.state.bhpChecks[x.i] ? '1' : '0' })),
+      bhpDone: Object.keys(this.state.bhpChecks).filter(k => this.state.bhpChecks[k]).length,
+      confirmBhp: () => this.confirmBhp(),
+      documents: [
+        { name: 'Umowa o pracę', meta: 'PDF · podpisana 01.03.2024', tag: 'Umowa', tagBg: '#f1f3d6', tagFg: '#5d6a0b', ok: true },
+        { name: 'Badania lekarskie', meta: 'ważne do 14.09.2026', tag: 'Medycyna pracy', tagBg: '#e4efd6', tagFg: '#456b1f', ok: true },
+        { name: 'Szkolenie BHP okresowe', meta: 'ważne do 20.11.2026', tag: 'BHP', tagBg: '#e4efd6', tagFg: '#456b1f', ok: true },
+        { name: 'Uprawnienia pilarz', meta: 'ważne do 30.06.2026', tag: 'Uprawnienia', tagBg: '#fae7d2', tagFg: '#995510', ok: true },
+        { name: 'Badania wysokościowe', meta: 'wygasają za 12 dni', tag: 'Medycyna pracy', tagBg: '#f6e0d9', tagFg: '#a3402a', ok: false },
+        { name: 'Polityka RODO + poufność', meta: 'PDF · zaakceptowana', tag: 'Firma', tagBg: '#ede7da', tagFg: '#574629', ok: true },
+      ],
+      docExpiring: 1,
+      canManage: this.state.role === 'kierownik' || this.state.role === 'dyrektor',
+      showFinance: this.state.role !== 'brygadzista',
+      gpsCrews: (() => {
+        const t = this.state.gpsTick;
+        const base = [
+          { name: 'Ekipa A1', x: 32, y: 42, status: 'W drodze', spd: '38 km/h', color: '#A0AF14', lat: '52.2297', lng: '21.0122' },
+          { name: 'Ekipa A2', x: 58, y: 30, status: 'Na miejscu', spd: '0 km/h', color: '#BD701E', lat: '52.2401', lng: '21.0357' },
+          { name: 'Ekipa K1', x: 70, y: 58, status: 'W drodze', spd: '52 km/h', color: '#456b1f', lat: '50.0614', lng: '19.9372' },
+        ];
+        return base.map((c, i) => {
+          const moving = c.spd !== '0 km/h';
+          const dx = moving ? Math.sin((t + i * 2) * 0.6) * 4 : 0;
+          const dy = moving ? Math.cos((t + i * 3) * 0.5) * 3 : 0;
+          return { ...c, px: (c.x + dx) + '%', py: (c.y + dy) + '%', moving, pulse: moving ? '0 0 0 6px rgba(160,175,20,0.18)' : '0 0 0 6px rgba(189,112,30,0.16)' };
+        });
+      })(),
+      gpsUpdated: (this.state.gpsTick % 3 === 0) ? 'teraz' : (this.state.gpsTick % 3) + ' s temu',
+      announceDraft: this.state.announceDraft, onAnnounce: (e) => this.onAnnounce(e), sendAnnounce: () => this.sendAnnounce(),
+      taskDraft: this.state.taskDraft, taskWho: this.state.taskWho, onTask: (e) => this.onTask(e), setTaskWho: (e) => this.setTaskWho(e), sendTask: () => this.sendTask(),
+      stories: [
+        { who: 'Polska Flora', label: 'Nowość', img: 'linear-gradient(135deg,#A0AF14,#7f8c12)', ring: '#A0AF14' },
+        { who: 'Ekipa A1', label: 'Realizacja', img: 'linear-gradient(135deg,#6f7d3a,#3f4a1e)', ring: '#BD701E' },
+        { who: 'BHP', label: 'Szkolenie', img: 'linear-gradient(135deg,#BD701E,#995510)', ring: '#A0AF14' },
+        { who: 'Magazyn', label: 'Sprzęt', img: 'linear-gradient(135deg,#456b1f,#2c4a14)', ring: '#BD701E' },
+      ],
+      announcements: [
+        { who: 'Tomasz Dyrektor', time: '2h temu', text: 'Świetny tydzień — przekroczyliśmy plan o 12%. Dzięki dla wszystkich ekip!', tag: 'Ogłoszenie', tagBg: '#f1f3d6', tagFg: '#5d6a0b' },
+        { who: 'BHP', time: 'wczoraj', text: 'Przypomnienie: obowiązkowe kaski i uprzęże przy pracach na wysokości. Kontrole w tym tygodniu.', tag: 'Bezpieczeństwo', tagBg: '#f6e0d9', tagFg: '#a3402a' },
+        { who: 'Kadry', time: '2 dni temu', text: 'Grafik urlopów na lipiec dostępny — zgłaszajcie do piątku.', tag: 'Kadry', tagBg: '#fae7d2', tagFg: '#995510' },
+      ],
+      workers: ['Marek Wójcik', 'Adam Nowak', 'Łukasz Mazur', 'Piotr Lis', 'Kamil Dąb'],
+      mgmtKpi: [
+        { v: '14', l: 'Aktywne zlecenia', c: '#2c2011' }, { v: '48,6k', l: 'Przychód', c: '#456b1f' },
+        { v: '3', l: 'Ekipy w terenie', c: '#995510' }, { v: '31%', l: 'Śr. marża', c: '#5d6a0b' },
+      ],
+      brigReports: this._brigReportsVal([
+        { team: 'Ekipa A1', lead: 'Jan Kowalski', done: 6, hours: 2, value: '14 800 zł', util: '86%' },
+        { team: 'Ekipa A2', lead: 'Marek Nowak', done: 4, hours: 1, value: '9 200 zł', util: '74%' },
+        { team: 'Ekipa K1', lead: 'Piotr Zięba', done: 5, hours: 2, value: '11 400 zł', util: '68%' },
+      ]),
+      headDate2: headDate,
+      isList: this.state.view === 'list', isJob: this.state.view === 'job',
+      isHome: this.state.view === 'home',
+      isWycena: this.state.view === 'wycena', isPhone: this.state.view === 'phone',
+      goHome: () => this.goHome(), goList: () => this.goList(),
+      goWycena: () => this.goWycena(), goPhone: () => this.goPhone(),
+      goTeren: () => this.goTeren(),
+      goCrm: () => this.goCrm(), goFaktury: () => this.goFaktury(), goMagazyn: () => this.goMagazyn(),
+      isCrm: this.state.view === 'crm', isFaktury: this.state.view === 'faktury', isMagazyn: this.state.view === 'magazyn',
+      crmClients: this._crmClientsVal([
+        { name: 'Wspólnota Leśna', city: 'Warszawa', ltv: '24 600 zł', initials: 'WL', tel: 'tel:+48501200100' },
+        { name: 'Hotel Park', city: 'Warszawa', ltv: '18 400 zł', initials: 'HP', tel: 'tel:+48225551122' },
+        { name: 'Spółdzielnia Bryza', city: 'Gdańsk', ltv: '15 200 zł', initials: 'SB', tel: 'tel:+48587778899' },
+        { name: 'Zarząd Zieleni', city: 'Kraków', ltv: '9 800 zł', initials: 'ZZ', tel: 'tel:+48123330011' },
+        { name: 'Dom Seniora Parkowy', city: 'Warszawa', ltv: '3 200 zł', initials: 'DS', tel: 'tel:+48500666555' },
+      ]),
+      faktury: this._fakturyVal([
+        { id: 'FV/06/118', client: 'Spółdzielnia Bryza', gross: '11 562 zł', label: 'Opłacona', bg: '#e4efd6', fg: '#456b1f', dot: '#7f8c12' },
+        { id: 'FV/06/117', client: 'Hotel Park', gross: '5 166 zł', label: 'Wysłana', bg: '#f1f3d6', fg: '#5d6a0b', dot: '#A0AF14' },
+        { id: 'FV/06/116', client: 'Wspólnota Leśna', gross: '8 364 zł', label: 'Po terminie', bg: '#f6e0d9', fg: '#a3402a', dot: '#c0492f' },
+        { id: 'FV/06/115', client: 'Park Miejski', gross: '2 214 zł', label: 'Wysłana', bg: '#f1f3d6', fg: '#5d6a0b', dot: '#A0AF14' },
+      ]),
+      fakturyKpi: this._fakturyKpiVal([{ v: '11 562 zł', l: 'Opłacone', c: '#456b1f' }, { v: '7 380 zł', l: 'Oczekuje', c: '#5d6a0b' }, { v: '8 364 zł', l: 'Po terminie', c: '#a3402a' }]),
+      ...(() => {
+        const magazynRows = this._magazynVal([
+          { name: 'Olej do pił STIHL', stock: '6 l', min: 'min 10', low: '#a3402a' },
+          { name: 'Żyłka tnąca 3mm', stock: '42 m', min: 'min 20', low: '#2c2011' },
+          { name: 'Łańcuch 3/8 64og', stock: '3 szt', min: 'min 5', low: '#a3402a' },
+          { name: 'Lina wspinaczkowa', stock: '2 szt', min: 'min 3', low: '#a3402a' },
+          { name: 'Paliwo Pb95', stock: '14 szt', min: 'min 8', low: '#2c2011' },
+          { name: 'Rękawice antyprzec.', stock: '9 par', min: 'min 12', low: '#a3402a' },
+        ]);
+        return { magazyn: magazynRows, magLow: magazynRows.filter((r) => r.low === '#a3402a').length };
+      })(),
+      teren: (() => {
+        const colors = ['#c0492f', '#A0AF14', '#2c6fd6', '#f2b441'].map(c => ({ c, sel: c === this.state.terenColor, ring: c === this.state.terenColor ? '3px solid #2c2011' : '3px solid transparent', pick: () => this.setTerenColor(c) }));
+        return { step: this.state.terenStep, isBrief: this.state.terenStep === 'brief', isFoto: this.state.terenStep === 'foto', isSent: this.state.terenStep === 'sent',
+          colors, photos: this.state.terenPhotos, hasPhotos: this.state.terenPhotos.length > 0, photoCount: this.state.terenPhotos.length,
+          videos: this.state.terenVideos, hasVideos: this.state.terenVideos > 0, canSend: this.state.terenPhotos.length > 0,
+          canvasRef: (el) => this.canvasRef(el), hasDraw: this.state.terenHasDraw };
+      })(),
+      terenStart: () => this.terenStart(), addTerenPhoto: () => this.addTerenPhoto(), addTerenVideo: () => this.addTerenVideo(),
+      clearDraw: () => this.clearDraw(), terenSend: () => this.terenSend(),
+      headEyebrow: this.state.view === 'home' ? 'Pulpit' : this.state.view === 'wycena' ? 'Wycena' : this.state.view === 'phone' ? 'Telefon' : this.state.view === 'teren' ? 'Wycena terenowa' : this.state.view === 'crm' ? 'Klienci' : this.state.view === 'faktury' ? 'Faktury' : this.state.view === 'magazyn' ? 'Magazyn' : 'Misja dnia',
+      isTeren: this.state.view === 'teren',
+      quote: (() => {
+        const items = this.state.quoteItems.map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price,
+          line: (it.qty * it.price).toLocaleString('pl-PL') + ' zł',
+          onName: this.qField(it.id, 'name'), onQty: this.qField(it.id, 'qty'), onPrice: this.qField(it.id, 'price'),
+          remove: () => this.qRemove(it.id) }));
+        const net = this.state.quoteItems.reduce((s, it) => s + it.qty * it.price, 0);
+        const vat = Math.round(net * 0.23);
+        return { items, client: this.state.quoteClient, net: net.toLocaleString('pl-PL') + ' zł',
+          vat: vat.toLocaleString('pl-PL') + ' zł', gross: (net + vat).toLocaleString('pl-PL') + ' zł' };
+      })(),
+      qAdd: () => this.qAdd(), qSend: () => this.qSend(),
+      phone: (() => {
+        const dialKeys = ['1','2','3','4','5','6','7','8','9','*','0','#'].map(d => ({ d, press: () => this.dialPress(d) }));
+        return { state: this.state.phoneState, isIdle: this.state.phoneState === 'idle',
+          isDialing: this.state.phoneState === 'dialing', isActive: this.state.phoneState === 'active',
+          dial: this.state.dial, name: this.state.callName, timer: this.fmtDur(this.state.callSecs), dialKeys };
+      })(),
+      quickCalls: [
+        { name: 'Biuro · dyspozytor', sub: '+48 22 100 20 30', start: () => this.callStart('Biuro · dyspozytor', '+48221002030') },
+        { name: 'Wspólnota Leśna', sub: 'Klient · zlec. #101', start: () => this.callStart('Wspólnota Leśna', '+48501200100') },
+        { name: 'Hotel Park', sub: 'Klient · zlec. #102', start: () => this.callStart('Hotel Park', '+48225551122') },
+      ],
+      dialDel: () => this.dialDel(), dialStart: () => this.callStart(null, null), callEnd: () => this.callEnd(),
+      jobs: jobsV, stats, job, checklist, checkDone, checkTotal: j.checklist.length, photos,
+      back: () => this.back(),
+      offline: this.state.offline, toggleOffline: () => this.toggleOffline(),
+      pendingSync: this.state.pendingSync, hasPending: this.state.pendingSync > 0 && this.state.offline,
+      syncing: this.state.syncing,
+      offlineBannerBg: this.state.syncing ? '#f1f3d6' : '#fae7d2', offlineBannerFg: this.state.syncing ? '#5d6a0b' : '#995510',
+      offlineBannerText: this.state.syncing ? 'Synchronizacja zmian…' : (this.state.pendingSync + ' zmian czeka na synchronizację'),
+      notifOpen: this.state.notifOpen, toggleNotif: () => this.toggleNotif(), readAllNotif: () => this.readAllNotif(),
+      notifs: this.notifFor().map((n, i) => {
+        const tones = { lime: { bg: '#e4efd6', fg: '#456b1f', dot: '#7f8c12' }, orange: { bg: '#fae7d2', fg: '#995510', dot: '#BD701E' }, red: { bg: '#f6e0d9', fg: '#a3402a', dot: '#c0492f' } };
+        const t = tones[n.tone] || tones.lime; const read = !!this.state.notifRead[i];
+        return { ch: n.ch, text: n.text, time: n.time, chBg: t.bg, chFg: t.fg, dot: read ? 'transparent' : t.dot, bg: read ? '#fff' : '#fbfcf2', open: () => this.readNotif(i) };
+      }),
+      notifUnread: this.notifFor().filter((_, i) => !this.state.notifRead[i]).length,
+      notifHasUnread: this.notifFor().some((_, i) => !this.state.notifRead[i]),
+      aiOpen: this.state.aiOpen, openAi: () => this.openAi(), closeAi: () => this.closeAi(),
+      aiDictate: () => this.aiDictate(), aiSave: () => this.aiSave(),
+      aiIdle: this.state.aiState === 'idle', aiListening: this.state.aiState === 'listening', aiDone: this.state.aiState === 'done',
+      aiText: this.state.aiText, aiHasText: this.state.aiText.length > 0,
+      geoOpen: this.state.geoOpen, openGeo: () => this.openGeo(), closeGeo: () => this.closeGeo(),
+      geoProgress: Math.round(this.state.geoProgress) + '%', geoBar: this.state.geoProgress + '%',
+      geoFar: this.state.geoState === 'far', geoNear: this.state.geoState === 'near',
+      geoArrived: this.state.geoState === 'arrived', geoStarted: this.state.geoState === 'started',
+      geoDist: this.state.geoState === 'started' || this.state.geoState === 'arrived' ? '0 m' : Math.max(20, Math.round((100 - this.state.geoProgress) * 18)) + ' m',
+      geoStatusText: this.state.geoState === 'started' ? 'Zlecenie rozpoczęte automatycznie' : this.state.geoState === 'arrived' ? 'Wjazd do strefy — start za chwilę…' : this.state.geoState === 'near' ? 'Zbliżasz się do miejsca zlecenia' : 'W drodze do ul. Leśna 14',
+      offlineBg: this.state.offline ? '#BD701E' : 'rgba(255,255,255,0.12)',
+      offlineLabel: this.state.offline ? 'Offline' : 'Online',
+      signing: this.state.signing, sigRef: (n) => this.sigRef(n),
+      clearSig: () => this.clearSig(), confirmSign: () => this.confirmSign(), closeSign: () => this.closeSign(),
+      signHint: this.state.hasInk ? 'Podpis złożony' : 'Podpis klienta palcem',
+      signHintColor: this.state.hasInk ? '#5d6a0b' : '#a89f8c',
+      chatOpen: this.state.chatOpen, openChat: () => this.openChat(), closeChat: () => this.closeChat(),
+      chatMsgs: this.chatThread(this.state.jobId).map(m => ({
+        text: m.text, who: m.who, time: m.time, mine: m.from === 'team',
+        bubbleBg: m.from === 'team' ? '#A0AF14' : '#fff', bubbleFg: m.from === 'team' ? '#23260a' : '#2c2011',
+        align: m.from === 'team' ? 'flex-end' : 'flex-start', border: m.from === 'team' ? 'transparent' : '#ece6d7',
+      })),
+      chatUnreadFromOffice: this.chatThread(this.state.jobId).filter(m => m.from === 'office').length,
+      quickReplies: this.quickReplies.map(q => ({ label: q, send: () => this.sendChat(q) })),
+      chatDraft: this.state.chatDraft, onChatDraft: (e) => this.onChatDraft(e), sendChat: () => this.sendChat(),
+      scanOpen: this.state.scanOpen, openScan: () => this.openScan(), closeScan: () => this.closeScan(),
+      scanScanning: this.state.scanState === 'scanning', scanResult: this.state.scanState === 'result',
+      scannedItem: this.state.scannedItem, rescan: () => this.rescan(),
+      confirmOut: () => this.confirmScan('out'), confirmIn: () => this.confirmScan('in'),
+      scanInStock: this.state.scannedItem ? /magazynie/i.test(this.state.scannedItem.status) : true,
+      scanNotInStock: this.state.scannedItem ? !/magazynie/i.test(this.state.scannedItem.status) : false,
+      toast: this.state.toast, toastY: this.state.toastOn ? '0' : '90px', toastOp: this.state.toastOn ? '1' : '0',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<script src="./prototype-api-bridge.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; color: #2c2011; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
+    background: radial-gradient(circle at 88% -6%, rgba(160,175,20,0.10), transparent 32rem), linear-gradient(180deg,#faf9f3,#f1eee2); }
+  @keyframes pfRise { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
+  button:focus-visible, a:focus-visible { outline: 2.5px solid #A0AF14; outline-offset: 2px; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:0 20px 60px; font-family:'Hanken Grotesk',sans-serif;">
+
+  <header style="width:100%; max-width:860px; display:flex; align-items:center; justify-content:space-between; padding:22px 4px;">
+    <div style="display:flex; align-items:center; gap:11px;">
+      <div style="width:42px; height:42px; border-radius:12px; background:#A0AF14; display:grid; place-items:center; flex:0 0 auto;">
+        <svg viewBox="155 -8 323 458" width="26" height="36" fill="#2a1d0f"><path d="M356.69 402.64l-39.89 0 0 -64.68 114.04 -65.02 0 -45.49 -114.04 65.02 0 -45.49 114.04 -65.02 0 -181.96 -153.68 87.62 0 91.28 -114.05 -65.02 0 181.96 114.05 65.02 0 41.78 -74.42 0 0 39.63 267.73 0 0 -127.24 -36.78 -20.97 -39.9 22.74 37.04 21.12 0 64.72 -34.52 0 0 -38.57 -39.63 0 0 38.57zm-39.89 -201.15l0 -90.98 74.41 -42.43 0 90.98 -74.41 42.43zm-39.63 22.89l0 90.98 -74.42 -42.43 0 -90.98 74.42 42.43z"/></svg>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:3px;"><strong style="font-size:15px; font-weight:800; letter-spacing:0.02em; line-height:1;">POLSKA FLORA</strong><span style="font-size:10px; color:#5d6a0b; letter-spacing:0.16em; text-transform:uppercase; font-weight:700; line-height:1;">Portal klienta · {{ clientName }}</span></div>
+    </div>
+    <a href="tel:+48221002030" style="text-decoration:none; display:inline-flex; align-items:center; gap:7px; padding:9px 15px; border-radius:11px; font-size:13px; font-weight:700; color:#2c2011; background:#fff; border:1px solid #ece6d7;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#7f8c12" stroke-width="2"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg>Biuro obsługi</a>
+  </header>
+
+  <main style="width:100%; max-width:860px; display:flex; flex-direction:column; gap:18px; animation:pfRise .35s ease both;">
+
+    <sc-if value="{{ portalError }}" hint-placeholder-val="{{ false }}">
+      <section style="background:#fff; border:1.5px solid #e9b5a8; border-radius:20px; box-shadow:0 8px 24px rgba(163,64,42,0.10); padding:22px 24px;">
+        <div style="display:flex; align-items:flex-start; gap:12px;">
+          <span style="width:38px; height:38px; border-radius:12px; background:#f6e0d9; color:#a3402a; display:grid; place-items:center; flex:0 0 auto;"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+          <div><h2 style="margin:0; font-size:17px; font-weight:800; color:#2c2011;">Nie można otworzyć portalu</h2><p style="margin:6px 0 0; font-size:13px; line-height:1.45; color:#8a8069;">{{ portalErrorText }}</p></div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- AKCJA: wycena do akceptacji -->
+    <sc-if value="{{ quotePending }}" hint-placeholder-val="{{ true }}">
+      <section style="background:#fff; border:1.5px solid #d3da93; border-radius:20px; box-shadow:0 8px 24px rgba(160,175,20,0.12); padding:22px 24px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;"><span style="width:34px; height:34px; border-radius:10px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span><div><h2 style="margin:0; font-size:17px; font-weight:800; color:#2c2011;">Wycena gotowa do akceptacji</h2><div style="font-size:12.5px; color:#8a8069; margin-top:2px;">Przygotowana przez {{ quoteBy }} · ważna 30 dni</div></div></div>
+        <div style="border:1px solid #f0ebdd; border-radius:13px; overflow:hidden;">
+          <sc-for list="{{ quoteItems }}" as="q" hint-placeholder-count="3">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 16px; border-bottom:1px solid #f4f0e6;">
+              <span style="font-size:13.5px; color:#3b3120;">{{ q.name }}</span>
+              <span style="font-size:13.5px; font-weight:700; color:#2c2011; white-space:nowrap;">{{ q.val }}</span>
+            </div>
+          </sc-for>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 16px; background:#faf8f1;">
+            <span style="font-size:14px; font-weight:800; color:#2c2011;">Razem brutto</span>
+            <span style="font-size:18px; font-weight:800; color:#2c2011;">{{ quoteGross }}</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:11px; margin-top:16px; flex-wrap:wrap;">
+          <button onClick="{{ acceptQuote }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:1; min-width:160px; text-align:center; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px; border-radius:13px; font-size:14.5px; font-weight:800; color:#23260a; background:#A0AF14; box-shadow:0 8px 20px rgba(160,175,20,0.3);" style-hover="filter:brightness(1.04);"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>Akceptuję wycenę</button>
+          <button onClick="{{ askQuote }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:0 0 auto; padding:14px 20px; border-radius:13px; font-size:14px; font-weight:700; color:#5a5040; background:#efeadd;" style-hover="background:#e7e1d2;">Mam pytanie</button>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- hero status -->
+    <section style="background:linear-gradient(165deg,#3b2a18,#2a1d0f); color:#efe9da; border-radius:22px; padding:26px 28px; box-shadow:0 16px 40px rgba(43,29,15,0.22);">
+      <div style="display:flex; align-items:start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div>
+          <div style="font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#A0AF14;">Zlecenie {{ order.id }}</div>
+          <h1 style="margin:8px 0 0; font-size:28px; font-weight:800; letter-spacing:-0.02em; line-height:1.1;">{{ order.title }}</h1>
+          <div style="font-size:14px; color:#c7bda3; margin-top:6px;">{{ order.address }}</div>
+        </div>
+        <div style="text-align:right;">
+          <span style="display:inline-block; padding:7px 14px; border-radius:10px; font-size:13px; font-weight:800; background:{{ order.statusBg }}; color:{{ order.statusFg }};">{{ order.status }}</span>
+          <div style="font-size:13px; color:#c7bda3; margin-top:10px;">Planowany termin</div>
+          <div style="font-size:17px; font-weight:800; color:#fff;">{{ order.eta }}</div>
+        </div>
+      </div>
+      <div style="height:8px; border-radius:6px; background:rgba(255,255,255,0.14); overflow:hidden; margin-top:22px;"><div style="height:100%; width:{{ order.progress }}; background:#A0AF14; border-radius:6px; transition:width .5s ease;"></div></div>
+      <div style="font-size:12.5px; color:#bfa888; margin-top:8px;">{{ order.progressLabel }}</div>
+    </section>
+
+    <!-- timeline + side -->
+    <div style="display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:18px; align-items:start;">
+      <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 1px 2px rgba(43,29,15,0.04); padding:22px 24px;">
+        <h2 style="margin:0 0 18px; font-size:16px; font-weight:800; color:#2c2011;">Status realizacji</h2>
+        <div style="display:flex; flex-direction:column;">
+          <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+            <div style="display:flex; gap:15px; padding-bottom:20px;">
+              <div style="display:flex; flex-direction:column; align-items:center; flex:0 0 auto;">
+                <span style="width:26px; height:26px; border-radius:50%; display:grid; place-items:center; background:{{ s.dotBg }}; border:2px solid {{ s.dotBd }};"><sc-if value="{{ s.done }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></sc-if><sc-if value="{{ s.current }}" hint-placeholder-val="{{ false }}"><span style="width:8px; height:8px; border-radius:50%; background:#fff;"></span></sc-if></span>
+                <span style="width:2px; flex:1; background:{{ s.lineColor }}; margin-top:4px; min-height:14px;"></span>
+              </div>
+              <div style="padding-bottom:2px;"><div style="font-size:14.5px; font-weight:{{ s.weight }}; color:{{ s.fg }};">{{ s.label }}</div><div style="font-size:12.5px; color:#a89f8c; margin-top:2px;">{{ s.time }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <div style="display:flex; flex-direction:column; gap:18px;">
+        <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 1px 2px rgba(43,29,15,0.04); padding:20px 22px;">
+          <h3 style="margin:0 0 14px; font-size:14px; font-weight:800; color:#2c2011;">Twoja ekipa</h3>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:44px; height:44px; border-radius:13px; background:#f1f3d6; color:#5d6a0b; display:grid; place-items:center; font-size:14px; font-weight:800; flex:0 0 auto;">{{ team.initials }}</div>
+            <div><div style="font-size:14.5px; font-weight:800; color:#2c2011;">{{ team.name }}</div><div style="font-size:12.5px; color:#8a8069;">{{ team.role }} · {{ team.size }}</div></div>
+          </div>
+          <a href="tel:+48500100100" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; padding:11px; border-radius:12px; font-size:13.5px; font-weight:800; color:#fff; background:#456b1f;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5l3-1 2 4-2 1a11 11 0 0 0 5 5l1-2 4 2-1 3a2 2 0 0 1-2 1A15 15 0 0 1 3 7a2 2 0 0 1 1-2Z"/></svg>Zadzwoń do brygadzisty</a>
+        </section>
+
+        <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 1px 2px rgba(43,29,15,0.04); padding:20px 22px;">
+          <h3 style="margin:0 0 13px; font-size:14px; font-weight:800; color:#2c2011;">Zakres prac</h3>
+          <div style="display:flex; flex-direction:column; gap:9px;">
+            <sc-for list="{{ scope }}" as="w" hint-placeholder-count="3">
+              <div style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:#3b3120;"><span style="width:18px; height:18px; flex:0 0 auto; border-radius:6px; background:{{ w.bg }}; color:{{ w.fg }}; display:grid; place-items:center;"><sc-if value="{{ w.done }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></sc-if></span>{{ w.label }}</div>
+            </sc-for>
+          </div>
+          <div style="margin-top:16px; padding-top:14px; border-top:1px solid #f0ebdd; display:flex; align-items:center; justify-content:space-between;"><span style="font-size:13px; color:#8a8069;">Wartość zlecenia</span><span style="font-size:16px; font-weight:800; color:#2c2011;">{{ order.value }}</span></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- PŁATNOŚĆ -->
+    <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 1px 2px rgba(43,29,15,0.04); padding:22px 24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:13px;">
+          <span style="width:44px; height:44px; flex:0 0 auto; border-radius:13px; background:{{ pay.iconBg }}; color:{{ pay.iconFg }}; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>
+          <div><div style="font-size:15px; font-weight:800; color:#2c2011;">Faktura {{ pay.invId }}</div><div style="font-size:12.5px; color:#8a8069; margin-top:2px;">{{ pay.note }}</div></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px;">
+          <div style="text-align:right;"><div style="font-size:11px; color:#8a8069;">Do zapłaty</div><div style="font-size:20px; font-weight:800; color:#2c2011;">{{ pay.amount }}</div></div>
+          <sc-if value="{{ pay.unpaid }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ payNow }}" style="all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:8px; padding:13px 20px; border-radius:13px; font-size:14px; font-weight:800; color:#23260a; background:#A0AF14;" style-hover="filter:brightness(1.04);">Zapłać online</button>
+          </sc-if>
+          <sc-if value="{{ pay.paid }}" hint-placeholder-val="{{ false }}">
+            <span style="display:inline-flex; align-items:center; gap:8px; padding:13px 20px; border-radius:13px; font-size:14px; font-weight:800; color:#456b1f; background:#e4efd6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>Opłacona</span>
+          </sc-if>
+        </div>
+      </div>
+    </section>
+
+    <!-- WIADOMOŚĆ DO BIURA -->
+    <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 1px 2px rgba(43,29,15,0.04); padding:22px 24px;">
+      <h3 style="margin:0 0 14px; font-size:15px; font-weight:800; color:#2c2011;">Wiadomość do biura</h3>
+      <div style="display:flex; flex-direction:column; gap:11px; margin-bottom:14px;">
+        <sc-for list="{{ messages }}" as="m" hint-placeholder-count="2">
+          <div style="display:flex; flex-direction:column; align-items:{{ m.align }};">
+            <div style="max-width:78%; padding:11px 14px; border-radius:14px; background:{{ m.bg }}; color:{{ m.fg }}; font-size:13.5px; line-height:1.45;">{{ m.text }}</div>
+            <span style="font-size:10.5px; color:#a89f8c; margin-top:4px; padding:0 4px;">{{ m.who }} · {{ m.time }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <input value="{{ msgDraft }}" onInput="{{ onMsg }}" placeholder="Napisz do biura obsługi…" style="flex:1; min-height:46px; border:1px solid #e0d9c8; border-radius:13px; padding:0 15px; font-size:14px; background:#faf8f1; color:#2c2011; outline:none;"/>
+        <button onClick="{{ sendMsg }}" aria-label="Wyślij wiadomość" style="all:unset; box-sizing:border-box; cursor:pointer; width:46px; height:46px; flex:0 0 auto; border-radius:13px; display:grid; place-items:center; background:#A0AF14; color:#23260a;" style-hover="filter:brightness(1.04);"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg></button>
+      </div>
+    </section>
+
+    <!-- OCENA -->
+    <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 1px 2px rgba(43,29,15,0.04); padding:22px 24px;">
+      <h3 style="margin:0 0 4px; font-size:15px; font-weight:800; color:#2c2011;">Oceń współpracę</h3>
+      <p style="margin:0 0 14px; font-size:12.5px; color:#8a8069;">{{ rateNote }}</p>
+      <div style="display:flex; gap:8px;">
+        <sc-for list="{{ stars }}" as="st" hint-placeholder-count="5">
+          <button onClick="{{ st.pick }}" style="all:unset; box-sizing:border-box; cursor:pointer; padding:2px;" style-hover="transform:scale(1.1);"><svg viewBox="0 0 24 24" width="34" height="34" fill="{{ st.fill }}" stroke="{{ st.stroke }}" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.1 1.2 6L12 16.9 6.6 19.5l1.2-6-4.5-4.1 6.1-.7Z"/></svg></button>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- documents -->
+    <section style="background:#fff; border:1px solid #ece6d7; border-radius:18px; box-shadow:0 1px 2px rgba(43,29,15,0.04); padding:22px 24px;">
+      <h3 style="margin:0 0 14px; font-size:15px; font-weight:800; color:#2c2011;">Dokumenty</h3>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+        <sc-for list="{{ docs }}" as="d" hint-placeholder-count="3">
+          <button style="all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:11px; padding:14px; border-radius:13px; background:#faf8f1; border:1px solid #f0ebdd;" style-hover="border-color:#d3da93; background:#f9faf0;">
+            <span style="width:36px; height:36px; flex:0 0 auto; border-radius:10px; background:{{ d.bg }}; color:{{ d.fg }}; display:grid; place-items:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/></svg></span>
+            <span style="min-width:0;"><span style="display:block; font-size:13px; font-weight:700; color:#2c2011;">{{ d.name }}</span><span style="display:block; font-size:11.5px; color:#8a8069;">{{ d.meta }}</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <p style="text-align:center; font-size:12px; color:#a89f8c; margin:6px 0 0;">Polska Flora · pielęgnacja i wycinka drzew · portal aktualizowany na żywo</p>
+  </main>
+
+  <!-- toast -->
+  <div style="position:fixed; left:50%; bottom:26px; z-index:30; transform:translate(-50%,{{ toastY }}); opacity:{{ toastOp }}; transition:transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s; pointer-events:none;">
+    <div style="display:flex; align-items:center; gap:10px; padding:13px 19px; border-radius:13px; background:#2c2011; color:#fff; box-shadow:0 14px 34px rgba(43,29,15,0.32); font-size:13.5px; font-weight:600;"><span style="display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#A0AF14; color:#23260a;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span>{{ toast }}</div>
+  </div>
+</div>
+<template id="__bundler_thumbnail" data-bg-color="#2a1d0f">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#2a1d0f"/>
+    <rect x="490" y="280" width="220" height="220" rx="56" fill="#A0AF14"/>
+    <g fill="#2a1d0f" transform="translate(556,316) scale(0.26)"><path d="M356.69 402.64l-39.89 0 0 -64.68 114.04 -65.02 0 -45.49 -114.04 65.02 0 -45.49 114.04 -65.02 0 -181.96 -153.68 87.62 0 91.28 -114.05 -65.02 0 181.96 114.05 65.02 0 41.78 -74.42 0 0 39.63 267.73 0 0 -127.24 -36.78 -20.97 -39.9 22.74 37.04 21.12 0 64.72 -34.52 0 0 -38.57 -39.63 0 0 38.57zm-39.89 -201.15l0 -90.98 74.41 -42.43 0 90.98 -74.41 42.43zm-39.63 22.89l0 90.98 -74.42 -42.43 0 -90.98 74.42 42.43z"/></g>
+    <text x="600" y="600" font-family="sans-serif" font-size="40" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="2">Portal klienta</text>
+  </svg>
+</template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:920,&quot;height&quot;:1100}}">
+class Component extends DCLogic {
+  state = {
+    quoteState: 'pending', paid: false, rating: 0,
+    msgDraft: '', extraMsgs: [], portal: null, portalError: '', toast: '', toastOn: false,
+  };
+
+  flash(m) { this.setState({ toast: m, toastOn: true }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toastOn: false }), 2600); }
+  componentDidMount() { this.loadPortal(); }
+  portalMessageToUi(text) {
+    const raw = String(text || '');
+    const office = /^biuro\s*:/i.test(raw);
+    return { text: raw.replace(/^biuro\s*:\s*/i, ''), mine: !office };
+  }
+  applyPortal(portal) {
+    if (!portal) return;
+    this.setState({
+      portal,
+      quoteState: portal.accepted ? 'accepted' : 'pending',
+      paid: !!portal.paid,
+      rating: portal.rating || 0,
+      extraMsgs: Array.isArray(portal.messages) ? portal.messages.map((text) => this.portalMessageToUi(text)) : [],
+      portalError: '',
+    });
+  }
+  loadPortal() {
+    if (!window.ArborBridge) return;
+    const req = window.ArborBridge.portalToken ? window.ArborBridge.getPortal() : window.ArborBridge.bootstrap().then((data) => data.portal);
+    req
+      .then((data) => {
+        this.applyPortal(data);
+      })
+      .catch((error) => {
+        console.warn('Portal bootstrap failed', error);
+        this.setState({ portalError: 'Link portalu jest nieaktywny, wygasł albo został otwarty bez poprawnego tokenu. Skontaktuj się z biurem obsługi.' });
+      });
+  }
+  acceptQuote() {
+    this.setState({ quoteState: 'accepted' });
+    this.flash('Wycena zaakceptowana — dziękujemy!');
+    if (window.ArborBridge) window.ArborBridge.patchPortal({ accepted: true }).then((portal) => this.applyPortal(portal)).catch((error) => console.warn('Portal accept failed', error));
+  }
+  askQuote() { this.flash('Przekazano pytanie do biura'); }
+  payNow() {
+    this.setState({ paid: true });
+    this.flash('Płatność przyjęta — faktura opłacona');
+    if (window.ArborBridge) window.ArborBridge.patchPortal({ paid: true }).then((portal) => this.applyPortal(portal)).catch((error) => console.warn('Portal payment failed', error));
+  }
+  onMsg(e) { this.setState({ msgDraft: e.target.value }); }
+  sendMsg() {
+    const t = this.state.msgDraft.trim(); if (!t) return;
+    this.setState({ extraMsgs: this.state.extraMsgs.concat({ text: t, mine: true }), msgDraft: '' });
+    this.flash('Wiadomość wysłana do biura');
+    if (window.ArborBridge) {
+      window.ArborBridge.addPortalMessage(t)
+        .then((portal) => {
+          this.applyPortal(portal);
+        })
+        .catch((error) => {
+          console.warn('Portal message failed', error);
+          this.flash('Nie zapisano wiadomości w CRM - sprawdź połączenie');
+        });
+    } else {
+      setTimeout(() => this.setState({ extraMsgs: this.state.extraMsgs.concat({ text: 'Dziękujemy, biuro odpowie wkrótce.', mine: false }) }), 1200);
+    }
+  }
+  setRating(n) {
+    this.setState({ rating: n });
+    this.flash('Dziękujemy za ocenę: ' + n + '/5');
+    if (window.ArborBridge) window.ArborBridge.patchPortal({ rating: n }).then((portal) => this.applyPortal(portal)).catch((error) => console.warn('Portal rating failed', error));
+  }
+
+  renderVals() {
+    const portal = this.state.portal || {};
+    const portalBlocked = !!this.state.portalError && !portal.orderId;
+    const stageOrder = portalBlocked ? [
+      { label: 'Dostęp do portalu zablokowany', time: 'sprawdź link lub skontaktuj się z biurem' },
+    ] : [
+      { label: 'Zlecenie przyjęte', time: '12.06 · 08:12' },
+      { label: 'Wycena zaakceptowana', time: '12.06 · 14:40' },
+      { label: 'Ekipa przydzielona · A1', time: '13.06 · 09:40' },
+      { label: 'Prace w toku', time: 'dziś · 10:05' },
+      { label: 'Odbiór i rozliczenie', time: 'planowane 14.06' },
+    ];
+    const di = portalBlocked ? 0 : 3;
+    const steps = stageOrder.map((s, i) => ({
+      label: s.label, time: s.time, done: i < di, current: i === di,
+      dotBg: i < di ? '#7f8c12' : i === di ? '#A0AF14' : '#fff',
+      dotBd: i < di ? '#7f8c12' : i === di ? '#A0AF14' : '#d8d1bf',
+      lineColor: i < di ? '#7f8c12' : '#ece7da',
+      fg: i <= di ? '#2c2011' : '#a89f8f', weight: i === di ? '800' : '600',
+    }));
+    const order = {
+      id: '#1042', title: 'Pielęgnacja i wycinka — al. Klonowa 5',
+      address: 'al. Klonowa 5, Warszawa', status: 'W realizacji',
+      statusBg: '#fae7d2', statusFg: '#995510', eta: '14 czerwca', value: '6 800 zł',
+      progress: '68%', progressLabel: 'Etap 4 z 5 · ekipa na miejscu',
+    };
+    if (portal.orderId) {
+      order.id = portal.orderId;
+      order.title = (portal.orderType || 'Zlecenie') + ' - ' + (portal.clientName || portal.clientId || 'klient');
+      order.address = [portal.orderAddress, portal.orderCity].filter(Boolean).join(', ') || order.address;
+      order.status = portal.orderStatus || order.status;
+      order.eta = portal.scheduledAt ? new Date(portal.scheduledAt).toLocaleDateString('pl-PL', { day: '2-digit', month: 'long' }) : order.eta;
+      order.value = Number(portal.orderValue || 0).toLocaleString('pl-PL') + ' zł';
+    }
+    if (portalBlocked) {
+      order.id = '-';
+      order.title = 'Link portalu jest nieaktywny';
+      order.address = 'Skontaktuj się z biurem obsługi';
+      order.status = 'Brak dostępu';
+      order.eta = '-';
+      order.value = '-';
+      order.progress = '0%';
+      order.progressLabel = 'Nie pokazujemy danych sprawy bez poprawnego tokenu';
+    }
+    const team = portalBlocked ? { name: 'Biuro obsługi', role: 'Polska Flora', size: 'kontakt telefoniczny', initials: 'PF' } : { name: 'Jan Kowalski', role: 'Brygadzista', size: '4-osobowa ekipa', initials: 'JK' };
+    const scope = (portalBlocked ? [] : [
+      { label: 'Wycinka 3 topoli (zagrożenie)', done: true },
+      { label: 'Pielęgnacja koron — 5 drzew', done: true },
+      { label: 'Frezowanie pni', done: false },
+      { label: 'Uprzątnięcie i wywóz', done: false },
+    ]).map(w => ({ label: w.label, done: w.done, bg: w.done ? '#7f8c12' : '#ece7da', fg: w.done ? '#fff' : '#ece7da' }));
+    const docs = portalBlocked ? [] : [
+      { name: 'Oferta.pdf', meta: 'PDF · 240 kB', bg: '#f1f3d6', fg: '#5d6a0b' },
+      { name: 'Umowa.pdf', meta: 'PDF · 180 kB', bg: '#e4efd6', fg: '#456b1f' },
+      { name: 'Zdjęcia „przed”', meta: '4 pliki', bg: '#fae7d2', fg: '#995510' },
+    ];
+
+    // wycena do akceptacji
+    const quoteItems = [
+      { name: 'Wycinka 3 topoli (zagrożenie)', val: '3 900 zł' },
+      { name: 'Pielęgnacja koron — 5 drzew', val: '1 800 zł' },
+      { name: 'Frezowanie pni + wywóz', val: '1 100 zł' },
+    ];
+
+    // płatność
+    const paid = this.state.paid;
+    const pay = {
+      invId: 'FV/2026/06/118', amount: '6 800 zł',
+      note: paid ? 'Opłacono online · 22.06' : 'Termin płatności: 28.06.2026',
+      unpaid: !paid, paid: paid,
+      iconBg: paid ? '#e4efd6' : '#f1f3d6', iconFg: paid ? '#456b1f' : '#5d6a0b',
+    };
+    if (portal.orderId) {
+      pay.invId = portal.invoiceNumber || portal.invoiceId || 'do wystawienia';
+      pay.amount = order.value;
+      pay.note = paid ? 'Opłacono online' : 'Płatność przypisana do tej sprawy';
+    }
+    if (portalBlocked) {
+      pay.invId = '-';
+      pay.amount = '-';
+      pay.note = 'Płatność niedostępna bez poprawnego linku';
+      pay.unpaid = false;
+      pay.paid = false;
+    }
+
+    // wiadomości
+    const seed = (portal.orderId || portalBlocked) ? [] : [
+      { text: 'Dzień dobry, czy ekipa dotrze przed południem?', who: 'Ty', time: 'wczoraj 16:10', mine: true },
+      { text: 'Dzień dobry, tak — planowo między 8:00 a 10:00.', who: 'Biuro', time: 'wczoraj 16:24', mine: false },
+    ];
+    const messages = seed.concat(this.state.extraMsgs.map(m => ({ ...m, who: m.mine ? 'Ty' : 'Biuro', time: 'teraz' }))).map(m => ({
+      text: m.text, who: m.who, time: m.time, align: m.mine ? 'flex-end' : 'flex-start',
+      bg: m.mine ? '#A0AF14' : '#faf8f1', fg: m.mine ? '#23260a' : '#2c2011',
+    }));
+
+    // ocena
+    const stars = [1, 2, 3, 4, 5].map(n => ({
+      pick: () => this.setRating(n),
+      fill: n <= this.state.rating ? '#f2b441' : 'none',
+      stroke: n <= this.state.rating ? '#f2b441' : '#cfc6b2',
+    }));
+
+    return {
+      clientName: portalBlocked ? 'link nieaktywny' : (portal.clientName || 'Hotel Park'), order, steps, team, scope, docs,
+      portalError: !!this.state.portalError, portalErrorText: this.state.portalError || '',
+      quotePending: !portalBlocked && this.state.quoteState === 'pending',
+      quoteBy: 'Ewa Wycena', quoteItems, quoteGross: order.value,
+      acceptQuote: () => this.acceptQuote(), askQuote: () => this.askQuote(),
+      pay, payNow: () => this.payNow(),
+      messages, msgDraft: this.state.msgDraft, onMsg: (e) => this.onMsg(e), sendMsg: () => this.sendMsg(),
+      stars, rateNote: this.state.rating ? ('Twoja ocena: ' + this.state.rating + '/5 — dziękujemy!') : 'Jak oceniasz dotychczasową współpracę?',
+      toast: this.state.toast, toastY: this.state.toastOn ? '0' : '120px', toastOp: this.state.toastOn ? '1' : '0',
+    };
+  }
+}
+</script>
+</body>
+</html>

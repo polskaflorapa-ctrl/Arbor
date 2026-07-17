@@ -1,0 +1,93 @@
+# Arbor OS — produkcja: web (nginx + dist) + api (Node). Postgres opcjonalnie.
+# Uruchomienie:  cp .env.example .env  &&  (uzupełnij sekrety)  &&  docker compose up -d --build
+# Front:  http://localhost:8080
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ARBOR_API_PORT: "8790"
+      # WYMAGANE sekrety (ustaw w .env):
+      ARBOR_JWT_SECRET: "${ARBOR_JWT_SECRET:?ustaw ARBOR_JWT_SECRET w .env}"
+      ARBOR_PORTAL_SECRET: "${ARBOR_PORTAL_SECRET:?ustaw ARBOR_PORTAL_SECRET w .env}"
+      ARBOR_ENCRYPTION_KEY: "${ARBOR_ENCRYPTION_KEY:?ustaw ARBOR_ENCRYPTION_KEY w .env}"
+      # Konta startowe: hasła nadawane przy seedzie (w produkcji konta bez hasła nie logują się).
+      ARBOR_ADMIN_PASSWORD: "${ARBOR_ADMIN_PASSWORD:-}"
+      ARBOR_USERS_PASSWORD: "${ARBOR_USERS_PASSWORD:-}"
+      # API stoi za nginx (serwis web) → req.ip z X-Forwarded-For (rate limit logowania).
+      ARBOR_TRUST_PROXY: "${ARBOR_TRUST_PROXY:-1}"
+      # Za nginx front i API są same-origin; ustaw gdy API ma być wołane z innych originów.
+      ARBOR_CORS_ORIGIN: "${ARBOR_CORS_ORIGIN:-}"
+      # RODO / retencja danych.
+      ARBOR_RETENTION_DAYS: "${ARBOR_RETENTION_DAYS:-90}"
+      RECORDING_RETENTION_DAYS: "${RECORDING_RETENTION_DAYS:-90}"
+      # Baza: domyślnie sqlite (wolumen niżej). Dla Postgresa: DB_DRIVER=postgres + DATABASE_URL
+      DB_DRIVER: "${DB_DRIVER:-sqlite}"
+      DATABASE_URL: "${DATABASE_URL:-}"
+      # Integracje opcjonalne (bez nich tryb demo):
+      ZADARMA_KEY: "${ZADARMA_KEY:-}"
+      ZADARMA_SECRET: "${ZADARMA_SECRET:-}"
+      ZADARMA_SIP: "${ZADARMA_SIP:-}"
+      DEEPGRAM_API_KEY: "${DEEPGRAM_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-gpt-4o-mini}"
+      SMSAPI_TOKEN: "${SMSAPI_TOKEN:-}"
+      AWS_SES_FROM: "${AWS_SES_FROM:-}"
+      AWS_REGION: "${AWS_REGION:-}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      AWS_S3_BUCKET: "${AWS_S3_BUCKET:-}"
+      GOOGLE_MAPS_API_KEY: "${GOOGLE_MAPS_API_KEY:-}"
+      P24_MERCHANT_ID: "${P24_MERCHANT_ID:-}"
+      P24_POS_ID: "${P24_POS_ID:-}"
+      P24_CRC: "${P24_CRC:-}"
+      P24_API_KEY: "${P24_API_KEY:-}"
+      SENTRY_DSN: "${SENTRY_DSN:-}"
+    volumes:
+      - arbor_data:/app/server/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8790/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # --- PostgreSQL (opcjonalnie) ---
+  # Odkomentuj poniższe + w .env ustaw: DB_DRIVER=postgres oraz
+  # DATABASE_URL=postgresql://arbor:HASLO@db:5432/arbor_os
+  # db:
+  #   image: postgres:17-alpine
+  #   environment:
+  #     POSTGRES_USER: arbor
+  #     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?ustaw POSTGRES_PASSWORD}"
+  #     POSTGRES_DB: arbor_os
+  #   volumes:
+  #     - arbor_pg:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+volumes:
+  arbor_data:
+  # arbor_pg:

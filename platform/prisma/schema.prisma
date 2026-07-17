@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Branch {
+  id    String @id
+  name  String
+  city  String
+  users User[]
+  crews Crew[]
+  clients Client[]
+  orders Order[]
+  equipment Equipment[]
+}
+
+model User {
+  id        String  @id
+  login     String  @unique
+  firstName String
+  lastName  String
+  role      String
+  branchId  String
+  teamId    String?
+  branch    Branch  @relation(fields: [branchId], references: [id])
+}
+
+model Client {
+  id           String @id
+  branchId     String
+  name         String
+  phone        String
+  email        String
+  address      String
+  ltv          Int
+  tagsJson     String
+  customFields String
+  branch       Branch @relation(fields: [branchId], references: [id])
+  orders       Order[]
+  valuations   Valuation[]
+  invoices     Invoice[]
+}
+
+model Crew {
+  id          String @id
+  branchId    String
+  name        String
+  leaderId    String
+  membersJson String
+  utilization Int
+  branch      Branch @relation(fields: [branchId], references: [id])
+  orders      Order[]
+}
+
+model Order {
+  id            String @id
+  branchId      String
+  clientId      String
+  teamId        String?
+  estimatorId   String?
+  address       String
+  city          String
+  type          String
+  status        String
+  priority      String
+  scheduledAt   String
+  inspectionAt  String?
+  value         Int
+  margin        Int
+  timelineJson  String
+  checklistJson String
+  branch        Branch @relation(fields: [branchId], references: [id])
+  client        Client @relation(fields: [clientId], references: [id])
+  crew          Crew?  @relation(fields: [teamId], references: [id])
+  valuation     Valuation?
+  invoices      Invoice[]
+}
+
+model Valuation {
+  id           String @id
+  orderId      String @unique
+  clientId     String
+  estimatorId  String
+  status       String
+  inspectionAt String
+  totalNet     Int
+  margin       Int
+  mediaJson    String
+  notes        String
+  itemsJson    String
+  order        Order  @relation(fields: [orderId], references: [id])
+  client       Client @relation(fields: [clientId], references: [id])
+}
+
+model Equipment {
+  id        String @id
+  branchId  String
+  name      String
+  type      String
+  status    String
+  risk      String
+  reviewDue String
+  branch    Branch @relation(fields: [branchId], references: [id])
+}
+
+model Invoice {
+  id       String  @id
+  number   String  @unique
+  orderId  String
+  clientId String
+  net      Int
+  dueAt    String
+  status   String
+  paidAt   String?
+  order    Order   @relation(fields: [orderId], references: [id])
+  client   Client  @relation(fields: [clientId], references: [id])
+}
+
+model Notification {
+  id        String @id
+  channel   String
+  role      String
+  title     String
+  body      String
+  unread    Boolean
+  createdAt String
+}
+
+model AuditEvent {
+  id      String @id
+  actorId String
+  action  String
+  entity  String
+  at      String
+  payload String
+}
+
+model PortalState {
+  id           String @id @default("singleton")
+  accepted     Boolean
+  paid         Boolean
+  rating       Int
+  messagesJson String
+}
+
+model OfflineQueueItem {
+  id        String @id
+  label     String
+  createdAt String
+}
+
+model OutboxEvent {
+  id          String  @id
+  actorId     String
+  channel     String
+  eventName   String
+  payloadJson String
+  createdAt   String
+  deliveredAt String?
+}

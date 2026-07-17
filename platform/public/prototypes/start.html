@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x:hidden; }
+  body { font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; color:#efe9da; -webkit-font-smoothing:antialiased; letter-spacing:0;
+    background:linear-gradient(165deg,#3b2a18,#2a1d0f); }
+  @keyframes sRise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+  a:focus-visible { outline:2.5px solid #A0AF14; outline-offset:3px; }
+  .start-shell { position:relative; min-height:100vh; overflow-x:hidden; display:flex; flex-direction:column; align-items:center; padding:0 24px 70px; font-family:'Hanken Grotesk',sans-serif; }
+  .start-header { position:relative; width:100%; max-width:1080px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:26px 4px; }
+  .start-hero { position:relative; width:100%; max-width:1080px; margin-top:30px; animation:sRise .4s ease both; }
+  .start-kicker { font-size:13px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#A0AF14; }
+  .start-title { margin:14px 0 0; font-size:60px; line-height:0.98; font-weight:800; letter-spacing:0; color:#fff; }
+  .start-copy { margin:20px 0 0; width:100%; font-size:18px; color:#c7bda3; max-width:560px; line-height:1.55; overflow-wrap:break-word; }
+  .start-app-grid { position:relative; width:100%; max-width:1080px; margin-top:40px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px; animation:sRise .5s ease both; }
+  .start-stats-grid { position:relative; width:100%; max-width:1080px; margin-top:18px; display:grid; grid-template-columns:repeat(4,1fr); gap:14px; animation:sRise .6s ease both; }
+  .start-header, .start-hero, .start-app-grid, .start-stats-grid { min-width:0; }
+  .start-app-grid > a { min-width:0; width:100%; }
+  .start-app-grid h2, .start-app-grid p { overflow-wrap:anywhere; }
+  .start-stat { padding:18px 20px; border-radius:16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); }
+  .start-footer { position:relative; margin-top:36px; font-size:12px; color:#9a8e76; text-align:center; }
+  @media (max-width: 900px) {
+    .start-title { font-size:52px; }
+    .start-app-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .start-stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
+  @media (max-width: 620px) {
+    .start-shell { align-items:stretch; padding:0 18px 48px; }
+    .start-header { align-items:flex-start; flex-direction:column; padding:22px 0; }
+    .start-header, .start-hero, .start-app-grid, .start-stats-grid { width:100%; max-width:none; }
+    .start-hero { margin-top:20px; }
+    .start-kicker { font-size:11px; line-height:1.35; }
+    .start-title { font-size:44px; line-height:1.04; }
+    .start-copy { font-size:16px; line-height:1.55; }
+    .start-app-grid { grid-template-columns:1fr; gap:16px; margin-top:32px; }
+  }
+  @media (max-width: 380px) {
+    .start-title { font-size:39px; }
+    .start-stats-grid { grid-template-columns:1fr; }
+  }
+</style>
+</helmet>
+
+<div class="start-shell">
+  <div style="position:absolute; inset:0; opacity:0.5; background-image:linear-gradient(rgba(160,175,20,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(160,175,20,0.06) 1px,transparent 1px); background-size:54px 54px;"></div>
+  <div style="position:absolute; right:-180px; top:-120px; width:560px; height:560px; border-radius:50%; background:radial-gradient(circle,rgba(160,175,20,0.16),transparent 70%);"></div>
+
+  <header class="start-header">
+    <div style="display:flex; align-items:center; gap:13px;">
+      <div style="width:48px; height:48px; border-radius:14px; background:#A0AF14; display:grid; place-items:center; flex:0 0 auto;"><svg viewBox="155 -8 323 458" width="30" height="40" fill="#2a1d0f"><path d="M356.69 402.64l-39.89 0 0 -64.68 114.04 -65.02 0 -45.49 -114.04 65.02 0 -45.49 114.04 -65.02 0 -181.96 -153.68 87.62 0 91.28 -114.05 -65.02 0 181.96 114.05 65.02 0 41.78 -74.42 0 0 39.63 267.73 0 0 -127.24 -36.78 -20.97 -39.9 22.74 37.04 21.12 0 64.72 -34.52 0 0 -38.57 -39.63 0 0 38.57zm-39.89 -201.15l0 -90.98 74.41 -42.43 0 90.98 -74.41 42.43zm-39.63 22.89l0 90.98 -74.42 -42.43 0 -90.98 74.42 42.43z"/></svg></div>
+      <div style="display:flex; flex-direction:column; gap:4px;"><strong style="font-size:18px; font-weight:800; letter-spacing:0.03em; line-height:1;">POLSKA FLORA</strong><span style="font-size:10.5px; color:#A0AF14; letter-spacing:0.2em; text-transform:uppercase; font-weight:700; line-height:1;">Arbor OS</span></div>
+    </div>
+    <span style="display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:#8fb56a;"><span style="width:7px; height:7px; border-radius:50%; background:#A0AF14; box-shadow:0 0 0 3px rgba(160,175,20,0.25);"></span>Wszystkie systemy działają</span>
+  </header>
+
+  <div class="start-hero">
+    <div class="start-kicker">System operacyjny dla zieleni</div>
+    <h1 class="start-title">Cała firma<br>w jednym miejscu.</h1>
+    <p class="start-copy">Od pierwszego telefonu po rozliczenie — wybierz aplikację, by wejść do systemu.</p>
+  </div>
+
+  <div class="start-app-grid">
+    <sc-for list="{{ apps }}" as="a" hint-placeholder-count="4">
+      <a href="{{ a.href }}" style="text-decoration:none; display:flex; flex-direction:column; gap:0; border-radius:20px; overflow:hidden; background:{{ a.cardBg }}; border:1px solid {{ a.cardBd }}; box-shadow:0 10px 30px rgba(0,0,0,0.22); transition:transform .16s, box-shadow .16s;" style-hover="transform:translateY(-4px); box-shadow:0 18px 44px rgba(0,0,0,0.34);">
+        <div style="height:120px; background:{{ a.banner }}; position:relative; display:grid; place-items:center; overflow:hidden;">
+          <div style="position:absolute; inset:0; opacity:0.4; background-image:linear-gradient(rgba(255,255,255,0.10) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.10) 1px,transparent 1px); background-size:24px 24px;"></div>
+          <span style="position:relative; width:54px; height:54px; border-radius:15px; background:{{ a.iconBg }}; color:{{ a.iconFg }}; display:grid; place-items:center; font-size:20px; font-weight:800; letter-spacing:0.02em;">{{ a.mark }}</span>
+        </div>
+        <div style="padding:18px 20px 20px; background:{{ a.bodyBg }};">
+          <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;"><h2 style="margin:0; font-size:19px; font-weight:800; color:{{ a.titleFg }};">{{ a.title }}</h2><span style="padding:2px 8px; border-radius:6px; font-size:9.5px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; background:{{ a.tagBg }}; color:{{ a.tagFg }};">{{ a.tag }}</span></div>
+          <p style="margin:7px 0 0; font-size:13.5px; line-height:1.5; color:{{ a.descFg }};">{{ a.desc }}</p>
+          <div style="display:flex; align-items:center; gap:6px; margin-top:14px; font-size:13px; font-weight:800; color:{{ a.ctaFg }};">{{ a.cta }}<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </div>
+      </a>
+    </sc-for>
+  </div>
+
+  <div class="start-stats-grid">
+    <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+      <div class="start-stat">
+        <div style="font-size:26px; font-weight:800; color:#fff;">{{ s.v }}</div>
+        <div style="font-size:12px; color:#bfa888; margin-top:3px;">{{ s.l }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <p class="start-footer">Polska Flora · Arbor OS · jeden system, każda rola</p>
+</div>
+<template id="__bundler_thumbnail" data-bg-color="#2a1d0f">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#2a1d0f"/>
+    <rect x="490" y="250" width="220" height="220" rx="56" fill="#A0AF14"/>
+    <g fill="#2a1d0f" transform="translate(556,286) scale(0.26)"><path d="M356.69 402.64l-39.89 0 0 -64.68 114.04 -65.02 0 -45.49 -114.04 65.02 0 -45.49 114.04 -65.02 0 -181.96 -153.68 87.62 0 91.28 -114.05 -65.02 0 181.96 114.05 65.02 0 41.78 -74.42 0 0 39.63 267.73 0 0 -127.24 -36.78 -20.97 -39.9 22.74 37.04 21.12 0 64.72 -34.52 0 0 -38.57 -39.63 0 0 38.57zm-39.89 -201.15l0 -90.98 74.41 -42.43 0 90.98 -74.41 42.43zm-39.63 22.89l0 90.98 -74.42 -42.43 0 -90.98 74.42 42.43z"/></g>
+    <text x="600" y="570" font-family="sans-serif" font-size="44" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="2">POLSKA FLORA</text>
+    <text x="600" y="615" font-family="sans-serif" font-size="24" font-weight="700" fill="#A0AF14" text-anchor="middle" letter-spacing="8">ARBOR OS</text>
+  </svg>
+</template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() {
+    const currentParams = new URLSearchParams(window.location.search);
+    const api = currentParams.get('api') || '';
+    const portalToken = currentParams.get('token') || currentParams.get('portalToken') || '';
+    const prototypeHref = (file, login, extra = {}) => {
+      const params = new URLSearchParams();
+      if (api) params.set('api', api);
+      if (login) params.set('login', login);
+      Object.entries(extra).forEach(([key, value]) => {
+        if (value) params.set(key, value);
+      });
+      const query = params.toString();
+      return query ? `${file}?${query}` : file;
+    };
+    const apps = [
+      { title: 'Panel operatora', tag: 'Web', href: prototypeHref('arbor-os.html', 'kierownik'), mark: 'OS',
+        desc: '16 modułów: zlecenia, CRM z telefonią, flota, magazyn, faktury, raporty, kadry.',
+        cta: 'Otwórz panel', banner: 'linear-gradient(135deg,#A0AF14,#7f8c12)', iconBg: '#2a1d0f', iconFg: '#A0AF14',
+        cardBg: '#fff', cardBd: '#ece6d7', bodyBg: '#fff', titleFg: '#2c2011', descFg: '#6a604c', ctaFg: '#5d6a0b', tagBg: '#f1f3d6', tagFg: '#5d6a0b' },
+      { title: 'Aplikacja mobilna', tag: 'iOS / Android', href: prototypeHref('arbor-mobile.html', 'brygadzista'), mark: '◍',
+        desc: 'Wielorolowa: misja dnia, wycena terenowa, GPS, BHP, dokumenty, AI, geofencing.',
+        cta: 'Otwórz mobilną', banner: 'linear-gradient(135deg,#BD701E,#995510)', iconBg: '#2a1d0f', iconFg: '#f0a559',
+        cardBg: '#fff', cardBd: '#ece6d7', bodyBg: '#fff', titleFg: '#2c2011', descFg: '#6a604c', ctaFg: '#995510', tagBg: '#fae7d2', tagFg: '#995510' },
+      { title: 'Gabinet wyceniającego', tag: 'Web', href: prototypeHref('gabinet-wyceniajacego.html', 'wycena'), mark: 'WY',
+        desc: 'Kolejka zapytań, kreator wycen i analiza rozmów AI z panelem rozwoju.',
+        cta: 'Otwórz gabinet', banner: 'linear-gradient(135deg,#456b1f,#2c4a14)', iconBg: '#2a1d0f', iconFg: '#A0AF14',
+        cardBg: '#fff', cardBd: '#ece6d7', bodyBg: '#fff', titleFg: '#2c2011', descFg: '#6a604c', ctaFg: '#456b1f', tagBg: '#e4efd6', tagFg: '#456b1f' },
+      { title: 'Portal klienta', tag: 'Web', href: prototypeHref('portal-klienta.html', 'kierownik', { token: portalToken }), mark: '☺',
+        desc: 'Samoobsługa: akceptacja wyceny, status realizacji, płatność online, czat, ocena.',
+        cta: 'Otwórz portal', banner: 'linear-gradient(135deg,#7f8c12,#5d6a0b)', iconBg: '#2a1d0f', iconFg: '#A0AF14',
+        cardBg: '#fff', cardBd: '#ece6d7', bodyBg: '#fff', titleFg: '#2c2011', descFg: '#6a604c', ctaFg: '#5d6a0b', tagBg: '#f1f3d6', tagFg: '#5d6a0b' },
+    ];
+    const stats = [
+      { v: '16', l: 'modułów web' },
+      { v: '4', l: 'role w aplikacji' },
+      { v: '4', l: 'wejścia do systemu' },
+      { v: '100%', l: 'pętla operacyjna' },
+    ];
+    return { apps, stats };
+  }
+}
+</script>
+</body>
+</html>

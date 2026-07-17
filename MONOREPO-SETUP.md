@@ -65,3 +65,27 @@ npm run down          # zatrzymuje lokalny stack (porty 3000/3001/3002)
 npm run restart:force # down + up:force (pełny reset)
 npm run health        # sprawdza /api/health przez proxy target
 ```
+
+## platform/ — Platforma Arbor OS (fuzja z repo „Polska Flora")
+
+Kompletna platforma operacyjna: backend Express+Socket.IO (SQLite/PostgreSQL,
+RBAC rola+oddział+tenant, portal klienta z tokenami i rewokacją, HR, workflows,
+magazyn, faktury, realtime, RODO/retencja, backupy) + 4 panele (biuro, mobilka
+HTML, gabinet wyceniającego, portal klienta) + deploy Docker/nginx.
+
+**Celowo POZA workspaces** — własny `package-lock.json` i `node_modules`
+(izolacja od hoistingu roota; Express 5 vs Express 4 w os/).
+
+```powershell
+npm run platform:install   # jednorazowo
+npm run platform:seed      # dane demo (produkcyjnie: ARBOR_ADMIN_PASSWORD=... NODE_ENV=production)
+npm run platform           # API :8790 + panele :5175
+npm run platform:smoke     # pełny pakiet smoke (wymaga działającego API)
+npm run platform:build     # build produkcyjny
+npm run platform:backup    # backup bazy (rotacja)
+```
+
+Aplikacja mobilna (Expo) łączy się z platformą przez warstwę kompatybilności:
+`EXPO_PUBLIC_API_URL=http://<host>:8790` — kontrakt /api/tasks/*, /api/ekipy,
+/api/oddzialy itd. jest obsługiwany natywnie (platform/server/mobile-compat.mjs).
+Wdrożenie produkcyjne: `platform/DEPLOY.md` (docker compose, nginx, backupy, TLS).
