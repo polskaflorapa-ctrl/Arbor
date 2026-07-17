@@ -71,7 +71,7 @@ body.theme-light #root {
   --shadow-lg: 0 26px 56px rgba(59, 42, 24, 0.16) !important;
 
   /* Existing reference and command layers consume these aliases. */
-  --pf-font: 'Road UA', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  --pf-font: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
   --pf-brown: var(--brand-dark-brown) !important;
   --pf-brown-2: var(--brand-dark-brown) !important;
   --pf-brown-3: var(--brand-light-brown) !important;
@@ -113,8 +113,8 @@ body.theme-light #root {
   --command-amber: var(--brand-orange-brown) !important;
   --command-shadow: 0 10px 28px rgba(59, 42, 24, 0.09) !important;
 
-  --font-sans: 'Road UA', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  --font-display: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
+  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  --font-display: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif !important;
   --landing-green: var(--brand-primary-green) !important;
   --landing-green-2: var(--brand-light-green) !important;
   --landing-amber: var(--brand-orange-brown) !important;
@@ -153,8 +153,8 @@ body.theme-light #root {
   --cc-success: var(--status-success) !important;
   --cc-info: var(--status-info) !important;
   --cc-ring: rgba(160, 175, 20, 0.38) !important;
-  --cc-font-sans: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
-  --cc-font-display: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
+  --cc-font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif !important;
+  --cc-font-display: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif !important;
   --ux-bg: var(--brand-dark-brown) !important;
   --ux-bg-2: var(--brand-dark-deep) !important;
   --ux-panel: var(--brand-dark-surface) !important;
@@ -219,21 +219,21 @@ body,
 #root input,
 #root select,
 #root textarea {
-  font-family: 'Road UA', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
   font-synthesis: none;
 }
 
 #root :where(*):not(code):not(pre):not(kbd):not(samp) {
-  font-family: 'Road UA', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
 }
 
 #root h1 {
-  font-family: 'Road UA', sans-serif !important;
+  font-family: 'Hanken Grotesk', sans-serif !important;
   font-weight: 800 !important;
 }
 
 #root :is(h2, h3, h4, h5, h6) {
-  font-family: 'Road UA', sans-serif !important;
+  font-family: 'Hanken Grotesk', sans-serif !important;
   font-weight: 700 !important;
 }
 
