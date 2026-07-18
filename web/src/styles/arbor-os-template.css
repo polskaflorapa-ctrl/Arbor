@@ -25,7 +25,7 @@
     radial-gradient(circle at 96% 0%, rgba(160, 175, 20, 0.1), transparent 28rem),
     linear-gradient(180deg, #faf9f3 0%, #f1eee2 100%) !important;
   color: var(--template-ink) !important;
-  font-family: 'Road UA', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif !important;
 }
 
 #root .arbor-os-shell > aside.command-native-sidebar {
