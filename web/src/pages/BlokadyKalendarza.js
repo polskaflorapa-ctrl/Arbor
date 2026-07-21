@@ -134,7 +134,7 @@ export default function BlokadyKalendarza() {
       border: 'none',
       background: 'transparent',
       cursor: 'pointer',
-      color: 'var(--danger, #EF4444)',
+      color: 'var(--danger, #c0492f)',
       fontSize: 18,
       padding: 4,
     },

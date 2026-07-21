@@ -180,8 +180,8 @@ export default function Oddzialy() {
   };
 
   const STATUS_DELEGACJI_KOLOR = {
-    Planowana: '#3B82F6', W_trakcie: '#F9A825',
-    Zakonczona: '#4CAF50', Anulowana: '#EF5350'
+    Planowana: '#766440', W_trakcie: '#bd701e',
+    Zakonczona: '#7f8c12', Anulowana: '#c0492f'
   };
 
   const isEstimatorRole = (rola) => String(rola || '').toLowerCase().includes('wyceniaj');
@@ -268,7 +268,7 @@ export default function Oddzialy() {
               key={tab.key}
               variant={activeTab === tab.key ? 'primary' : 'ghost'}
               size="sm"
-              style={{ padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: activeTab === tab.key ? 'var(--accent)' : '#6B7280', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' }}
+              style={{ padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: activeTab === tab.key ? 'var(--accent)' : '#8a8069', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' }}
               onClick={() => setActiveTab(tab.key)}
             >
               {tab.label}
@@ -481,7 +481,7 @@ export default function Oddzialy() {
                           {d.zasob_typ === 'wyceniajacy' ? 'Specjalista ds. wyceny' : 'Ekipa'}
                         </span>
                       </strong>
-                      <span style={{ ...S.delegacjaStatus, backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#6B7280' }}>
+                      <span style={{ ...S.delegacjaStatus, backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#8a8069' }}>
                         {d.status}
                       </span>
                     </div>
@@ -543,7 +543,7 @@ const S = {
   headerBtn: (bg, color = '#fff') => ({ padding: '10px 18px', backgroundColor: bg, color, border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 'bold' }),
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
-  deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 8 },

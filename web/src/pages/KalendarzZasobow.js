@@ -16,11 +16,11 @@ const DAY_TIME_LABEL_W = 76;
 const DAY_TEAM_COL_W = 248;
 const MIN_VISIBLE_GAP_MINUTES = 45;
 const TASK_STATUS_COLOR = {
-  Do_Zatwierdzenia: '#f59e0b',
-  Zaplanowane: '#22c55e',
-  W_Realizacji: '#0ea5e9',
-  Zakonczone: '#64748b',
-  Anulowane: '#94a3b8',
+  Do_Zatwierdzenia: '#bd701e',
+  Zaplanowane: '#7f8c12',
+  W_Realizacji: '#766440',
+  Zakonczone: '#8a8069',
+  Anulowane: '#9a907a',
 };
 const ACTIVE_TASK_STATUSES = new Set(['Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji']);
 const CLOSED_TASK_STATUSES = new Set(['Zakonczone', 'Anulowane']);
@@ -45,10 +45,10 @@ const MIESIACE = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze',
                   'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
 
 const STATUS_COLOR = {
-  Zarezerwowane: '#3b82f6',
-  Wydane:        '#f59e0b',
-  Zwrócone:      '#10b981',
-  Anulowane:     '#6b7280',
+  Zarezerwowane: '#766440',
+  Wydane:        '#bd701e',
+  Zwrócone:      '#7f8c12',
+  Anulowane:     '#8a8069',
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -728,12 +728,12 @@ const mStyles = {
     whiteSpace: 'nowrap',
   },
   fieldPackagePillOk: {
-    color: '#16a34a',
+    color: '#7f8c12',
     border: '1px solid rgba(34,197,94,0.36)',
     background: 'rgba(34,197,94,0.12)',
   },
   fieldPackagePillWarn: {
-    color: '#b45309',
+    color: '#995510',
     border: '1px solid rgba(245,158,11,0.36)',
     background: 'rgba(245,158,11,0.12)',
   },
@@ -858,11 +858,11 @@ const mStyles = {
   slotList: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   slotBtn: { border: '1px solid rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.12)', color: 'var(--text)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, fontSize: 12, fontWeight: 800 },
   slotEmpty: { color: 'var(--text-muted)', fontSize: 12, fontWeight: 700 },
-  planWarning: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: '#92400e', fontSize: 12, fontWeight: 700, lineHeight: 1.45 },
-  absenceGuard: { marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.34)', color: '#991b1b', fontSize: 12, fontWeight: 800, lineHeight: 1.45, display: 'grid', gap: 7 },
-  absenceConfirm: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#7f1d1d', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
+  planWarning: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: '#a3402a', fontSize: 12, fontWeight: 700, lineHeight: 1.45 },
+  absenceGuard: { marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.34)', color: '#a3402a', fontSize: 12, fontWeight: 800, lineHeight: 1.45, display: 'grid', gap: 7 },
+  absenceConfirm: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#a3402a', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   warningList: { margin: '6px 0 0', paddingLeft: 18 },
-  errorBox: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.32)', color: '#ef4444', fontSize: 12, fontWeight: 700 },
+  errorBox: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.32)', color: '#c0492f', fontSize: 12, fontWeight: 700 },
   linkedTaskBox: { marginTop: 10, padding: 10, borderRadius: 8, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.24)', lineHeight: 1.55 },
   multiSelect: { minHeight: 112, lineHeight: 1.35 },
   equipmentHint: { marginTop: 6, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35, fontWeight: 700 },
@@ -2219,7 +2219,7 @@ export default function KalendarzZasobow() {
   };
 
   const renderTaskCard = (task) => {
-    const color = TASK_STATUS_COLOR[task.status] || '#64748b';
+    const color = TASK_STATUS_COLOR[task.status] || '#8a8069';
     const photoTotal = taskPhotoTotal(task);
     const hasBrief = Boolean(taskWorkBrief(task));
     const equipmentLabel = taskEquipmentLabel(rezerwacje, task);
@@ -2302,7 +2302,7 @@ export default function KalendarzZasobow() {
   );
 
   const renderDayTaskBlock = (task) => {
-    const color = TASK_STATUS_COLOR[task.status] || '#64748b';
+    const color = TASK_STATUS_COLOR[task.status] || '#8a8069';
     const start = clamp(timeToMinutes(taskTime(task)), DAY_START_HOUR * 60, DAY_END_HOUR * 60 - 15);
     const duration = Math.max(30, Math.round(taskHours(task) * 60));
     const top = ((start - DAY_START_HOUR * 60) / 60) * DAY_HOUR_HEIGHT + 4;
@@ -2321,7 +2321,7 @@ export default function KalendarzZasobow() {
           ...(hasConflict ? st.dayTaskBlockConflict : {}),
           top,
           height,
-          borderLeft: `4px solid ${hasConflict ? '#ef4444' : color}`,
+          borderLeft: `4px solid ${hasConflict ? '#c0492f' : color}`,
         }}
         title={`${taskClientLabel(task)}\n${taskTime(task)} | ${taskHours(task)} h\n${task.adres || ''}`}
       >
@@ -2350,7 +2350,7 @@ export default function KalendarzZasobow() {
 
     const left   = colStart * COL_W + 2;
     const width  = spanDays * COL_W - 4;
-    const color  = STATUS_COLOR[rez.status] || '#6b7280';
+    const color  = STATUS_COLOR[rez.status] || '#8a8069';
     const isAnulowana = rez.status === 'Anulowane';
     const taskLabel = rez.task_id ? `#${rez.task_id} ${rez.task_klient_nazwa || ''}`.trim() : '';
     const barLabel = taskLabel || rez.ekipa_nazwa || rez.status || '';
@@ -2495,7 +2495,7 @@ export default function KalendarzZasobow() {
         </section>
 
         {msg && (
-          <div style={{ ...st.flash, background: msgType === 'ok' ? 'var(--success-bg, #d1fae5)' : 'var(--error-bg, #fee2e2)', color: msgType === 'ok' ? '#065f46' : '#991b1b' }}>
+          <div style={{ ...st.flash, background: msgType === 'ok' ? 'var(--success-bg, #e4efd6)' : 'var(--error-bg, #f6e0d9)', color: msgType === 'ok' ? '#456b1f' : '#a3402a' }}>
             {msg}
           </div>
         )}
@@ -3112,7 +3112,7 @@ const st = {
     flexWrap: 'wrap',
   },
   pageTitle: {
-    margin: 0, fontSize: 22, fontWeight: 950, color: '#12251a',
+    margin: 0, fontSize: 22, fontWeight: 950, color: '#2c2011',
     marginLeft: 'auto',
   },
   navBtn: {
@@ -3361,10 +3361,10 @@ const st = {
     fontWeight: 900,
   },
   queueSummaryOk: {
-    color: '#16a34a',
+    color: '#7f8c12',
   },
   queueSummaryWarn: {
-    color: '#b45309',
+    color: '#995510',
   },
   queueFilters: {
     display: 'flex',
@@ -3426,12 +3426,12 @@ const st = {
     fontWeight: 950,
   },
   queueReadyPillOk: {
-    color: '#16a34a',
+    color: '#7f8c12',
     border: '1px solid rgba(34,197,94,0.35)',
     background: 'rgba(34,197,94,0.12)',
   },
   queueReadyPillWarn: {
-    color: '#b45309',
+    color: '#995510',
     border: '1px solid rgba(245,158,11,0.35)',
     background: 'rgba(245,158,11,0.12)',
   },
@@ -3446,7 +3446,7 @@ const st = {
     padding: '3px 6px',
     border: '1px solid rgba(245,158,11,0.32)',
     background: 'rgba(245,158,11,0.1)',
-    color: '#b45309',
+    color: '#995510',
     fontSize: 10,
     lineHeight: 1,
     fontWeight: 900,
@@ -3549,12 +3549,12 @@ const st = {
     border: '1px solid var(--border)',
   },
   taskBadgeOk: {
-    color: '#15803d',
+    color: '#456b1f',
     border: '1px solid rgba(34,197,94,0.35)',
     background: 'rgba(34,197,94,0.11)',
   },
   taskBadgeWarn: {
-    color: '#b45309',
+    color: '#995510',
     border: '1px solid rgba(245,158,11,0.35)',
     background: 'rgba(245,158,11,0.12)',
   },
@@ -3573,7 +3573,7 @@ const st = {
   emptyTeamCellAbsent: {
     border: '1px dashed rgba(239,68,68,0.35)',
     background: 'rgba(239,68,68,0.08)',
-    color: '#dc2626',
+    color: '#c0492f',
   },
   dayPlanner: {
     minWidth: '100%',
@@ -3660,18 +3660,18 @@ const st = {
     cursor: 'pointer',
   },
   teamAttendanceAbsent: {
-    color: '#dc2626',
+    color: '#c0492f',
     fontWeight: 950,
   },
   dayTeamHeaderMeta: {
     display: 'inline-flex',
     marginTop: 4,
-    color: '#16a34a',
+    color: '#7f8c12',
     fontSize: 10,
     fontWeight: 900,
   },
   dayTeamHeaderMetaConflict: {
-    color: '#ef4444',
+    color: '#c0492f',
   },
   focusedTeamHeader: {
     background: 'linear-gradient(135deg, rgba(34,197,94,0.18), var(--surface-glass))',
@@ -3681,7 +3681,7 @@ const st = {
     background: 'linear-gradient(180deg, rgba(34,197,94,0.08), var(--surface-glass))',
   },
   absentTeamRangeRow: {
-    boxShadow: 'inset 3px 0 0 #ef4444',
+    boxShadow: 'inset 3px 0 0 #c0492f',
     background: 'rgba(239,68,68,0.045)',
   },
   focusedTeamRangeRow: {
@@ -3689,7 +3689,7 @@ const st = {
     background: 'rgba(34,197,94,0.05)',
   },
   focusedEquipmentRow: {
-    boxShadow: 'inset 3px 0 0 #3b82f6',
+    boxShadow: 'inset 3px 0 0 #766440',
     background: 'rgba(59,130,246,0.05)',
   },
   focusedEquipmentLabel: {
@@ -3794,7 +3794,7 @@ const st = {
   dayEmptyColumnAbsent: {
     border: '1px dashed rgba(239,68,68,0.35)',
     background: 'rgba(239,68,68,0.08)',
-    color: '#dc2626',
+    color: '#c0492f',
   },
   dayGapBlock: {
     position: 'absolute',
@@ -3804,7 +3804,7 @@ const st = {
     border: '1px dashed rgba(34,197,94,0.48)',
     borderRadius: 8,
     background: 'rgba(34,197,94,0.08)',
-    color: '#16a34a',
+    color: '#7f8c12',
     fontSize: 10,
     fontWeight: 900,
     display: 'flex',

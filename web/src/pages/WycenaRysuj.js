@@ -10,7 +10,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 
-const COLORS = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#8E24AA', '#FFFFFF', '#000000'];
+const COLORS = ['#c0492f', '#bd701e', '#bd701e', '#7f8c12', '#766440', '#766440', '#FFFFFF', '#000000'];
 
 function dataUrlToBlob(dataUrl) {
   const [head, b64] = dataUrl.split(',');
@@ -39,7 +39,7 @@ export default function WycenaRysuj() {
 
   const decodedUri = uriParam ? decodeURIComponent(uriParam) : '';
 
-  const [color, setColor] = useState('#E53935');
+  const [color, setColor] = useState('#c0492f');
   const [lineWidth, setLineWidth] = useState(5);
   const [ready, setReady] = useState(false);
   const [eraser, setEraser] = useState(false);
@@ -289,7 +289,7 @@ export default function WycenaRysuj() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>{t('draw.noTargetHint')}</p>
           )}
           {loadErr && (
-            <p style={{ color: '#F87171', marginBottom: 12 }}>{t('draw.loadError')}</p>
+            <p style={{ color: '#c0492f', marginBottom: 12 }}>{t('draw.loadError')}</p>
           )}
           <div className="quote-draw-toolbar" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12, alignItems: 'center' }}>
             {COLORS.map((c) => (

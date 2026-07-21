@@ -15,16 +15,16 @@ import { CheckSquare, Plus, Save, Trash2, X } from 'lucide-react';
 
 // ─── Kolory ról (fallback jeśli brak w DB) ───────────────────
 const DEFAULT_ROLE_COLORS = {
-  Prezes: '#eab308',
-  Dyrektor: '#f59e0b',
-  Administrator: '#fbbf24',
-  Kierownik: '#38bdf8',
-  Brygadzista: '#34d399',
-  Specjalista: '#22d3ee',
-  Wyceniający: '#94a3b8',
-  Pomocnik: '#94a3b8',
-  'Pomocnik bez doświadczenia': '#64748b',
-  Magazynier: '#fb923c',
+  Prezes: '#bd701e',
+  Dyrektor: '#bd701e',
+  Administrator: '#bd701e',
+  Kierownik: '#766440',
+  Brygadzista: '#7f8c12',
+  Specjalista: '#766440',
+  Wyceniający: '#9a907a',
+  Pomocnik: '#9a907a',
+  'Pomocnik bez doświadczenia': '#8a8069',
+  Magazynier: '#bd701e',
 };
 
 // ─── Grupy uprawnień (schemat) ───────────────────────────────
@@ -113,7 +113,7 @@ export default function ZarzadzajRolami() {
     setSelected(r);
     setEditForm({
       nazwa: r.nazwa,
-      kolor: r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#94A3B8',
+      kolor: r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#9a907a',
       opis: r.opis || '',
       poziom: r.poziom || 1,
       aktywna: r.aktywna !== false,
@@ -126,7 +126,7 @@ export default function ZarzadzajRolami() {
     setSelected(null);
     setNewForm({
       nazwa: '',
-      kolor: '#34D399',
+      kolor: '#7f8c12',
       opis: '',
       poziom: 1,
       uprawnienia: emptyPermissions(),
@@ -212,7 +212,7 @@ export default function ZarzadzajRolami() {
             <div style={S.center}>Ładowanie...</div>
           ) : (
             role.map(r => {
-              const color = r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#94A3B8';
+              const color = r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#9a907a';
               return (
                 <div
                   className="roles-admin-role-row"
@@ -260,8 +260,8 @@ export default function ZarzadzajRolami() {
         <div className="roles-admin-editor" style={S.editor}>
           {!form ? (
             <div className="roles-admin-empty" style={S.emptyEditor}>
-              <SettingsOutlined sx={{ fontSize: 48, color: '#64748B' }} />
-              <p style={{ color: '#64748B', marginTop: 12 }}>
+              <SettingsOutlined sx={{ fontSize: 48, color: '#8a8069' }} />
+              <p style={{ color: '#8a8069', marginTop: 12 }}>
                 {t('pages.role.pickOrCreate')}
               </p>
             </div>
@@ -302,7 +302,7 @@ export default function ZarzadzajRolami() {
                       style={{ ...S.input, flex: 1 }}
                       value={form.kolor}
                       onChange={e => setForm(f => ({ ...f, kolor: e.target.value }))}
-                      placeholder="#34D399"
+                      placeholder="#7f8c12"
                     />
                   </div>
                 </div>
@@ -369,7 +369,7 @@ export default function ZarzadzajRolami() {
                             type="button"
                             size="sm"
                             variant={allOn ? 'danger' : 'outline'}
-                            style={{ ...S.btnTiny, color: allOn ? '#EF4444' : '#34D399' }}
+                            style={{ ...S.btnTiny, color: allOn ? '#c0492f' : '#7f8c12' }}
                             onClick={() => setGroupAll(group, !allOn, form, setForm)}
                           >
                             {allOn ? t('pages.role.deselectGroup') : t('pages.role.selectGroup')}
@@ -381,16 +381,16 @@ export default function ZarzadzajRolami() {
                               type="checkbox"
                               checked={!!form.uprawnienia[p.key]}
                               onChange={() => togglePerm(p.key, form, setForm)}
-                              style={{ accentColor: '#34D399', width: 15, height: 15 }}
+                              style={{ accentColor: '#7f8c12', width: 15, height: 15 }}
                             />
                             <span style={{
                               ...S.permLabel,
-                              color: form.uprawnienia[p.key] ? '#E2E8F0' : '#64748B',
+                              color: form.uprawnienia[p.key] ? '#f0ebdd' : '#8a8069',
                             }}>
                               {p.label}
                             </span>
                             {form.uprawnienia[p.key] && (
-                              <span style={S.permOn}><CheckOutlined sx={{ fontSize: 14, color: '#34D399' }} /></span>
+                              <span style={S.permOn}><CheckOutlined sx={{ fontSize: 14, color: '#7f8c12' }} /></span>
                             )}
                           </label>
                         ))}
@@ -448,18 +448,18 @@ function PermissionSummary({ uprawnienia, kolor }) {
 
   if (!active.length) return (
     <div className="roles-admin-summary" style={S.summaryBox}>
-      <span style={{ color: '#EF4444', fontSize: 13 }}>{t('pages.role.noPermsWarning')}</span>
+      <span style={{ color: '#c0492f', fontSize: 13 }}>{t('pages.role.noPermsWarning')}</span>
     </div>
   );
 
   return (
     <div className="roles-admin-summary" style={S.summaryBox}>
-      <span style={{ color: '#94A3B8', fontSize: 12, marginBottom: 6, display: 'block' }}>
+      <span style={{ color: '#9a907a', fontSize: 12, marginBottom: 6, display: 'block' }}>
         Aktywne uprawnienia ({active.length}):
       </span>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
         {active.map(a => (
-          <span key={a} style={{ ...S.summaryTag, borderColor: kolor || '#34D399', color: kolor || '#34D399' }}>
+          <span key={a} style={{ ...S.summaryTag, borderColor: kolor || '#7f8c12', color: kolor || '#7f8c12' }}>
             {a}
           </span>
         ))}
@@ -476,7 +476,7 @@ function ToggleSwitch({ value, onChange, disabled }) {
       onClick={() => !disabled && onChange(!value)}
       style={{
         width: 44, height: 24, borderRadius: 12,
-        background: value ? '#34D399' : 'rgba(20, 83, 45, 0.55)',
+        background: value ? '#7f8c12' : 'rgba(20, 83, 45, 0.55)',
         position: 'relative', cursor: disabled ? 'default' : 'pointer',
         transition: 'background .2s', opacity: disabled ? 0.5 : 1,
       }}
@@ -500,7 +500,7 @@ const S = {
   },
   main: { minWidth: 0 },
   btnAdd: {
-    background: '#34D399', color: '#052E16', border: 'none', borderRadius: 10,
+    background: '#7f8c12', color: '#456b1f', border: 'none', borderRadius: 10,
     padding: '10px 20px', fontWeight: 700, fontSize: 14, cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
@@ -532,11 +532,11 @@ const S = {
   roleMeta: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 },
   tagSystem: {
     fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(52, 211, 153, 0.14)',
-    color: '#6ee7b7', fontWeight: 600,
+    color: '#e4efd6', fontWeight: 600,
   },
   tagInactive: {
-    fontSize: 10, padding: '2px 6px', borderRadius: 4, background: '#450A0A',
-    color: '#FCA5A5', fontWeight: 600,
+    fontSize: 10, padding: '2px 6px', borderRadius: 4, background: '#a3402a',
+    color: '#f6e0d9', fontWeight: 600,
   },
   btnDel: {
     background: 'none', border: 'none', cursor: 'pointer',
@@ -619,5 +619,5 @@ const S = {
     background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8,
     padding: '10px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer',
   },
-  center: { display: 'flex', justifyContent: 'center', padding: 24, color: '#64748B' },
+  center: { display: 'flex', justifyContent: 'center', padding: 24, color: '#8a8069' },
 };

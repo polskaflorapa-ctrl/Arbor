@@ -227,7 +227,7 @@ export default function CrmDashboard() {
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
                         <strong style={{ overflowWrap: 'anywhere' }}>{lead.title || `Lead #${lead.id}`}</strong>
-                        <span style={{ fontSize: 12, color: lead.priority === 'critical' ? 'var(--danger, #b91c1c)' : 'var(--text-muted)' }}>
+                        <span style={{ fontSize: 12, color: lead.priority === 'critical' ? 'var(--danger, #a3402a)' : 'var(--text-muted)' }}>
                           {lead.priority} · {lead.score}/100
                         </span>
                       </div>
@@ -474,7 +474,7 @@ export default function CrmDashboard() {
                       {provider.provider || provider.note || 'brak'}
                     </div>
                   </div>
-                  <span style={{ fontSize: 12, color: provider.ready ? 'var(--success, #16794a)' : 'var(--text-muted)' }}>
+                  <span style={{ fontSize: 12, color: provider.ready ? 'var(--success, #456b1f)' : 'var(--text-muted)' }}>
                     {provider.ready
                       ? t('crm.dashboard.providerReady', { defaultValue: 'gotowy' })
                       : t('crm.dashboard.providerMissing', { defaultValue: 'brak' })}

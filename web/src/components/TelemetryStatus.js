@@ -40,22 +40,22 @@ export function getTelemetryTone(value) {
 const CHIP_COLOURS = {
   success: {
     background: 'rgba(20, 131, 79, 0.12)',
-    color: '#0f6b3f',
+    color: '#456b1f',
     border: '1px solid rgba(20, 131, 79, 0.22)',
   },
   warning: {
     background: 'rgba(183, 121, 31, 0.13)',
-    color: '#8a5a12',
+    color: '#995510',
     border: '1px solid rgba(183, 121, 31, 0.22)',
   },
   danger: {
     background: 'rgba(220, 38, 38, 0.1)',
-    color: '#b91c1c',
+    color: '#a3402a',
     border: '1px solid rgba(220, 38, 38, 0.2)',
   },
   info: {
     background: 'rgba(23, 126, 170, 0.11)',
-    color: '#12627f',
+    color: '#5d6a0b',
     border: '1px solid rgba(23, 126, 170, 0.2)',
   },
 };

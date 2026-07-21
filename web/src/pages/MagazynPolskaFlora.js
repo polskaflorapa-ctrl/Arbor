@@ -77,8 +77,8 @@ export default function MagazynPolskaFlora({
             <strong style={ui.statNumber}>{items.length}</strong>
           </div>
           <div style={ui.statCard}>
-            <div style={{ ...ui.statLabel, color: lowStock ? '#b45309' : '#047857' }}><WarningAmberOutlined fontSize="small" /> Niski stan</div>
-            <strong style={{ ...ui.statNumber, color: lowStock ? '#b45309' : '#047857' }}>{lowStock}</strong>
+            <div style={{ ...ui.statLabel, color: lowStock ? '#995510' : '#456b1f' }}><WarningAmberOutlined fontSize="small" /> Niski stan</div>
+            <strong style={{ ...ui.statNumber, color: lowStock ? '#995510' : '#456b1f' }}>{lowStock}</strong>
           </div>
           <div style={ui.statCard}>
             <div style={ui.statLabel}><LocalOfferOutlined fontSize="small" /> Wartosc stanu</div>
@@ -150,7 +150,7 @@ export default function MagazynPolskaFlora({
 
             <div style={ui.filters}>
               <label style={ui.search}>
-                <SearchOutlined style={{ color: '#9ca3af', fontSize: 20 }} />
+                <SearchOutlined style={{ color: '#9a907a', fontSize: 20 }} />
                 <input style={ui.searchInput} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Szukaj materialu, kategorii albo oddzialu..." />
               </label>
               <select style={ui.filterSelect} value={category} onChange={(event) => setCategory(event.target.value)}>
@@ -162,7 +162,7 @@ export default function MagazynPolskaFlora({
             {loading && <div style={ui.empty}>Ladowanie magazynu...</div>}
             {!loading && filtered.length === 0 && (
               <div style={ui.empty}>
-                <Inventory2Outlined style={{ fontSize: 46, color: '#d1d5db' }} />
+                <Inventory2Outlined style={{ fontSize: 46, color: '#e0d9c8' }} />
                 <strong>Brak materialow</strong>
                 <span>Dodaj pierwszy material albo zmien filtry.</span>
               </div>
@@ -209,50 +209,50 @@ export default function MagazynPolskaFlora({
 }
 
 const ui = {
-  shell: { display: 'flex', minHeight: '100vh', background: '#f8fafc', color: '#111827' },
+  shell: { display: 'flex', minHeight: '100vh', background: '#f0ebdd', color: '#2c2011' },
   main: { flex: 1, padding: 28, overflowX: 'hidden' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
-  title: { margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: '#111827' },
-  subtitle: { margin: '6px 0 0', color: '#6b7280', fontSize: 14 },
-  notice: { borderRadius: 10, padding: '9px 12px', background: '#ecfdf5', color: '#047857', fontSize: 13, fontWeight: 700 },
-  noticeError: { background: '#fef2f2', color: '#b91c1c' },
+  title: { margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: '#2c2011' },
+  subtitle: { margin: '6px 0 0', color: '#8a8069', fontSize: 14 },
+  notice: { borderRadius: 10, padding: '9px 12px', background: '#f0ebdd', color: '#456b1f', fontSize: 13, fontWeight: 700 },
+  noticeError: { background: '#f0ebdd', color: '#a3402a' },
   stats: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(150px, 1fr))', gap: 14, marginBottom: 18 },
-  statCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
-  statLabel: { display: 'flex', alignItems: 'center', gap: 8, color: '#64748b', textTransform: 'uppercase', fontSize: 12, fontWeight: 900, marginBottom: 8 },
-  statNumber: { display: 'block', fontSize: 26, color: '#111827' },
+  statCard: { background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
+  statLabel: { display: 'flex', alignItems: 'center', gap: 8, color: '#8a8069', textTransform: 'uppercase', fontSize: 12, fontWeight: 900, marginBottom: 8 },
+  statNumber: { display: 'block', fontSize: 26, color: '#2c2011' },
   layout: { display: 'grid', gridTemplateColumns: '360px minmax(0, 1fr)', gap: 18, alignItems: 'start' },
   sideColumn: { display: 'grid', gap: 14 },
   contentColumn: { display: 'grid', gap: 14, minWidth: 0 },
-  panel: { display: 'grid', gap: 12, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
-  issuePanel: { display: 'grid', gap: 12, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
+  panel: { display: 'grid', gap: 12, background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 18, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
+  issuePanel: { display: 'grid', gap: 12, background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 18, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
   panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' },
-  panelTitle: { margin: 0, color: '#111827', fontSize: 17, fontWeight: 900 },
-  panelHint: { margin: '4px 0 0', color: '#6b7280', fontSize: 13 },
-  panelIcon: { width: 32, height: 32, borderRadius: 10, background: '#ecfdf5', color: '#047857', display: 'grid', placeItems: 'center' },
+  panelTitle: { margin: 0, color: '#2c2011', fontSize: 17, fontWeight: 900 },
+  panelHint: { margin: '4px 0 0', color: '#8a8069', fontSize: 13 },
+  panelIcon: { width: 32, height: 32, borderRadius: 10, background: '#f0ebdd', color: '#456b1f', display: 'grid', placeItems: 'center' },
   twoCols: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
-  input: { width: '100%', height: 42, border: '1px solid #dbe3ea', borderRadius: 10, padding: '0 12px', outline: 'none', color: '#111827', background: '#fff', fontSize: 14, boxSizing: 'border-box' },
-  primaryButton: { height: 42, border: 0, borderRadius: 10, background: '#059669', color: '#fff', fontWeight: 900, cursor: 'pointer' },
-  secondaryButton: { height: 42, border: '1px solid #10b981', borderRadius: 10, background: '#ecfdf5', color: '#047857', fontWeight: 900, cursor: 'pointer' },
-  warningButton: { height: 42, border: 0, borderRadius: 10, background: '#f59e0b', color: '#fff', fontWeight: 900, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  input: { width: '100%', height: 42, border: '1px solid #e0d9c8', borderRadius: 10, padding: '0 12px', outline: 'none', color: '#2c2011', background: '#fff', fontSize: 14, boxSizing: 'border-box' },
+  primaryButton: { height: 42, border: 0, borderRadius: 10, background: '#456b1f', color: '#fff', fontWeight: 900, cursor: 'pointer' },
+  secondaryButton: { height: 42, border: '1px solid #7f8c12', borderRadius: 10, background: '#f0ebdd', color: '#456b1f', fontWeight: 900, cursor: 'pointer' },
+  warningButton: { height: 42, border: 0, borderRadius: 10, background: '#bd701e', color: '#fff', fontWeight: 900, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
   issueGrid: { display: 'grid', gridTemplateColumns: 'minmax(210px, 1.2fr) 110px 120px minmax(160px, 1fr) 120px', gap: 10, alignItems: 'center' },
-  available: { margin: 0, color: '#6b7280', fontSize: 13 },
+  available: { margin: 0, color: '#8a8069', fontSize: 13 },
   filters: { display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 220px', gap: 12 },
-  search: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0 12px' },
-  searchInput: { flex: 1, border: 0, outline: 0, height: 44, fontSize: 14, color: '#111827' },
-  filterSelect: { border: '1px solid #e5e7eb', borderRadius: 12, background: '#fff', padding: '0 12px', fontSize: 14, color: '#111827' },
+  search: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: '0 12px' },
+  searchInput: { flex: 1, border: 0, outline: 0, height: 44, fontSize: 14, color: '#2c2011' },
+  filterSelect: { border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: '0 12px', fontSize: 14, color: '#2c2011' },
   list: { display: 'grid', gap: 12 },
-  itemCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
+  itemCard: { background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 18, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
   itemTop: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 },
   itemIdentity: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
-  itemIcon: { width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', color: '#047857', background: '#ecfdf5', flex: '0 0 auto' },
-  itemIconWarn: { color: '#b45309', background: '#fffbeb' },
-  itemIconDanger: { color: '#b91c1c', background: '#fef2f2' },
-  itemTitle: { margin: 0, color: '#111827', fontSize: 16, fontWeight: 900 },
-  itemMeta: { margin: '4px 0 0', color: '#6b7280', fontSize: 13 },
+  itemIcon: { width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', color: '#456b1f', background: '#f0ebdd', flex: '0 0 auto' },
+  itemIconWarn: { color: '#995510', background: '#f0ebdd' },
+  itemIconDanger: { color: '#a3402a', background: '#f0ebdd' },
+  itemTitle: { margin: 0, color: '#2c2011', fontSize: 16, fontWeight: 900 },
+  itemMeta: { margin: '4px 0 0', color: '#8a8069', fontSize: 13 },
   itemStock: { textAlign: 'right', whiteSpace: 'nowrap' },
   itemFooter: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  categoryPill: { borderRadius: 999, padding: '5px 9px', color: '#475569', border: '1px solid #cbd5e1', fontSize: 12, fontWeight: 800 },
-  warningPill: { borderRadius: 999, padding: '5px 9px', color: '#b45309', background: '#fef3c7', fontSize: 12, fontWeight: 900 },
-  dangerPill: { borderRadius: 999, padding: '5px 9px', color: '#b91c1c', background: '#fee2e2', fontSize: 12, fontWeight: 900 },
-  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #e5e7eb', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#6b7280' },
+  categoryPill: { borderRadius: 999, padding: '5px 9px', color: '#5a5040', border: '1px solid #e0d9c8', fontSize: 12, fontWeight: 800 },
+  warningPill: { borderRadius: 999, padding: '5px 9px', color: '#995510', background: '#fae7d2', fontSize: 12, fontWeight: 900 },
+  dangerPill: { borderRadius: 999, padding: '5px 9px', color: '#a3402a', background: '#f6e0d9', fontSize: 12, fontWeight: 900 },
+  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#8a8069' },
 };

@@ -1398,7 +1398,7 @@ export default function Kierownik() {
                     <AssignmentOutlined sx={{ fontSize: 16 }} />
                     {o.nowe}
                   </span>
-                  <span style={{ color: '#F9A825', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ color: '#bd701e', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <BoltOutlined sx={{ fontSize: 16 }} />
                     {o.w_realizacji}
                   </span>
@@ -1518,7 +1518,7 @@ export default function Kierownik() {
 }
 
 const styles = {
-  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)' },
+  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f0ebdd 0%, #ffffff 46%, #f0ebdd 100%)' },
   main: { flex: 1, width: '100%', maxWidth: 1560, margin: '0 auto', padding: '22px clamp(16px, 2.4vw, 30px) 32px', overflowX: 'hidden' },
   cockpitPanel: {
     marginBottom: 20,
@@ -1697,7 +1697,7 @@ const styles = {
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   filtrLabel: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
   filtrSelect: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
-  clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
+  clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
   filtrCount: { marginLeft: 'auto', fontSize: 13, color: 'var(--accent)', fontWeight: '600' },
   tableWrap: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, overflow: 'auto', boxShadow: '0 10px 24px rgba(31,79,50,0.06)' },
   cardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
@@ -1732,8 +1732,8 @@ const styles = {
     padding: '1px 6px',
     borderRadius: 4,
     marginTop: 4,
-    backgroundColor: priorytet === 'Pilny' ? '#FFEBEE' : priorytet === 'Wysoki' ? '#FFF8E1' : 'rgba(52,211,153,0.1)',
-    color: priorytet === 'Pilny' ? '#EF5350' : priorytet === 'Wysoki' ? '#F9A825' : 'var(--accent)'
+    backgroundColor: priorytet === 'Pilny' ? '#f0ebdd' : priorytet === 'Wysoki' ? '#fae7d2' : 'rgba(52,211,153,0.1)',
+    color: priorytet === 'Pilny' ? '#c0492f' : priorytet === 'Wysoki' ? '#bd701e' : 'var(--accent)'
   }),
   select: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: 'var(--text)', minWidth: 130 },
   detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },

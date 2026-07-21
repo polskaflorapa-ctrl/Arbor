@@ -861,7 +861,7 @@ function Toggle({ value, onChange, disabled }) {
   return (
     <button type="button" disabled={disabled} onClick={() => !disabled && onChange(!value)}
       style={{ width: 52, height: 28, borderRadius: 14, border: value ? 'none' : '1px solid var(--border)', cursor: disabled ? 'default' : 'pointer',
-        backgroundColor: value ? '#34D399' : 'var(--surface-field)', position: 'relative', transition: 'background 0.2s',
+        backgroundColor: value ? '#7f8c12' : 'var(--surface-field)', position: 'relative', transition: 'background 0.2s',
         flexShrink: 0, opacity: disabled ? 0.6 : 1 }}>
       <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: 'var(--surface-glass)', position: 'absolute',
         top: 3, left: value ? 27 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
@@ -7114,8 +7114,8 @@ export default function Zlecenia() {
                         ...s.z2ProgressFill,
                         width: `${missionReadiness}%`,
                         background: missionReadiness < 70
-                          ? 'linear-gradient(90deg, #f59e0b, #facc15)'
-                          : 'linear-gradient(90deg, #10b981, #5eead4)',
+                          ? 'linear-gradient(90deg, #bd701e, #bd701e)'
+                          : 'linear-gradient(90deg, #7f8c12, #f1f3d6)',
                       }}
                     />
                   </div>
@@ -8243,7 +8243,7 @@ export default function Zlecenia() {
                               </button>
                             )}
                             {mozeUsuwac && (
-                              <button type="button" style={{ ...s.btnSm, backgroundColor: 'rgba(248,113,113,0.1)', color: '#C62828' }} onClick={() => setPotwierdzUsuniecie(z)} title={t('common.delete')} aria-label={t('common.delete')}>
+                              <button type="button" style={{ ...s.btnSm, backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f' }} onClick={() => setPotwierdzUsuniecie(z)} title={t('common.delete')} aria-label={t('common.delete')}>
                                 <DeleteOutline style={{ fontSize: 18, display: 'block' }} />
                               </button>
                             )}
@@ -8385,7 +8385,7 @@ export default function Zlecenia() {
                               style={{
                                 ...s.readinessFill,
                                 width: `${diagnostics.score}%`,
-                                backgroundColor: diagnostics.level === 'danger' ? '#EF5350' : diagnostics.level === 'warning' ? '#F9A825' : '#34D399',
+                                backgroundColor: diagnostics.level === 'danger' ? '#c0492f' : diagnostics.level === 'warning' ? '#bd701e' : '#7f8c12',
                               }}
                             />
                           </div>
@@ -8649,7 +8649,7 @@ export default function Zlecenia() {
                               )}
                               {mozeUsuwac && (
                                 <button
-                                  style={{ ...s.kanbanActionBtn, color: '#C62828', backgroundColor: 'rgba(248,113,113,0.12)' }}
+                                  style={{ ...s.kanbanActionBtn, color: '#c0492f', backgroundColor: 'rgba(248,113,113,0.12)' }}
                                   onClick={() => setPotwierdzUsuniecie(z)}
                                   title={t('common.delete')}
                                   aria-label={t('common.delete')}>
@@ -8692,7 +8692,7 @@ export default function Zlecenia() {
                   {mozeUsuwac && (
                     <button
                       type="button"
-                      style={{ ...s.btnSecondary, backgroundColor: 'rgba(248,113,113,0.1)', color: '#C62828', border: '1px solid #EF9A9A' }}
+                      style={{ ...s.btnSecondary, backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f', border: '1px solid #f6e0d9' }}
                       onClick={() => setPotwierdzUsuniecie(wybraneZlecenie)}
                       title={t('common.delete')}
                     >
@@ -9707,7 +9707,7 @@ export default function Zlecenia() {
                   {[['2. Wywóz', wybraneZlecenie.wywoz], ['3. Usuwanie pni', wybraneZlecenie.usuwanie_pni]].map(([l, v]) => (
                     <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{l}</span>
-                      <span style={{ fontSize: 13, fontWeight: '600', color: v ? 'var(--accent)' : '#EF5350' }}>{v ? t('common.yes') : t('common.no')}</span>
+                      <span style={{ fontSize: 13, fontWeight: '600', color: v ? 'var(--accent)' : '#c0492f' }}>{v ? t('common.yes') : t('common.no')}</span>
                     </div>
                   ))}
                   {wybraneZlecenie.czas_realizacji_godz && (
@@ -9731,7 +9731,7 @@ export default function Zlecenia() {
                     ['19. Łopata', wybraneZlecenie.lopata], ['20. Mulczer', wybraneZlecenie.mulczer]].map(([l, v]) => (
                     <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{l}</span>
-                      <span style={{ fontSize: 13, fontWeight: '600', color: v ? 'var(--accent)' : '#EF5350' }}>{v ? t('common.yes') : t('common.no')}</span>
+                      <span style={{ fontSize: 13, fontWeight: '600', color: v ? 'var(--accent)' : '#c0492f' }}>{v ? t('common.yes') : t('common.no')}</span>
                     </div>
                   ))}
                 </div>
@@ -9756,7 +9756,7 @@ export default function Zlecenia() {
                 </div>
               </div>
               {wybraneZlecenie.notatki && (
-                <div style={{ marginTop: 16, padding: '12px 14px', backgroundColor: 'var(--surface-field)', borderRadius: 8, fontSize: 14, borderLeft: '3px solid #F9A825' }}>
+                <div style={{ marginTop: 16, padding: '12px 14px', backgroundColor: 'var(--surface-field)', borderRadius: 8, fontSize: 14, borderLeft: '3px solid #bd701e' }}>
                   <strong>Notatki:</strong> {wybraneZlecenie.notatki}
                 </div>
               )}
@@ -10239,7 +10239,7 @@ const s = {
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 12 },
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
-  backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid #A5D6A7', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid #e4efd6', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   filtryRow: {
     display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center',
     background:
@@ -10262,8 +10262,8 @@ const s = {
     border: '1px solid rgba(94,234,212,0.22)',
     borderRadius: 8,
     background:
-      'radial-gradient(circle at 10% 0%, rgba(34,197,94,0.22), transparent 34%), radial-gradient(circle at 92% 12%, rgba(14,165,233,0.14), transparent 30%), linear-gradient(135deg, #06121f 0%, #0a1b2d 48%, #07170f 100%)',
-    color: '#f8fafc',
+      'radial-gradient(circle at 10% 0%, rgba(34,197,94,0.22), transparent 34%), radial-gradient(circle at 92% 12%, rgba(14,165,233,0.14), transparent 30%), linear-gradient(135deg, #5d6a0b 0%, #5d6a0b 48%, #2c2011 100%)',
+    color: '#f0ebdd',
     boxShadow: '0 28px 70px rgba(2,8,23,0.28)',
     overflow: 'hidden',
   },
@@ -10279,7 +10279,7 @@ const s = {
     background: 'linear-gradient(135deg, rgba(15,23,42,0.72), rgba(6,18,31,0.78))',
   },
   z2HeaderLine: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
-  z2Eyebrow: { color: '#5eead4', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
+  z2Eyebrow: { color: '#f1f3d6', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
   z2HealthPill: {
     minHeight: 28,
     display: 'inline-flex',
@@ -10290,12 +10290,12 @@ const s = {
     fontSize: 11,
     fontWeight: 950,
   },
-  z2HealthPillGood: { color: '#86efac', background: 'rgba(22,163,74,0.12)', borderColor: 'rgba(134,239,172,0.24)' },
-  z2HealthPillWarning: { color: '#fde68a', background: 'rgba(245,158,11,0.12)', borderColor: 'rgba(253,230,138,0.28)' },
+  z2HealthPillGood: { color: '#e4efd6', background: 'rgba(22,163,74,0.12)', borderColor: 'rgba(134,239,172,0.24)' },
+  z2HealthPillWarning: { color: '#fae7d2', background: 'rgba(245,158,11,0.12)', borderColor: 'rgba(253,230,138,0.28)' },
   z2Title: { margin: 0, color: '#ffffff', fontSize: 'clamp(24px, 2.7vw, 34px)', lineHeight: 1.14, fontWeight: 950, letterSpacing: 0, overflowWrap: 'normal' },
-  z2Lead: { margin: 0, maxWidth: 760, color: '#b8c7d9', fontSize: 14, lineHeight: 1.55, fontWeight: 720 },
+  z2Lead: { margin: 0, maxWidth: 760, color: '#e0d9c8', fontSize: 14, lineHeight: 1.55, fontWeight: 720 },
   z2ProgressWrap: { display: 'grid', gap: 7 },
-  z2ProgressTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#dbeafe', fontSize: 12, fontWeight: 900 },
+  z2ProgressTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#f1f3d6', fontSize: 12, fontWeight: 900 },
   z2ProgressTrack: { height: 10, borderRadius: 999, overflow: 'hidden', background: 'rgba(148,163,184,0.18)' },
   z2ProgressFill: { display: 'block', height: '100%', borderRadius: 999, transition: 'width 220ms ease' },
   z2Flow: { display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 8 },
@@ -10305,7 +10305,7 @@ const s = {
     border: '1px solid rgba(148,163,184,0.18)',
     borderRadius: 8,
     background: 'rgba(15,23,42,0.58)',
-    color: '#dbeafe',
+    color: '#f1f3d6',
     padding: '8px 9px',
     cursor: 'pointer',
     display: 'grid',
@@ -10319,8 +10319,8 @@ const s = {
   z2PrimaryBtn: {
     border: '1px solid rgba(16,185,129,0.72)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, #10b981, #059669)',
-    color: '#04130d',
+    background: 'linear-gradient(135deg, #7f8c12, #456b1f)',
+    color: '#2c2011',
     minHeight: 42,
     padding: '9px 13px',
     cursor: 'pointer',
@@ -10333,7 +10333,7 @@ const s = {
     border: '1px solid rgba(94,234,212,0.26)',
     borderRadius: 8,
     background: 'rgba(15,23,42,0.58)',
-    color: '#ccfbf1',
+    color: '#e4efd6',
     minHeight: 42,
     padding: '9px 13px',
     cursor: 'pointer',
@@ -10363,16 +10363,16 @@ const s = {
     border: '1px solid rgba(148,163,184,0.16)',
     borderRadius: 8,
     background: 'rgba(2,6,23,0.42)',
-    color: '#f8fafc',
+    color: '#f0ebdd',
     padding: 9,
     cursor: 'pointer',
     textAlign: 'left',
     fontFamily: 'inherit',
   },
-  z2QueueRank: { width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'rgba(94,234,212,0.13)', color: '#5eead4', fontWeight: 950 },
+  z2QueueRank: { width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'rgba(94,234,212,0.13)', color: '#f1f3d6', fontWeight: 950 },
   z2QueueBody: { minWidth: 0, display: 'grid', gap: 2 },
-  z2QueueScore: { color: '#fde68a', fontWeight: 950, fontVariantNumeric: 'tabular-nums' },
-  z2QueueEmpty: { color: '#b8c7d9', border: '1px dashed rgba(148,163,184,0.26)', borderRadius: 8, padding: 12, fontSize: 13 },
+  z2QueueScore: { color: '#fae7d2', fontWeight: 950, fontVariantNumeric: 'tabular-nums' },
+  z2QueueEmpty: { color: '#e0d9c8', border: '1px dashed rgba(148,163,184,0.26)', borderRadius: 8, padding: 12, fontSize: 13 },
   z2Metrics: { gridArea: 'metrics', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 },
   z2Metric: {
     minWidth: 0,
@@ -10380,7 +10380,7 @@ const s = {
     border: '1px solid rgba(148,163,184,0.18)',
     borderRadius: 8,
     background: 'rgba(15,23,42,0.64)',
-    color: '#f8fafc',
+    color: '#f0ebdd',
     padding: '11px 12px',
     display: 'grid',
     alignContent: 'center',
@@ -10392,9 +10392,9 @@ const s = {
   z2Metric_warning: { borderColor: 'rgba(253,230,138,0.3)', background: 'linear-gradient(135deg, rgba(245,158,11,0.16), rgba(15,23,42,0.6))' },
   z2Metric_danger: { borderColor: 'rgba(251,113,133,0.32)', background: 'linear-gradient(135deg, rgba(225,29,72,0.16), rgba(15,23,42,0.6))' },
   z2Metric_blue: { borderColor: 'rgba(125,211,252,0.26)', background: 'linear-gradient(135deg, rgba(14,165,233,0.16), rgba(15,23,42,0.6))' },
-  z2MetricLabel: { color: '#93a4ba', fontSize: 11, fontWeight: 950, textTransform: 'uppercase' },
+  z2MetricLabel: { color: '#9a907a', fontSize: 11, fontWeight: 950, textTransform: 'uppercase' },
   z2MetricValue: { color: '#ffffff', fontSize: 24, lineHeight: 1, fontWeight: 950, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' },
-  z2MetricDetail: { color: '#b8c7d9', fontSize: 12, fontWeight: 780 },
+  z2MetricDetail: { color: '#e0d9c8', fontSize: 12, fontWeight: 780 },
   decisionBand: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
@@ -10715,7 +10715,7 @@ const s = {
     display: 'block',
     height: '100%',
     borderRadius: 8,
-    background: 'linear-gradient(90deg, var(--accent), #2FBF71)',
+    background: 'linear-gradient(90deg, var(--accent), #7f8c12)',
     transition: 'width 0.2s ease',
   },
   quickCallStepGrid: {
@@ -11553,17 +11553,17 @@ const s = {
     fontWeight: 900,
   },
   businessHealth_good: {
-    color: '#34D399',
+    color: '#7f8c12',
     border: '1px solid rgba(52,211,153,0.28)',
     background: 'rgba(52,211,153,0.09)',
   },
   businessHealth_warning: {
-    color: '#F9A825',
+    color: '#bd701e',
     border: '1px solid rgba(249,168,37,0.32)',
     background: 'rgba(249,168,37,0.1)',
   },
   businessHealth_danger: {
-    color: '#EF5350',
+    color: '#c0492f',
     border: '1px solid rgba(239,83,80,0.32)',
     background: 'rgba(239,83,80,0.1)',
   },
@@ -11695,7 +11695,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid rgba(239,83,80,0.28)',
     background: 'rgba(239,83,80,0.1)',
-    color: '#EF5350',
+    color: '#c0492f',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -11878,7 +11878,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid rgba(239,83,80,0.28)',
     backgroundColor: 'rgba(239,83,80,0.1)',
-    color: '#EF5350',
+    color: '#c0492f',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -12538,7 +12538,7 @@ const s = {
     display: 'block',
     borderRadius: 7,
     overflow: 'hidden',
-    backgroundColor: '#EAF5EE',
+    backgroundColor: '#f0ebdd',
     aspectRatio: '4 / 3',
   },
   taskPhotoImage: {
@@ -12709,7 +12709,7 @@ const s = {
     fontSize: 10,
     fontWeight: 700,
     backgroundColor: 'rgba(248,113,113,0.18)',
-    color: '#C62828',
+    color: '#c0492f',
     border: '1px solid rgba(248,113,113,0.25)',
   },
   slaOk: {
@@ -13063,7 +13063,7 @@ const s = {
     border: '1px solid rgba(239,83,80,0.28)',
     borderRadius: 8,
     background: 'rgba(239,83,80,0.08)',
-    color: '#B71C1C',
+    color: '#a3402a',
     padding: '8px 10px',
     marginBottom: 9,
     fontSize: 12,
@@ -13096,7 +13096,7 @@ const s = {
     width: 9,
     height: 9,
     borderRadius: 999,
-    background: '#0e7490',
+    background: '#5d6a0b',
     boxShadow: '0 0 0 3px rgba(14,116,144,0.09)',
     flex: '0 0 auto',
   },
@@ -13119,7 +13119,7 @@ const s = {
     width: 10,
     height: 10,
     borderRadius: 999,
-    background: '#0e7490',
+    background: '#5d6a0b',
     boxShadow: '0 0 0 3px rgba(14,116,144,0.12)',
   },
   detailGpsPointTitle: {
@@ -13140,7 +13140,7 @@ const s = {
     border: '1px solid rgba(14,116,144,0.2)',
     borderRadius: 8,
     background: 'rgba(14,116,144,0.08)',
-    color: '#0e7490',
+    color: '#5d6a0b',
     padding: '6px 8px',
     fontSize: 11,
     fontWeight: 900,
@@ -13170,7 +13170,7 @@ const s = {
     display: 'grid',
     alignContent: 'center',
     gap: 3,
-    background: 'linear-gradient(135deg, #071f17 0%, #0f5f3a 100%)',
+    background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 100%)',
     color: '#fff',
     boxShadow: '0 12px 28px rgba(10,72,45,0.16)',
   },
@@ -13195,7 +13195,7 @@ const s = {
     background: 'linear-gradient(180deg, #ffffff, rgba(34,197,94,0.07))',
   },
   detailCommandCard_blue: {
-    borderLeftColor: '#0e7490',
+    borderLeftColor: '#5d6a0b',
     background: 'linear-gradient(180deg, #ffffff, rgba(14,116,144,0.08))',
   },
   detailCommandCard_warning: {
@@ -13212,7 +13212,7 @@ const s = {
     gap: 12,
     border: '1px solid rgba(255,255,255,0.16)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, #0B3825 0%, #0F5F3A 58%, #168A4A 100%)',
+    background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 58%, #456b1f 100%)',
     boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
     padding: 16,
     marginBottom: 12,
@@ -13774,17 +13774,17 @@ const s = {
     border: '1px solid var(--border)',
   },
   officePlanningBadgeGood: {
-    color: '#34D399',
+    color: '#7f8c12',
     border: '1px solid rgba(52,211,153,0.34)',
     background: 'rgba(52,211,153,0.1)',
   },
   officePlanningBadgeWarning: {
-    color: '#F9A825',
+    color: '#bd701e',
     border: '1px solid rgba(249,168,37,0.36)',
     background: 'rgba(249,168,37,0.1)',
   },
   officePlanningBadgeDanger: {
-    color: '#EF5350',
+    color: '#c0492f',
     border: '1px solid rgba(239,83,80,0.36)',
     background: 'rgba(239,83,80,0.1)',
   },
@@ -14066,22 +14066,22 @@ const s = {
   },
   timeWindowStatus_good: {
     border: '1px solid rgba(22,138,74,0.24)',
-    color: '#166534',
+    color: '#456b1f',
     background: 'rgba(22,138,74,0.08)',
   },
   timeWindowStatus_info: {
     border: '1px solid rgba(14,116,144,0.24)',
-    color: '#0e7490',
+    color: '#5d6a0b',
     background: 'rgba(14,116,144,0.08)',
   },
   timeWindowStatus_warning: {
     border: '1px solid rgba(199,119,0,0.28)',
-    color: '#92400e',
+    color: '#a3402a',
     background: 'rgba(199,119,0,0.08)',
   },
   timeWindowStatus_danger: {
     border: '1px solid rgba(220,38,38,0.26)',
-    color: '#991b1b',
+    color: '#a3402a',
     background: 'rgba(220,38,38,0.08)',
   },
   timeWindowMiniBtn: {
@@ -14247,7 +14247,7 @@ const s = {
     borderRadius: 7,
     border: '1px solid rgba(242,184,75,0.38)',
     background: 'rgba(242,184,75,0.12)',
-    color: '#9a5f00',
+    color: '#995510',
     fontSize: 10,
     fontWeight: 900,
   },
@@ -15389,7 +15389,7 @@ const s = {
     fontWeight: 900,
   },
   contactFollowupTitleDanger: {
-    color: '#C62828',
+    color: '#c0492f',
   },
   contactFollowupQuick: {
     display: 'flex',
@@ -15666,7 +15666,7 @@ const s = {
     boxShadow: '0 0 8px rgba(255,61,113,0.42)',
   },
   contactDot_muted: {
-    backgroundColor: '#94A3B8',
+    backgroundColor: '#9a907a',
     boxShadow: '0 0 0 2px rgba(148,163,184,0.12)',
   },
   workflowStageRow: {
@@ -16027,12 +16027,12 @@ const s = {
   blockerDanger: {
     backgroundColor: 'rgba(248,113,113,0.14)',
     border: '1px solid rgba(248,113,113,0.28)',
-    color: '#C62828',
+    color: '#c0492f',
   },
   blockerWarning: {
     backgroundColor: 'rgba(251,191,36,0.15)',
     border: '1px solid rgba(251,191,36,0.3)',
-    color: '#A16207',
+    color: '#995510',
   },
   blockerGood: {
     backgroundColor: 'rgba(52,211,153,0.14)',

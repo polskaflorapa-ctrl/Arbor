@@ -424,10 +424,10 @@ function buildPlanDefaults(task) {
 
 function getFreshness(row) {
   const age = ageMinutes(row.recorded_at);
-  if (age == null) return { key: 'unknown', label: 'Brak czasu', color: '#94A3B8' };
-  if (age <= ONLINE_MINUTES) return { key: 'online', label: 'Online', color: '#14834F' };
-  if (age <= STALE_MINUTES) return { key: 'stale', label: 'Opóźniony', color: '#B7791F' };
-  return { key: 'offline', label: 'Offline', color: '#BE123C' };
+  if (age == null) return { key: 'unknown', label: 'Brak czasu', color: '#9a907a' };
+  if (age <= ONLINE_MINUTES) return { key: 'online', label: 'Online', color: '#456b1f' };
+  if (age <= STALE_MINUTES) return { key: 'stale', label: 'Opóźniony', color: '#995510' };
+  return { key: 'offline', label: 'Offline', color: '#a3402a' };
 }
 
 function sourceLabel(row) {
@@ -521,12 +521,12 @@ function taskStatusLabel(status) {
 }
 
 function taskStatusColor(status) {
-  if (status === 'W_Realizacji') return '#14834F';
-  if (status === 'Zaplanowane') return '#0E7490';
-  if (status === 'Do_Zatwierdzenia') return '#B7791F';
-  if (status === 'Wycena_Terenowa') return '#3F7D20';
-  if (CLOSED_STATUSES.has(status)) return '#94A3B8';
-  return '#64748B';
+  if (status === 'W_Realizacji') return '#456b1f';
+  if (status === 'Zaplanowane') return '#5d6a0b';
+  if (status === 'Do_Zatwierdzenia') return '#995510';
+  if (status === 'Wycena_Terenowa') return '#456b1f';
+  if (CLOSED_STATUSES.has(status)) return '#9a907a';
+  return '#8a8069';
 }
 
 function taskPhotoSummary(task) {
@@ -1072,14 +1072,14 @@ export default function MapaLive() {
   const quickPlanReservationsBlocked = quickPlanReservationsLoading || Boolean(quickPlanReservationsErr);
   const quickPlanReady = quickPlanMissing.length === 0 && !quickPlanHasHardConflicts && !quickPlanReservationsBlocked;
   const quickPlanStatusTone = quickPlanReady
-    ? '#14834F'
+    ? '#456b1f'
     : quickPlanHasHardConflicts
-      ? '#BE123C'
+      ? '#a3402a'
       : quickPlanReservationsLoading
-        ? '#0E7490'
+        ? '#5d6a0b'
         : quickPlanReservationsErr
-          ? '#B7791F'
-          : '#B7791F';
+          ? '#995510'
+          : '#995510';
   const quickPlanStatusLabel = quickPlanReady
     ? 'Plan gotowy'
     : quickPlanHasHardConflicts
@@ -1326,17 +1326,17 @@ export default function MapaLive() {
         {!isNarrow ? commandCenter : null}
 
         <section className="mapa-live-kpis" style={S.kpiGrid}>
-          <Kpi label="Wszystkie sygnały" value={stats.total} tone="#0E7490" />
-          <Kpi label="Online ≤ 5 min" value={stats.online || 0} tone="#14834F" />
-          <Kpi label="Opóźnione" value={stats.stale || 0} tone="#B7791F" />
-          <Kpi label="Offline > 20 min" value={stats.offline || 0} tone="#BE123C" />
-          <Kpi label="Z mobilki" value={stats.mobile} tone="#14834F" />
-          <Kpi label="Z pojazdów" value={stats.vehicles} tone="#0E7490" />
-          <Kpi label="Zlecenia dzisiaj" value={activeTasks.length} tone="#3F7D20" />
-          <Kpi label="Do zaplanowania" value={planningQueue.length} tone="#B7791F" />
-          <Kpi label="Brak check-in" value={checkinGapTasks.length} tone="#BE123C" />
-          <Kpi label="Braki zdjec" value={photoGapTasks.length} tone="#B7791F" />
-          <Kpi label="Problemy" value={problemTasks.length} tone="#BE123C" />
+          <Kpi label="Wszystkie sygnały" value={stats.total} tone="#5d6a0b" />
+          <Kpi label="Online ≤ 5 min" value={stats.online || 0} tone="#456b1f" />
+          <Kpi label="Opóźnione" value={stats.stale || 0} tone="#995510" />
+          <Kpi label="Offline > 20 min" value={stats.offline || 0} tone="#a3402a" />
+          <Kpi label="Z mobilki" value={stats.mobile} tone="#456b1f" />
+          <Kpi label="Z pojazdów" value={stats.vehicles} tone="#5d6a0b" />
+          <Kpi label="Zlecenia dzisiaj" value={activeTasks.length} tone="#456b1f" />
+          <Kpi label="Do zaplanowania" value={planningQueue.length} tone="#995510" />
+          <Kpi label="Brak check-in" value={checkinGapTasks.length} tone="#a3402a" />
+          <Kpi label="Braki zdjec" value={photoGapTasks.length} tone="#995510" />
+          <Kpi label="Problemy" value={problemTasks.length} tone="#a3402a" />
         </section>
 
         <section className="mapa-live-office-panel" style={S.officeLivePanel}>
@@ -1353,7 +1353,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Brak GPS"
               subtitle="Plan jest, sygnalu nie ma"
-              tone="#BE123C"
+              tone="#a3402a"
               tasks={tasksWithoutGps}
               empty="Brak zlecen bez GPS."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1362,7 +1362,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Stary sygnal"
               subtitle="Mobilka albo pojazd milczy"
-              tone="#B7791F"
+              tone="#995510"
               tasks={staleTaskGps}
               empty="Sygnaly wygladaja aktualnie."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1374,7 +1374,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Brak check-in"
               subtitle="Plan jest, ale teren nie potwierdzil miejsca"
-              tone="#BE123C"
+              tone="#a3402a"
               tasks={checkinGapTasks}
               empty="Wszystkie ekipy potwierdzily teren."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1383,7 +1383,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Braki zdjec"
               subtitle="Wycena, szkic, dojazd"
-              tone="#B7791F"
+              tone="#995510"
               tasks={photoGapTasks}
               empty="Pakiety zdjec sa kompletne."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1395,7 +1395,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Problemy"
               subtitle="Tematy wymagajace reakcji"
-              tone="#BE123C"
+              tone="#a3402a"
               tasks={problemTasks}
               empty="Brak otwartych problemow."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1427,7 +1427,7 @@ export default function MapaLive() {
                 <div style={S.queueTitle}>Kolejka do dopięcia</div>
                 <div style={S.panelSub}>Bez ekipy, bez terminu, bez czasu pracy albo do zatwierdzenia po ogledzinach.</div>
               </div>
-              <span style={{ ...S.badge, borderColor: '#B7791F', color: '#B7791F' }}>
+              <span style={{ ...S.badge, borderColor: '#995510', color: '#995510' }}>
                 {planningQueue.length} tematów
               </span>
             </div>
@@ -1655,8 +1655,8 @@ export default function MapaLive() {
                     ))}
                   </div>
                   <div style={S.quickTimelineLegend}>
-                    <span><i style={{ ...S.quickTimelineDot, background: '#B7791F' }} /> zajete</span>
-                    <span><i style={{ ...S.quickTimelineDot, background: '#14834F' }} /> wybrany plan</span>
+                    <span><i style={{ ...S.quickTimelineDot, background: '#995510' }} /> zajete</span>
+                    <span><i style={{ ...S.quickTimelineDot, background: '#456b1f' }} /> wybrany plan</span>
                   </div>
                 </div>
               ) : null}
@@ -1733,7 +1733,7 @@ export default function MapaLive() {
 
           <div style={S.alertStrip}>
             <div style={{ ...S.alertCard, borderColor: tasksWithoutGps.length ? 'rgba(190,18,60,0.28)' : 'rgba(20,131,79,0.2)' }}>
-              <WarningAmberOutlined style={{ color: tasksWithoutGps.length ? '#BE123C' : '#14834F', fontSize: 18 }} />
+              <WarningAmberOutlined style={{ color: tasksWithoutGps.length ? '#a3402a' : '#456b1f', fontSize: 18 }} />
               <span>
                 {tasksWithoutGps.length
                   ? `${tasksWithoutGps.length} zlecen ma plan, ale nie ma sygnalu GPS.`
@@ -1741,7 +1741,7 @@ export default function MapaLive() {
               </span>
             </div>
             <div style={{ ...S.alertCard, borderColor: staleTaskGps.length ? 'rgba(183,121,31,0.28)' : 'rgba(20,131,79,0.14)' }}>
-              <MyLocationOutlined style={{ color: staleTaskGps.length ? '#B7791F' : '#64748B', fontSize: 18 }} />
+              <MyLocationOutlined style={{ color: staleTaskGps.length ? '#995510' : '#8a8069', fontSize: 18 }} />
               <span>
                 {staleTaskGps.length
                   ? `${staleTaskGps.length} zlecen ma opozniony albo stary sygnal.`
@@ -1777,7 +1777,7 @@ export default function MapaLive() {
                 <div style={S.panelTitle}>Radar pozycji</div>
                 <div style={S.panelSub}>Widok orientacyjny według koordynatów GPS</div>
               </div>
-              <MyLocationOutlined style={{ color: '#14834F' }} />
+              <MyLocationOutlined style={{ color: '#456b1f' }} />
             </div>
             <div style={{ ...S.radar, ...(isNarrow ? S.radarNarrow : null) }}>
               <div style={S.gridLineH} />
@@ -1933,7 +1933,7 @@ export default function MapaLive() {
                 <div style={S.historyTimeline}>
                   {historyRows.slice(-80).map((point, index) => (
                     <div key={`${point.provider}-${point.recorded_at}-${index}`} style={{ ...S.historyPoint, ...(isNarrow ? S.historyPointNarrow : null) }}>
-                      <span style={{ ...S.historyPointDot, background: point.provider === 'mobile' ? '#14834F' : '#0E7490' }} />
+                      <span style={{ ...S.historyPointDot, background: point.provider === 'mobile' ? '#456b1f' : '#5d6a0b' }} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={S.historyPointTitle}>{formatClock(point.recorded_at)} / {sourceLabel(point)}</div>
                         <div style={S.historyPointMeta}>
@@ -2013,7 +2013,7 @@ function OfficeAlertColumn({ title, subtitle, tone, tasks, empty, onOpen, meta }
 }
 
 function DispatchTaskCard({ task, live, onOpen, onSchedule }) {
-  const fresh = live ? getFreshness(live) : { label: 'Brak GPS', color: '#BE123C', key: 'missing' };
+  const fresh = live ? getFreshness(live) : { label: 'Brak GPS', color: '#a3402a', key: 'missing' };
   const liveHref = live ? mapHref(live) : mapHref(task);
   const isRisk = !live || ['stale', 'offline'].includes(fresh.key);
   const photos = taskPhotoSummary(task);
@@ -2135,10 +2135,10 @@ function CommandCenter({
     return risky ? sum + plannedValue(task) : sum;
   }, 0);
   const critical = [
-    ...tasksWithoutGps.map((task) => ({ task, tone: '#BE123C', reason: 'Brak GPS przy planie' })),
-    ...staleTaskGps.map((task) => ({ task, tone: '#B7791F', reason: 'Stary sygnał GPS' })),
-    ...planningQueue.map((task) => ({ task, tone: '#B7791F', reason: `Braki: ${planningMissingLabels(task).join(', ') || 'plan'}` })),
-    ...problemTasks.map((task) => ({ task, tone: '#BE123C', reason: 'Otwarty problem z terenu' })),
+    ...tasksWithoutGps.map((task) => ({ task, tone: '#a3402a', reason: 'Brak GPS przy planie' })),
+    ...staleTaskGps.map((task) => ({ task, tone: '#995510', reason: 'Stary sygnał GPS' })),
+    ...planningQueue.map((task) => ({ task, tone: '#995510', reason: `Braki: ${planningMissingLabels(task).join(', ') || 'plan'}` })),
+    ...problemTasks.map((task) => ({ task, tone: '#a3402a', reason: 'Otwarty problem z terenu' })),
   ].filter((row, index, list) => list.findIndex((item) => String(item.task.id) === String(row.task.id)) === index).slice(0, 6);
   const taskPool = [...critical.map((row) => row.task), ...activeTasks, ...planningQueue];
   const selected = taskPool.find((task) => selectedTaskId && String(task.id) === String(selectedTaskId)) ||
@@ -2164,14 +2164,14 @@ function CommandCenter({
       y1: percentValue(from.top),
       x2: percentValue(to.left),
       y2: percentValue(to.top),
-      color: String(task.id) === String(selected?.id) ? '#2563EB' : '#94A3B8',
+      color: String(task.id) === String(selected?.id) ? '#766440' : '#9a907a',
     };
   }).filter(Boolean);
   const commandKpis = [
-    { label: 'Aktywne dzisiaj', value: activeTasks.length, tone: '#0E7490' },
-    { label: 'Bez GPS', value: tasksWithoutGps.length, tone: tasksWithoutGps.length ? '#BE123C' : '#14834F' },
-    { label: 'Do dopięcia', value: planningQueue.length, tone: planningQueue.length ? '#B7791F' : '#14834F' },
-    { label: 'Ryzyko wartości', value: moneyCompact(riskValue), tone: riskValue ? '#BE123C' : '#14834F' },
+    { label: 'Aktywne dzisiaj', value: activeTasks.length, tone: '#5d6a0b' },
+    { label: 'Bez GPS', value: tasksWithoutGps.length, tone: tasksWithoutGps.length ? '#a3402a' : '#456b1f' },
+    { label: 'Do dopięcia', value: planningQueue.length, tone: planningQueue.length ? '#995510' : '#456b1f' },
+    { label: 'Ryzyko wartości', value: moneyCompact(riskValue), tone: riskValue ? '#a3402a' : '#456b1f' },
   ];
   const mobileTabs = [
     { id: 'map', label: 'Mapa', value: rows.length + activeTasks.length, icon: MapOutlined },
@@ -2258,7 +2258,7 @@ function CommandCenter({
           </p>
         </div>
         <div style={S.commandStatus}>
-          <span style={{ ...S.statusDot, background: stats.offline || stats.stale ? '#B7791F' : '#14834F' }} />
+          <span style={{ ...S.statusDot, background: stats.offline || stats.stale ? '#995510' : '#456b1f' }} />
           <span>{stats.online} online / {stats.stale + stats.offline} opóźnione</span>
           <strong>{lastLoadAt ? formatClock(lastLoadAt.toISOString()) : '--:--'}</strong>
         </div>
@@ -2385,10 +2385,10 @@ function CommandCenter({
               <div style={S.emptyRadar}>Brak punktów do narysowania dla filtra</div>
             ) : null}
             <div style={S.commandMapLegend}>
-              <span><i style={{ background: '#14834F' }} /> live</span>
-              <span><i style={{ background: '#B7791F' }} /> opóźnione</span>
-              <span><i style={{ background: '#BE123C' }} /> blokada</span>
-              <span><i style={{ background: '#2563EB' }} /> wybrana trasa</span>
+              <span><i style={{ background: '#456b1f' }} /> live</span>
+              <span><i style={{ background: '#995510' }} /> opóźnione</span>
+              <span><i style={{ background: '#a3402a' }} /> blokada</span>
+              <span><i style={{ background: '#766440' }} /> wybrana trasa</span>
             </div>
           </div>
         </div>
@@ -2470,7 +2470,7 @@ function CommandCenter({
                       ...timelineBlockStyle(range),
                       background: risky ? 'rgba(190,18,60,0.18)' : 'rgba(37,99,235,0.16)',
                       borderColor: risky ? 'rgba(190,18,60,0.34)' : 'rgba(37,99,235,0.32)',
-                      color: risky ? '#9F1239' : '#1D4ED8',
+                      color: risky ? '#a3402a' : '#766440',
                     }}
                   >
                     {taskTime(task)} #{task.id}
@@ -2501,7 +2501,7 @@ const S = {
   main: {
     padding: '22px clamp(16px, 2.4vw, 30px) 32px',
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)',
+    background: 'linear-gradient(135deg, #f0ebdd 0%, #ffffff 46%, #f0ebdd 100%)',
     maxWidth: 1560,
     width: '100%',
     margin: '0 auto',
@@ -2531,7 +2531,7 @@ const S = {
     flexWrap: 'wrap',
     marginBottom: 14,
     background:
-      'linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(135deg, #07301f 0%, #0f5f3a 58%, #168a4a 100%)',
+      'linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(135deg, #456b1f 0%, #456b1f 58%, #456b1f 100%)',
     backgroundSize: '32px 32px, 32px 32px, auto',
     border: '1px solid rgba(255,255,255,0.2)',
     boxShadow: '0 22px 46px rgba(11,56,37,0.17)',
@@ -2552,7 +2552,7 @@ const S = {
     display: 'grid',
     placeItems: 'center',
     background: 'rgba(255,255,255,0.12)',
-    color: '#DFF7E8',
+    color: '#e4efd6',
     border: '1px solid rgba(255,255,255,0.22)',
   },
   heroIconNarrow: {
@@ -2560,7 +2560,7 @@ const S = {
     height: 44,
   },
   eyebrow: {
-    color: '#86EFAC',
+    color: '#e4efd6',
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 0,
@@ -2591,7 +2591,7 @@ const S = {
     gap: 8,
     border: '1px solid rgba(255,255,255,0.28)',
     background: '#FFFFFF',
-    color: '#0F5F3A',
+    color: '#456b1f',
     borderRadius: 8,
     padding: '11px 14px',
     fontWeight: 950,
@@ -2608,7 +2608,7 @@ const S = {
     borderRadius: 12,
     border: '1px solid rgba(190,18,60,0.22)',
     background: 'rgba(254,226,226,0.72)',
-    color: '#BE123C',
+    color: '#a3402a',
     fontWeight: 700,
   },
   sourceStatus: {
@@ -2730,7 +2730,7 @@ const S = {
     borderRadius: 8,
     padding: 16,
     marginBottom: 14,
-    background: '#F8FAF9',
+    background: '#f0ebdd',
     border: '1px solid rgba(37,99,235,0.12)',
     boxShadow: '0 18px 42px rgba(15,35,58,0.08)',
   },
@@ -2745,7 +2745,7 @@ const S = {
     marginBottom: 12,
   },
   commandEyebrow: {
-    color: '#2563EB',
+    color: '#766440',
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0,
@@ -2753,14 +2753,14 @@ const S = {
   },
   commandTitle: {
     margin: '4px 0 0',
-    color: '#111827',
+    color: '#2c2011',
     fontSize: 22,
     lineHeight: 1.12,
     fontWeight: 950,
   },
   commandSub: {
     margin: '5px 0 0',
-    color: '#64748B',
+    color: '#8a8069',
     fontSize: 12,
     lineHeight: 1.45,
     fontWeight: 700,
@@ -2774,7 +2774,7 @@ const S = {
     background: '#FFFFFF',
     borderRadius: 8,
     padding: '8px 10px',
-    color: '#334155',
+    color: '#5a5040',
     fontSize: 12,
     fontWeight: 850,
     whiteSpace: 'nowrap',
@@ -2807,7 +2807,7 @@ const S = {
     borderColor: 'transparent',
     borderRadius: 8,
     background: 'transparent',
-    color: '#475569',
+    color: '#5a5040',
     padding: '7px 8px',
     fontSize: 11,
     fontWeight: 900,
@@ -2816,8 +2816,8 @@ const S = {
   },
   commandTabActive: {
     borderColor: 'rgba(37,99,235,0.28)',
-    background: '#EFF6FF',
-    color: '#1D4ED8',
+    background: '#f0ebdd',
+    color: '#766440',
     boxShadow: '0 8px 18px rgba(37,99,235,0.08)',
   },
   commandTabLabel: {
@@ -2847,7 +2847,7 @@ const S = {
   },
   commandKpiLabel: {
     display: 'block',
-    color: '#64748B',
+    color: '#8a8069',
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0,
@@ -2883,19 +2883,19 @@ const S = {
     alignItems: 'flex-start',
     gap: 10,
     marginBottom: 10,
-    color: '#111827',
+    color: '#2c2011',
     fontSize: 13,
     fontWeight: 900,
   },
   commandMapTitle: {
     display: 'block',
-    color: '#111827',
+    color: '#2c2011',
     fontSize: 13,
     lineHeight: 1.25,
   },
   commandMapSub: {
     display: 'block',
-    color: '#64748B',
+    color: '#8a8069',
     fontSize: 11,
     lineHeight: 1.35,
     marginTop: 2,
@@ -2907,7 +2907,7 @@ const S = {
     overflow: 'hidden',
     borderRadius: 8,
     border: '1px solid rgba(37,99,235,0.12)',
-    background: 'linear-gradient(135deg, #F8FAFC, #ECFDF5 48%, #EFF6FF)',
+    background: 'linear-gradient(135deg, #f0ebdd, #f0ebdd 48%, #f0ebdd)',
   },
   commandMapNarrow: {
     minHeight: 340,
@@ -2940,7 +2940,7 @@ const S = {
     display: 'grid',
     placeItems: 'center',
     background: '#FFFFFF',
-    color: '#14834F',
+    color: '#456b1f',
     textDecoration: 'none',
     fontSize: 11,
     fontWeight: 950,
@@ -2949,8 +2949,8 @@ const S = {
   commandCrewPointActive: {
     width: 40,
     height: 40,
-    borderColor: '#2563EB',
-    color: '#2563EB',
+    borderColor: '#766440',
+    color: '#766440',
     boxShadow: '0 0 0 5px rgba(37,99,235,0.12), 0 14px 28px rgba(37,99,235,0.18)',
   },
   commandTaskPoint: {
@@ -2965,14 +2965,14 @@ const S = {
     borderColor: 'currentColor',
     display: 'grid',
     placeItems: 'center',
-    background: '#111827',
+    background: '#2c2011',
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 950,
     cursor: 'pointer',
   },
   commandTaskPointActive: {
-    background: '#2563EB',
+    background: '#766440',
     boxShadow: '0 0 0 5px rgba(37,99,235,0.14), 0 16px 30px rgba(37,99,235,0.18)',
   },
   commandMapLegend: {
@@ -2987,7 +2987,7 @@ const S = {
     background: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
     padding: '8px 9px',
-    color: '#334155',
+    color: '#5a5040',
     fontSize: 11,
     fontWeight: 850,
   },
@@ -3005,7 +3005,7 @@ const S = {
     display: 'flex',
     justifyContent: 'space-between',
     gap: 10,
-    color: '#111827',
+    color: '#2c2011',
     fontSize: 13,
     fontWeight: 950,
     marginBottom: 2,
@@ -3020,16 +3020,16 @@ const S = {
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: 'rgba(15,23,42,0.08)',
-    background: '#F8FAFC',
+    background: '#f0ebdd',
     borderRadius: 8,
     padding: 10,
-    color: '#111827',
+    color: '#2c2011',
     textAlign: 'left',
     cursor: 'pointer',
   },
   commandDecisionActive: {
     borderColor: 'rgba(37,99,235,0.3)',
-    background: '#EFF6FF',
+    background: '#f0ebdd',
     boxShadow: '0 10px 24px rgba(37,99,235,0.08)',
   },
   commandDecisionRail: {
@@ -3052,7 +3052,7 @@ const S = {
     flex: '0 0 auto',
     border: '1px solid rgba(37,99,235,0.22)',
     background: '#FFFFFF',
-    color: '#1D4ED8',
+    color: '#766440',
     borderRadius: 8,
     padding: '3px 6px',
     fontSize: 9,
@@ -3063,10 +3063,10 @@ const S = {
   commandSelected: {
     marginTop: 4,
     border: '1px solid rgba(37,99,235,0.18)',
-    background: '#EFF6FF',
+    background: '#f0ebdd',
     borderRadius: 8,
     padding: 12,
-    color: '#111827',
+    color: '#2c2011',
   },
   commandMobileSheet: {
     position: 'sticky',
@@ -3083,7 +3083,7 @@ const S = {
     marginBottom: 3,
   },
   commandSelectedLabel: {
-    color: '#2563EB',
+    color: '#766440',
     fontSize: 10,
     textTransform: 'uppercase',
     fontWeight: 950,
@@ -3092,7 +3092,7 @@ const S = {
   commandSheetClose: {
     border: '1px solid rgba(37,99,235,0.18)',
     background: '#FFFFFF',
-    color: '#1D4ED8',
+    color: '#766440',
     borderRadius: 8,
     padding: '6px 8px',
     fontSize: 11,
@@ -3112,14 +3112,14 @@ const S = {
   },
   commandCopyMsg: {
     marginTop: 8,
-    color: '#1D4ED8',
+    color: '#766440',
     fontSize: 11,
     fontWeight: 900,
   },
   commandEmpty: {
     border: '1px dashed rgba(15,23,42,0.14)',
     borderRadius: 8,
-    color: '#64748B',
+    color: '#8a8069',
     padding: 12,
     fontSize: 12,
     fontWeight: 800,
@@ -3139,7 +3139,7 @@ const S = {
     display: 'flex',
     justifyContent: 'space-between',
     gap: 10,
-    color: '#111827',
+    color: '#2c2011',
     fontSize: 13,
     fontWeight: 950,
     marginBottom: 9,
@@ -3169,7 +3169,7 @@ const S = {
     filter: 'drop-shadow(0 8px 16px rgba(37,99,235,0.12))',
   },
   commandTimelineTeam: {
-    color: '#475569',
+    color: '#5a5040',
     fontSize: 11,
     fontWeight: 900,
     overflow: 'hidden',
@@ -3185,7 +3185,7 @@ const S = {
     height: 28,
     borderRadius: 8,
     overflow: 'hidden',
-    background: '#F1F5F9',
+    background: '#f0ebdd',
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: 'rgba(15,23,42,0.07)',
@@ -3220,7 +3220,7 @@ const S = {
     borderRadius: 8,
     border: '1px solid rgba(20,131,79,0.18)',
     background: 'rgba(240,247,242,0.9)',
-    color: '#14834F',
+    color: '#456b1f',
     padding: '7px 10px',
     fontSize: 11,
     fontWeight: 900,
@@ -3320,7 +3320,7 @@ const S = {
   },
   officeLiveTaskFooter: {
     display: 'block',
-    color: '#34493B',
+    color: '#2c2011',
     fontSize: 11,
     fontWeight: 800,
     marginTop: 5,
@@ -3396,7 +3396,7 @@ const S = {
     borderRadius: 8,
     border: '1px solid rgba(183,121,31,0.24)',
     background: 'rgba(255,251,235,0.86)',
-    color: '#B7791F',
+    color: '#995510',
     padding: '5px 8px',
     fontSize: 11,
     fontWeight: 900,
@@ -3507,7 +3507,7 @@ const S = {
     borderStyle: 'solid',
     borderColor: 'rgba(20,131,79,0.2)',
     background: '#fff',
-    color: '#102218',
+    color: '#2c2011',
     padding: '8px 11px',
     fontSize: 11,
     fontWeight: 800,
@@ -3515,7 +3515,7 @@ const S = {
     minWidth: 74,
   },
   quickSlotBtnActive: {
-    borderColor: '#14834F',
+    borderColor: '#456b1f',
     background: 'rgba(20,131,79,0.1)',
     boxShadow: '0 10px 24px rgba(20,131,79,0.1)',
   },
@@ -3569,7 +3569,7 @@ const S = {
     borderRadius: 10,
     background: 'rgba(183,121,31,0.18)',
     border: '1px solid rgba(183,121,31,0.34)',
-    color: '#6B4E16',
+    color: '#995510',
     fontSize: 10,
     fontWeight: 900,
     whiteSpace: 'nowrap',
@@ -3585,7 +3585,7 @@ const S = {
     borderRadius: 11,
     background: 'rgba(20,131,79,0.2)',
     border: '1px solid rgba(20,131,79,0.38)',
-    color: '#0F5F3A',
+    color: '#456b1f',
     boxShadow: '0 10px 22px rgba(20,131,79,0.12)',
     fontSize: 10,
     fontWeight: 900,
@@ -3623,7 +3623,7 @@ const S = {
     borderRadius: 12,
     border: '1px solid rgba(190,18,60,0.22)',
     background: 'rgba(254,226,226,0.7)',
-    color: '#BE123C',
+    color: '#a3402a',
     padding: '9px 10px',
     fontSize: 12,
     fontWeight: 800,
@@ -3633,7 +3633,7 @@ const S = {
     borderRadius: 12,
     border: '1px solid rgba(183,121,31,0.24)',
     background: 'rgba(255,251,235,0.76)',
-    color: '#B7791F',
+    color: '#995510',
     padding: '9px 10px',
     fontSize: 12,
     fontWeight: 800,
@@ -3643,7 +3643,7 @@ const S = {
     borderRadius: 12,
     border: '1px solid rgba(14,116,144,0.2)',
     background: 'rgba(236,253,245,0.72)',
-    color: '#0E7490',
+    color: '#5d6a0b',
     padding: '9px 10px',
     fontSize: 12,
     fontWeight: 800,
@@ -3659,7 +3659,7 @@ const S = {
     borderRadius: 12,
     border: '1px solid rgba(20,131,79,0.22)',
     background: 'rgba(220,252,231,0.7)',
-    color: '#14834F',
+    color: '#456b1f',
     padding: '9px 10px',
     fontSize: 12,
     fontWeight: 800,
@@ -3713,7 +3713,7 @@ const S = {
     display: 'grid',
     placeItems: 'center',
     background: 'rgba(20,131,79,0.1)',
-    color: '#14834F',
+    color: '#456b1f',
     border: '1px solid rgba(20,131,79,0.18)',
     flexShrink: 0,
   },
@@ -3838,7 +3838,7 @@ const S = {
     borderColor: 'currentColor',
     display: 'grid',
     placeItems: 'center',
-    color: '#0E7490',
+    color: '#5d6a0b',
     background: '#fff',
     textDecoration: 'none',
     fontWeight: 900,
@@ -3962,7 +3962,7 @@ const S = {
     gap: 6,
     borderRadius: 12,
     border: '1px solid rgba(20,131,79,0.24)',
-    background: '#14834F',
+    background: '#456b1f',
     color: '#fff',
     textDecoration: 'none',
     padding: '8px 10px',
@@ -4021,7 +4021,7 @@ const S = {
     width: 10,
     height: 10,
     borderRadius: '50%',
-    background: '#14834F',
+    background: '#456b1f',
     border: '1px solid rgba(15,95,58,0.22)',
     flex: '0 0 auto',
   },

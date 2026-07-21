@@ -44,7 +44,7 @@ const GROUPS = [
     key: 'operacje',
     label: 'Operacje',
     note: 'Zlecenia, ekipy i codzienna dyspozytornia.',
-    color: '#10b981',
+    color: '#7f8c12',
     Icon: RouteOutlined,
     tiles: [
       { path: '/zlecenia', label: 'Zlecenia', Icon: AssignmentOutlined, desc: 'Lista, statusy i szczegóły zleceń', roles: [...FIELD_OPS, 'Magazynier'] },
@@ -59,7 +59,7 @@ const GROUPS = [
     key: 'terenowe',
     label: 'Pole i raporty',
     note: 'Praca terenowa, raporty i kontrola wykonania.',
-    color: '#0ea5e9',
+    color: '#766440',
     Icon: PhoneIphoneOutlined,
     tiles: [
       { path: '/misja-dnia', label: 'Misja dnia', Icon: ChecklistOutlined, desc: 'Zadania i priorytety na dziś', roles: FIELD_OPS },
@@ -74,7 +74,7 @@ const GROUPS = [
     key: 'sprzedaz',
     label: 'Sprzedaż i wyceny',
     note: 'Leady, oględziny, CRM i akceptacje wycen.',
-    color: '#8b5cf6',
+    color: '#f1f3d6',
     Icon: LocalPhoneOutlined,
     tiles: [
       { path: '/wyceniajacy-hub', label: 'Centrum wycen', Icon: ManageAccountsOutlined, desc: 'Panel specjalisty ds. wyceny', roles: SALES },
@@ -91,7 +91,7 @@ const GROUPS = [
     key: 'zasoby',
     label: 'Zasoby i sprzęt',
     note: 'Magazyn, flota i rezerwacje narzędzi.',
-    color: '#f59e0b',
+    color: '#bd701e',
     Icon: HandymanOutlined,
     tiles: [
       { path: '/magazyn', label: 'Magazyn', Icon: Inventory2Outlined, desc: 'Stan sprzętu i materiałów', roles: ASSETS },
@@ -103,7 +103,7 @@ const GROUPS = [
     key: 'finanse',
     label: 'Finanse',
     note: 'Rozliczenia, prowizje i dokumenty księgowe.',
-    color: '#14b8a6',
+    color: '#766440',
     Icon: PaidOutlined,
     tiles: [
       { path: '/rozliczenia-ekip', label: 'Rozliczenia ekip', Icon: PaymentsOutlined, desc: 'Eksport kadrowy M11', roles: MGMT },
@@ -116,7 +116,7 @@ const GROUPS = [
     key: 'kadry',
     label: 'Kadry i konfiguracja',
     note: 'Ludzie, oddziały, role i integracje.',
-    color: '#64748b',
+    color: '#8a8069',
     Icon: SettingsOutlined,
     tiles: [
       { path: '/uzytkownicy', label: 'Użytkownicy', Icon: ManageAccountsOutlined, desc: 'Pracownicy i uprawnienia', roles: ADMIN },

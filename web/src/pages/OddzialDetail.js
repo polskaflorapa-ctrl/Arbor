@@ -47,15 +47,15 @@ function writeOverrides(data) {
 }
 
 const ROLA_KOLOR = {
-  'Dyrektor':                   '#f59e0b',
-  'Administrator':              '#fbbf24',
-  'Kierownik':                  '#38bdf8',
-  'Brygadzista':                '#34d399',
-  'Specjalista':                '#22d3ee',
-  'Wyceniający':                '#94a3b8',
-  'Pomocnik':                   '#94a3b8',
-  'Pomocnik bez doświadczenia': '#64748b',
-  'Magazynier':                 '#fb923c',
+  'Dyrektor':                   '#bd701e',
+  'Administrator':              '#bd701e',
+  'Kierownik':                  '#766440',
+  'Brygadzista':                '#7f8c12',
+  'Specjalista':                '#766440',
+  'Wyceniający':                '#9a907a',
+  'Pomocnik':                   '#9a907a',
+  'Pomocnik bez doświadczenia': '#8a8069',
+  'Magazynier':                 '#bd701e',
 };
 
 export default function OddzialDetail() {
@@ -351,7 +351,7 @@ export default function OddzialDetail() {
 
         {/* Hero */}
         <div className="branch-detail-hero" style={{
-          background: 'linear-gradient(135deg, #0f5f3a, #28b66c)',
+          background: 'linear-gradient(135deg, #456b1f, #7f8c12)',
           borderRadius: 8, padding: '24px 28px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           flexWrap: 'wrap', gap: 16,
@@ -362,7 +362,7 @@ export default function OddzialDetail() {
             <span style={{ fontSize: 48 }}>🏢</span>
             <div>
               <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', margin: 0, marginBottom: 4 }}>{oddzial.nazwa}</h1>
-              <p style={{ color: '#A5D6A7', margin: 0, fontSize: 13 }}>
+              <p style={{ color: '#e4efd6', margin: 0, fontSize: 13 }}>
                 📍 {oddzial.miasto}{oddzial.adres ? ` · ${oddzial.adres}` : ''}
               </p>
               {oddzial.kierownik_imie && (
@@ -381,7 +381,7 @@ export default function OddzialDetail() {
             ].map(s => (
               <div key={s.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 22, fontWeight: 'bold', color: '#fff' }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: '#A5D6A7' }}>{s.label}</div>
+                <div style={{ fontSize: 11, color: '#e4efd6' }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -392,7 +392,7 @@ export default function OddzialDetail() {
           {[
             { label: '📋 Nowe', value: statsByStatus(TASK_STATUS.NOWE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
             { label: '📅 Zaplanowane', value: statsByStatus(TASK_STATUS.ZAPLANOWANE), color: 'var(--accent)', bg: 'var(--accent-surface)' },
-            { label: '⚡ W realizacji', value: statsByStatus(TASK_STATUS.W_REALIZACJI), color: '#F9A825', bg: '#FFF8E1' },
+            { label: '⚡ W realizacji', value: statsByStatus(TASK_STATUS.W_REALIZACJI), color: '#bd701e', bg: '#fae7d2' },
             { label: '✅ Zakończone', value: statsByStatus(TASK_STATUS.ZAKONCZONE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
           ].map(k => (
             <div className="branch-detail-kpi" key={k.label} style={{
@@ -438,7 +438,7 @@ export default function OddzialDetail() {
               style={{
                 padding: '10px 18px', border: 'none', backgroundColor: 'transparent',
                 cursor: 'pointer', fontSize: 14, fontWeight: '500',
-                color: activeTab === t.key ? 'var(--accent)' : '#6B7280',
+                color: activeTab === t.key ? 'var(--accent)' : '#8a8069',
                 borderBottom: activeTab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
                 marginBottom: -2, transition: 'all 0.2s',
               }}
@@ -582,7 +582,7 @@ export default function OddzialDetail() {
                       <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--text-sub)', marginBottom: 10 }}>👷 Brygadzista</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 22, background: 'linear-gradient(135deg, var(--sidebar) 0%, #14532d 55%, #34d399 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: 15 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 22, background: 'linear-gradient(135deg, var(--sidebar) 0%, #456b1f 55%, #7f8c12 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: 15 }}>
                             {ekipaDetail.brygadzista_imie?.[0]}{ekipaDetail.brygadzista_nazwisko?.[0]}
                           </div>
                           <div>
@@ -773,7 +773,7 @@ export default function OddzialDetail() {
                       statusState={p.aktywny ? 'success' : 'danger'}
                       statusValue={p.aktywny ? 'Aktywny' : 'Nieaktywny'}
                       icon={
-                        <span style={{ fontSize: 13, fontWeight: 'bold', color: ROLA_KOLOR[p.rola] || '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                        <span style={{ fontSize: 13, fontWeight: 'bold', color: ROLA_KOLOR[p.rola] || '#8a8069', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
                           {p.imie?.[0]}{p.nazwisko?.[0]}
                         </span>
                       }
@@ -800,7 +800,7 @@ export default function OddzialDetail() {
                           <button style={S.editBtn} onClick={() => navigate(`/uzytkownicy/${p.id}`)}>Profil</button>
                           {isDyrektor && (
                             <button
-                              style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#FFF8E1' : 'rgba(52,211,153,0.1)', color: p.aktywny ? '#F9A825' : 'var(--accent)' }}
+                              style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#fae7d2' : 'rgba(52,211,153,0.1)', color: p.aktywny ? '#bd701e' : 'var(--accent)' }}
                               onClick={e => toggleAktywny(e, p.id, p.aktywny)}
                             >
                               {p.aktywny ? 'Zablokuj' : 'Aktywuj'}
@@ -889,7 +889,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
                 {feature}
               </span>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0 }}>
-                <span style={{ fontSize: 11, color: enabled ? 'var(--accent)' : '#EF5350', fontWeight: 700 }}>
+                <span style={{ fontSize: 11, color: enabled ? 'var(--accent)' : '#c0492f', fontWeight: 700 }}>
                   {enabled
                     ? t('pages.branchAdmin.featureEnabled', { defaultValue: 'Włączona' })
                     : t('pages.branchAdmin.featureDisabled', { defaultValue: 'Wyłączona' })}
@@ -902,7 +902,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFeature(feature); } }}
                   style={{
                     width: 36, height: 20, borderRadius: 10, cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
-                    backgroundColor: enabled ? 'var(--accent)' : '#9CA3AF',
+                    backgroundColor: enabled ? 'var(--accent)' : '#9a907a',
                     border: '1px solid var(--border)',
                     outline: 'none',
                   }}
@@ -972,10 +972,10 @@ function KalkulatorWynagrodzenia({ ekipa }) {
         <div style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
           {[
             { l: 'Wartość netto', v: `${fmt(wynik.netto)} PLN` },
-            { l: 'Koszt pomocników', v: `- ${fmt(wynik.kosztPom)} PLN`, c: '#EF5350' },
+            { l: 'Koszt pomocników', v: `- ${fmt(wynik.kosztPom)} PLN`, c: '#c0492f' },
             { l: 'Podstawa brygadzisty', v: `${fmt(wynik.podstawa)} PLN` },
           ].map(r => (
-            <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #DCEDC8', fontSize: 13 }}>
+            <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f1f3d6', fontSize: 13 }}>
               <span style={{ color: 'var(--text-muted)' }}>{r.l}</span>
               <span style={{ fontWeight: '600', color: r.c || 'var(--text)' }}>{r.v}</span>
             </div>
@@ -1003,7 +1003,7 @@ const S = {
   addBtn: { padding: '8px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   addSmallBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
-  deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },

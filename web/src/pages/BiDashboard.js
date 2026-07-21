@@ -89,7 +89,7 @@ function marginConfidenceTone(fin = {}) {
 }
 function delta(n) {
   if (n == null) return null;
-  return { label: `${n >= 0 ? '+' : ''}${n}%`, color: n >= 0 ? '#16a34a' : '#dc2626' };
+  return { label: `${n >= 0 ? '+' : ''}${n}%`, color: n >= 0 ? '#7f8c12' : '#c0492f' };
 }
 
 // ─── CSV export helper ───────────────────────────────────────────────────────
@@ -244,15 +244,15 @@ const dm = {
   repairSub: { fontSize: 12, color: 'var(--text-sub)', marginTop: 2 },
   repairChips: { display: 'flex', gap: 6, flexWrap: 'wrap' },
   missingChipRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 },
-  missingChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '2px 7px', borderRadius: 6, border: '1px solid rgba(194,65,12,0.22)', background: 'rgba(255,247,237,0.70)', color: '#9a3412', fontSize: 11, fontWeight: 800 },
+  missingChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '2px 7px', borderRadius: 6, border: '1px solid rgba(194,65,12,0.22)', background: 'rgba(255,247,237,0.70)', color: '#a3402a', fontSize: 11, fontWeight: 800 },
   drillItem: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', overflow: 'hidden' },
   breakdown: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 8, padding: '10px 12px', borderTop: '1px solid var(--border)' },
   costPill: { display: 'grid', gap: 2, minHeight: 52, padding: '8px 10px', borderRadius: 7, background: 'var(--surface-glass)', border: '1px solid var(--glass-border)' },
   costLabel: { fontSize: 11, color: 'var(--text-sub)', fontWeight: 700 },
   costValue: { fontSize: 13, color: 'var(--text)' },
-  costOk: { fontSize: 10, color: '#15803d', fontWeight: 800 },
-  costMissing: { fontSize: 10, color: '#c2410c', fontWeight: 800 },
-  marginWarning: { padding: '10px 12px', borderTop: '1px solid rgba(194,65,12,0.24)', background: 'rgba(245,158,11,0.10)', color: '#9a3412', fontSize: 12, lineHeight: 1.4 },
+  costOk: { fontSize: 10, color: '#456b1f', fontWeight: 800 },
+  costMissing: { fontSize: 10, color: '#a3402a', fontWeight: 800 },
+  marginWarning: { padding: '10px 12px', borderTop: '1px solid rgba(194,65,12,0.24)', background: 'rgba(245,158,11,0.10)', color: '#a3402a', fontSize: 12, lineHeight: 1.4 },
   redacted: { padding: '10px 12px', borderTop: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   finNote: { padding: '0 12px 10px', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 12px 10px', flexWrap: 'wrap' },
@@ -300,7 +300,7 @@ function BarChart({ data, valueKey, labelKey, color = 'var(--accent)', height = 
 
 // ─── Donut slice chart ───────────────────────────────────────────────────────
 
-const DONUT_COLORS = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#be185d','#65a30d','#c2410c'];
+const DONUT_COLORS = ['#7f8c12','#766440','#bd701e','#c0492f','#766440','#766440','#a3402a','#5d6a0b','#a3402a'];
 
 function DonutChart({ data, valueKey, labelKey, size = 160 }) {
   if (!data?.length) return <div style={ch.empty}>Brak danych</div>;
@@ -355,8 +355,8 @@ function DonutChart({ data, valueKey, labelKey, size = 160 }) {
 
 function KpiCard({ label, value, sub, tone, deltaPct, onClick }) {
   const { t } = useTranslation();
-  const bg = tone === 'ok' ? '#dcfce7' : tone === 'warn' ? '#fef9c3' : tone === 'bad' ? '#fee2e2' : 'var(--surface-glass)';
-  const fg = tone === 'ok' ? '#16a34a' : tone === 'warn' ? '#ca8a04' : tone === 'bad' ? '#dc2626' : 'var(--text)';
+  const bg = tone === 'ok' ? '#e4efd6' : tone === 'warn' ? '#fae7d2' : tone === 'bad' ? '#f6e0d9' : 'var(--surface-glass)';
+  const fg = tone === 'ok' ? '#7f8c12' : tone === 'warn' ? '#995510' : tone === 'bad' ? '#c0492f' : 'var(--text)';
   const d = delta(deltaPct);
   return (
     <div
@@ -615,7 +615,7 @@ export default function BiDashboard() {
               <div className="bi-card" style={s.card}>
                 <div style={s.cardTitle}>{t('biDashboard.charts.tasksMonthly')}</div>
                 <BarChart data={trend} valueKey="tasks_count" labelKey="month"
-                  color="#2563eb" height={120} />
+                  color="#766440" height={120} />
               </div>
               <div className="bi-card" style={s.card}>
                 <div style={s.cardTitle}>{t('biDashboard.charts.serviceMixTop')}</div>
@@ -720,7 +720,7 @@ export default function BiDashboard() {
             <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>Top 10 ekip wg score</div>
               <BarChart data={teams.slice(0, 10)} valueKey="score" labelKey="team_name"
-                color="#7c3aed" height={140}
+                color="#766440" height={140}
                 onBarClick={tm => openDrill({ title: `Zlecenia — ${tm.team_name}`, dim: 'ekipa', id: tm.team_id })} />
             </div>
           </div>
@@ -736,7 +736,7 @@ export default function BiDashboard() {
             <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>Przychód wg usługi</div>
               <BarChart data={serviceMix} valueKey="revenue" labelKey="typ_uslugi"
-                color="#d97706" height={140}
+                color="#bd701e" height={140}
                 onBarClick={sm => openDrill({ title: `Zlecenia — ${sm.typ_uslugi}`, dim: 'usluga', val: sm.typ_uslugi })} />
             </div>
             <div className="bi-card" style={s.card}>
@@ -787,9 +787,9 @@ export default function BiDashboard() {
               <div style={s.cardTitle}>{t('biDashboard.charts.funnel')}</div>
               <div style={s.funnelWrap}>
                 {[
-                  { label: t('biDashboard.funnelSteps.allQuotes'), value: funnel.quotes_total,      color: '#2563eb' },
-                  { label: t('biDashboard.funnelSteps.accepted'),  value: funnel.quotes_accepted,   color: '#7c3aed' },
-                  { label: t('biDashboard.funnelSteps.orders'),    value: funnel.converted_to_task, color: '#16a34a' },
+                  { label: t('biDashboard.funnelSteps.allQuotes'), value: funnel.quotes_total,      color: '#766440' },
+                  { label: t('biDashboard.funnelSteps.accepted'),  value: funnel.quotes_accepted,   color: '#766440' },
+                  { label: t('biDashboard.funnelSteps.orders'),    value: funnel.converted_to_task, color: '#7f8c12' },
                 ].map((step, i, arr) => {
                   const maxV = arr[0].value || 1;
                   const w = Math.round((step.value / maxV) * 100);
@@ -939,9 +939,9 @@ export default function BiDashboard() {
                   <div style={al.stat}><span style={al.statN}>{alertResult.tasks_overdue}</span><span style={al.statL}>Przeterminowane</span></div>
                 </div>
                 {alertResult.alerts.length === 0
-                  ? <div style={{ color: '#16a34a', fontWeight: 600 }}>✅ Wszystko w normie — brak alertów</div>
+                  ? <div style={{ color: '#7f8c12', fontWeight: 600 }}>✅ Wszystko w normie — brak alertów</div>
                   : alertResult.alerts.map((a, i) => (
-                      <div key={i} style={{ color: '#dc2626', fontWeight: 600, marginBottom: 6 }}>{a}</div>
+                      <div key={i} style={{ color: '#c0492f', fontWeight: 600, marginBottom: 6 }}>{a}</div>
                     ))
                 }
                 {alertResult.margin_risks?.length ? (
@@ -1035,7 +1035,7 @@ const s = {
   periodBtnActive: { background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 700 },
   refreshBtn:{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 16 },
   backBtn:  { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
-  errorBox: { padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', marginBottom: 16, fontSize: 14 },
+  errorBox: { padding: '12px 16px', borderRadius: 8, background: '#f6e0d9', color: '#c0492f', marginBottom: 16, fontSize: 14 },
   tabs:     { display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' },
   tab:      { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14, fontWeight: 500 },
   tabActive:{ background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--accent)', fontWeight: 700 },

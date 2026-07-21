@@ -443,7 +443,7 @@ export default function CrmInbox() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <strong>{row.label}</strong>
-                    <span style={{ fontSize: 12, color: row.ready ? 'var(--accent)' : '#92400e' }}>{row.statusLabel}</span>
+                    <span style={{ fontSize: 12, color: row.ready ? 'var(--accent)' : '#a3402a' }}>{row.statusLabel}</span>
                   </div>
                   <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
                     {row.detail}
@@ -509,7 +509,7 @@ export default function CrmInbox() {
                     style={{
                       width: '100%',
                       textAlign: 'left',
-                      border: String(selected?.id) === String(message.id) ? '1px solid var(--accent, #2563eb)' : undefined,
+                      border: String(selected?.id) === String(message.id) ? '1px solid var(--accent, #766440)' : undefined,
                       cursor: 'pointer',
                       color: 'var(--text)',
                     }}

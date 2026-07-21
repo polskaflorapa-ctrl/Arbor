@@ -261,7 +261,7 @@ export default function ZatwierdzWyceny() {
       borderRadius: 8,
       border: '1px solid rgba(239,68,68,0.5)',
       background: 'transparent',
-      color: '#F87171',
+      color: '#c0492f',
       cursor: 'pointer',
       fontWeight: 600,
       fontSize: 13,

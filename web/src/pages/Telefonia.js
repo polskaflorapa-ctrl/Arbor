@@ -2617,7 +2617,7 @@ export default function Telefonia() {
                           <div style={s.agentHealthTop}>
                             <span style={{
                               ...s.agentHealthDot,
-                              background: tone === 'ok' ? '#22c55e' : tone === 'bad' ? '#ef4444' : '#f59e0b',
+                              background: tone === 'ok' ? '#7f8c12' : tone === 'bad' ? '#c0492f' : '#bd701e',
                             }}
                             />
                             <span>{branchIntegrationStatusLabel(row)} / {readiness.percent}%</span>
@@ -2774,7 +2774,7 @@ export default function Telefonia() {
                     <div style={s.agentHealthTop}>
                       <span style={{
                         ...s.agentHealthDot,
-                        background: item.tone === 'ok' ? '#22c55e' : item.tone === 'bad' ? '#ef4444' : '#f59e0b',
+                        background: item.tone === 'ok' ? '#7f8c12' : item.tone === 'bad' ? '#c0492f' : '#bd701e',
                       }}
                       />
                       <span>{item.label}</span>
@@ -2991,7 +2991,7 @@ export default function Telefonia() {
                 </div>
                 <div style={s.agentStatusRow}>
                   <span>Status</span>
-                  <strong style={{ color: agentIntegration?.status === 'active' ? '#22c55e' : 'var(--text-muted)' }}>
+                  <strong style={{ color: agentIntegration?.status === 'active' ? '#7f8c12' : 'var(--text-muted)' }}>
                     {agentIntegration?.status === 'active' ? 'Aktywny' : agentIntegration?.status === 'paused' ? 'Pauza' : 'Niepodlaczony'}
                   </strong>
                 </div>
@@ -3890,19 +3890,19 @@ export default function Telefonia() {
             </div>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Wyslane</div>
-              <div style={{ ...s.kpiValue, color: '#10b981' }}>{stats.sent}</div>
+              <div style={{ ...s.kpiValue, color: '#7f8c12' }}>{stats.sent}</div>
             </div>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Dostarczone</div>
-              <div style={{ ...s.kpiValue, color: '#22c55e' }}>{stats.delivered}</div>
+              <div style={{ ...s.kpiValue, color: '#7f8c12' }}>{stats.delivered}</div>
             </div>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Bledy dostawy</div>
-              <div style={{ ...s.kpiValue, color: '#f87171' }}>{stats.failed}</div>
+              <div style={{ ...s.kpiValue, color: '#c0492f' }}>{stats.failed}</div>
             </div>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Brak numeru</div>
-              <div style={{ ...s.kpiValue, color: '#f87171' }}>{stats.missing}</div>
+              <div style={{ ...s.kpiValue, color: '#c0492f' }}>{stats.missing}</div>
             </div>
           </div>
 
@@ -4074,7 +4074,7 @@ const s = {
   root: {
     display: 'flex',
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)',
+    background: 'linear-gradient(135deg, #f0ebdd 0%, #ffffff 46%, #f0ebdd 100%)',
     color: 'var(--text)',
     width: '100%',
     overflowX: 'hidden',
@@ -4117,7 +4117,7 @@ const s = {
   manualTitle: {
     fontSize: 13,
     fontWeight: 900,
-    color: '#12251a',
+    color: '#2c2011',
     marginBottom: 8,
   },
   manualGrid: {
@@ -4607,7 +4607,7 @@ const s = {
   branchRolloutFill: {
     height: '100%',
     borderRadius: 999,
-    background: 'linear-gradient(90deg, #0f5f3a, #22c55e)',
+    background: 'linear-gradient(90deg, #456b1f, #7f8c12)',
   },
   branchRolloutMeta: {
     display: 'flex',
@@ -4693,14 +4693,14 @@ const s = {
   branchMiniFill: {
     height: '100%',
     borderRadius: 999,
-    background: 'linear-gradient(90deg, #22c55e, #0f7a4c)',
+    background: 'linear-gradient(90deg, #7f8c12, #456b1f)',
   },
   branchBlockers: {
     marginTop: 7,
     padding: 7,
     borderRadius: 8,
     background: 'rgba(245,158,11,0.10)',
-    color: '#92400e',
+    color: '#a3402a',
     fontSize: 11,
     lineHeight: 1.35,
   },
@@ -4709,7 +4709,7 @@ const s = {
     padding: 7,
     borderRadius: 8,
     background: 'rgba(15,95,58,0.08)',
-    color: '#0f5f3a',
+    color: '#456b1f',
     fontSize: 11,
     lineHeight: 1.35,
     fontWeight: 800,
@@ -4728,15 +4728,15 @@ const s = {
   },
   branchStageOk: {
     background: 'rgba(34,197,94,0.13)',
-    color: '#0f7a4c',
+    color: '#456b1f',
   },
   branchStageWarn: {
     background: 'rgba(245,158,11,0.14)',
-    color: '#92400e',
+    color: '#a3402a',
   },
   branchStageBad: {
     background: 'rgba(239,68,68,0.12)',
-    color: '#b91c1c',
+    color: '#a3402a',
   },
   branchSelectedBox: {
     marginTop: 12,
@@ -4858,7 +4858,7 @@ const s = {
   providerReadinessFill: {
     height: '100%',
     borderRadius: 999,
-    background: 'linear-gradient(90deg, #22c55e, #0f7a4c)',
+    background: 'linear-gradient(90deg, #7f8c12, #456b1f)',
     transition: 'width 180ms ease',
   },
   providerBlockers: {
@@ -4867,7 +4867,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid rgba(245,158,11,0.32)',
     background: 'rgba(245,158,11,0.10)',
-    color: '#92400e',
+    color: '#a3402a',
     fontSize: 12,
     lineHeight: 1.4,
   },
@@ -4877,7 +4877,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid rgba(34,197,94,0.30)',
     background: 'rgba(34,197,94,0.10)',
-    color: '#166534',
+    color: '#456b1f',
     fontSize: 12,
     lineHeight: 1.4,
   },
@@ -4974,7 +4974,7 @@ const s = {
     padding: '4px 8px',
     borderRadius: 999,
     background: 'rgba(245,158,11,0.14)',
-    color: '#b45309',
+    color: '#995510',
     fontSize: 12,
     fontWeight: 800,
   },

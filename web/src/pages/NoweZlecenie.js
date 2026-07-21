@@ -167,7 +167,7 @@ export default function NoweZlecenie() {
 
   const setField = (field) => (e) => setForm({ ...form, [field]: e.target.value });
   const todayDate = new Date().toISOString().split('T')[0];
-  const priorKolor = TASK_PRIORITY_COLORS[form.priorytet] || '#1d4ed8';
+  const priorKolor = TASK_PRIORITY_COLORS[form.priorytet] || '#766440';
   const selectedEstimator = estimators.find((u) => String(u.id) === String(form.wyceniajacy_id));
   const selectedTeam = ekipyFiltered.find((e) => String(e.id) === String(form.ekipa_id));
   const pinReady = form.pin_lat && form.pin_lng;
@@ -265,7 +265,7 @@ export default function NoweZlecenie() {
               </Section>
 
               {/* Notatki */}
-              <Section title="Notatki wewnętrzne" icon={IKONY.note} accent="#1d4ed8">
+              <Section title="Notatki wewnętrzne" icon={IKONY.note} accent="#766440">
                 <textarea
                   aria-label="Notatki wewnetrzne"
                   style={{ ...S.input, resize: 'vertical', minHeight: 90, fontFamily: 'inherit', lineHeight: 1.5 }}
@@ -424,7 +424,7 @@ export default function NoweZlecenie() {
               style={{
                 ...S.primaryBtn,
                 ...(isFormValid ? {} : S.primaryBtnDisabled),
-                background: loading ? '#eaf3ec' : 'var(--accent-gradient)',
+                background: loading ? '#f0ebdd' : 'var(--accent-gradient)',
                 color: 'var(--on-accent)', cursor: loading ? 'wait' : isFormValid ? 'pointer' : 'not-allowed',
                 boxShadow: loading ? 'none' : 'var(--shadow-sm)',
               }}
@@ -488,7 +488,7 @@ const S = {
     borderRadius: 8,
     border: '1px solid rgba(255,255,255,0.22)',
     background: 'rgba(255,255,255,0.12)',
-    color: '#f0fdf4',
+    color: '#f0ebdd',
     fontSize: 12,
     fontWeight: 900,
     whiteSpace: 'nowrap',

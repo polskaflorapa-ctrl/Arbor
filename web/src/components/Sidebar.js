@@ -13,11 +13,11 @@ import LanguageSwitcher from './LanguageSwitcher';
 import BrandLogo from './BrandLogo';
 // ─── Stałe ───────────────────────────────────────────────────────────────────
 const NOTIF_KOLOR = {
-  problem: '#F87171', potrzebuje_czasu: '#FBBF24', skonczylem_wczesniej: 'var(--accent)',
-  pytanie: '#60A5FA', info: '#94A3B8', nowe_zlecenie: 'var(--accent)',
-  potwierdzenie_godzin: 'var(--accent)', raport_dnia_ekipy: 'var(--accent)', kasa_oddzial_nieodebrana: '#F87171',
-  delegacja: '#FBBF24', przypomnienie: '#F87171',
-  'Odprawa ekipy': '#0f766e', 'Przypomnienie odprawy': '#b45309',
+  problem: '#c0492f', potrzebuje_czasu: '#bd701e', skonczylem_wczesniej: 'var(--accent)',
+  pytanie: '#f1f3d6', info: '#9a907a', nowe_zlecenie: 'var(--accent)',
+  potwierdzenie_godzin: 'var(--accent)', raport_dnia_ekipy: 'var(--accent)', kasa_oddzial_nieodebrana: '#c0492f',
+  delegacja: '#bd701e', przypomnienie: '#c0492f',
+  'Odprawa ekipy': '#5d6a0b', 'Przypomnienie odprawy': '#995510',
 };
 // SVG ikony nawigacji
 const ICONS = {
@@ -724,7 +724,7 @@ export default function Sidebar() {
                         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('sidebar.noNotifications')}</p>
                       </div>
                     ) : notifList.slice(0, 15).map(n => {
-                      const kolor = NOTIF_KOLOR[n.typ] || '#94A3B8';
+                      const kolor = NOTIF_KOLOR[n.typ] || '#9a907a';
                       return (
                         <div key={n.id}
                           onClick={() => openNotification(n)}
@@ -825,7 +825,7 @@ export default function Sidebar() {
                         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('sidebar.noNotifications')}</p>
                       </div>
                     ) : notifList.slice(0, 15).map(n => {
-                      const kolor = NOTIF_KOLOR[n.typ] || '#94A3B8';
+                      const kolor = NOTIF_KOLOR[n.typ] || '#9a907a';
                       return (
                         <div key={n.id}
                           onClick={() => openNotification(n)}
@@ -891,7 +891,7 @@ export default function Sidebar() {
 
 // ─── Style ────────────────────────────────────────────────────────────────────
 /* Arbor navigation shell. */
-const NAV_BG = '#07111f';
+const NAV_BG = '#5d6a0b';
 const NAV_MUTED= 'rgba(226,232,240,0.72)';
 const NAV_BORDER = 'rgba(148,163,184,0.18)';
 
@@ -905,7 +905,7 @@ const pfSb = {
     height: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    background: '#0f172a',
+    background: '#5d6a0b',
     color: '#ffffff',
     boxShadow: '18px 0 42px rgba(15, 23, 42, 0.18)',
   },
@@ -925,11 +925,11 @@ const pfSb = {
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    background: '#059669',
+    background: '#456b1f',
     color: '#ffffff',
   },
   logoName: { fontSize: 18, lineHeight: 1.05, fontWeight: 800, color: '#ffffff' },
-  logoSub: { marginTop: 3, fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' },
+  logoSub: { marginTop: 3, fontSize: 10, color: '#9a907a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' },
   nav: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 10px' },
   navItem: {
     width: '100%',
@@ -940,7 +940,7 @@ const pfSb = {
     border: 0,
     borderRadius: 10,
     background: 'transparent',
-    color: '#cbd5e1',
+    color: '#e0d9c8',
     padding: '10px 12px',
     textAlign: 'left',
     fontSize: 14,
@@ -948,7 +948,7 @@ const pfSb = {
     cursor: 'pointer',
   },
   navItemActive: {
-    background: '#059669',
+    background: '#456b1f',
     color: '#ffffff',
   },
   navIcon: {
@@ -984,7 +984,7 @@ const pfSb = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'linear-gradient(135deg, #34d399, #059669)',
+    background: 'linear-gradient(135deg, #7f8c12, #456b1f)',
     color: '#ffffff',
     fontSize: 12,
     fontWeight: 900,
@@ -999,7 +999,7 @@ const pfSb = {
     border: 0,
     borderRadius: 10,
     background: 'transparent',
-    color: '#cbd5e1',
+    color: '#e0d9c8',
     padding: '9px 10px',
     textAlign: 'left',
     fontSize: 14,
@@ -1012,7 +1012,7 @@ const sb = {
   root: {
     height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 200,
     background:
-      'linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.025) 1px, transparent 1px), radial-gradient(circle at 18% 8%, rgba(132,204,22,0.22), transparent 25%), radial-gradient(circle at 88% 26%, rgba(37,99,235,0.18), transparent 24%), linear-gradient(180deg, #050a14 0%, #0b1729 48%, #07131f 100%)',
+      'linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.025) 1px, transparent 1px), radial-gradient(circle at 18% 8%, rgba(132,204,22,0.22), transparent 25%), radial-gradient(circle at 88% 26%, rgba(37,99,235,0.18), transparent 24%), linear-gradient(180deg, #2c2011 0%, #5d6a0b 48%, #5d6a0b 100%)',
     backgroundColor: NAV_BG,
     display: 'flex', flexDirection: 'column',
     borderRight: 'none',
@@ -1022,10 +1022,10 @@ const sb = {
   },
   collapseBtn: {
     position: 'absolute', right: -13, top: 28, width: 26, height: 26,
-    borderRadius: '50%', background: '#0f172a',
+    borderRadius: '50%', background: '#5d6a0b',
     border: `1px solid ${NAV_BORDER}`,
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: '#f4fff8', zIndex: 201, boxShadow: '0 10px 24px rgba(0,0,0,0.24)',
+    color: '#f0ebdd', zIndex: 201, boxShadow: '0 10px 24px rgba(0,0,0,0.24)',
     transition: 'all 0.15s',
   },
   logo: {
@@ -1033,9 +1033,9 @@ const sb = {
     padding: '16px 14px 14px', borderBottom: `1px solid ${NAV_BORDER}`,
   },
   logoIcon: {
-    width: 36, height: 36, borderRadius: 12, background: 'linear-gradient(145deg, #84cc16, #22d3ee)',
+    width: 36, height: 36, borderRadius: 12, background: 'linear-gradient(145deg, #a0af14, #766440)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0, color: '#04120d',
+    flexShrink: 0, color: '#2c2011',
   },
   logoName: { fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 700, color: '#ffffff', letterSpacing: 0 },
   logoSub: { fontSize: 10, color: NAV_MUTED, letterSpacing: 0, marginTop: 2, fontWeight: 500 },
@@ -1098,7 +1098,7 @@ const sb = {
   quickIcon: {
     width: 22, height: 22, borderRadius: 6,
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    color: '#86efac', background: 'rgba(34,211,142,0.12)',
+    color: '#e4efd6', background: 'rgba(34,211,142,0.12)',
     flexShrink: 0,
   },
   sectionLabel: {
@@ -1131,7 +1131,7 @@ const sb = {
   },
   subNavSummaryDot: {
     width: 6, height: 6, borderRadius: '50%',
-    background: '#86efac', opacity: 0.9, flexShrink: 0,
+    background: '#e4efd6', opacity: 0.9, flexShrink: 0,
   },
   subNavCount: {
     minWidth: 20, height: 20, borderRadius: 6,
@@ -1158,7 +1158,7 @@ const sb = {
     flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500,
     lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
-  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#86efac', boxShadow: '0 0 18px rgba(134,239,172,0.8)' },
+  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#e4efd6', boxShadow: '0 0 18px rgba(134,239,172,0.8)' },
   bottom: { padding: '4px 8px 10px', flexShrink: 0 },
   languageBlock: {
     display: 'grid',
@@ -1173,7 +1173,7 @@ const sb = {
     textTransform: 'uppercase',
   },
   badge: {
-    position: 'absolute', top: -4, right: -4, background: '#EF4444', color: '#fff',
+    position: 'absolute', top: -4, right: -4, background: '#c0492f', color: '#fff',
     borderRadius: '50%', minWidth: 16, height: 16, fontSize: 10, fontWeight: 700,
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px',
   },
@@ -1188,8 +1188,8 @@ const sb = {
     padding: '14px 16px', borderBottom: '1px solid rgba(15,95,58,0.12)',
     position: 'sticky', top: 0, background: '#ffffff', zIndex: 1,
   },
-  notifTitle: { fontSize: 14, fontWeight: 700, color: '#323338' },
-  markAllBtn: { fontSize: 12, color: '#0f6b3f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 },
+  notifTitle: { fontSize: 14, fontWeight: 700, color: '#2c2011' },
+  markAllBtn: { fontSize: 12, color: '#456b1f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 },
   notifEmpty: { padding: '32px 24px', textAlign: 'center' },
   notifItem: {
     display: 'flex', gap: 10, padding: '12px 14px', borderBottom: '1px solid rgba(15,95,58,0.12)',
@@ -1198,7 +1198,7 @@ const sb = {
   notifDot: { width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   notifTop: { display: 'flex', justifyContent: 'space-between', marginBottom: 2 },
   notifTyp: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase' },
-  notifTime: { fontSize: 10, color: '#676879' },
-  notifOd: { fontSize: 12, color: '#676879', marginBottom: 2 },
-  notifTresc: { fontSize: 12, color: '#676879', lineHeight: 1.45 },
+  notifTime: { fontSize: 10, color: '#5a5040' },
+  notifOd: { fontSize: 12, color: '#5a5040', marginBottom: 2 },
+  notifTresc: { fontSize: 12, color: '#5a5040', lineHeight: 1.45 },
 };

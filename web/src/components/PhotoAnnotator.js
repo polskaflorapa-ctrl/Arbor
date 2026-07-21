@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Save, Trash2, X } from 'lucide-react';
 import { Button } from './ui/Button';
 
-const COLORS = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#8E24AA', '#FFFFFF', '#000000'];
+const COLORS = ['#c0492f', '#bd701e', '#bd701e', '#7f8c12', '#766440', '#766440', '#FFFFFF', '#000000'];
 
 /**
  * Prosty edytor: zdjęcie + rysowanie po canvasie, eksport do JPEG (base64).
@@ -10,7 +10,7 @@ const COLORS = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#8E24AA'
 export default function PhotoAnnotator({ file, onClose, onSave }) {
   const canvasRef = useRef(null);
   const drawing = useRef(false);
-  const [color, setColor] = useState('#E53935');
+  const [color, setColor] = useState('#c0492f');
   const [lineWidth, setLineWidth] = useState(5);
   const [ready, setReady] = useState(false);
 

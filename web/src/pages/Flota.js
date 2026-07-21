@@ -51,15 +51,15 @@ function dateHealth(value, now = new Date()) {
 function dueAlert(kind, value, now) {
   const health = dateHealth(value, now);
   if (health.state === 'expired') {
-    return { key: kind.key, state: 'expired', label: `${kind.label} po terminie`, detail: `${Math.abs(health.days)} dni po terminie`, color: '#e2445c' };
+    return { key: kind.key, state: 'expired', label: `${kind.label} po terminie`, detail: `${Math.abs(health.days)} dni po terminie`, color: '#c0492f' };
   }
   if (health.state === 'soon') {
-    return { key: kind.key, state: 'soon', label: `${kind.label} za ${health.days} dni`, detail: fmtDate(value), color: '#fdab3d' };
+    return { key: kind.key, state: 'soon', label: `${kind.label} za ${health.days} dni`, detail: fmtDate(value), color: '#bd701e' };
   }
   if (health.state === 'missing') {
-    return { key: kind.key, state: 'missing', label: `Brak daty: ${kind.label}`, detail: 'uzupelnij karte', color: '#676879' };
+    return { key: kind.key, state: 'missing', label: `Brak daty: ${kind.label}`, detail: 'uzupelnij karte', color: '#5a5040' };
   }
-  return { key: kind.key, state: 'ok', label: `${kind.label} OK`, detail: fmtDate(value), color: '#00c875' };
+  return { key: kind.key, state: 'ok', label: `${kind.label} OK`, detail: fmtDate(value), color: '#7f8c12' };
 }
 
 function documentDueAlert(doc, now = new Date()) {
@@ -67,10 +67,10 @@ function documentDueAlert(doc, now = new Date()) {
   const label = doc.kategoria || doc.nazwa_pliku || 'Dokument';
   const health = dateHealth(doc.wazny_do, now);
   if (health.state === 'expired') {
-    return { key: `doc-${doc.id}`, state: 'expired', label: `${label} po terminie`, detail: `${Math.abs(health.days)} dni po terminie`, color: '#e2445c' };
+    return { key: `doc-${doc.id}`, state: 'expired', label: `${label} po terminie`, detail: `${Math.abs(health.days)} dni po terminie`, color: '#c0492f' };
   }
   if (health.state === 'soon') {
-    return { key: `doc-${doc.id}`, state: 'soon', label: `${label} za ${health.days} dni`, detail: fmtDate(doc.wazny_do), color: '#fdab3d' };
+    return { key: `doc-${doc.id}`, state: 'soon', label: `${label} za ${health.days} dni`, detail: fmtDate(doc.wazny_do), color: '#bd701e' };
   }
   return null;
 }
@@ -1115,13 +1115,13 @@ export default function Flota() {
   const isExpired = (d) => dateHealth(d).state === 'expired';
 
   const STATUS_KOLOR = {
-    Dostepny: '#00c875',
-    'W uzyciu': '#fdab3d',
-    Niedostepny: '#676879',
-    'Dostępny':    '#00c875',
-    'W użyciu':    '#fdab3d',
-    'W naprawie':  '#e2445c',
-    'Niedostępny': '#676879',
+    Dostepny: '#7f8c12',
+    'W uzyciu': '#bd701e',
+    Niedostepny: '#5a5040',
+    'Dostępny':    '#7f8c12',
+    'W użyciu':    '#bd701e',
+    'W naprawie':  '#c0492f',
+    'Niedostępny': '#5a5040',
   };
 
   const fleetStatusLabel = (status) => t(`fleetStatus.${status}`, { defaultValue: status });
@@ -1154,7 +1154,7 @@ export default function Flota() {
       const alerts = [
         dueAlert({ key: 'inspection', label: 'Przeglad' }, p.data_przegladu, now),
         dueAlert({ key: 'insurance', label: 'OC' }, p.data_ubezpieczenia, now),
-        ...(docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj OC / fakture / gwarancje', color: '#676879' }] : []),
+        ...(docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj OC / fakture / gwarancje', color: '#5a5040' }] : []),
         ...docs.map((doc) => documentDueAlert(doc, now)).filter(Boolean),
       ];
       return {
@@ -1177,7 +1177,7 @@ export default function Flota() {
       const docs = assetDocuments[assetKey('sprzet', s.id)] || [];
       const alerts = [
         dueAlert({ key: 'inspection', label: 'Przeglad' }, s.data_przegladu, now),
-        ...(docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj UDT / gwarancje / instrukcje', color: '#676879' }] : []),
+        ...(docs.length === 0 ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: 'dodaj UDT / gwarancje / instrukcje', color: '#5a5040' }] : []),
         ...docs.map((doc) => documentDueAlert(doc, now)).filter(Boolean),
       ];
       if (s.next_reservation_from) {
@@ -1186,7 +1186,7 @@ export default function Flota() {
           state: 'soon',
           label: `Rezerwacja ${fmtDate(s.next_reservation_from)}`,
           detail: [s.next_reservation_team, s.next_task_id ? `#${s.next_task_id}` : null, s.next_task_client].filter(Boolean).join(' / ') || fmtDate(s.next_reservation_to),
-          color: '#579bfc',
+          color: '#f1f3d6',
         });
       }
       return {
@@ -1282,12 +1282,12 @@ export default function Flota() {
     )));
     const documentAlerts = documents.map((doc) => documentDueAlert(doc)).filter(Boolean);
     const missingDocAlert = documents.length === 0
-      ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: type === 'pojazdy' ? 'dodaj OC / fakture / gwarancje' : 'dodaj UDT / gwarancje / instrukcje', color: '#676879' }]
+      ? [{ key: 'docs-missing', state: 'missing', label: 'Brak dokumentow', detail: type === 'pojazdy' ? 'dodaj OC / fakture / gwarancje' : 'dodaj UDT / gwarancje / instrukcje', color: '#5a5040' }]
       : [];
     const reservationAlerts = type === 'sprzet'
       ? [
-        ...(nextReservation ? [{ key: 'reservation-next', state: 'soon', label: `Wydanie ${fmtDate(nextReservation.data_od)}`, detail: nextReservation.ekipa_nazwa || 'ekipa', color: '#579bfc' }] : []),
-        ...(reservationConflict ? [{ key: 'reservation-conflict', state: 'expired', label: 'Konflikt rezerwacji', detail: 'sprawdz terminy wydania', color: '#e2445c' }] : []),
+        ...(nextReservation ? [{ key: 'reservation-next', state: 'soon', label: `Wydanie ${fmtDate(nextReservation.data_od)}`, detail: nextReservation.ekipa_nazwa || 'ekipa', color: '#f1f3d6' }] : []),
+        ...(reservationConflict ? [{ key: 'reservation-conflict', state: 'expired', label: 'Konflikt rezerwacji', detail: 'sprawdz terminy wydania', color: '#c0492f' }] : []),
       ]
       : [];
     const alerts = type === 'pojazdy'
@@ -1345,12 +1345,12 @@ export default function Flota() {
   };
 
   const kpiItems = useMemo(() => ([
-    { key: 'veh',   label: t('pages.flota.kpiVehicles'),  value: filtrPojazdy.length, color: '#579bfc' },
-    { key: 'eq',    label: t('pages.flota.kpiEquipment'), value: filtrSprzet.length,  color: '#579bfc' },
-    { key: 'alerts', label: 'Alerty zasobow', value: resourceAlertCount, color: resourceAlertCount ? '#e2445c' : '#00c875' },
-    { key: 'overdue', label: 'Po terminie', value: overdueResourceCount, color: overdueResourceCount ? '#e2445c' : '#00c875' },
-    { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => ['Dostepny', 'Dostępny'].includes(x.status)).length, color: '#00c875' },
-    { key: 'rep',   label: t('pages.flota.kpiInRepair'),  value: naprawy.length,       color: '#e2445c' },
+    { key: 'veh',   label: t('pages.flota.kpiVehicles'),  value: filtrPojazdy.length, color: '#f1f3d6' },
+    { key: 'eq',    label: t('pages.flota.kpiEquipment'), value: filtrSprzet.length,  color: '#f1f3d6' },
+    { key: 'alerts', label: 'Alerty zasobow', value: resourceAlertCount, color: resourceAlertCount ? '#c0492f' : '#7f8c12' },
+    { key: 'overdue', label: 'Po terminie', value: overdueResourceCount, color: overdueResourceCount ? '#c0492f' : '#7f8c12' },
+    { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => ['Dostepny', 'Dostępny'].includes(x.status)).length, color: '#7f8c12' },
+    { key: 'rep',   label: t('pages.flota.kpiInRepair'),  value: naprawy.length,       color: '#c0492f' },
   ]), [t, filtrPojazdy, filtrSprzet, naprawy.length, resourceAlertCount, overdueResourceCount]);
 
   const tabDefs = useMemo(() => ([
@@ -1975,7 +1975,7 @@ export default function Flota() {
                   <div className="fleet-repair-card" key={n.id} style={S.repairCard}>
                     <div style={S.repairTop}>
                       <span style={S.repairType}>{n.typ_zasobu}</span>
-                      <span style={{ ...S.repairStatus, backgroundColor: n.status === 'Zakończona' ? '#166534' : '#b45309' }}>
+                      <span style={{ ...S.repairStatus, backgroundColor: n.status === 'Zakończona' ? '#456b1f' : '#995510' }}>
                         {t(`fleetRepairStatus.${n.status}`, { defaultValue: n.status })}
                       </span>
                     </div>
@@ -1991,7 +1991,7 @@ export default function Flota() {
                       <span style={S.repairLabel}>Termin</span>
                       <span style={{
                         ...S.repairValue,
-                        color: repairDueState(n).state === 'overdue' ? 'var(--danger)' : repairDueState(n).state === 'soon' ? '#b45309' : 'var(--text-sub)',
+                        color: repairDueState(n).state === 'overdue' ? 'var(--danger)' : repairDueState(n).state === 'soon' ? '#995510' : 'var(--text-sub)',
                         fontWeight: repairDueState(n).state === 'overdue' ? 900 : 700,
                       }}>
                         {n.termin_odbioru
@@ -2003,7 +2003,7 @@ export default function Flota() {
                       <span style={S.repairLabel}>Priorytet</span>
                       <span style={{
                         ...S.repairValue,
-                        color: n.priorytet === 'Krytyczny' ? 'var(--danger)' : n.priorytet === 'Pilny' ? '#b45309' : 'var(--text-sub)',
+                        color: n.priorytet === 'Krytyczny' ? 'var(--danger)' : n.priorytet === 'Pilny' ? '#995510' : 'var(--text-sub)',
                         fontWeight: n.priorytet === 'Krytyczny' ? 900 : 700,
                       }}>
                         {n.priorytet || 'Normalny'}
@@ -2942,7 +2942,7 @@ const S = {
   cardActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   ghostBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   dangerBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
-  warningBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#b45309', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  warningBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#995510', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   assetTitleButton: { display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', color: 'var(--text)', cursor: 'pointer', padding: 0, fontSize: 15, fontWeight: 700, textAlign: 'left' },
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
   modalPanel: { width: 'min(680px, 100%)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface-glass)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 },

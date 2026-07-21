@@ -161,7 +161,7 @@ export default function AiChat() {
           <div style={S.header}>
             <div style={S.headerLeft}>
               <div style={S.avatarAi}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2" strokeLinecap="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7f8c12" strokeWidth="2" strokeLinecap="round">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                   <path d="M2 17l10 5 10-5"/>
                   <path d="M2 12l10 5 10-5"/>
@@ -191,7 +191,7 @@ export default function AiChat() {
               <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
                 {m.role === 'assistant' && (
                   <div style={S.aiBubbleIcon}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7f8c12" strokeWidth="2.5" strokeLinecap="round">
                       <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                     </svg>
                   </div>
@@ -199,7 +199,7 @@ export default function AiChat() {
                 <div style={{
                   ...S.bubble,
                   ...(m.role === 'user' ? S.bubbleUser : S.bubbleAi),
-                  ...(m.isError ? { border: '1px solid #EF4444', color: '#FCA5A5' } : {}),
+                  ...(m.isError ? { border: '1px solid #c0492f', color: '#f6e0d9' } : {}),
                 }}>
                   {formatMessage(m.content)}
                 </div>
@@ -209,7 +209,7 @@ export default function AiChat() {
             {loading && (
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 10 }}>
                 <div style={S.aiBubbleIcon}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7f8c12" strokeWidth="2.5" strokeLinecap="round">
                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                   </svg>
                 </div>
@@ -284,7 +284,7 @@ function TypingDots() {
     <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '2px 0' }}>
       {[0, 1, 2].map(i => (
         <div key={i} style={{
-          width: 6, height: 6, borderRadius: '50%', backgroundColor: '#34D399',
+          width: 6, height: 6, borderRadius: '50%', backgroundColor: '#7f8c12',
           animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
           opacity: 0.7,
         }} />
@@ -316,17 +316,17 @@ const S = {
     background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text, #E2E8F0)' },
-  headerSub: { fontSize: 11, color: '#34D399', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 },
-  dot: { width: 6, height: 6, borderRadius: '50%', backgroundColor: '#34D399', display: 'inline-block' },
+  headerTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text, #f0ebdd)' },
+  headerSub: { fontSize: 11, color: '#7f8c12', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 },
+  dot: { width: 6, height: 6, borderRadius: '50%', backgroundColor: '#7f8c12', display: 'inline-block' },
   clearBtn: {
-    background: 'none', border: '1px solid var(--border, #1E3A5F)', borderRadius: 8,
-    color: 'var(--text-muted, #64748B)', cursor: 'pointer', padding: '5px 8px',
+    background: 'none', border: '1px solid var(--border, #5d6a0b)', borderRadius: 8,
+    color: 'var(--text-muted, #8a8069)', cursor: 'pointer', padding: '5px 8px',
     display: 'flex', alignItems: 'center',
   },
   keyWarning: {
     margin: '8px 12px 0', padding: '8px 12px', borderRadius: 8,
-    backgroundColor: 'rgba(245,158,11,0.14)', color: '#92400E', border: '1px solid rgba(245,158,11,0.24)', fontSize: 12, lineHeight: 1.5,
+    backgroundColor: 'rgba(245,158,11,0.14)', color: '#a3402a', border: '1px solid rgba(245,158,11,0.24)', fontSize: 12, lineHeight: 1.5,
   },
   messages: {
     flex: 1, overflowY: 'auto', padding: '12px 14px',
@@ -343,7 +343,7 @@ const S = {
   },
   bubbleAi: {
     backgroundColor: 'var(--surface-field)',
-    color: 'var(--text, #E2E8F0)',
+    color: 'var(--text, #f0ebdd)',
     border: '1px solid var(--border)',
     borderRadius: '8px 8px 8px 4px',
   },
@@ -357,18 +357,18 @@ const S = {
   },
   suggBtn: {
     background: 'var(--surface-field)', border: '1px solid var(--border)',
-    borderRadius: 8, color: 'var(--text-sub, #94A3B8)', fontSize: 11,
+    borderRadius: 8, color: 'var(--text-sub, #9a907a)', fontSize: 11,
     padding: '5px 10px', cursor: 'pointer', transition: 'all 0.15s',
   },
   inputRow: {
     display: 'flex', gap: 8, padding: '10px 12px',
-    borderTop: '1px solid var(--border, #1E3A5F)',
+    borderTop: '1px solid var(--border, #5d6a0b)',
     background: 'var(--surface-glass)',
   },
   input: {
     flex: 1, backgroundColor: 'var(--surface-field)',
     border: '1px solid var(--border)', borderRadius: 8,
-    color: 'var(--text, #E2E8F0)', fontSize: 13, padding: '9px 12px',
+    color: 'var(--text, #f0ebdd)', fontSize: 13, padding: '9px 12px',
     resize: 'none', outline: 'none', fontFamily: 'inherit', lineHeight: 1.4,
   },
   sendBtn: {
