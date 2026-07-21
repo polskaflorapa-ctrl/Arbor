@@ -17,6 +17,7 @@ import './styles/arbor-reference/estimator-office.css';
 import './styles/arbor-reference/mobile-web.css';
 import './styles/polska-flora-brand.css';
 import './styles/arbor-os-template.css';
+import './styles/login-animated.css';
 import reportWebVitals from './reportWebVitals';
 import { BUILD_STAMP } from './buildStamp';
 
