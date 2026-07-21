@@ -270,13 +270,13 @@ export default function WycenyTerenowe() {
                     </Link>
                   </div>
                   <div style={{ ...S.row, marginTop: 12, gap: 10 }}>
-                    <button type="button" style={{ ...S.btn, background: '#166534' }} disabled={busy} onClick={() => doDecision(q.id, q.approval_id, 'Approved')}>
+                    <button type="button" style={{ ...S.btn, background: '#456b1f' }} disabled={busy} onClick={() => doDecision(q.id, q.approval_id, 'Approved')}>
                       Zatwierdź
                     </button>
-                    <button type="button" style={{ ...S.btn, background: '#b45309' }} disabled={busy} onClick={() => doDecision(q.id, q.approval_id, 'Returned')}>
+                    <button type="button" style={{ ...S.btn, background: '#995510' }} disabled={busy} onClick={() => doDecision(q.id, q.approval_id, 'Returned')}>
                       Zwróć
                     </button>
-                    <button type="button" style={{ ...S.btn, background: '#991b1b' }} disabled={busy} onClick={() => doDecision(q.id, q.approval_id, 'Rejected')}>
+                    <button type="button" style={{ ...S.btn, background: '#a3402a' }} disabled={busy} onClick={() => doDecision(q.id, q.approval_id, 'Rejected')}>
                       Odrzuć
                     </button>
                   </div>

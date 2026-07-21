@@ -27,10 +27,10 @@ function normalizeStatus(value) {
 }
 
 const STATUS = {
-  dostepny: { label: 'Dostepny', color: '#047857', bg: '#d1fae5', icon: <CheckCircleOutlineOutlined fontSize="small" /> },
-  w_uzyciu: { label: 'W uzyciu', color: '#1d4ed8', bg: '#dbeafe', icon: <SpeedOutlined fontSize="small" /> },
-  w_serwisie: { label: 'W serwisie', color: '#b45309', bg: '#fef3c7', icon: <BuildOutlined fontSize="small" /> },
-  likwidowany: { label: 'Zlikwidowany', color: '#b91c1c', bg: '#fee2e2', icon: <WarningAmberOutlined fontSize="small" /> },
+  dostepny: { label: 'Dostepny', color: '#456b1f', bg: '#e4efd6', icon: <CheckCircleOutlineOutlined fontSize="small" /> },
+  w_uzyciu: { label: 'W uzyciu', color: '#766440', bg: '#f1f3d6', icon: <SpeedOutlined fontSize="small" /> },
+  w_serwisie: { label: 'W serwisie', color: '#995510', bg: '#fae7d2', icon: <BuildOutlined fontSize="small" /> },
+  likwidowany: { label: 'Zlikwidowany', color: '#a3402a', bg: '#f6e0d9', icon: <WarningAmberOutlined fontSize="small" /> },
 };
 
 function assetName(item) {
@@ -111,7 +111,7 @@ export default function FlotaPolskaFlora({
 
         <div style={ui.filters}>
           <label style={ui.searchBox}>
-            <SearchOutlined style={{ color: '#9ca3af', fontSize: 20 }} />
+            <SearchOutlined style={{ color: '#9a907a', fontSize: 20 }} />
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Szukaj po nazwie lub numerze rejestracyjnym..." style={ui.input} />
           </label>
           <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} style={ui.select}>
@@ -163,7 +163,7 @@ export default function FlotaPolskaFlora({
 
         {!loading && filtered.length === 0 && (
           <div style={ui.empty}>
-            <LocalShippingOutlined style={{ fontSize: 46, color: '#d1d5db' }} />
+            <LocalShippingOutlined style={{ fontSize: 46, color: '#e0d9c8' }} />
             <strong>Brak sprzetu</strong>
             <span>Zmien filtry lub dodaj nowy zasob.</span>
           </div>
@@ -207,44 +207,44 @@ export default function FlotaPolskaFlora({
 }
 
 const ui = {
-  shell: { display: 'flex', minHeight: '100vh', background: '#f8fafc', color: '#111827' },
+  shell: { display: 'flex', minHeight: '100vh', background: '#f0ebdd', color: '#2c2011' },
   main: { flex: 1, padding: 28, overflowX: 'hidden' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
-  title: { margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: '#111827' },
-  subtitle: { margin: '6px 0 0', color: '#6b7280', fontSize: 14 },
+  title: { margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: '#2c2011' },
+  subtitle: { margin: '6px 0 0', color: '#8a8069', fontSize: 14 },
   headerActions: { display: 'flex', alignItems: 'center', gap: 10 },
-  primaryButton: { border: 0, borderRadius: 10, background: '#059669', color: '#fff', padding: '10px 14px', fontWeight: 800, cursor: 'pointer' },
-  notice: { borderRadius: 10, padding: '9px 12px', background: '#ecfdf5', color: '#047857', fontSize: 13, fontWeight: 700 },
-  noticeError: { background: '#fef2f2', color: '#b91c1c' },
+  primaryButton: { border: 0, borderRadius: 10, background: '#456b1f', color: '#fff', padding: '10px 14px', fontWeight: 800, cursor: 'pointer' },
+  notice: { borderRadius: 10, padding: '9px 12px', background: '#f0ebdd', color: '#456b1f', fontSize: 13, fontWeight: 700 },
+  noticeError: { background: '#f0ebdd', color: '#a3402a' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 14, marginBottom: 18 },
-  statCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
+  statCard: { background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
   statLabel: { display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', fontSize: 12, fontWeight: 900, marginBottom: 8 },
-  statNumber: { display: 'block', fontSize: 28, color: '#111827' },
+  statNumber: { display: 'block', fontSize: 28, color: '#2c2011' },
   filters: { display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 180px 180px', gap: 12, marginBottom: 18 },
-  searchBox: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0 12px' },
-  input: { flex: 1, border: 0, outline: 0, height: 44, fontSize: 14, color: '#111827' },
-  select: { border: '1px solid #e5e7eb', borderRadius: 12, background: '#fff', padding: '0 12px', fontSize: 14, color: '#111827' },
+  searchBox: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: '0 12px' },
+  input: { flex: 1, border: 0, outline: 0, height: 44, fontSize: 14, color: '#2c2011' },
+  select: { border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: '0 12px', fontSize: 14, color: '#2c2011' },
   assetGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 },
-  assetCard: { display: 'flex', alignItems: 'flex-start', gap: 16, textAlign: 'left', border: '1px solid #e5e7eb', background: '#fff', borderRadius: 12, padding: 18, cursor: 'pointer', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
-  assetIcon: { width: 48, height: 48, borderRadius: 12, background: '#f3f4f6', display: 'grid', placeItems: 'center', fontSize: 25, flex: '0 0 auto' },
+  assetCard: { display: 'flex', alignItems: 'flex-start', gap: 16, textAlign: 'left', border: '1px solid #f0ebdd', background: '#fff', borderRadius: 12, padding: 18, cursor: 'pointer', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
+  assetIcon: { width: 48, height: 48, borderRadius: 12, background: '#f0ebdd', display: 'grid', placeItems: 'center', fontSize: 25, flex: '0 0 auto' },
   assetContent: { minWidth: 0, flex: 1 },
   assetTop: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  cardTitle: { margin: 0, fontSize: 16, color: '#111827', fontWeight: 800 },
-  plate: { display: 'inline-block', marginTop: 6, borderRadius: 6, background: '#f3f4f6', padding: '3px 7px', color: '#4b5563', fontFamily: 'monospace', fontSize: 12, fontWeight: 900 },
+  cardTitle: { margin: 0, fontSize: 16, color: '#2c2011', fontWeight: 800 },
+  plate: { display: 'inline-block', marginTop: 6, borderRadius: 6, background: '#f0ebdd', padding: '3px 7px', color: '#5a5040', fontFamily: 'monospace', fontSize: 12, fontWeight: 900 },
   status: { display: 'inline-flex', alignItems: 'center', gap: 5, borderRadius: 999, padding: '5px 9px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
-  assetMeta: { display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12, color: '#6b7280', fontSize: 12 },
+  assetMeta: { display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12, color: '#8a8069', fontSize: 12 },
   tinyIcon: { fontSize: 14, verticalAlign: 'middle', marginRight: 4 },
-  warning: { display: 'flex', alignItems: 'center', gap: 7, marginTop: 12, borderRadius: 10, background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309', padding: '9px 10px', fontSize: 12, fontWeight: 800 },
-  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #e5e7eb', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#6b7280' },
+  warning: { display: 'flex', alignItems: 'center', gap: 7, marginTop: 12, borderRadius: 10, background: '#f0ebdd', border: '1px solid #fae7d2', color: '#995510', padding: '9px 10px', fontSize: 12, fontWeight: 800 },
+  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#8a8069' },
   drawerLayer: { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' },
   backdrop: { position: 'absolute', inset: 0, border: 0, background: 'rgba(15, 23, 42, 0.42)' },
   drawer: { position: 'relative', width: 'min(100%, 430px)', background: '#fff', height: '100%', overflowY: 'auto', boxShadow: '-24px 0 60px rgba(15, 23, 42, 0.22)' },
-  drawerHeader: { position: 'sticky', top: 0, zIndex: 1, background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  drawerTitle: { margin: 0, fontSize: 18, color: '#111827' },
-  iconButton: { border: 0, borderRadius: 10, width: 36, height: 36, display: 'grid', placeItems: 'center', background: '#f3f4f6', cursor: 'pointer' },
+  drawerHeader: { position: 'sticky', top: 0, zIndex: 1, background: '#fff', borderBottom: '1px solid #f0ebdd', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  drawerTitle: { margin: 0, fontSize: 18, color: '#2c2011' },
+  iconButton: { border: 0, borderRadius: 10, width: 36, height: 36, display: 'grid', placeItems: 'center', background: '#f0ebdd', cursor: 'pointer' },
   drawerBody: { padding: 22, display: 'grid', gap: 20 },
   detailHero: { display: 'flex', alignItems: 'center', gap: 14 },
-  detailIcon: { width: 64, height: 64, borderRadius: 16, display: 'grid', placeItems: 'center', fontSize: 32, background: '#f3f4f6' },
-  detailTitle: { margin: '0 0 8px', fontSize: 21, color: '#111827' },
-  infoList: { display: 'grid', gap: 0, borderRadius: 12, background: '#f9fafb', padding: 14 },
+  detailIcon: { width: 64, height: 64, borderRadius: 16, display: 'grid', placeItems: 'center', fontSize: 32, background: '#f0ebdd' },
+  detailTitle: { margin: '0 0 8px', fontSize: 21, color: '#2c2011' },
+  infoList: { display: 'grid', gap: 0, borderRadius: 12, background: '#f0ebdd', padding: 14 },
 };

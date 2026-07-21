@@ -2068,7 +2068,7 @@ export default function Harmonogram() {
                 .filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial)
                 .map(e => (
                   <div key={e.id} style={styles.legendaItem}>
-                    <div style={{...styles.legendaDot, backgroundColor: e.kolor || 'var(--text-muted)', boxShadow: `0 0 6px ${e.kolor || '#94a3b8'}88`}} />
+                    <div style={{...styles.legendaDot, backgroundColor: e.kolor || 'var(--text-muted)', boxShadow: `0 0 6px ${e.kolor || '#9a907a'}88`}} />
                     <span style={styles.legendaLabel}>{e.nazwa}</span>
                   </div>
                 ))}
@@ -2098,7 +2098,7 @@ const styles = {
     display: 'flex',
     minHeight: '100vh',
     background:
-      'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)',
+      'linear-gradient(135deg, #f0ebdd 0%, #ffffff 46%, #f0ebdd 100%)',
   },
   main: {
     flex: 1,
@@ -2121,7 +2121,7 @@ const styles = {
     border: '1px solid rgba(255,255,255,0.16)',
     borderRadius: 8,
     background:
-      'linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(135deg, #07301f 0%, #0f5f3a 58%, #168a4a 100%)',
+      'linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(135deg, #456b1f 0%, #456b1f 58%, #456b1f 100%)',
     backgroundSize: '32px 32px, 32px 32px, auto',
     padding: '18px 20px',
     boxShadow: '0 22px 46px rgba(11,56,37,0.17)',
@@ -2137,7 +2137,7 @@ const styles = {
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 900,
-    color: '#0F5F3A',
+    color: '#456b1f',
     display: 'inline-flex',
     alignItems: 'center',
     gap: 7,
@@ -2160,12 +2160,12 @@ const styles = {
   filtrSelect: { padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.28)', fontSize: 13, backgroundColor: '#FFFFFF', color: 'var(--text)', minHeight: 36, fontWeight: 800 },
   widokBtns: { display: 'flex', border: '1px solid rgba(255,255,255,0.24)', borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.1)' },
   widokBtn: { padding: '8px 13px', border: 'none', borderRight: '1px solid rgba(255,255,255,0.18)', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 900, color: 'rgba(255,255,255,0.82)', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' },
-  widokBtnActive: { background: '#FFFFFF', color: '#0F5F3A', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.16)' },
+  widokBtnActive: { background: '#FFFFFF', color: '#456b1f', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.16)' },
   addBtn: {
     minHeight: 36,
     padding: '8px 15px',
     background: '#FFFFFF',
-    color: '#0F5F3A',
+    color: '#456b1f',
     border: '1px solid rgba(255,255,255,0.28)',
     borderRadius: 8,
     cursor: 'pointer',
@@ -2194,7 +2194,7 @@ const styles = {
   dispatchLoadedRoute: { border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: '#ffffff', padding: '8px 10px', display: 'grid', gap: 3, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
   dispatchLoadedRouteMuted: { border: '1px dashed rgba(15,95,58,0.18)', borderRadius: 8, background: 'rgba(255,255,255,0.7)', padding: '8px 10px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 900 },
   dispatchRadar: { display: 'grid', gridTemplateColumns: 'minmax(220px, 0.9fr) repeat(5, minmax(128px, 1fr))', gap: 8, marginBottom: 12 },
-  dispatchRadarLead: { minHeight: 84, borderRadius: 8, padding: '12px 14px', display: 'grid', alignContent: 'center', gap: 3, background: 'linear-gradient(135deg, #07301f 0%, #0f5f3a 100%)', color: '#fff', boxShadow: '0 12px 28px rgba(10,72,45,0.16)' },
+  dispatchRadarLead: { minHeight: 84, borderRadius: 8, padding: '12px 14px', display: 'grid', alignContent: 'center', gap: 3, background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 100%)', color: '#fff', boxShadow: '0 12px 28px rgba(10,72,45,0.16)' },
   dispatchDecisionCard: { minHeight: 84, border: '1px solid rgba(15,95,58,0.13)', borderLeft: '4px solid rgba(15,95,58,0.26)', borderRadius: 8, background: '#ffffff', color: 'var(--text)', padding: '10px 12px', display: 'grid', alignContent: 'center', gap: 2, textAlign: 'left', cursor: 'pointer', boxShadow: '0 10px 24px rgba(31,79,50,0.055)', fontFamily: 'inherit' },
   dispatchDecisionOk: { borderLeftColor: 'var(--accent)', background: 'linear-gradient(180deg, #ffffff, rgba(34,197,94,0.07))' },
   dispatchDecisionWarn: { borderLeftColor: 'var(--warning)', background: 'linear-gradient(180deg, #ffffff, rgba(245,158,11,0.09))' },

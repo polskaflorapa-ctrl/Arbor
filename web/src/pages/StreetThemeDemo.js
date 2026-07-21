@@ -402,17 +402,17 @@ export default function StreetThemeDemo() {
 
     return [
     ':root {',
-    '  --street-accent: #31f27b;',
-    '  --street-ink: #06130d;',
-    '  --street-paper: #f7fff9;',
-    '  --street-warning: #fff35a;',
+    '  --street-accent: #7f8c12;',
+    '  --street-ink: #2c2011;',
+    '  --street-paper: #f0ebdd;',
+    '  --street-warning: #f1f3d6;',
     `  --street-mode: ${activeMode};`,
     `  --street-intensity: ${intensity};`,
     `  --street-active-scene: ${activeScene + 1};`,
     `  --street-stage-mode: ${isStageMode ? 'on' : 'off'};`,
     `  --street-reduced-motion: ${isReducedMotion ? 'on' : 'off'};`,
-    `  --street-card-shadow: ${readToken('--street-card-shadow', '8px 8px 0 #06130d')};`,
-    `  --street-phone-shadow: ${readToken('--street-phone-shadow', '12px 12px 0 #06130d')};`,
+    `  --street-card-shadow: ${readToken('--street-card-shadow', '8px 8px 0 #2c2011')};`,
+    `  --street-phone-shadow: ${readToken('--street-phone-shadow', '12px 12px 0 #2c2011')};`,
     `  --street-border-width: ${readToken('--street-border-width', '3px')};`,
     '}',
     ].join('\n');

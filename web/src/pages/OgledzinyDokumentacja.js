@@ -103,7 +103,7 @@ export default function OgledzinyDokumentacja() {
     },
     btnDisabled: { opacity: 0.55, cursor: 'not-allowed' },
     hint: { marginTop: 10, fontSize: 13, color: 'var(--text-muted)' },
-    warn: { marginTop: 10, fontSize: 13, color: 'var(--warning, #b45309)' },
+    warn: { marginTop: 10, fontSize: 13, color: 'var(--warning, #995510)' },
   };
 
   if (!ogledzinyId) {

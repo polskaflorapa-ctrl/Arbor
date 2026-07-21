@@ -16,11 +16,11 @@ const MIESIAC = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
 const DNI = ['Pn','Wt','Śr','Cz','Pt','Sb','Nd'];
 
 const STATUS_KOLOR = {
-  oczekuje: '#F59E0B',
-  rezerwacja_wstepna: '#22C55E',
-  do_specjalisty: '#60A5FA',
-  zatwierdzono: '#34D399',
-  odrzucono: '#EF4444',
+  oczekuje: '#bd701e',
+  rezerwacja_wstepna: '#7f8c12',
+  do_specjalisty: '#f1f3d6',
+  zatwierdzono: '#7f8c12',
+  odrzucono: '#c0492f',
 };
 const STATUS_LABEL = {
   oczekuje: '⏳ Oczekuje',
@@ -459,7 +459,7 @@ export default function WycenaKalendarz() {
             background: 'rgba(239,68,68,0.08)',
           }}
         >
-          <div style={{ fontWeight: 700, color: '#F87171', marginBottom: 8 }}>
+          <div style={{ fontWeight: 700, color: '#c0492f', marginBottom: 8 }}>
             SLA — zatwierdzenia po terminie ({slaOverdue.length})
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
@@ -489,9 +489,9 @@ export default function WycenaKalendarz() {
                   {' · '}
                   Termin SLA: {fmtSlaDue(row.due_at)}
                   {row.sla_reminder_sent_at ? (
-                    <span style={{ color: '#94A3B8' }}> · Cron: przypomnienie wysłane</span>
+                    <span style={{ color: '#9a907a' }}> · Cron: przypomnienie wysłane</span>
                   ) : (
-                    <span style={{ color: '#F59E0B' }}> · Cron: jeszcze bez przypomnienia</span>
+                    <span style={{ color: '#bd701e' }}> · Cron: jeszcze bez przypomnienia</span>
                   )}
                 </div>
               </button>
@@ -566,12 +566,12 @@ export default function WycenaKalendarz() {
                   {(showDots || showOg) && (
                     <div style={{ ...S.dotRow, flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                       {showOg && (
-                        <span style={{ fontSize: 9, fontWeight: 700, color: isSel ? '#fff' : '#60A5FA' }}>{listO.length} og.</span>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: isSel ? '#fff' : '#f1f3d6' }}>{listO.length} og.</span>
                       )}
                       {showDots && (
                         <div style={{ ...S.dotRow, justifyContent: 'center' }}>
                           {listW.slice(0, 3).map((w, wi) => (
-                            <div key={wi} style={{ ...S.dot, backgroundColor: STATUS_KOLOR[w.status_akceptacji] || '#6B7280' }} />
+                            <div key={wi} style={{ ...S.dot, backgroundColor: STATUS_KOLOR[w.status_akceptacji] || '#8a8069' }} />
                           ))}
                         </div>
                       )}
@@ -619,7 +619,7 @@ export default function WycenaKalendarz() {
                 border: '1px solid rgba(239,68,68,0.45)',
                 background: 'rgba(239,68,68,0.08)',
                 fontSize: 13,
-                color: '#FCA5A5',
+                color: '#f6e0d9',
               }}
             >
               {t('calendarBlocks.blockedWarning')}
@@ -679,9 +679,9 @@ export default function WycenaKalendarz() {
                   const q = dataQualityFlags(w);
                   return (q.noPin || q.noGps || q.staleGps) ? (
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                      {q.noPin ? <span style={{ ...S.metaChip, color: '#F59E0B' }}>Brak pinezki klienta</span> : null}
-                      {q.noGps ? <span style={{ ...S.metaChip, color: '#F87171' }}>Brak GPS ekipy</span> : null}
-                      {q.staleGps ? <span style={{ ...S.metaChip, color: '#F87171' }}>Stary GPS ({q.gpsAge} min)</span> : null}
+                      {q.noPin ? <span style={{ ...S.metaChip, color: '#bd701e' }}>Brak pinezki klienta</span> : null}
+                      {q.noGps ? <span style={{ ...S.metaChip, color: '#c0492f' }}>Brak GPS ekipy</span> : null}
+                      {q.staleGps ? <span style={{ ...S.metaChip, color: '#c0492f' }}>Stary GPS ({q.gpsAge} min)</span> : null}
                     </div>
                   ) : null;
                 })()}
@@ -817,7 +817,7 @@ export default function WycenaKalendarz() {
                 </div>
               ) : null}
               {reserveRuleWarning ? (
-                <div style={{ fontSize: 12, color: '#F59E0B' }}>{reserveRuleWarning}</div>
+                <div style={{ fontSize: 12, color: '#bd701e' }}>{reserveRuleWarning}</div>
               ) : null}
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 Najpierw pokazujemy sloty z ETA, potem bez ETA.
@@ -848,7 +848,7 @@ export default function WycenaKalendarz() {
                 ))}
               </div>
               {(reserveDraft.slots || []).some((s) => s.eta_minutes == null) ? (
-                <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 4 }}>Sloty bez ETA (niższy priorytet):</div>
+                <div style={{ fontSize: 11, color: '#bd701e', marginTop: 4 }}>Sloty bez ETA (niższy priorytet):</div>
               ) : null}
               <div style={S.ekipyGrid}>
                 {(reserveDraft.slots || []).filter((s) => s.eta_minutes == null).map((slotObj) => (
@@ -901,12 +901,12 @@ const S = {
     borderRadius: 8,
     border: '1px solid rgba(15,107,63,0.16)',
     background: '#ffffff',
-    color: '#335648',
+    color: '#456b1f',
     fontSize: 12,
     fontWeight: 850,
     cursor: 'pointer',
   },
-  viewBtnOn: { borderColor: 'rgba(20,131,79,0.42)', color: '#0f5f3a', background: 'rgba(20,131,79,0.08)' },
+  viewBtnOn: { borderColor: 'rgba(20,131,79,0.42)', color: '#456b1f', background: 'rgba(20,131,79,0.08)' },
 
   hero: {
     display: 'grid',
@@ -915,7 +915,7 @@ const S = {
     alignItems: 'start',
     padding: 18,
     marginBottom: 14,
-    background: 'linear-gradient(135deg, #0b3825 0%, #0f5f3a 58%, #168a4a 100%)',
+    background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 58%, #456b1f 100%)',
     border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: 8,
     boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
@@ -936,7 +936,7 @@ const S = {
     cursor: 'pointer',
     flex: '0 0 auto',
   },
-  heroEyebrow: { color: '#86efac', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
+  heroEyebrow: { color: '#e4efd6', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
   heroTitle: { margin: '4px 0 0', color: '#ffffff', fontSize: 30, lineHeight: 1.08, fontWeight: 950 },
   heroSub: { marginTop: 8, color: 'rgba(240,253,244,0.82)', fontSize: 13, fontWeight: 750 },
   heroActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
@@ -954,11 +954,11 @@ const S = {
   backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
   headerTitle: { fontSize: 24, fontWeight: 850, color: 'var(--text)' },
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
-  addBtn: { padding: '10px 20px', backgroundColor: '#20b768', color: '#062216', border: '1px solid rgba(134,239,172,0.5)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  addBtn: { padding: '10px 20px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(134,239,172,0.5)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
   linkBtn: {
     padding: '8px 12px',
     background: '#ffffff',
-    color: '#0f5f3a',
+    color: '#456b1f',
     border: '1px solid rgba(255,255,255,0.25)',
     borderRadius: 8,
     fontSize: 13,
@@ -994,8 +994,8 @@ const S = {
 
   calBox: { flex: '1 1 320px', maxWidth: 430, minWidth: 0, background: '#ffffff', borderRadius: 8, padding: 18, border: '1px solid rgba(15,107,63,0.14)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
   monthNav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  navBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#f5faf6', border: '1px solid rgba(15,107,63,0.16)', color: '#0f5f3a', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  monthTitle: { fontSize: 17, fontWeight: 950, color: '#0f5f3a' },
+  navBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#f0ebdd', border: '1px solid rgba(15,107,63,0.16)', color: '#456b1f', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  monthTitle: { fontSize: 17, fontWeight: 950, color: '#456b1f' },
   calGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 },
   dayHead: { textAlign: 'center', fontSize: 11, fontWeight: 850, color: 'var(--text-muted)', padding: '6px 0' },
   dayCell: { aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', padding: 2, transition: 'background 0.15s, transform 0.15s', border: '1px solid transparent' },
@@ -1004,7 +1004,7 @@ const S = {
     border: '1px dashed rgba(239,68,68,0.45)',
   },
   todayCell: { border: '2px solid rgba(32,183,104,0.65)' },
-  selCell: { backgroundColor: '#0f5f3a', color: '#ffffff' },
+  selCell: { backgroundColor: '#456b1f', color: '#ffffff' },
   emptyCell: { aspectRatio: '1' },
   dayNum: { fontSize: 13, color: 'var(--text-sub)' },
   dotRow: { display: 'flex', gap: 2, marginTop: 2 },
@@ -1016,22 +1016,22 @@ const S = {
   dayPanel: { flex: '2 1 320px', minWidth: 0, background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
   dayPanelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   dayPanelTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--text)' },
-  dayPanelCount: { fontSize: 13, color: '#0f5f3a', backgroundColor: 'rgba(20,131,79,0.08)', padding: '3px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.18)', fontWeight: 850 },
+  dayPanelCount: { fontSize: 13, color: '#456b1f', backgroundColor: 'rgba(20,131,79,0.08)', padding: '3px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.18)', fontWeight: 850 },
 
-  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, background: '#f7fbf8', borderRadius: 8, border: '1px dashed rgba(15,107,63,0.18)', boxShadow: 'none' },
-  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: '#20b768', color: '#062216', border: '1px solid rgba(20,131,79,0.28)', borderRadius: 8, fontWeight: 950, cursor: 'pointer' },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, background: '#f0ebdd', borderRadius: 8, border: '1px dashed rgba(15,107,63,0.18)', boxShadow: 'none' },
+  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(20,131,79,0.28)', borderRadius: 8, fontWeight: 950, cursor: 'pointer' },
 
   wycenaCard: { background: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, border: '1px solid rgba(15,107,63,0.14)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
   wycenaTop: { display: 'flex', gap: 12, justifyContent: 'space-between' },
   wycenaKlient: { fontSize: 15, fontWeight: '600', color: 'var(--text)', marginBottom: 4 },
   wycenaSub: { fontSize: 12, color: 'var(--text-sub)', marginTop: 2 },
   badge: { fontSize: 11, fontWeight: 850, padding: '4px 10px', borderRadius: 8 },
-  kwota: { fontSize: 14, fontWeight: 950, color: '#0f5f3a' },
+  kwota: { fontSize: 14, fontWeight: 950, color: '#456b1f' },
   wycenaDetail: { marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' },
   detailRow: { display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 },
   detailLabel: { color: 'var(--text-muted)', minWidth: 100 },
   detailVal: { color: 'var(--text)', flex: 1 },
-  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: '#0f5f3a', color: '#ffffff', border: '1px solid rgba(15,107,63,0.2)', borderRadius: 8, fontWeight: 850, cursor: 'pointer', fontSize: 13 },
+  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: '#456b1f', color: '#ffffff', border: '1px solid rgba(15,107,63,0.2)', borderRadius: 8, fontWeight: 850, cursor: 'pointer', fontSize: 13 },
 
   // Modal
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(6,16,11,0.68)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
@@ -1041,7 +1041,7 @@ const S = {
   closeBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: 4 },
 
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
-  formSection: { backgroundColor: '#f7fbf8', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid rgba(15,107,63,0.14)' },
+  formSection: { backgroundColor: '#f0ebdd', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid rgba(15,107,63,0.14)' },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 4 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   fieldWrap: { display: 'flex', flexDirection: 'column', gap: 4 },
@@ -1059,7 +1059,7 @@ const S = {
     borderStyle: 'solid',
     borderColor: 'rgba(15,107,63,0.16)',
     backgroundColor: '#ffffff',
-    color: '#335648',
+    color: '#456b1f',
     fontSize: 13,
     cursor: 'pointer',
     transition: 'all 0.15s',
@@ -1067,6 +1067,6 @@ const S = {
   },
 
   formBtns: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 },
-  cancelBtn: { padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid rgba(15,107,63,0.16)', borderRadius: 8, color: '#335648', cursor: 'pointer', fontSize: 14, fontWeight: 850 },
-  submitBtn: { padding: '10px 24px', backgroundColor: '#20b768', color: '#062216', border: '1px solid rgba(20,131,79,0.28)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  cancelBtn: { padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid rgba(15,107,63,0.16)', borderRadius: 8, color: '#456b1f', cursor: 'pointer', fontSize: 14, fontWeight: 850 },
+  submitBtn: { padding: '10px 24px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(20,131,79,0.28)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 };

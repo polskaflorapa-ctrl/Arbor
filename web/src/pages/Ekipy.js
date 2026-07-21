@@ -60,11 +60,11 @@ export default function Ekipy() {
   const [filtrOddzial, setFiltrOddzial] = useState('');
   const [hoveredEkipa, setHoveredEkipa] = useState(null);
   const KOLORY_EKIP = [
-    '#22C55E', '#EAB308', '#EF4444', '#3B82F6',
-    '#38bdf8', '#F97316', '#14B8A6', '#EC4899',
-    '#64748b', '#F43F5E', '#10B981', '#6B7280',
+    '#7f8c12', '#bd701e', '#c0492f', '#766440',
+    '#766440', '#c0492f', '#766440', '#c0492f',
+    '#8a8069', '#c0492f', '#7f8c12', '#8a8069',
   ];
-  const [form, setForm] = useState({ nazwa: '', brygadzista_id: '', oddzial_id: '', kolor: '#22C55E' });
+  const [form, setForm] = useState({ nazwa: '', brygadzista_id: '', oddzial_id: '', kolor: '#7f8c12' });
   const [formCzlonek, setFormCzlonek] = useState({ user_id: '', rola: 'Pomocnik' });
   const [formZasoby, setFormZasoby] = useState({ pojazd_id: '', sprzet_id: '' });
   const [repairDraft, setRepairDraft] = useState(null);
@@ -158,7 +158,7 @@ export default function Ekipy() {
       }
       setShowForm(false);
       setEditEkipa(null);
-      setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '', kolor: '#22C55E' });
+      setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '', kolor: '#7f8c12' });
       reloadAll();
       if (selectedEkipa) loadEkipaDetail(selectedEkipa.id);
     } catch (err) {
@@ -170,7 +170,7 @@ export default function Ekipy() {
 
   const handleEdit = (e) => {
     setEditEkipa(e);
-    setForm({ nazwa: e.nazwa, brygadzista_id: e.brygadzista_id || '', oddzial_id: e.oddzial_id || '', kolor: e.kolor || '#22C55E' });
+    setForm({ nazwa: e.nazwa, brygadzista_id: e.brygadzista_id || '', oddzial_id: e.oddzial_id || '', kolor: e.kolor || '#7f8c12' });
     setShowForm(true);
   };
 
@@ -653,8 +653,8 @@ export default function Ekipy() {
                 onMouseLeave={() => setHoveredEkipa(null)}
                 style={{
                   background: 'var(--surface-glass)', borderRadius: 8, padding: 16, marginBottom: 10,
-                  boxShadow: hoveredEkipa === e.id ? `0 6px 20px ${(e.kolor || '#22C55E')}33` : 'var(--shadow-md)',
-                  borderLeft: `4px solid ${assetProblems.length ? '#e2445c' : (e.kolor || (selectedEkipa?.id === e.id ? 'var(--accent)' : '#334155'))}`,
+                  boxShadow: hoveredEkipa === e.id ? `0 6px 20px ${(e.kolor || '#7f8c12')}33` : 'var(--shadow-md)',
+                  borderLeft: `4px solid ${assetProblems.length ? '#c0492f' : (e.kolor || (selectedEkipa?.id === e.id ? 'var(--accent)' : '#5a5040'))}`,
                   cursor: 'pointer',
                   transform: hoveredEkipa === e.id ? 'translateX(4px)' : 'none',
                   transition: 'all 0.2s ease',
@@ -665,8 +665,8 @@ export default function Ekipy() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
                       width: 14, height: 14, borderRadius: '50%',
-                      backgroundColor: assetProblems.length ? '#e2445c' : (e.kolor || '#6B7280'),
-                      boxShadow: `0 0 8px ${assetProblems.length ? '#e2445c' : (e.kolor || '#6B7280')}88`,
+                      backgroundColor: assetProblems.length ? '#c0492f' : (e.kolor || '#8a8069'),
+                      boxShadow: `0 0 8px ${assetProblems.length ? '#c0492f' : (e.kolor || '#8a8069')}88`,
                       flexShrink: 0,
                     }} />
                     <div>
@@ -719,7 +719,7 @@ export default function Ekipy() {
                 </div>
                 {e.brygadzista_imie && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-sub)', marginBottom: 6 }}>
-                    <span style={{ backgroundColor: '#66BB6A', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold' }}>Brygadzista</span>
+                    <span style={{ backgroundColor: '#7f8c12', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold' }}>Brygadzista</span>
                     {e.brygadzista_imie} {e.brygadzista_nazwisko}
                     {e.procent_wynagrodzenia && (
                       <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 8, fontSize: 12, fontWeight: 'bold' }}>
@@ -784,7 +784,7 @@ export default function Ekipy() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{
                         width: 48, height: 48, borderRadius: 24,
-                        background: 'linear-gradient(135deg, var(--sidebar) 0%, #14532d 55%, #34d399 100%)',
+                        background: 'linear-gradient(135deg, var(--sidebar) 0%, #456b1f 55%, #7f8c12 100%)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#fff', fontWeight: 'bold', fontSize: 16,
                       }}>
@@ -916,9 +916,9 @@ export default function Ekipy() {
                       <button
                         onClick={() => handleRemoveCzlonek(c.user_id)}
                         disabled={memberSaving}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#FFCDD2'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#FFEBEE'}
-                        style={{ padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', border: '1px solid #FFCDD2', borderRadius: 6, cursor: memberSaving ? 'not-allowed' : 'pointer', fontSize: 13, color: '#EF5350', transition: 'all 0.15s', opacity: memberSaving ? 0.7 : 1 }}>
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f6e0d9'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0ebdd'}
+                        style={{ padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', border: '1px solid #f6e0d9', borderRadius: 6, cursor: memberSaving ? 'not-allowed' : 'pointer', fontSize: 13, color: '#c0492f', transition: 'all 0.15s', opacity: memberSaving ? 0.7 : 1 }}>
                         ✕
             </button>
                     )}
@@ -1097,10 +1097,10 @@ function KalkulatorWynagrodzenia({ ekipa }) {
         <div style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 16, border: '1px solid var(--border)' }}>
           {[
             { label: 'Wartość netto', value: `${fmt(wynik.netto)} PLN` },
-            { label: 'Koszt pomocników', value: `- ${fmt(wynik.kosztPom)} PLN`, color: '#EF5350' },
+            { label: 'Koszt pomocników', value: `- ${fmt(wynik.kosztPom)} PLN`, color: '#c0492f' },
             { label: 'Podstawa brygadzisty', value: `${fmt(wynik.podstawa)} PLN` },
           ].map(r => (
-            <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #DCEDC8', fontSize: 13 }}>
+            <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f1f3d6', fontSize: 13 }}>
               <span style={{ color: 'var(--text-muted)' }}>{r.label}</span>
               <span style={{ fontWeight: '600', color: r.color || 'var(--text)' }}>{r.value}</span>
             </div>
@@ -1138,7 +1138,7 @@ function AssetList({ title, empty, items, renderName, renderMeta, canEdit, savin
           const repairs = getRepairs?.(item) || [];
           const lastRepair = repairs[0];
           return (
-            <div key={item.id} style={{ ...S.assetRow, borderLeftColor: inRepair ? '#e2445c' : '#00c875' }}>
+            <div key={item.id} style={{ ...S.assetRow, borderLeftColor: inRepair ? '#c0492f' : '#7f8c12' }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={S.assetName}>{renderName(item)}</div>
                 <div style={S.assetMeta}>{renderMeta(item) || 'bez szczegolow'}</div>
@@ -1235,19 +1235,19 @@ const S = {
   assetPanel: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 12 },
   assetPanelTitle: { fontSize: 13, color: 'var(--text)', fontWeight: 800, marginBottom: 10 },
   assetEmpty: { fontSize: 12, color: 'var(--text-muted)', padding: 12, borderRadius: 8, border: '1px dashed var(--border)' },
-  assetRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: 10, borderRadius: 8, border: '1px solid var(--border)', borderLeft: '4px solid #00c875', marginBottom: 8, background: 'var(--surface-glass)' },
+  assetRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: 10, borderRadius: 8, border: '1px solid var(--border)', borderLeft: '4px solid #7f8c12', marginBottom: 8, background: 'var(--surface-glass)' },
   assetName: { fontSize: 13, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   assetMeta: { fontSize: 11, color: 'var(--text-muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   assetRepairHistory: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 7, padding: '5px 7px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.22)', background: 'rgba(245,158,11,0.08)' },
-  assetRepairHistoryStatus: { fontSize: 10, color: '#b45309', fontWeight: 900, textTransform: 'uppercase' },
+  assetRepairHistoryStatus: { fontSize: 10, color: '#995510', fontWeight: 900, textTransform: 'uppercase' },
   assetRepairHistoryText: { minWidth: 0, fontSize: 11, color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   assetCloseRepairBtn: { marginLeft: 'auto', padding: '3px 7px', borderRadius: 7, border: '1px solid rgba(20,131,79,0.28)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 10, fontWeight: 900 },
   assetActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  assetReportRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#b45309', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
-  assetRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  assetReportRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#995510', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  assetRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: '#c0492f', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   assetUnassignBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
-  teamAssetWarning: { display: 'inline-flex', maxWidth: '100%', padding: '4px 8px', marginBottom: 8, borderRadius: 7, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', fontSize: 11, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  detailAssetWarning: { display: 'flex', flexDirection: 'column', gap: 4, padding: 12, marginBottom: 18, borderRadius: 8, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', fontSize: 13, fontWeight: 700 },
+  teamAssetWarning: { display: 'inline-flex', maxWidth: '100%', padding: '4px 8px', marginBottom: 8, borderRadius: 7, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#c0492f', fontSize: 11, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  detailAssetWarning: { display: 'flex', flexDirection: 'column', gap: 4, padding: 12, marginBottom: 18, borderRadius: 8, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#c0492f', fontSize: 13, fontWeight: 700 },
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
   modalPanel: { width: 'min(680px, 100%)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface-glass)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 },
   modalHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: 12 },

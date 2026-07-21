@@ -496,7 +496,7 @@ export default function RezerwacjeSprzetu() {
               }}
             >
               <Typography sx={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 800 }}>{label}</Typography>
-              <Typography sx={{ color: label === 'Kolizje' && value ? '#dc2626' : 'var(--text)', fontSize: 24, fontWeight: 900 }}>
+              <Typography sx={{ color: label === 'Kolizje' && value ? '#c0492f' : 'var(--text)', fontSize: 24, fontWeight: 900 }}>
                 {value}
               </Typography>
             </Box>
@@ -595,7 +595,7 @@ export default function RezerwacjeSprzetu() {
                     <Stack spacing={0.5}>
                       <span>{statusLabel(r.status)}</span>
                       {conflictIds.has(String(r.id)) ? (
-                        <Typography sx={{ color: '#dc2626', fontSize: 12, fontWeight: 900 }}>Kolizja</Typography>
+                        <Typography sx={{ color: '#c0492f', fontSize: 12, fontWeight: 900 }}>Kolizja</Typography>
                       ) : null}
                     </Stack>
                   </TableCell>

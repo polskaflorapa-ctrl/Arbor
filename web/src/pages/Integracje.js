@@ -1436,7 +1436,7 @@ export default function Integracje() {
             </label>
           </div>
         </div>
-        <div style={{ marginBottom: 10, color: retryLocked ? '#EF5350' : 'var(--text-muted)', fontSize: 12 }}>
+        <div style={{ marginBottom: 10, color: retryLocked ? '#c0492f' : 'var(--text-muted)', fontSize: 12 }}>
           {retryLocked ? `Retry cooldown: ${Math.ceil(cooldownMsLeft / 1000)}s` : 'Retry gotowe'}
         </div>
 
@@ -1704,8 +1704,8 @@ export default function Integracje() {
                         type="button"
                         style={{
                           ...styles.retryBtn,
-                          borderColor: rollbackConfirmId === h.id ? '#EF5350' : 'var(--accent)',
-                          color: rollbackConfirmId === h.id ? '#EF5350' : 'var(--accent)',
+                          borderColor: rollbackConfirmId === h.id ? '#c0492f' : 'var(--accent)',
+                          color: rollbackConfirmId === h.id ? '#c0492f' : 'var(--accent)',
                           opacity: isRollbackAllowed(h) ? 1 : 0.45,
                           cursor: isRollbackAllowed(h) ? 'pointer' : 'not-allowed',
                         }}
@@ -1762,5 +1762,5 @@ const styles = {
   trendCount: { fontSize: 11, fontWeight: 700, color: 'var(--text)' },
   workflowStatRow: { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 8px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8 },
   statusPill: { display: 'inline-flex', alignItems: 'center', minHeight: 30, padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 800 },
-  rollbackBlockedBadge: { display: 'inline-block', marginBottom: 6, fontSize: 11, color: '#EF5350', backgroundColor: 'rgba(239,83,80,0.12)', borderRadius: 999, padding: '2px 8px' },
+  rollbackBlockedBadge: { display: 'inline-block', marginBottom: 6, fontSize: 11, color: '#c0492f', backgroundColor: 'rgba(239,83,80,0.12)', borderRadius: 999, padding: '2px 8px' },
 };

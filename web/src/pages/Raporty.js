@@ -36,11 +36,11 @@ const SERVICE_TYPE_ROW = [
 ];
 
 const UI_COLORS = {
-  success: '#166534',
-  warning: '#b45309',
-  info: '#1d4ed8',
-  danger: '#dc2626',
-  muted: '#64748b',
+  success: '#456b1f',
+  warning: '#995510',
+  info: '#766440',
+  danger: '#c0492f',
+  muted: '#8a8069',
 };
 
 function isTaskCancelled(z) {
@@ -791,8 +791,8 @@ export default function Raporty() {
                 { key: 'Zakonczone', label: t('taskStatus.Zakonczone'), count: zakonczone.length, color: 'var(--accent)' },
                 { key: 'W_Realizacji', label: t('taskStatus.W_Realizacji'), count: wRealizacji.length, color: UI_COLORS.warning },
                 { key: 'Nowe', label: t('taskStatus.Nowe'), count: nowe.length, color: UI_COLORS.info },
-                { key: 'Wycena_Terenowa', label: t('taskStatus.Wycena_Terenowa'), count: wycenaTerenowa.length, color: '#0EA5E9' },
-                { key: 'Do_Zatwierdzenia', label: t('taskStatus.Do_Zatwierdzenia'), count: doZatwierdzenia.length, color: '#8B5CF6' },
+                { key: 'Wycena_Terenowa', label: t('taskStatus.Wycena_Terenowa'), count: wycenaTerenowa.length, color: '#766440' },
+                { key: 'Do_Zatwierdzenia', label: t('taskStatus.Do_Zatwierdzenia'), count: doZatwierdzenia.length, color: '#f1f3d6' },
                 { key: 'Zaplanowane', label: t('taskStatus.Zaplanowane'), count: zaplanowane.length, color: UI_COLORS.muted },
                 { key: 'Anulowane', label: t('taskStatus.Anulowane'), count: anulowane.length, color: UI_COLORS.danger },
               ].map(s => (
@@ -1394,7 +1394,7 @@ function getStatusColor(status) {
 }
  
 const styles = {
-  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)' },
+  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f0ebdd 0%, #ffffff 46%, #f0ebdd 100%)' },
   main: { flex: 1, width: '100%', maxWidth: 1560, margin: '0 auto', padding: '22px clamp(16px, 2.4vw, 30px) 32px', overflowX: 'hidden' },
   filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', background: 'linear-gradient(90deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.94))', backgroundSize: '32px 32px, 32px 32px, auto', padding: '12px 20px', borderRadius: 8, boxShadow: '0 10px 24px rgba(31,79,50,0.055)', border: '1px solid rgba(15,95,58,0.13)', flexWrap: 'wrap' },
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 8 },

@@ -226,8 +226,8 @@ function gpsPointLabel(row) {
 
 const PRIORYTET_KOLOR = {
   Niski: 'var(--text-muted)',
-  Normalny: '#1d4ed8',
-  Wysoki: '#b45309',
+  Normalny: '#766440',
+  Wysoki: '#995510',
   Pilny: 'var(--danger)'
 };
 
@@ -1323,13 +1323,13 @@ export default function ZlecenieDetail() {
             <div style={styles.kpiNum}>{issues.length}</div>
             <div style={styles.kpiLabel}>Problemy</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#1d4ed8' }}>
-            <div style={styles.kpiIcon}><PhotoCameraOutlined sx={{ fontSize: 26, color: '#1d4ed8' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: '#766440' }}>
+            <div style={styles.kpiIcon}><PhotoCameraOutlined sx={{ fontSize: 26, color: '#766440' }} /></div>
             <div style={styles.kpiNum}>{zdjecia.length}</div>
             <div style={styles.kpiLabel}>Zdjęcia</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#38bdf8' }}>
-            <div style={styles.kpiIcon}><SmartDisplayOutlined sx={{ fontSize: 26, color: '#38bdf8' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: '#766440' }}>
+            <div style={styles.kpiIcon}><SmartDisplayOutlined sx={{ fontSize: 26, color: '#766440' }} /></div>
             <div style={styles.kpiNum}>{wideo.length}</div>
             <div style={styles.kpiLabel}>Filmy</div>
           </div>
@@ -1499,7 +1499,7 @@ export default function ZlecenieDetail() {
                       title={`${formatDateTime(point.recorded_at)} / ${gpsSourceLabel(point)}`}
                       style={{
                         ...styles.gpsHistoryDot,
-                        backgroundColor: point.provider === 'mobile' ? 'var(--success)' : '#1d4ed8',
+                        backgroundColor: point.provider === 'mobile' ? 'var(--success)' : '#766440',
                         opacity: 0.35 + ((index + 1) / Math.min(36, gpsHistory.length)) * 0.65,
                       }}
                     />
@@ -1508,7 +1508,7 @@ export default function ZlecenieDetail() {
                 <div style={styles.gpsHistoryTimeline}>
                   {gpsHistoryPreview.map((point, index) => (
                     <div key={`${point.provider}-${point.recorded_at}-${index}`} style={styles.gpsHistoryPoint}>
-                      <span style={{ ...styles.gpsHistoryPointDot, backgroundColor: point.provider === 'mobile' ? 'var(--success)' : '#1d4ed8' }} />
+                      <span style={{ ...styles.gpsHistoryPointDot, backgroundColor: point.provider === 'mobile' ? 'var(--success)' : '#766440' }} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={styles.gpsHistoryPointTitle}>{gpsPointLabel(point)} / {gpsSourceLabel(point)}</div>
                         <div style={styles.gpsHistoryPointMeta}>
@@ -1930,7 +1930,7 @@ export default function ZlecenieDetail() {
                   {workflowEvents.map((ev) => (
                     <div key={ev.id} style={styles.issueCard}>
                       <div style={styles.issueHeader}>
-                        <span style={{ ...styles.badge, backgroundColor: '#3B82F6' }}>
+                        <span style={{ ...styles.badge, backgroundColor: '#766440' }}>
                           {ev.type === 'status_change' ? 'Status' : 'Zdarzenie'}
                         </span>
                         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatDateTime(ev.created_at)}</span>
@@ -2074,7 +2074,7 @@ export default function ZlecenieDetail() {
                 {integrationLogs.map((log) => (
                   <div key={log.id} style={styles.issueCard}>
                     <div style={styles.issueHeader}>
-                      <span style={{ ...styles.badge, backgroundColor: '#0284c7' }}>{String(log.channel || '').toUpperCase()}</span>
+                      <span style={{ ...styles.badge, backgroundColor: '#766440' }}>{String(log.channel || '').toUpperCase()}</span>
                       <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatDateTime(log.created_at)}</span>
                     </div>
                     <div style={styles.issueOpis}>{log.title}</div>
@@ -2154,7 +2154,7 @@ export default function ZlecenieDetail() {
               : issues.map(issue => (
                   <div key={issue.id} style={styles.issueCard}>
                     <div style={styles.issueHeader}>
-                      <span style={{ ...styles.badge, backgroundColor: '#b45309', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ ...styles.badge, backgroundColor: '#995510', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <WarningAmberOutlined sx={{ fontSize: 14 }} />
                         {issue.typ?.replace(/_/g, ' ')}
                       </span>
@@ -2362,7 +2362,7 @@ export default function ZlecenieDetail() {
                         <div style={{ fontWeight: '600', color: 'var(--text)', fontSize: 15 }}>
                           {d.imie} {d.nazwisko}
                         </div>
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, backgroundColor: d.zatwierdzona ? 'var(--accent)22' : '#F59E0B22', color: d.zatwierdzona ? 'var(--accent)' : '#F59E0B', fontWeight: '600' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, backgroundColor: d.zatwierdzona ? 'var(--accent)22' : '#F59E0B22', color: d.zatwierdzona ? 'var(--accent)' : '#bd701e', fontWeight: '600' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             {d.zatwierdzona ? <CheckCircleOutline sx={{ fontSize: 14 }} /> : <HourglassEmptyOutlined sx={{ fontSize: 14 }} />}
                             {d.zatwierdzona ? 'Zatwierdzona' : 'Oczekuje'}
@@ -2732,7 +2732,7 @@ function VideoSection({ title, videos, base, formatDateTime, onSelect, onDelete 
         {videos.map(v => (
           <div key={v.id} style={styles.photoCard} onClick={() => onSelect(v)}>
             <div style={styles.videoThumb}>
-              <SmartDisplayOutlined sx={{ fontSize: 42, color: '#1d4ed8' }} />
+              <SmartDisplayOutlined sx={{ fontSize: 42, color: '#766440' }} />
             </div>
             <div style={styles.photoInfo}>
               <div style={styles.photoAutor}>{v.nazwa || 'Film'}</div>
@@ -2776,8 +2776,8 @@ const styles = {
   sep: { color: 'var(--text-muted)' },
   topActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   pdfBtn: { padding: '8px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
-  editBtn: { padding: '8px 18px', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#1e40af' } },
-  saveBtn: { padding: '8px 18px', backgroundColor: 'var(--success)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#166534' } },
+  editBtn: { padding: '8px 18px', backgroundColor: '#766440', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#766440' } },
+  saveBtn: { padding: '8px 18px', backgroundColor: 'var(--success)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#456b1f' } },
   cancelBtn: { padding: '8px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   heroCard: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 },
   heroLeft: { flex: 1 },

@@ -190,7 +190,7 @@ export default function CrmToday() {
                 <div key={item.id} className="ios-inset-row" style={{ display: 'grid', gap: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                     <strong>{item.lead?.title || `Lead #${item.lead_id}`}</strong>
-                    <span style={{ fontSize: 12, color: 'var(--danger, #dc2626)' }}>{formatDate(item.due_at)}</span>
+                    <span style={{ fontSize: 12, color: 'var(--danger, #c0492f)' }}>{formatDate(item.due_at)}</span>
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.45 }}>{trimText(item.text)}</div>
                   <LeadMeta lead={item.lead} />

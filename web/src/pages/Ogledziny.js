@@ -9,10 +9,10 @@ import { buildNewOrderPath } from '../utils/newOrderRoute';
 
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'];
 const UI_COLORS = {
-  info: '#1d4ed8',
-  warning: '#b45309',
-  success: '#166534',
-  danger: '#dc2626',
+  info: '#766440',
+  warning: '#995510',
+  success: '#456b1f',
+  danger: '#c0492f',
   muted: 'var(--text-muted)',
 };
 
@@ -40,12 +40,12 @@ const ZONE_LABEL = {
   'POZA-KRAKOWEM': 'Poza Krakowem',
 };
 const ZONE_COLOR = {
-  'Krakow-POLNOC': '#60A5FA',
-  'Krakow-WSCHOD': '#38bdf8',
-  'Krakow-POŁUDNIE': '#34D399',
-  'Krakow-ZACHOD': '#F59E0B',
-  'Krakow-NIEJEDNOZNACZNA': '#F87171',
-  'POZA-KRAKOWEM': '#94A3B8',
+  'Krakow-POLNOC': '#f1f3d6',
+  'Krakow-WSCHOD': '#766440',
+  'Krakow-POŁUDNIE': '#7f8c12',
+  'Krakow-ZACHOD': '#bd701e',
+  'Krakow-NIEJEDNOZNACZNA': '#c0492f',
+  'POZA-KRAKOWEM': '#9a907a',
 };
 
 const ZONE_RULES = {
@@ -473,7 +473,7 @@ export default function Ogledziny() {
     return { x, y };
   };
 
-  const sc = (s) => STATUS_COLOR[s] || '#94A3B8';
+  const sc = (s) => STATUS_COLOR[s] || '#9a907a';
   const zoneFor = (o) => zoneOverrides[o.id] || clientZoneDefaults[o.klient_id] || detectKrakowZone(o);
   const listaPoDacie = filterDate
     ? lista.filter((o) => String(o.data_planowana || '').slice(0, 10) === filterDate)
@@ -1088,8 +1088,8 @@ export default function Ogledziny() {
                           fontWeight: 700,
                           padding: '2px 8px',
                           borderRadius: 7,
-                          background: `${ZONE_COLOR[zoneFor(o)] || '#94A3B8'}22`,
-                          color: ZONE_COLOR[zoneFor(o)] || '#94A3B8',
+                          background: `${ZONE_COLOR[zoneFor(o)] || '#9a907a'}22`,
+                          color: ZONE_COLOR[zoneFor(o)] || '#9a907a',
                         }}
                       >
                         {ZONE_LABEL[zoneFor(o)] || zoneFor(o)}
@@ -1261,7 +1261,7 @@ export default function Ogledziny() {
                       <span style={{ marginLeft: 8 }}>
                         ·{' '}
                         {telHref(detail.klient_telefon) ? (
-                          <a href={telHref(detail.klient_telefon)} style={{ color: '#bbf7d0', fontWeight: 900, textDecoration: 'none' }}>
+                          <a href={telHref(detail.klient_telefon)} style={{ color: '#e4efd6', fontWeight: 900, textDecoration: 'none' }}>
                             {detail.klient_telefon}
                           </a>
                         ) : (
@@ -1599,11 +1599,11 @@ const btn = {
   },
   secondary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: '#ffffff', color: '#0f5f3a', border: '1px solid rgba(20,131,79,0.24)',
+    background: '#ffffff', color: '#456b1f', border: '1px solid rgba(20,131,79,0.24)',
     borderRadius: 8, fontSize: 12, fontWeight: 850, cursor: 'pointer', boxShadow: 'var(--shadow-xs)',
   },
   secondaryGhost: {
-    padding: '9px 18px', background: '#ffffff', color: '#0f5f3a',
+    padding: '9px 18px', background: '#ffffff', color: '#456b1f',
     border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, fontSize: 13, fontWeight: 850, cursor: 'pointer',
   },
   danger: {
@@ -1627,14 +1627,14 @@ const sec = {
     alignItems: 'flex-start',
     gap: 18,
     flexWrap: 'wrap',
-    background: 'linear-gradient(135deg, #0b3825 0%, #0f5f3a 56%, #168a4a 100%)',
+    background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 56%, #456b1f 100%)',
     border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: 8,
     padding: 18,
     marginBottom: 12,
     boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
   },
-  heroEyebrow: { color: '#86efac', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
+  heroEyebrow: { color: '#e4efd6', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
   commandGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginBottom: 10 },
   commandCard: { background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.14)', padding: '7px 8px', boxShadow: 'var(--shadow-xs)', display: 'grid', gap: 2 },
   commandCard_good: { borderColor: 'rgba(20,131,79,0.22)' },

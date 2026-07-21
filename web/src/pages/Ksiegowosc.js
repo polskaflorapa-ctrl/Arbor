@@ -21,10 +21,10 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 
 const STATUS_KOLOR = {
-  Nieoplacona: '#F9A825',
-  Oplacona: '#4CAF50',
-  Przeterminowana: '#EF5350',
-  Anulowana: '#9CA3AF',
+  Nieoplacona: '#bd701e',
+  Oplacona: '#7f8c12',
+  Przeterminowana: '#c0492f',
+  Anulowana: '#9a907a',
 };
 
 export default function Ksiegowosc() {
@@ -290,17 +290,17 @@ export default function Ksiegowosc() {
             <div style={styles.kpiNum}>{fmt(stats.przychod_total)} PLN</div>
             <div style={styles.kpiLabel}>Łączny przychód</div>
           </div>
-          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #4CAF50'}}>
+          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #7f8c12'}}>
             <div style={styles.kpiIcon}><CheckCircleOutline style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{fmt(stats.oplacone)} PLN</div>
             <div style={styles.kpiLabel}>Opłacone</div>
           </div>
-          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #F9A825'}}>
+          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #bd701e'}}>
             <div style={styles.kpiIcon}><HourglassEmptyOutlined style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{fmt(stats.nieoplacone)} PLN</div>
             <div style={styles.kpiLabel}>Nieopłacone</div>
           </div>
-          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #EF5350'}}>
+          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #c0492f'}}>
             <div style={styles.kpiIcon}><WarningAmberOutlined style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{fmt(stats.przeterminowane)} PLN</div>
             <div style={styles.kpiLabel}>Przeterminowane</div>
@@ -393,7 +393,7 @@ export default function Ksiegowosc() {
                     actions={
                       <>
                         <select
-                          style={{...styles.statusSelect, borderColor: STATUS_KOLOR[f.status] || '#9CA3AF'}}
+                          style={{...styles.statusSelect, borderColor: STATUS_KOLOR[f.status] || '#9a907a'}}
                           value={f.status}
                           onChange={e => zmienStatus(f.id, e.target.value)}
                         >
@@ -563,7 +563,7 @@ export default function Ksiegowosc() {
                 </div>
                 <div style={styles.sumaRow}>
                   <span>VAT:</span>
-                  <span style={{fontWeight: '600', color: '#F9A825'}}>{fmt(sumaVat)} PLN</span>
+                  <span style={{fontWeight: '600', color: '#bd701e'}}>{fmt(sumaVat)} PLN</span>
                 </div>
                 <div style={{...styles.sumaRow, borderTop: '2px solid var(--border)', paddingTop: 8, marginTop: 4}}>
                   <span style={{fontSize: 16, fontWeight: 'bold'}}>Do zapłaty:</span>
@@ -695,7 +695,7 @@ const styles = {
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 6 },
   filtrLabel: { fontSize: 12, fontWeight: '600', color: 'var(--text-sub)' },
   filtrSelect: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
-  clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
+  clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
   filtrCount: { fontSize: 13, color: 'var(--accent)', fontWeight: '600', marginLeft: 'auto' },
   tableWrap: { overflowX: 'auto', borderRadius: 8, border: '1px solid var(--glass-border)' },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 900 },
@@ -725,7 +725,7 @@ const styles = {
   input: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' },
   inputSm: { padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
   addPozBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
-  delBtn: { padding: '4px 8px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 },
+  delBtn: { padding: '4px 8px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 },
   sumaBox: { backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', maxWidth: 340, marginLeft: 'auto', marginTop: 16 },
   sumaRow: { display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 14, color: 'var(--text-sub)' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 },

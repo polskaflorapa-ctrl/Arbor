@@ -294,7 +294,7 @@ const S = {
   cardTitle: { marginTop: 6, fontSize: 20, fontWeight: 800, color: 'var(--text)', overflowWrap: 'anywhere' },
   cardSub: { marginTop: 3, fontSize: 12, color: 'var(--text-sub)' },
   metricLine: { marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-sub)' },
-  delegationText: { color: '#f59e0b', fontWeight: 800 },
+  delegationText: { color: '#bd701e', fontWeight: 800 },
   summaryBar: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',

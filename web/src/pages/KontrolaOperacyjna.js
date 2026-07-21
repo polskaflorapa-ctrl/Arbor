@@ -833,7 +833,7 @@ export default function KontrolaOperacyjna() {
 }
 
 const s = {
-  layout: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)' },
+  layout: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f0ebdd 0%, #ffffff 46%, #f0ebdd 100%)' },
   main: { flex: 1, width: '100%', maxWidth: 1480, margin: '0 auto', padding: '22px clamp(16px, 2.4vw, 30px) 32px', minWidth: 0 },
   headerActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
   primaryBtn: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', borderRadius: 8, padding: '9px 13px', fontWeight: 850, cursor: 'pointer', boxShadow: '0 8px 18px rgba(20,131,79,0.16)' },

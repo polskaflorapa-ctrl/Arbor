@@ -53,7 +53,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               padding: 'clamp(24px, 4vw, 44px)',
               borderRadius: 18,
               background:
-                'linear-gradient(90deg, rgba(148, 163, 184, 0.16) 1px, transparent 1px), linear-gradient(0deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px), linear-gradient(135deg, #07131f 0%, #0b3d32 58%, #06251f 100%)',
+                'linear-gradient(90deg, rgba(148, 163, 184, 0.16) 1px, transparent 1px), linear-gradient(0deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px), linear-gradient(135deg, #5d6a0b 0%, #456b1f 58%, #456b1f 100%)',
               backgroundSize: '52px 52px, 52px 52px, auto',
               border: '1px solid rgba(15, 23, 42, 0.1)',
               boxShadow: '0 26px 70px rgba(15, 23, 42, 0.16)',

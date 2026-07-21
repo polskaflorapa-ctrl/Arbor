@@ -367,7 +367,7 @@ export default function PayrollM11() {
             style={{
               ...card,
               marginBottom: 16,
-              borderColor: 'var(--warning, #ca8a04)',
+              borderColor: 'var(--warning, #995510)',
               background: 'rgba(202, 138, 4, 0.08)',
             }}
           >
@@ -478,7 +478,7 @@ export default function PayrollM11() {
                       {t('payrollM11.reportApproved')}
                     </span>
                   ) : (
-                    <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: 'var(--warning, #ca8a04)' }}>
+                    <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: 'var(--warning, #995510)' }}>
                       {t('payrollM11.reportPending')}
                     </span>
                   )}
@@ -628,7 +628,7 @@ const btnPri = {
   borderRadius: 10,
   border: 'none',
   background: 'var(--accent)',
-  color: '#052E16',
+  color: '#456b1f',
   fontWeight: 700,
   cursor: 'pointer',
 };

@@ -227,7 +227,7 @@ export function DevPanel() {
               padding: '6px 0',
               borderRadius: 6,
               border: 'none',
-              background: tab === key ? '#ff6b6b' : 'rgba(255,107,107,0.12)',
+              background: tab === key ? '#c0492f' : 'rgba(255,107,107,0.12)',
               color: tab === key ? '#fff' : '#ccc',
               fontWeight: tab === key ? 700 : 400,
               fontSize: 12,
@@ -292,11 +292,11 @@ export function DevPanel() {
               </span>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <label style={{ fontSize: 11, color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ width: 14, height: 14, accentColor: '#ff6b6b', cursor: 'pointer' }} />
+                  <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ width: 14, height: 14, accentColor: '#c0492f', cursor: 'pointer' }} />
                   auto 30s
                 </label>
                 <Button variant="primary" size="sm" disabled={running} loading={running} onClick={runDiagnostics} leftIcon={Activity} style={{
-                  padding: '4px 12px', borderRadius: 6, border: 'none', background: '#ff6b6b',
+                  padding: '4px 12px', borderRadius: 6, border: 'none', background: '#c0492f',
                   color: '#fff', fontWeight: 700, fontSize: 12, cursor: running ? 'default' : 'pointer', opacity: running ? 0.6 : 1,
                 }}>
                   Sprawdź
@@ -309,7 +309,7 @@ export function DevPanel() {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12,
               }}>
-                <span style={{ color: p.status === 'ok' ? '#4ade80' : p.status === 'error' ? '#f87171' : '#888', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>
+                <span style={{ color: p.status === 'ok' ? '#7f8c12' : p.status === 'error' ? '#c0492f' : '#888', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>
                   {p.status === 'ok' ? '✓' : p.status === 'error' ? '✗' : '○'} {p.name}
                 </span>
                 <span style={{ color: '#aaa', fontSize: 11, whiteSpace: 'nowrap' }}>
@@ -320,7 +320,7 @@ export function DevPanel() {
             ))}
 
             {errCount > 0 && (
-              <p style={{ fontSize: 11, color: '#f87171', marginTop: 8, marginBottom: 0 }}>
+              <p style={{ fontSize: 11, color: '#c0492f', marginTop: 8, marginBottom: 0 }}>
                 {errCount} błąd(y) — sprawdź czy OS backend jest uruchomiony.
               </p>
             )}

@@ -154,14 +154,14 @@ export default function RaportyCentrum() {
 }
 
 const S = {
-  wrap: { display: 'flex', minHeight: '100vh', background: '#f3f6f8' },
+  wrap: { display: 'flex', minHeight: '100vh', background: '#f0ebdd' },
   main: { flex: 1, width: '100%', padding: '18px 28px 40px', maxWidth: 1240, margin: '0 auto', minWidth: 0 },
   hero: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) auto',
     gap: 18,
     alignItems: 'center',
-    border: '1px solid #dbe3ea',
+    border: '1px solid #e0d9c8',
     borderRadius: 10,
     background: '#ffffff',
     boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
@@ -173,7 +173,7 @@ const S = {
   subtitle: { margin: 0, color: 'var(--text-sub)', fontSize: 14, lineHeight: 1.5, maxWidth: 680, fontWeight: 650 },
   heroStats: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(92px, 1fr))', gap: 10 },
   statBox: {
-    border: '1px solid #dbe3ea',
+    border: '1px solid #e0d9c8',
     borderRadius: 8,
     background: '#ffffff',
     padding: '12px 14px',
@@ -184,7 +184,7 @@ const S = {
   statLabel: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
   statValue: { color: 'var(--accent)', fontSize: 24, fontWeight: 950 },
   section: {
-    border: '1px solid #dbe3ea',
+    border: '1px solid #e0d9c8',
     borderRadius: 10,
     background: '#ffffff',
     boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
@@ -198,7 +198,7 @@ const S = {
   card: {
     minHeight: 118,
     textAlign: 'left',
-    border: '1px solid #dbe3ea',
+    border: '1px solid #e0d9c8',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
@@ -212,7 +212,7 @@ const S = {
   compactCard: {
     minHeight: 104,
     textAlign: 'left',
-    border: '1px solid #dbe3ea',
+    border: '1px solid #e0d9c8',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
@@ -223,15 +223,15 @@ const S = {
     cursor: 'pointer',
     fontFamily: 'inherit',
   },
-  green: { borderLeft: '4px solid #0f766e' },
-  blue: { borderLeft: '4px solid #2563eb' },
-  cyan: { borderLeft: '4px solid #0891b2' },
-  amber: { borderLeft: '4px solid #d97706' },
+  green: { borderLeft: '4px solid #5d6a0b' },
+  blue: { borderLeft: '4px solid #766440' },
+  cyan: { borderLeft: '4px solid #766440' },
+  amber: { borderLeft: '4px solid #bd701e' },
   cardEyebrow: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
   cardTop: { display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'space-between' },
   cardTitle: { color: 'var(--text)', fontSize: 16, lineHeight: 1.25, fontWeight: 900 },
   metric: {
-    border: '1px solid #dbe3ea',
+    border: '1px solid #e0d9c8',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--accent)',

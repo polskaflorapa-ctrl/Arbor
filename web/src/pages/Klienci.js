@@ -223,12 +223,12 @@ export default function Klienci() {
   const fmtPln = (v) => v != null ? `${Number(v).toLocaleString('pl-PL')} zł` : '—';
 
   const statusColor = (s) => ({
-    'Zaplanowane': '#1d4ed8', 'W_Trakcie': '#b45309',
+    'Zaplanowane': '#766440', 'W_Trakcie': '#995510',
     'Zakonczone': 'var(--accent-dk)', 'Anulowane': 'var(--danger)',
   }[s] || 'var(--text-muted)');
 
   const taskStatusColor = (s) => ({
-    'W_Trakcie': '#b45309', 'Zakończone': 'var(--accent-dk)',
+    'W_Trakcie': '#995510', 'Zakończone': 'var(--accent-dk)',
     'Anulowane': 'var(--danger)', 'Wstrzymane': 'var(--text-muted)',
   }[s] || getTaskStatusColor(s, 'var(--text-muted)'));
 
@@ -410,7 +410,7 @@ export default function Klienci() {
                   <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.08, fontWeight: 950, color: '#ffffff' }}>
                     {detail.imie} {detail.nazwisko}
                   </h1>
-                  {detail.firma && <p style={{ margin: '6px 0 0', fontSize: 14, color: '#bbf7d0', fontWeight: 850 }}>{detail.firma}</p>}
+                  {detail.firma && <p style={{ margin: '6px 0 0', fontSize: 14, color: '#e4efd6', fontWeight: 850 }}>{detail.firma}</p>}
                   <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(240,253,244,0.78)', fontWeight: 750 }}>
                     Klient od {fmt(detail.created_at)}
                     {detail.created_by_nazwa && ` · dodał ${detail.created_by_nazwa}`}
@@ -749,11 +749,11 @@ const sec = {
     padding: 18,
     borderRadius: 8,
     border: '1px solid rgba(255,255,255,0.16)',
-    background: 'linear-gradient(135deg, #0B3825 0%, #0F5F3A 58%, #168A4A 100%)',
+    background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 58%, #456b1f 100%)',
     boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
   },
   eyebrow: {
-    color: '#86efac',
+    color: '#e4efd6',
     fontSize: 11,
     fontWeight: 950,
     textTransform: 'uppercase',

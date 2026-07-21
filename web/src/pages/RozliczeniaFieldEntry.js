@@ -24,9 +24,9 @@ const TABS = [
 const VALID_TABS = new Set(TABS.map((tab) => tab.key));
 
 const STATUS_COLOR = {
-  Potwierdzone: '#4ade80',
-  Odrzucone:    '#f87171',
-  Oczekuje:     '#fbbf24',
+  Potwierdzone: '#7f8c12',
+  Odrzucone:    '#c0492f',
+  Oczekuje:     '#bd701e',
 };
 
 const OPERATIONAL_COST_CATEGORIES = [
@@ -316,7 +316,7 @@ export default function RozliczeniaFieldEntry() {
             padding: '10px 14px', borderRadius: 8, marginBottom: 14,
             background: msg.type === 'ok' ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
             border: `1px solid ${msg.type === 'ok' ? '#4ade8044' : '#f8717144'}`,
-            color: msg.type === 'ok' ? '#4ade80' : '#f87171',
+            color: msg.type === 'ok' ? '#7f8c12' : '#c0492f',
             fontSize: 13, fontWeight: 600,
           }}>
             {msg.text}
@@ -472,8 +472,8 @@ export default function RozliczeniaFieldEntry() {
                       borderRadius: 8, padding: '6px 12px',
                       display: 'flex', flexDirection: 'column', justifyContent: 'center',
                     }}>
-                      <div style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>Koszt</div>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: '#4ade80' }}>
+                      <div style={{ fontSize: 11, color: '#7f8c12', fontWeight: 600 }}>Koszt</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#7f8c12' }}>
                         {fmt(parseFloat(p.godziny) * parseFloat(p.stawka_godzinowa))} PLN
                       </div>
                     </div>
@@ -486,14 +486,14 @@ export default function RozliczeniaFieldEntry() {
                     <button
                       type="button"
                       onClick={() => zatwierdz(p.id, 'Odrzucone')}
-                      style={{ ...actionBtn, background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}
+                      style={{ ...actionBtn, background: 'rgba(248,113,113,0.1)', color: '#c0492f', border: '1px solid rgba(248,113,113,0.3)' }}
                     >
                       Odrzuć
                     </button>
                     <button
                       type="button"
                       onClick={() => zatwierdz(p.id, 'Potwierdzone')}
-                      style={{ ...actionBtn, background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)' }}
+                      style={{ ...actionBtn, background: 'rgba(74,222,128,0.1)', color: '#7f8c12', border: '1px solid rgba(74,222,128,0.3)' }}
                     >
                       Zatwierdź
                     </button>
@@ -600,12 +600,12 @@ export default function RozliczeniaFieldEntry() {
                   <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, paddingBottom: 6, marginBottom: 6, borderBottom: '1px solid var(--border)' }}>
                     <span>{p.imie} {p.nazwisko}</span>
                     <span style={{ color: 'var(--text-muted)' }}>{p.godziny} h × {p.stawka_godzinowa}</span>
-                    <span style={{ fontWeight: 700, color: '#f87171' }}>{fmt(p.koszt)} PLN</span>
+                    <span style={{ fontWeight: 700, color: '#c0492f' }}>{fmt(p.koszt)} PLN</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 14, marginTop: 4 }}>
                   <span>Razem koszty</span>
-                  <span style={{ color: '#f87171' }}>{fmt(sumaKosztow)} PLN</span>
+                  <span style={{ color: '#c0492f' }}>{fmt(sumaKosztow)} PLN</span>
                 </div>
               </div>
             )}
@@ -779,7 +779,7 @@ export default function RozliczeniaFieldEntry() {
                     <span style={{ color: 'var(--text-muted)' }}>{r.label}</span>
                     <span style={{
                       fontWeight: 600,
-                      color: r.danger ? '#f87171' : r.muted ? 'var(--text-muted)' : 'var(--text)',
+                      color: r.danger ? '#c0492f' : r.muted ? 'var(--text-muted)' : 'var(--text)',
                     }}>{r.value}</span>
                   </div>
                 ))}
@@ -787,7 +787,7 @@ export default function RozliczeniaFieldEntry() {
                   <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
                     Wynagrodzenie brygadzisty ({wynik.procent_brygadzisty}%)
                   </span>
-                  <span style={{ fontSize: 24, fontWeight: 900, color: '#4ade80' }}>
+                  <span style={{ fontSize: 24, fontWeight: 900, color: '#7f8c12' }}>
                     {fmt(wynik.wynagrodzenie_brygadzisty)} PLN
                   </span>
                 </div>
@@ -818,9 +818,9 @@ export default function RozliczeniaFieldEntry() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
                 {[
                   { label: 'Dziś', value: `${fmt(overview.pay_today)} PLN`, color: 'var(--accent)' },
-                  { label: 'Tydzień', value: `${fmt(overview.pay_week)} PLN`, color: '#60a5fa' },
-                  { label: 'Miesiąc', value: `${fmt(overview.pay_month)} PLN`, color: '#4ade80' },
-                  { label: 'Godz./miesiąc', value: `${parseFloat(overview.hours_month || 0).toFixed(1)} h`, color: '#fbbf24' },
+                  { label: 'Tydzień', value: `${fmt(overview.pay_week)} PLN`, color: '#f1f3d6' },
+                  { label: 'Miesiąc', value: `${fmt(overview.pay_month)} PLN`, color: '#7f8c12' },
+                  { label: 'Godz./miesiąc', value: `${parseFloat(overview.hours_month || 0).toFixed(1)} h`, color: '#bd701e' },
                 ].map((k) => (
                   <div key={k.label} style={{
                     background: 'var(--surface-glass)', border: '1px solid var(--border)',
@@ -838,8 +838,8 @@ export default function RozliczeniaFieldEntry() {
               <>
                 {/* Podsumowanie dnia */}
                 <div style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 12, padding: 20, marginBottom: 16, textAlign: 'center' }}>
-                  <div style={{ fontSize: 12, color: '#4ade80', marginBottom: 6 }}>Zarobek dnia ({dayData.data})</div>
-                  <div style={{ fontSize: 32, fontWeight: 900, color: '#4ade80' }}>
+                  <div style={{ fontSize: 12, color: '#7f8c12', marginBottom: 6 }}>Zarobek dnia ({dayData.data})</div>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: '#7f8c12' }}>
                     {fmt(dayData.podsumowanie.wynagrodzenie_brygadzisty)} PLN
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
@@ -859,7 +859,7 @@ export default function RozliczeniaFieldEntry() {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                           <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{z.klient_nazwa}</span>
-                          <span style={{ fontWeight: 800, color: '#4ade80', fontSize: 14 }}>
+                          <span style={{ fontWeight: 800, color: '#7f8c12', fontSize: 14 }}>
                             {z.wynagrodzenie_brygadzisty ? `${fmt(z.wynagrodzenie_brygadzisty)} PLN` : 'Brak rozliczenia'}
                           </span>
                         </div>

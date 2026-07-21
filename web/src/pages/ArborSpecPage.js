@@ -19,7 +19,7 @@ const styles = {
     minHeight: '100vh',
     margin: 0,
     padding: 0,
-    background: '#f6faf7',
+    background: '#f0ebdd',
     overflow: 'hidden',
   },
   frame: {
@@ -27,6 +27,6 @@ const styles = {
     width: '100vw',
     height: '100vh',
     border: 0,
-    background: '#f6faf7',
+    background: '#f0ebdd',
   },
 };

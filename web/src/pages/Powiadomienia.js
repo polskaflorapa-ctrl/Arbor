@@ -17,9 +17,9 @@ import { BellOff, Check, CheckCheck, Plus, Send, Trash2, X } from 'lucide-react'
 
 const TYP_META = [
   { value: 'skonczylem_wczesniej', labelKey: 'pages.powiadomienia.reqDoneEarlyLabel', descKey: 'pages.powiadomienia.reqDoneEarlyDesc', color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
-  { value: 'potrzebuje_czasu', labelKey: 'pages.powiadomienia.reqNeedTimeLabel', descKey: 'pages.powiadomienia.reqNeedTimeDesc', color: '#F9A825', bg: '#FFF8E1' },
-  { value: 'problem', labelKey: 'pages.powiadomienia.reqProblemLabel', descKey: 'pages.powiadomienia.reqProblemDesc', color: '#EF5350', bg: '#FFEBEE' },
-  { value: 'pytanie', labelKey: 'pages.powiadomienia.reqQuestionLabel', descKey: 'pages.powiadomienia.reqQuestionDesc', color: '#2196F3', bg: '#E3F2FD' },
+  { value: 'potrzebuje_czasu', labelKey: 'pages.powiadomienia.reqNeedTimeLabel', descKey: 'pages.powiadomienia.reqNeedTimeDesc', color: '#bd701e', bg: '#fae7d2' },
+  { value: 'problem', labelKey: 'pages.powiadomienia.reqProblemLabel', descKey: 'pages.powiadomienia.reqProblemDesc', color: '#c0492f', bg: '#f0ebdd' },
+  { value: 'pytanie', labelKey: 'pages.powiadomienia.reqQuestionLabel', descKey: 'pages.powiadomienia.reqQuestionDesc', color: '#766440', bg: '#f1f3d6' },
   { value: 'info', labelKey: 'pages.powiadomienia.reqInfoLabel', descKey: 'pages.powiadomienia.reqInfoDesc', color: 'var(--text-muted)', bg: 'var(--border)' },
 ];
 
@@ -179,10 +179,10 @@ export default function Powiadomienia() {
 
   const getTypInfo = (typ) => {
     if (typ === 'Odprawa ekipy') {
-      return { label: 'Odprawa ekipy', color: '#0f766e', bg: '#ccfbf1' };
+      return { label: 'Odprawa ekipy', color: '#5d6a0b', bg: '#e4efd6' };
     }
     if (typ === 'Przypomnienie odprawy') {
-      return { label: 'Przypomnienie odprawy', color: '#b45309', bg: '#fef3c7' };
+      return { label: 'Przypomnienie odprawy', color: '#995510', bg: '#fae7d2' };
     }
     return typChoices.find((x) => x.value === typ) || {
       label: t(`notifType.${typ}`, { defaultValue: typ }),
@@ -347,7 +347,7 @@ export default function Powiadomienia() {
                         <span style={styles.notifOd}>
                           {n.od_kogo ? `${t('sidebar.fromPrefix')} ${n.od_kogo}` : t('pages.powiadomienia.fromSystem')}
                         </span>
-                        <span style={{...styles.notifStatus, color: n.status === 'Nowe' ? '#F9A825' : '#4CAF50'}}>
+                        <span style={{...styles.notifStatus, color: n.status === 'Nowe' ? '#bd701e' : '#7f8c12'}}>
                           {n.status === 'Nowe'
                             ? t('pages.powiadomienia.statusNew')
                             : isRouteBrief ? 'Potwierdzona' : t('pages.powiadomienia.statusRead')}
@@ -434,11 +434,11 @@ const styles = {
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 },
   cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 14, transition: 'all 0.2s' },
   submitBtn: { padding: '10px 24px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-1px)' } },
-  routeBriefNotice: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: '10px 12px', border: '1px solid #99f6e4', borderRadius: 8, background: '#f0fdfa', color: '#0f766e', fontSize: 13 },
+  routeBriefNotice: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: '10px 12px', border: '1px solid #e4efd6', borderRadius: 8, background: '#f0ebdd', color: '#5d6a0b', fontSize: 13 },
   card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 },
-  unreadBadge: { backgroundColor: '#F9A825', color: '#fff', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: '600' },
+  unreadBadge: { backgroundColor: '#bd701e', color: '#fff', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: '600' },
   loading: { textAlign: 'center', padding: 40, color: 'var(--text-muted)' },
   empty: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
   emptyIcon: { display: 'none' },
@@ -451,12 +451,12 @@ const styles = {
   notifStatus: { fontSize: 11, fontWeight: '600' },
   notifTyp: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   notifTresc: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 8, fontStyle: 'italic', backgroundColor: 'var(--surface-glass)', padding: '8px 12px', borderRadius: 8 },
-  routeBriefMeta: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8, padding: '7px 9px', borderRadius: 8, border: '1px solid #99f6e4', background: '#f0fdfa', color: '#0f766e', fontSize: 12 },
+  routeBriefMeta: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8, padding: '7px 9px', borderRadius: 8, border: '1px solid #e4efd6', background: '#f0ebdd', color: '#5d6a0b', fontSize: 12 },
   notifTask: { fontSize: 12, color: 'var(--accent)', cursor: 'pointer', marginBottom: 8, display: 'inline-block', backgroundColor: 'var(--surface-field)', padding: '4px 10px', borderRadius: 6, '&:hover': { textDecoration: 'underline' } },
   notifFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 8 },
   notifTime: { fontSize: 11, color: 'var(--text-muted)' },
   notifActions: { display: 'flex', gap: 8 },
   readBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border)' } },
-  confirmBriefBtn: { padding: '5px 10px', backgroundColor: '#ccfbf1', color: '#0f766e', border: '1px solid #5eead4', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 800, transition: 'all 0.2s' },
-  deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: '#FFCDD2' } }
+  confirmBriefBtn: { padding: '5px 10px', backgroundColor: '#e4efd6', color: '#5d6a0b', border: '1px solid #f1f3d6', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 800, transition: 'all 0.2s' },
+  deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: '#f6e0d9' } }
 };
