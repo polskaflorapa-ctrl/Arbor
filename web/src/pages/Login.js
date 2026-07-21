@@ -155,6 +155,18 @@ export default function Login() {
       <div className="login-glow login-glow-primary" style={s.bgGlow1} />
       <div className="login-glow login-glow-side" style={s.bgGlow2} />
 
+      {/* Animowana warstwa: opadające listki (dekoracja, poza czytnikami ekranu) */}
+      <div className="login-canopy" aria-hidden="true">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <span className="login-leaf" key={i}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C7 6 4 10 4 15a8 8 0 0 0 16 0c0-5-3-9-8-13Zm0 4.5c3 2.7 4.5 5.4 4.5 8.5a4.5 4.5 0 0 1-9 0c0-3.1 1.5-5.8 4.5-8.5Z" />
+              <path d="M12 8v11" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+            </svg>
+          </span>
+        ))}
+      </div>
+
       <section className="login-command-panel" style={s.commandPanel} aria-label="Polska Flora - panel operacyjny">
         <BrandLogo
           background="dark"
@@ -167,10 +179,10 @@ export default function Login() {
           i usług pielęgnacji zieleni w Małopolsce.
         </p>
         <div style={s.featureList}>
-          <div style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>PF</span> Zgłoszenia z telefonu, CRM i formularzy</div>
-          <div style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>OG</span> Oględziny i trasy dla specjalistów</div>
-          <div style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>CRM</span> Pipeline, statusy i kontrola oddziału</div>
-          <div style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>AI</span> Telefonia z agentką Anią i SMS-ami</div>
+          <div className="login-feature-row" style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>PF</span> Zgłoszenia z telefonu, CRM i formularzy</div>
+          <div className="login-feature-row" style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>OG</span> Oględziny i trasy dla specjalistów</div>
+          <div className="login-feature-row" style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>CRM</span> Pipeline, statusy i kontrola oddziału</div>
+          <div className="login-feature-row" style={s.featureRow}><span className="login-feature-icon" style={s.featureIcon}>AI</span> Telefonia z agentką Anią i SMS-ami</div>
         </div>
       </section>
 
