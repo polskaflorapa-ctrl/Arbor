@@ -1,0 +1,118 @@
+/* =====================================================================
+   Polska Flora — SKÓRA PROTOTYPU dla wszystkich modułów.
+
+   Moduły stylują się przez tokeny CSS (var(--accent), var(--surface-glass)
+   itd. — ~4000 użyć). Te tokeny były definiowane wielokrotnie w róznych
+   plikach z NIEspójnymi wartościami (teal/emerald/cyan), przez co moduły
+   renderowały się w obcych kolorach zamiast palety Polska Flora.
+
+   Ten plik jest JEDNYM ŹRÓDŁEM PRAWDY: przedefiniowuje cały słownik tokenów
+   na dokładne wartości prototypów (platform/public/prototypes/arbor-os.html)
+   i wygrywa kaskadę przez #root .arbor-os-shell (specyficzność id) + !important
+   + ostatni import. Zmienia WSZYSTKIE moduły naraz, bez dotykania 70 stron.
+
+   Zasięg: tylko zalogowane moduły (.arbor-os-shell z ProtectedRoute) —
+   logowanie i landing zachowują swoje style.
+   ===================================================================== */
+
+#root .arbor-os-shell {
+  /* --- Tekst (atrament prototypu) --- */
+  --text: #2c2011 !important;
+  --text-1: #2c2011 !important;
+  --text-sub: #5a5040 !important;
+  --text-2: #5a5040 !important;
+  --text-muted: #8a8069 !important;
+  --text-3: #8a8069 !important;
+  --on-accent: #23260a !important;
+
+  /* --- Tła i powierzchnie (krem + białe karty) --- */
+  --bg: #f3f0e6 !important;
+  --surface: #ffffff !important;
+  --surface-1: #ffffff !important;
+  --surface-2: #faf8f1 !important;
+  --surface-glass: #ffffff !important;
+  --glass-bg: #ffffff !important;
+  --glass-bg-strong: #ffffff !important;
+  --surface-field: #faf8f1 !important;
+  --accent-surface: rgba(160, 175, 20, 0.12) !important;
+  --accent-soft: rgba(160, 175, 20, 0.12) !important;
+
+  /* --- Obrysy (linia karty prototypu) --- */
+  --border: #ece6d7 !important;
+  --border-strong: #e0d9c8 !important;
+  --glass-border: #e0d9c8 !important;
+  --logo-tint-border: rgba(160, 175, 20, 0.28) !important;
+
+  /* --- Akcent marki: oliwkowa limonka #A0AF14 --- */
+  --accent: #a0af14 !important;
+  --accent-dk: #7f8c12 !important;
+  --accent-strong: #7f8c12 !important;
+  --accent-light: #b4c232 !important;
+  --accent-gradient: linear-gradient(135deg, #a0af14 0%, #7f8c12 100%) !important;
+  --brand-primary-green: #a0af14 !important;
+  --brand-light-green: #b4c232 !important;
+  --brand-green-dark: #7f8c12 !important;
+  --cc-accent-strong: #7f8c12 !important;
+  --cc-accent-soft: rgba(160, 175, 20, 0.12) !important;
+
+  /* --- Marka: brąz --- */
+  --pf-brown: #3b2a18 !important;
+  --pf-brown-dark: #2a1d0f !important;
+
+  /* --- Statusy w palecie prototypu --- */
+  --danger: #c0492f !important;
+  --danger-surface: #f6e0d9 !important;
+  --warning: #bd701e !important;
+  --warning-surface: #fae7d2 !important;
+  --success: #456b1f !important;
+  --success-surface: #e4efd6 !important;
+  --info: #5d6a0b !important;
+  --info-surface: #f1f3d6 !important;
+
+  /* --- Cienie: miękkie, ciepłe (brąz zamiast czerni) --- */
+  --shadow-sm: 0 1px 3px rgba(43, 29, 15, 0.06) !important;
+  --shadow-md: 0 8px 24px rgba(43, 29, 15, 0.08) !important;
+  --shadow-lg: 0 18px 48px rgba(43, 29, 15, 0.12) !important;
+  --street-card-shadow: 0 8px 24px rgba(43, 29, 15, 0.08) !important;
+
+  /* --- Typografia prototypu --- */
+  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+
+  /* Tło strony modułu = ciepły papier prototypu */
+  background: radial-gradient(1200px 700px at 100% -10%, rgba(160, 175, 20, 0.06), transparent 60%), #f3f0e6 !important;
+}
+
+/* --- Globalne poprawki, których tokeny nie łapią (bez konfliktu z inline) --- */
+
+/* Pasek przewijania w oliwce */
+#root .arbor-os-shell *::-webkit-scrollbar { width: 11px; height: 11px; }
+#root .arbor-os-shell *::-webkit-scrollbar-thumb {
+  background: #d8d0be; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box;
+}
+#root .arbor-os-shell *::-webkit-scrollbar-thumb:hover { background: #a0af14; background-clip: padding-box; }
+#root .arbor-os-shell *::-webkit-scrollbar-track { background: transparent; }
+
+/* Zaznaczenie tekstu */
+#root .arbor-os-shell ::selection { background: rgba(160, 175, 20, 0.28); color: #2c2011; }
+
+/* Natywne kontrolki formularza w oliwce */
+#root .arbor-os-shell input[type="checkbox"],
+#root .arbor-os-shell input[type="radio"],
+#root .arbor-os-shell input[type="range"],
+#root .arbor-os-shell progress { accent-color: #a0af14; }
+
+/* Karty/panele modułów (klasy *-panel/*-card/*-wrap) — miękkie rogi + cień
+   prototypu tam, gdzie tło/obrys idą z tokenów (nie zahardkodowane inline) */
+#root .arbor-os-shell [class*="-panel"],
+#root .arbor-os-shell [class*="-card"]:not(button):not([class*="metric"]),
+#root .arbor-os-shell [class*="-wrap"] {
+  border-radius: 14px;
+}
+
+/* Nagłówki sekcji — atrament + waga prototypu */
+#root .arbor-os-shell h1,
+#root .arbor-os-shell h2,
+#root .arbor-os-shell h3 {
+  color: #2c2011;
+  letter-spacing: -0.01em;
+}
