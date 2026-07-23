@@ -4,7 +4,6 @@ import { ThemeProvider } from './ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ROLE_GROUPS } from './utils/routeAccess';
 import Login from './pages/Login';
-import LandingPage from './pages/LandingPage';
 import AiChat from './components/AiChat';
 import { DevPanel } from './components/DevPanel';
 
@@ -132,7 +131,8 @@ function App() {
         <Suspense fallback={<RouteLoadingFallback />}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<LandingPage />} />
+          {/* Wejscie prosto do systemu — bez strony-wizytowki z danymi demo */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/arbor-os-spec" element={<ArborSpecPage />} />
           <Route path="/portal-klienta" element={<ClientPortal />} />
