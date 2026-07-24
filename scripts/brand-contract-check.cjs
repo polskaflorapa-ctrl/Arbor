@@ -357,7 +357,6 @@ function assertWebIntegration(baseDir = root) {
     "web/src/components/BrandLogo.js",
     "web/src/components/Sidebar.js",
     "web/src/pages/Login.js",
-    "web/src/pages/LandingPage.js",
     "web/src/index.css",
     "web/src/index.jsx",
     "web/src/styles/polska-flora-brand.css",
@@ -381,7 +380,6 @@ function assertWebIntegration(baseDir = root) {
   for (const file of [
     "web/src/components/Sidebar.js",
     "web/src/pages/Login.js",
-    "web/src/pages/LandingPage.js",
   ]) {
     const text = readText(file, baseDir);
     assertContains(text, /import\s+BrandLogo\s+from\s+["'][^"']*BrandLogo["']\s*;/, `${file} BrandLogo import`);

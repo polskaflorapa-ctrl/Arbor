@@ -108,7 +108,8 @@
             "./assets/brand/fonts/RoadUA-Thin.otf"
           ]
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

@@ -7,10 +7,9 @@ afterEach(() => {
   localStorage.clear();
 });
 
-test('renders public landing entrypoint by default', () => {
+test('redirects the default route straight to login (bez strony-wizytowki)', () => {
   render(<App />);
-  expect(screen.getByRole('heading', { name: /Centrum operacyjne/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Wy.*lij zg.*oszenie/i })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /Zaloguj/i })).toBeInTheDocument();
 });
 
 test('keeps login available on the login route', () => {
