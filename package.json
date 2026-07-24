@@ -144,14 +144,14 @@
     "@emotion/styled": "^11.14.1",
     "@types/react": "19.2.14",
     "concurrently": "^9.2.1",
-    "react-native": "0.85.3",
+    "react-native": "0.86.0",
     "vitest": "4.1.10",
     "yaml": "^2.9.0"
   },
   "overrides": {
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "0.85.3",
+    "react-native": "0.86.0",
     "js-yaml": "4.2.0",
     "@istanbuljs/load-nyc-config@1.1.0": {
       "js-yaml": "4.2.0"
