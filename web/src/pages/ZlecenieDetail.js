@@ -116,15 +116,15 @@ function gpsAgeMinutes(row) {
 function gpsStatus(row) {
   const age = gpsAgeMinutes(row);
   if (age == null) {
-    return { key: 'missing', label: 'GPS brak', meta: 'brak sygnalu', color: 'var(--text-muted)', bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.28)' };
+    return { key: 'missing', label: 'GPS brak', meta: 'brak sygnalu', color: 'var(--text-muted)', bg: 'rgba(154, 144, 122, 0.12)', border: 'rgba(154, 144, 122, 0.28)' };
   }
   if (age <= GPS_ONLINE_MINUTES) {
-    return { key: 'online', label: 'GPS online', meta: age <= 0 ? 'teraz' : `${age} min temu`, color: 'var(--success)', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.32)' };
+    return { key: 'online', label: 'GPS online', meta: age <= 0 ? 'teraz' : `${age} min temu`, color: 'var(--success)', bg: 'rgba(127, 140, 18, 0.12)', border: 'rgba(127, 140, 18, 0.32)' };
   }
   if (age <= GPS_STALE_MINUTES) {
-    return { key: 'stale', label: 'GPS opozniony', meta: `${age} min temu`, color: 'var(--warning)', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.34)' };
+    return { key: 'stale', label: 'GPS opozniony', meta: `${age} min temu`, color: 'var(--warning)', bg: 'rgba(189, 112, 30, 0.12)', border: 'rgba(189, 112, 30, 0.34)' };
   }
-  return { key: 'offline', label: 'GPS offline', meta: `${age} min temu`, color: 'var(--danger)', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.34)' };
+  return { key: 'offline', label: 'GPS offline', meta: `${age} min temu`, color: 'var(--danger)', bg: 'rgba(192, 73, 47, 0.12)', border: 'rgba(192, 73, 47, 0.34)' };
 }
 
 function gpsSourceLabel(row) {
@@ -1359,14 +1359,14 @@ export default function ZlecenieDetail() {
 
         <div style={{
           ...styles.presenceCard,
-          borderColor: latestCheckin ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.34)'
+          borderColor: latestCheckin ? 'rgba(127, 140, 18, 0.35)' : 'rgba(189, 112, 30, 0.34)'
         }}>
           <div style={styles.presenceHead}>
             <div style={styles.presenceTitleWrap}>
               <span style={{
                 ...styles.presenceIcon,
                 color: latestCheckin ? 'var(--success)' : 'var(--warning)',
-                backgroundColor: latestCheckin ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)'
+                backgroundColor: latestCheckin ? 'rgba(127, 140, 18, 0.12)' : 'rgba(189, 112, 30, 0.12)'
               }}>
                 <PlaceOutlined sx={{ fontSize: 20 }} />
               </span>
@@ -1380,8 +1380,8 @@ export default function ZlecenieDetail() {
             <span style={{
               ...styles.presencePill,
               color: latestCheckin ? 'var(--success)' : 'var(--warning)',
-              backgroundColor: latestCheckin ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-              borderColor: latestCheckin ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.34)'
+              backgroundColor: latestCheckin ? 'rgba(127, 140, 18, 0.12)' : 'rgba(189, 112, 30, 0.12)',
+              borderColor: latestCheckin ? 'rgba(127, 140, 18, 0.35)' : 'rgba(189, 112, 30, 0.34)'
             }}>
               {latestCheckin ? 'DOJECHALI' : checkinPhoto ? 'CHECK-IN FOTO' : 'CZEKA NA CHECK-IN'}
             </span>
@@ -1544,8 +1544,8 @@ export default function ZlecenieDetail() {
                   padding: '10px 12px',
                   marginBottom: 12,
                   borderRadius: 8,
-                  backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  backgroundColor: 'rgba(189, 112, 30, 0.12)',
+                  border: '1px solid rgba(189, 112, 30, 0.35)',
                   fontSize: 13,
                   color: 'var(--text-sub)',
                 }}
@@ -2248,7 +2248,7 @@ export default function ZlecenieDetail() {
             </div>
             <div style={{
               ...styles.evidenceWebCard,
-              borderColor: photoEvidenceMissingTypes.length ? 'rgba(245,158,11,0.34)' : 'rgba(34,197,94,0.32)'
+              borderColor: photoEvidenceMissingTypes.length ? 'rgba(189, 112, 30, 0.34)' : 'rgba(127, 140, 18, 0.32)'
             }}>
               <div style={styles.evidenceWebHead}>
                 <div>
@@ -2260,8 +2260,8 @@ export default function ZlecenieDetail() {
                 <span style={{
                   ...styles.evidenceWebScore,
                   color: photoEvidenceMissingTypes.length ? 'var(--warning)' : 'var(--success)',
-                  borderColor: photoEvidenceMissingTypes.length ? 'rgba(245,158,11,0.34)' : 'rgba(34,197,94,0.32)',
-                  backgroundColor: photoEvidenceMissingTypes.length ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)'
+                  borderColor: photoEvidenceMissingTypes.length ? 'rgba(189, 112, 30, 0.34)' : 'rgba(127, 140, 18, 0.32)',
+                  backgroundColor: photoEvidenceMissingTypes.length ? 'rgba(189, 112, 30, 0.12)' : 'rgba(127, 140, 18, 0.12)'
                 }}>
                   {photoEvidenceReadyCount}/{photoEvidenceRequiredTypes.length || 0} / {photoEvidencePct}%
                 </span>
@@ -2547,7 +2547,7 @@ export default function ZlecenieDetail() {
                           border: '1px solid var(--accent)',
                           borderRadius: 8,
                           padding: '6px 8px',
-                          background: 'var(--accent-soft, rgba(155,217,87,0.14))',
+                          background: 'var(--accent-soft, rgba(160, 175, 20, 0.14))',
                           color: 'var(--accent)',
                           cursor: 'pointer',
                           fontSize: 12,
@@ -2775,7 +2775,7 @@ const styles = {
   link: { color: 'var(--accent)', cursor: 'pointer', fontWeight: '500', '&:hover': { textDecoration: 'underline' } },
   sep: { color: 'var(--text-muted)' },
   topActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
-  pdfBtn: { padding: '8px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
+  pdfBtn: { padding: '8px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.22)', cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
   editBtn: { padding: '8px 18px', backgroundColor: '#766440', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#766440' } },
   saveBtn: { padding: '8px 18px', backgroundColor: 'var(--success)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#456b1f' } },
   cancelBtn: { padding: '8px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
@@ -2826,10 +2826,10 @@ const styles = {
   gpsHistoryControls: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' },
   gpsHistoryDateInput: { padding: '5px 8px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 700 },
   gpsHistoryCount: { border: '1px solid var(--border)', borderRadius: 999, padding: '5px 9px', color: 'var(--accent)', backgroundColor: 'var(--surface-field)', fontSize: 12, fontWeight: 900 },
-  gpsHistoryError: { border: '1px solid rgba(239,68,68,0.28)', color: 'var(--danger)', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: 8, padding: '9px 10px', marginBottom: 10, fontSize: 12, fontWeight: 800 },
+  gpsHistoryError: { border: '1px solid rgba(192, 73, 47, 0.28)', color: 'var(--danger)', backgroundColor: 'rgba(192, 73, 47, 0.08)', borderRadius: 8, padding: '9px 10px', marginBottom: 10, fontSize: 12, fontWeight: 800 },
   gpsHistorySummary: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 10 },
   gpsHistoryStrip: { display: 'flex', alignItems: 'center', gap: 5, minHeight: 34, border: '1px solid var(--border)', borderRadius: 8, backgroundColor: 'var(--surface-field)', padding: '9px 10px', overflowX: 'auto', marginBottom: 10 },
-  gpsHistoryDot: { width: 10, height: 10, borderRadius: '50%', border: '1px solid rgba(15,95,58,0.22)', flex: '0 0 auto' },
+  gpsHistoryDot: { width: 10, height: 10, borderRadius: '50%', border: '1px solid rgba(69, 107, 31, 0.22)', flex: '0 0 auto' },
   gpsHistoryTimeline: { display: 'grid', gap: 8, maxHeight: 300, overflow: 'auto', paddingRight: 2 },
   gpsHistoryPoint: { display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 8, backgroundColor: 'var(--surface-field)', padding: 10, minWidth: 0 },
   gpsHistoryPointDot: { width: 10, height: 10, borderRadius: '50%', flex: '0 0 auto' },
@@ -2839,8 +2839,8 @@ const styles = {
   equipmentCard: { border: '1px solid var(--border)', borderRadius: 8, padding: 12, backgroundColor: 'var(--surface-field)' },
   equipmentTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, fontSize: 14, color: 'var(--text)', flexWrap: 'wrap' },
   equipmentStatus: { padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' },
-  equipmentStatusActive: { backgroundColor: 'rgba(34,197,94,0.16)', color: 'var(--accent)' },
-  equipmentStatusInactive: { backgroundColor: 'rgba(148,163,184,0.18)', color: 'var(--text-muted)' },
+  equipmentStatusActive: { backgroundColor: 'rgba(127, 140, 18, 0.16)', color: 'var(--accent)' },
+  equipmentStatusInactive: { backgroundColor: 'rgba(154, 144, 122, 0.18)', color: 'var(--text-muted)' },
   equipmentMeta: { marginTop: 5, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35 },
   equipmentNote: { marginTop: 8, padding: '8px 10px', borderRadius: 8, backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.45 },
   notatki: { marginTop: 16, backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14 },
@@ -2860,8 +2860,8 @@ const styles = {
   evidenceWebScore: { border: '1px solid var(--border)', borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
   evidenceWebGrid: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   evidenceWebChip: { border: '1px solid var(--border)', borderRadius: 999, backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)', padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 },
-  evidenceWebChipActive: { color: 'var(--accent)', borderColor: 'var(--accent)', backgroundColor: 'rgba(34,197,94,0.12)' },
-  evidenceWebChipMissing: { color: 'var(--warning)', borderColor: 'rgba(245,158,11,0.4)', backgroundColor: 'rgba(245,158,11,0.12)' },
+  evidenceWebChipActive: { color: 'var(--accent)', borderColor: 'var(--accent)', backgroundColor: 'rgba(127, 140, 18, 0.12)' },
+  evidenceWebChipMissing: { color: 'var(--warning)', borderColor: 'rgba(189, 112, 30, 0.4)', backgroundColor: 'rgba(189, 112, 30, 0.12)' },
   evidenceWebMissing: { marginTop: 10, color: 'var(--warning)', fontSize: 12, fontWeight: 800 },
   evidenceWebOk: { marginTop: 10, color: 'var(--success)', fontSize: 12, fontWeight: 800 },
   empty: { textAlign: 'center', color: 'var(--text-muted)', padding: 24, fontSize: 14 },
@@ -2881,7 +2881,7 @@ const styles = {
   zdjeciaHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 },
   uploadBox: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   filtrSelect: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
-  uploadBtn: { padding: '8px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
+  uploadBtn: { padding: '8px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
   photoSectionTitle: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 12, display: 'inline-block', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 6 },
   photoSectionSub: { fontSize: 12, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 },
@@ -2917,7 +2917,7 @@ const styles = {
   overlayInfo: { marginTop: 10, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' },
   videoThumb: { width: '100%', height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--surface-field)' },
   mediaMetaBox: { display: 'grid', gap: 8, marginTop: 10 },
-  mediaDeleteBtn: { marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid rgba(248,113,113,0.35)', color: 'var(--danger)', background: 'transparent', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' },
+  mediaDeleteBtn: { marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid rgba(192, 73, 47, 0.35)', color: 'var(--danger)', background: 'transparent', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' },
   inlineForm: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' },
   workflowRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', backgroundColor: 'var(--surface-field)', borderRadius: 8 },
   editInput: { width: '100%', padding: '8px 12px', borderRadius: 8, border: '2px solid var(--accent)', fontSize: 14, outline: 'none', boxSizing: 'border-box' },

@@ -439,7 +439,7 @@ export default function CrmInbox() {
                   type="button"
                   className="ios-inset-row"
                   onClick={() => (row.ready ? applyPreset({ channel: row.channel }) : navigate('/integracje'))}
-                  style={{ textAlign: 'left', cursor: 'pointer', borderColor: row.ready ? 'rgba(15,95,58,0.22)' : 'rgba(245,158,11,0.28)' }}
+                  style={{ textAlign: 'left', cursor: 'pointer', borderColor: row.ready ? 'rgba(69, 107, 31, 0.22)' : 'rgba(189, 112, 30, 0.28)' }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <strong>{row.label}</strong>

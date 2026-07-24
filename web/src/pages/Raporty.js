@@ -1319,7 +1319,7 @@ export default function Raporty() {
                       <div style={styles.reportTaskMeta}><span style={styles.reportMetaLabel}>Termin</span><span style={styles.reportMetaValue}>{cb.due_at ? new Date(cb.due_at).toLocaleString(localeNum) : 'ASAP'}</span></div>
                       <div style={styles.btnRowInline}>
                         <button type="button" style={styles.smallActionBtn} onClick={() => zmienCallbackStatus(cb.id, 'done')}>Oznacz jako DONE</button>
-                        <button type="button" style={{ ...styles.smallActionBtn, borderColor: 'rgba(248,113,113,0.35)', color: 'var(--danger)' }} onClick={() => zmienCallbackStatus(cb.id, 'cancelled')}>Anuluj</button>
+                        <button type="button" style={{ ...styles.smallActionBtn, borderColor: 'rgba(192, 73, 47, 0.35)', color: 'var(--danger)' }} onClick={() => zmienCallbackStatus(cb.id, 'cancelled')}>Anuluj</button>
                       </div>
                     </div>
                   ))}
@@ -1396,21 +1396,21 @@ function getStatusColor(status) {
 const styles = {
   container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f0ebdd 0%, #ffffff 46%, #f0ebdd 100%)' },
   main: { flex: 1, width: '100%', maxWidth: 1560, margin: '0 auto', padding: '22px clamp(16px, 2.4vw, 30px) 32px', overflowX: 'hidden' },
-  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', background: 'linear-gradient(90deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.94))', backgroundSize: '32px 32px, 32px 32px, auto', padding: '12px 20px', borderRadius: 8, boxShadow: '0 10px 24px rgba(31,79,50,0.055)', border: '1px solid rgba(15,95,58,0.13)', flexWrap: 'wrap' },
+  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', background: 'linear-gradient(90deg, rgba(69, 107, 31, 0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(69, 107, 31, 0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.94))', backgroundSize: '32px 32px, 32px 32px, auto', padding: '12px 20px', borderRadius: 8, boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)', border: '1px solid rgba(69, 107, 31, 0.13)', flexWrap: 'wrap' },
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   filtrLabel: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
-  filtrInput: { padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.16)', fontSize: 13, backgroundColor: '#ffffff', color: 'var(--text)' },
-  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
+  filtrInput: { padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.16)', fontSize: 13, backgroundColor: '#ffffff', color: 'var(--text)' },
+  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: 'var(--danger)', border: '1px solid rgba(192, 73, 47, 0.35)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
   kpiRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 },
-  kpi: { background: '#ffffff', borderRadius: 8, padding: '14px 16px', boxShadow: '0 10px 24px rgba(31,79,50,0.055)', border: '1px solid rgba(15,95,58,0.13)', borderTopWidth: 3, borderTopStyle: 'solid', textAlign: 'center' },
+  kpi: { background: '#ffffff', borderRadius: 8, padding: '14px 16px', boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)', border: '1px solid rgba(69, 107, 31, 0.13)', borderTopWidth: 3, borderTopStyle: 'solid', textAlign: 'center' },
   kpiIcon: { display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   kpiNum: { fontSize: 'clamp(18px, 4vw, 22px)', fontWeight: 'bold', color: 'var(--text)' },
   kpiLabel: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
-  tabs: { display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid rgba(15,95,58,0.13)', flexWrap: 'wrap', background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: 6, boxShadow: '0 10px 24px rgba(31,79,50,0.045)' },
+  tabs: { display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid rgba(69, 107, 31, 0.13)', flexWrap: 'wrap', background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, padding: 6, boxShadow: '0 10px 24px rgba(69, 107, 31, 0.045)' },
   tab: { padding: '9px 14px', border: '1px solid transparent', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '700', color: 'var(--text-muted)', borderRadius: 8, transition: 'all 0.2s' },
-  tabActive: { color: 'var(--accent)', border: '1px solid rgba(20,131,79,0.22)', backgroundColor: 'var(--accent-surface)' },
+  tabActive: { color: 'var(--accent)', border: '1px solid rgba(69, 107, 31, 0.22)', backgroundColor: 'var(--accent-surface)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
-  card: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: 20, boxShadow: '0 12px 30px rgba(31,79,50,0.065)', marginBottom: 20 },
+  card: { background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, padding: 20, boxShadow: '0 12px 30px rgba(69, 107, 31, 0.065)', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   sumWartosc: { fontSize: 13, fontWeight: 'normal', color: 'var(--text-muted)', marginLeft: 8 },
   statusRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' },
@@ -1442,9 +1442,9 @@ const styles = {
   reportCardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 },
   reportTaskCard: {
     background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     borderRadius: 8,
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
@@ -1453,9 +1453,9 @@ const styles = {
   },
   reportMetricCard: {
     background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     borderRadius: 8,
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
@@ -1487,13 +1487,13 @@ const styles = {
   analyticsTdDay: { padding: '8px 6px', color: 'var(--text-sub)', fontSize: 12, borderBottom: '1px solid var(--border)', textAlign: 'center' },
   analyticsDayMatrix: { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(34px, 1fr))', gap: 6, maxWidth: 360 },
   analyticsDayCell: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 8, background: 'var(--surface-field)', color: 'var(--text-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' },
-  analyticsDayCellActive: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 8, background: 'var(--accent-surface)', color: 'var(--accent)', fontSize: 10, fontFamily: 'var(--font-mono)', boxShadow: '0 0 0 2px rgba(20,131,79,0.1)' },
+  analyticsDayCellActive: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 8, background: 'var(--accent-surface)', color: 'var(--accent)', fontSize: 10, fontFamily: 'var(--font-mono)', boxShadow: '0 0 0 2px rgba(69, 107, 31, 0.1)' },
   analyticsGoalsGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 },
-  goalCard: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: 10, boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
+  goalCard: { background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, padding: 10, boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)' },
   goalTitle: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },
   goalFields: { display: 'grid', gap: 8 },
-  goalInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.16)', fontSize: 12, backgroundColor: '#ffffff', color: 'var(--text)' },
-  goalSaveBtn: { marginTop: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  goalInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.16)', fontSize: 12, backgroundColor: '#ffffff', color: 'var(--text)' },
+  goalSaveBtn: { marginTop: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   telephonyGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 10 },
   btnRowInline: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' },
   smallActionBtn: { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--logo-tint-border)', backgroundColor: 'var(--surface-field)', color: 'var(--accent-dk)', fontSize: 11, fontWeight: 700, cursor: 'pointer' },

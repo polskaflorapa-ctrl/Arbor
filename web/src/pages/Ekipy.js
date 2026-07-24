@@ -551,7 +551,7 @@ export default function Ekipy() {
           </div>
           <div className="ekipy-summary-card ekipy-action-card" style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Akcja</div>
-            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
+            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
               Dodaj nową ekipę
             </button>
             <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/ranking-brygad')}>
@@ -827,7 +827,7 @@ export default function Ekipy() {
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--accent-dk)'}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent)'}
                           disabled={rateSaving}
-                          style={{ padding: '6px 12px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', transition: 'all 0.2s', opacity: rateSaving ? 0.7 : 1 }}>
+                          style={{ padding: '6px 12px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', transition: 'all 0.2s', opacity: rateSaving ? 0.7 : 1 }}>
                           {rateSaving ? '⏳' : 'Zapisz'}
                         </button>
                       </div>
@@ -918,7 +918,7 @@ export default function Ekipy() {
                         disabled={memberSaving}
                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f6e0d9'}
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0ebdd'}
-                        style={{ padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', border: '1px solid #f6e0d9', borderRadius: 6, cursor: memberSaving ? 'not-allowed' : 'pointer', fontSize: 13, color: '#c0492f', transition: 'all 0.15s', opacity: memberSaving ? 0.7 : 1 }}>
+                        style={{ padding: '4px 10px', backgroundColor: 'rgba(192, 73, 47, 0.1)', border: '1px solid #f6e0d9', borderRadius: 6, cursor: memberSaving ? 'not-allowed' : 'pointer', fontSize: 13, color: '#c0492f', transition: 'all 0.15s', opacity: memberSaving ? 0.7 : 1 }}>
                         ✕
             </button>
                     )}
@@ -1228,7 +1228,7 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
 const S = {
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.24)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
   assetAssignGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, marginBottom: 14, padding: 12, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)' },
   assetAssignRow: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' },
   assetListGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 },
@@ -1238,16 +1238,16 @@ const S = {
   assetRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: 10, borderRadius: 8, border: '1px solid var(--border)', borderLeft: '4px solid #7f8c12', marginBottom: 8, background: 'var(--surface-glass)' },
   assetName: { fontSize: 13, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   assetMeta: { fontSize: 11, color: 'var(--text-muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  assetRepairHistory: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 7, padding: '5px 7px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.22)', background: 'rgba(245,158,11,0.08)' },
+  assetRepairHistory: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 7, padding: '5px 7px', borderRadius: 7, border: '1px solid rgba(153, 85, 16, 0.22)', background: 'rgba(189, 112, 30, 0.08)' },
   assetRepairHistoryStatus: { fontSize: 10, color: '#995510', fontWeight: 900, textTransform: 'uppercase' },
   assetRepairHistoryText: { minWidth: 0, fontSize: 11, color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  assetCloseRepairBtn: { marginLeft: 'auto', padding: '3px 7px', borderRadius: 7, border: '1px solid rgba(20,131,79,0.28)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 10, fontWeight: 900 },
+  assetCloseRepairBtn: { marginLeft: 'auto', padding: '3px 7px', borderRadius: 7, border: '1px solid rgba(69, 107, 31, 0.28)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 10, fontWeight: 900 },
   assetActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  assetReportRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#995510', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
-  assetRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: '#c0492f', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  assetReportRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(153, 85, 16, 0.35)', background: 'rgba(189, 112, 30, 0.1)', color: '#995510', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  assetRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(192, 73, 47, 0.35)', background: 'rgba(192, 73, 47, 0.08)', color: '#c0492f', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   assetUnassignBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
-  teamAssetWarning: { display: 'inline-flex', maxWidth: '100%', padding: '4px 8px', marginBottom: 8, borderRadius: 7, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#c0492f', fontSize: 11, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  detailAssetWarning: { display: 'flex', flexDirection: 'column', gap: 4, padding: 12, marginBottom: 18, borderRadius: 8, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#c0492f', fontSize: 13, fontWeight: 700 },
+  teamAssetWarning: { display: 'inline-flex', maxWidth: '100%', padding: '4px 8px', marginBottom: 8, borderRadius: 7, border: '1px solid rgba(192, 73, 47, 0.32)', background: 'rgba(192, 73, 47, 0.08)', color: '#c0492f', fontSize: 11, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  detailAssetWarning: { display: 'flex', flexDirection: 'column', gap: 4, padding: 12, marginBottom: 18, borderRadius: 8, border: '1px solid rgba(192, 73, 47, 0.32)', background: 'rgba(192, 73, 47, 0.08)', color: '#c0492f', fontSize: 13, fontWeight: 700 },
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
   modalPanel: { width: 'min(680px, 100%)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface-glass)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 },
   modalHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: 12 },

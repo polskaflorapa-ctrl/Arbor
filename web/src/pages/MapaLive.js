@@ -1475,7 +1475,7 @@ export default function MapaLive() {
                 style={{
                   ...S.quickPlanReadiness,
                   borderColor: `${quickPlanStatusTone}55`,
-                  boxShadow: `0 0 0 1px ${quickPlanStatusTone}16, 0 12px 26px rgba(15,95,58,0.1)`,
+                  boxShadow: `0 0 0 1px ${quickPlanStatusTone}16, 0 12px 26px rgba(69, 107, 31, 0.1)`,
                 }}
               >
                 <span
@@ -1732,7 +1732,7 @@ export default function MapaLive() {
           ) : null}
 
           <div style={S.alertStrip}>
-            <div style={{ ...S.alertCard, borderColor: tasksWithoutGps.length ? 'rgba(190,18,60,0.28)' : 'rgba(20,131,79,0.2)' }}>
+            <div style={{ ...S.alertCard, borderColor: tasksWithoutGps.length ? 'rgba(163, 64, 42, 0.28)' : 'rgba(69, 107, 31, 0.2)' }}>
               <WarningAmberOutlined style={{ color: tasksWithoutGps.length ? '#a3402a' : '#456b1f', fontSize: 18 }} />
               <span>
                 {tasksWithoutGps.length
@@ -1740,7 +1740,7 @@ export default function MapaLive() {
                   : 'Kazde aktywne zlecenie z planem ma sygnal GPS albo czeka na start.'}
               </span>
             </div>
-            <div style={{ ...S.alertCard, borderColor: staleTaskGps.length ? 'rgba(183,121,31,0.28)' : 'rgba(20,131,79,0.14)' }}>
+            <div style={{ ...S.alertCard, borderColor: staleTaskGps.length ? 'rgba(153, 85, 16, 0.28)' : 'rgba(69, 107, 31, 0.14)' }}>
               <MyLocationOutlined style={{ color: staleTaskGps.length ? '#995510' : '#8a8069', fontSize: 18 }} />
               <span>
                 {staleTaskGps.length
@@ -1978,7 +1978,7 @@ function Metric({ label, value }) {
 
 function OfficeAlertColumn({ title, subtitle, tone, tasks, empty, onOpen, meta }) {
   return (
-    <article style={{ ...S.officeLiveColumn, borderColor: tasks.length ? `${tone}42` : 'rgba(20,131,79,0.14)' }}>
+    <article style={{ ...S.officeLiveColumn, borderColor: tasks.length ? `${tone}42` : 'rgba(69, 107, 31, 0.14)' }}>
       <div style={S.officeLiveColumnHead}>
         <div style={{ minWidth: 0 }}>
           <div style={S.officeLiveTitle}>{title}</div>
@@ -2020,7 +2020,7 @@ function DispatchTaskCard({ task, live, onOpen, onSchedule }) {
   const issues = taskIssueSummary(task);
 
   return (
-    <article style={{ ...S.dispatchCard, borderColor: isRisk ? 'rgba(190,18,60,0.22)' : 'rgba(20,131,79,0.16)' }}>
+    <article style={{ ...S.dispatchCard, borderColor: isRisk ? 'rgba(163, 64, 42, 0.22)' : 'rgba(69, 107, 31, 0.16)' }}>
       <div style={{ ...S.statusRail, background: taskStatusColor(task.status) }} />
       <div style={S.dispatchTop}>
         <div style={S.dispatchIcon}>
@@ -2468,8 +2468,8 @@ function CommandCenter({
                     style={{
                       ...S.commandTimelineBlock,
                       ...timelineBlockStyle(range),
-                      background: risky ? 'rgba(190,18,60,0.18)' : 'rgba(37,99,235,0.16)',
-                      borderColor: risky ? 'rgba(190,18,60,0.34)' : 'rgba(37,99,235,0.32)',
+                      background: risky ? 'rgba(163, 64, 42, 0.18)' : 'rgba(118, 100, 64, 0.16)',
+                      borderColor: risky ? 'rgba(163, 64, 42, 0.34)' : 'rgba(118, 100, 64, 0.32)',
                       color: risky ? '#a3402a' : '#766440',
                     }}
                   >
@@ -2492,8 +2492,8 @@ const glass = {
   background: 'rgba(255,255,255,0.88)',
   borderWidth: 1,
   borderStyle: 'solid',
-  borderColor: 'rgba(20,131,79,0.14)',
-  boxShadow: '0 18px 44px rgba(15,95,58,0.1)',
+  borderColor: 'rgba(69, 107, 31, 0.14)',
+  boxShadow: '0 18px 44px rgba(69, 107, 31, 0.1)',
   backdropFilter: 'blur(14px)',
 };
 
@@ -2534,7 +2534,7 @@ const S = {
       'linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(135deg, #456b1f 0%, #456b1f 58%, #456b1f 100%)',
     backgroundSize: '32px 32px, 32px 32px, auto',
     border: '1px solid rgba(255,255,255,0.2)',
-    boxShadow: '0 22px 46px rgba(11,56,37,0.17)',
+    boxShadow: '0 22px 46px rgba(69, 107, 31, 0.17)',
   },
   heroNarrow: {
     alignItems: 'flex-start',
@@ -2606,7 +2606,7 @@ const S = {
     marginBottom: 14,
     padding: 12,
     borderRadius: 12,
-    border: '1px solid rgba(190,18,60,0.22)',
+    border: '1px solid rgba(163, 64, 42, 0.22)',
     background: 'rgba(254,226,226,0.72)',
     color: '#a3402a',
     fontWeight: 700,
@@ -2619,12 +2619,12 @@ const S = {
     marginBottom: 14,
     padding: '9px 11px',
     borderRadius: 8,
-    border: '1px solid rgba(15,95,58,0.14)',
+    border: '1px solid rgba(69, 107, 31, 0.14)',
     background: 'rgba(255,255,255,0.86)',
     color: 'var(--text-sub)',
     fontSize: 12,
     fontWeight: 750,
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)',
   },
   sourceStatusNarrow: {
     display: 'grid',
@@ -2642,8 +2642,8 @@ const S = {
     flexWrap: 'wrap',
     marginBottom: 14,
     background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)',
   },
   toolbarNarrow: {
     display: 'grid',
@@ -2667,17 +2667,17 @@ const S = {
   select: {
     background: '#fff',
     color: 'var(--text)',
-    border: '1px solid rgba(20,131,79,0.16)',
+    border: '1px solid rgba(69, 107, 31, 0.16)',
     borderRadius: 8,
     padding: '10px 12px',
     outline: 'none',
-    boxShadow: '0 10px 24px rgba(15,95,58,0.06)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.06)',
   },
   lastSync: {
     marginLeft: 'auto',
     color: 'var(--text-muted)',
     fontSize: 13,
-    border: '1px solid rgba(20,131,79,0.14)',
+    border: '1px solid rgba(69, 107, 31, 0.14)',
     borderRadius: 8,
     background: 'rgba(240,247,242,0.78)',
     padding: '8px 10px',
@@ -2701,8 +2701,8 @@ const S = {
     padding: '14px 14px 14px 17px',
     minHeight: 118,
     background: '#FFFFFF',
-    border: '1px solid rgba(15,95,58,0.13)',
-    boxShadow: '0 12px 26px rgba(15,95,58,0.06)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
+    boxShadow: '0 12px 26px rgba(69, 107, 31, 0.06)',
   },
   kpiGlow: {
     position: 'absolute',
@@ -2731,8 +2731,8 @@ const S = {
     padding: 16,
     marginBottom: 14,
     background: '#f0ebdd',
-    border: '1px solid rgba(37,99,235,0.12)',
-    boxShadow: '0 18px 42px rgba(15,35,58,0.08)',
+    border: '1px solid rgba(118, 100, 64, 0.12)',
+    boxShadow: '0 18px 42px rgba(93, 106, 11, 0.08)',
   },
   commandNarrow: {
     padding: 12,
@@ -2783,7 +2783,7 @@ const S = {
     width: 9,
     height: 9,
     borderRadius: '50%',
-    boxShadow: '0 0 0 4px rgba(20,131,79,0.12)',
+    boxShadow: '0 0 0 4px rgba(69, 107, 31, 0.12)',
   },
   commandTabs: {
     display: 'grid',
@@ -2815,10 +2815,10 @@ const S = {
     cursor: 'pointer',
   },
   commandTabActive: {
-    borderColor: 'rgba(37,99,235,0.28)',
+    borderColor: 'rgba(118, 100, 64, 0.28)',
     background: '#f0ebdd',
     color: '#766440',
-    boxShadow: '0 8px 18px rgba(37,99,235,0.08)',
+    boxShadow: '0 8px 18px rgba(118, 100, 64, 0.08)',
   },
   commandTabLabel: {
     minWidth: 0,
@@ -2906,7 +2906,7 @@ const S = {
     minHeight: 390,
     overflow: 'hidden',
     borderRadius: 8,
-    border: '1px solid rgba(37,99,235,0.12)',
+    border: '1px solid rgba(118, 100, 64, 0.12)',
     background: 'linear-gradient(135deg, #f0ebdd, #f0ebdd 48%, #f0ebdd)',
   },
   commandMapNarrow: {
@@ -2951,7 +2951,7 @@ const S = {
     height: 40,
     borderColor: '#766440',
     color: '#766440',
-    boxShadow: '0 0 0 5px rgba(37,99,235,0.12), 0 14px 28px rgba(37,99,235,0.18)',
+    boxShadow: '0 0 0 5px rgba(118, 100, 64, 0.12), 0 14px 28px rgba(118, 100, 64, 0.18)',
   },
   commandTaskPoint: {
     position: 'absolute',
@@ -2973,7 +2973,7 @@ const S = {
   },
   commandTaskPointActive: {
     background: '#766440',
-    boxShadow: '0 0 0 5px rgba(37,99,235,0.14), 0 16px 30px rgba(37,99,235,0.18)',
+    boxShadow: '0 0 0 5px rgba(118, 100, 64, 0.14), 0 16px 30px rgba(118, 100, 64, 0.18)',
   },
   commandMapLegend: {
     position: 'absolute',
@@ -3028,9 +3028,9 @@ const S = {
     cursor: 'pointer',
   },
   commandDecisionActive: {
-    borderColor: 'rgba(37,99,235,0.3)',
+    borderColor: 'rgba(118, 100, 64, 0.3)',
     background: '#f0ebdd',
-    boxShadow: '0 10px 24px rgba(37,99,235,0.08)',
+    boxShadow: '0 10px 24px rgba(118, 100, 64, 0.08)',
   },
   commandDecisionRail: {
     width: 3,
@@ -3050,7 +3050,7 @@ const S = {
   },
   commandSelectedBadge: {
     flex: '0 0 auto',
-    border: '1px solid rgba(37,99,235,0.22)',
+    border: '1px solid rgba(118, 100, 64, 0.22)',
     background: '#FFFFFF',
     color: '#766440',
     borderRadius: 8,
@@ -3062,7 +3062,7 @@ const S = {
   },
   commandSelected: {
     marginTop: 4,
-    border: '1px solid rgba(37,99,235,0.18)',
+    border: '1px solid rgba(118, 100, 64, 0.18)',
     background: '#f0ebdd',
     borderRadius: 8,
     padding: 12,
@@ -3090,7 +3090,7 @@ const S = {
     marginBottom: 5,
   },
   commandSheetClose: {
-    border: '1px solid rgba(37,99,235,0.18)',
+    border: '1px solid rgba(118, 100, 64, 0.18)',
     background: '#FFFFFF',
     color: '#766440',
     borderRadius: 8,
@@ -3166,7 +3166,7 @@ const S = {
     padding: '2px 0',
   },
   commandTimelineRowActive: {
-    filter: 'drop-shadow(0 8px 16px rgba(37,99,235,0.12))',
+    filter: 'drop-shadow(0 8px 16px rgba(118, 100, 64, 0.12))',
   },
   commandTimelineTeam: {
     color: '#5a5040',
@@ -3201,7 +3201,7 @@ const S = {
     borderRadius: 6,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(37,99,235,0.24)',
+    borderColor: 'rgba(118, 100, 64, 0.24)',
     fontSize: 10,
     fontWeight: 950,
     whiteSpace: 'nowrap',
@@ -3213,12 +3213,12 @@ const S = {
     padding: 16,
     marginBottom: 14,
     background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
-    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
+    boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)',
   },
   officeLiveStamp: {
     borderRadius: 8,
-    border: '1px solid rgba(20,131,79,0.18)',
+    border: '1px solid rgba(69, 107, 31, 0.18)',
     background: 'rgba(240,247,242,0.9)',
     color: '#456b1f',
     padding: '7px 10px',
@@ -3235,11 +3235,11 @@ const S = {
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(20,131,79,0.14)',
+    borderColor: 'rgba(69, 107, 31, 0.14)',
     background: 'rgba(255,255,255,0.76)',
     padding: 12,
     minHeight: 214,
-    boxShadow: '0 12px 28px rgba(15,95,58,0.06)',
+    boxShadow: '0 12px 28px rgba(69, 107, 31, 0.06)',
   },
   officeLiveColumnHead: {
     display: 'flex',
@@ -3269,7 +3269,7 @@ const S = {
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(20,131,79,0.14)',
+    borderColor: 'rgba(69, 107, 31, 0.14)',
     display: 'inline-grid',
     placeItems: 'center',
     fontSize: 14,
@@ -3286,7 +3286,7 @@ const S = {
     display: 'flex',
     alignItems: 'flex-start',
     gap: 9,
-    border: '1px solid rgba(20,131,79,0.12)',
+    border: '1px solid rgba(69, 107, 31, 0.12)',
     background: 'rgba(246,251,247,0.78)',
     color: 'var(--text)',
     borderRadius: 8,
@@ -3328,7 +3328,7 @@ const S = {
   },
   officeLiveEmpty: {
     borderRadius: 8,
-    border: '1px dashed rgba(20,131,79,0.18)',
+    border: '1px dashed rgba(69, 107, 31, 0.18)',
     color: 'var(--text-muted)',
     padding: 12,
     fontSize: 12,
@@ -3340,12 +3340,12 @@ const S = {
     padding: 16,
     marginBottom: 14,
     background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
-    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
+    boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)',
   },
   queueSection: {
     borderRadius: 8,
-    border: '1px solid rgba(183,121,31,0.18)',
+    border: '1px solid rgba(153, 85, 16, 0.18)',
     background: 'rgba(255,251,235,0.72)',
     padding: 12,
     marginBottom: 12,
@@ -3374,10 +3374,10 @@ const S = {
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 8,
-    border: '1px solid rgba(20,131,79,0.12)',
+    border: '1px solid rgba(69, 107, 31, 0.12)',
     background: 'rgba(255,255,255,0.82)',
     padding: 13,
-    boxShadow: '0 10px 24px rgba(15,95,58,0.06)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.06)',
   },
   planningTop: {
     display: 'flex',
@@ -3394,7 +3394,7 @@ const S = {
   },
   missingPill: {
     borderRadius: 8,
-    border: '1px solid rgba(183,121,31,0.24)',
+    border: '1px solid rgba(153, 85, 16, 0.24)',
     background: 'rgba(255,251,235,0.86)',
     color: '#995510',
     padding: '5px 8px',
@@ -3403,7 +3403,7 @@ const S = {
   },
   quickPlanPanel: {
     borderRadius: 8,
-    border: '1px solid rgba(20,131,79,0.18)',
+    border: '1px solid rgba(69, 107, 31, 0.18)',
     background: 'rgba(240,247,242,0.72)',
     padding: 12,
     marginBottom: 12,
@@ -3415,7 +3415,7 @@ const S = {
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(20,131,79,0.14)',
+    borderColor: 'rgba(69, 107, 31, 0.14)',
     background: 'rgba(255,255,255,0.82)',
     padding: '10px 12px',
     marginBottom: 12,
@@ -3446,7 +3446,7 @@ const S = {
   quickPlanInput: {
     background: '#fff',
     color: 'var(--text)',
-    border: '1px solid rgba(20,131,79,0.16)',
+    border: '1px solid rgba(69, 107, 31, 0.16)',
     borderRadius: 8,
     padding: '10px 12px',
     outline: 'none',
@@ -3468,7 +3468,7 @@ const S = {
   },
   tinyBtn: {
     borderRadius: 999,
-    border: '1px solid rgba(20,131,79,0.16)',
+    border: '1px solid rgba(69, 107, 31, 0.16)',
     background: 'rgba(255,255,255,0.78)',
     color: 'var(--text)',
     padding: '6px 9px',
@@ -3479,7 +3479,7 @@ const S = {
   quickSlotPanel: {
     marginTop: 12,
     borderRadius: 14,
-    border: '1px solid rgba(20,131,79,0.18)',
+    border: '1px solid rgba(69, 107, 31, 0.18)',
     background: 'rgba(240,247,242,0.8)',
     padding: 12,
   },
@@ -3505,7 +3505,7 @@ const S = {
     borderRadius: 13,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(20,131,79,0.2)',
+    borderColor: 'rgba(69, 107, 31, 0.2)',
     background: '#fff',
     color: '#2c2011',
     padding: '8px 11px',
@@ -3516,12 +3516,12 @@ const S = {
   },
   quickSlotBtnActive: {
     borderColor: '#456b1f',
-    background: 'rgba(20,131,79,0.1)',
-    boxShadow: '0 10px 24px rgba(20,131,79,0.1)',
+    background: 'rgba(69, 107, 31, 0.1)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.1)',
   },
   quickSlotEmpty: {
     borderRadius: 12,
-    border: '1px dashed rgba(20,131,79,0.18)',
+    border: '1px dashed rgba(69, 107, 31, 0.18)',
     color: 'var(--text-muted)',
     padding: 10,
     fontSize: 12,
@@ -3530,7 +3530,7 @@ const S = {
   quickTimelinePanel: {
     marginTop: 12,
     borderRadius: 14,
-    border: '1px solid rgba(20,131,79,0.14)',
+    border: '1px solid rgba(69, 107, 31, 0.14)',
     background: 'rgba(255,255,255,0.76)',
     padding: 12,
   },
@@ -3548,15 +3548,15 @@ const S = {
     height: 46,
     borderRadius: 14,
     overflow: 'hidden',
-    border: '1px solid rgba(20,131,79,0.14)',
-    background: 'linear-gradient(90deg, rgba(20,131,79,0.06), rgba(14,116,144,0.05))',
+    border: '1px solid rgba(69, 107, 31, 0.14)',
+    background: 'linear-gradient(90deg, rgba(69, 107, 31, 0.06), rgba(93, 106, 11, 0.05))',
   },
   quickTimelineTick: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 1,
-    background: 'rgba(20,131,79,0.12)',
+    background: 'rgba(69, 107, 31, 0.12)',
   },
   quickTimelineBusy: {
     position: 'absolute',
@@ -3567,8 +3567,8 @@ const S = {
     justifyContent: 'center',
     overflow: 'hidden',
     borderRadius: 10,
-    background: 'rgba(183,121,31,0.18)',
-    border: '1px solid rgba(183,121,31,0.34)',
+    background: 'rgba(153, 85, 16, 0.18)',
+    border: '1px solid rgba(153, 85, 16, 0.34)',
     color: '#995510',
     fontSize: 10,
     fontWeight: 900,
@@ -3583,10 +3583,10 @@ const S = {
     justifyContent: 'center',
     overflow: 'hidden',
     borderRadius: 11,
-    background: 'rgba(20,131,79,0.2)',
-    border: '1px solid rgba(20,131,79,0.38)',
+    background: 'rgba(69, 107, 31, 0.2)',
+    border: '1px solid rgba(69, 107, 31, 0.38)',
     color: '#456b1f',
-    boxShadow: '0 10px 22px rgba(20,131,79,0.12)',
+    boxShadow: '0 10px 22px rgba(69, 107, 31, 0.12)',
     fontSize: 10,
     fontWeight: 900,
     whiteSpace: 'nowrap',
@@ -3621,7 +3621,7 @@ const S = {
   quickPlanError: {
     marginTop: 10,
     borderRadius: 12,
-    border: '1px solid rgba(190,18,60,0.22)',
+    border: '1px solid rgba(163, 64, 42, 0.22)',
     background: 'rgba(254,226,226,0.7)',
     color: '#a3402a',
     padding: '9px 10px',
@@ -3631,7 +3631,7 @@ const S = {
   quickPlanWarn: {
     marginTop: 10,
     borderRadius: 12,
-    border: '1px solid rgba(183,121,31,0.24)',
+    border: '1px solid rgba(153, 85, 16, 0.24)',
     background: 'rgba(255,251,235,0.76)',
     color: '#995510',
     padding: '9px 10px',
@@ -3641,7 +3641,7 @@ const S = {
   quickPlanInfo: {
     marginTop: 10,
     borderRadius: 12,
-    border: '1px solid rgba(14,116,144,0.2)',
+    border: '1px solid rgba(93, 106, 11, 0.2)',
     background: 'rgba(236,253,245,0.72)',
     color: '#5d6a0b',
     padding: '9px 10px',
@@ -3657,8 +3657,8 @@ const S = {
   quickPlanOk: {
     marginTop: 10,
     borderRadius: 12,
-    border: '1px solid rgba(20,131,79,0.22)',
-    background: 'rgba(220,252,231,0.7)',
+    border: '1px solid rgba(69, 107, 31, 0.22)',
+    background: 'rgba(228, 239, 214, 0.7)',
     color: '#456b1f',
     padding: '9px 10px',
     fontSize: 12,
@@ -3676,7 +3676,7 @@ const S = {
     gap: 9,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(20,131,79,0.14)',
+    borderColor: 'rgba(69, 107, 31, 0.14)',
     borderRadius: 12,
     background: 'rgba(255,255,255,0.78)',
     color: 'var(--text)',
@@ -3695,10 +3695,10 @@ const S = {
     borderRadius: 14,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(20,131,79,0.12)',
+    borderColor: 'rgba(69, 107, 31, 0.12)',
     background: 'rgba(255,255,255,0.84)',
     padding: 14,
-    boxShadow: '0 12px 28px rgba(15,95,58,0.06)',
+    boxShadow: '0 12px 28px rgba(69, 107, 31, 0.06)',
   },
   dispatchTop: {
     display: 'flex',
@@ -3712,9 +3712,9 @@ const S = {
     borderRadius: 12,
     display: 'grid',
     placeItems: 'center',
-    background: 'rgba(20,131,79,0.1)',
+    background: 'rgba(69, 107, 31, 0.1)',
     color: '#456b1f',
-    border: '1px solid rgba(20,131,79,0.18)',
+    border: '1px solid rgba(69, 107, 31, 0.18)',
     flexShrink: 0,
   },
   dispatchTitle: {
@@ -3753,8 +3753,8 @@ const S = {
     padding: 16,
     minHeight: 540,
     background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
-    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
+    boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)',
   },
   radarPanelNarrow: {
     padding: 12,
@@ -3765,8 +3765,8 @@ const S = {
     borderRadius: 8,
     padding: 16,
     background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
-    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
+    boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)',
   },
   panelNarrow: {
     padding: 12,
@@ -3793,8 +3793,8 @@ const S = {
     height: 470,
     overflow: 'hidden',
     borderRadius: 14,
-    background: 'radial-gradient(circle at center, rgba(20,131,79,0.12), rgba(255,255,255,0.92) 58%), linear-gradient(135deg, rgba(236,253,245,0.82), rgba(240,249,255,0.72))',
-    border: '1px solid rgba(20,131,79,0.14)',
+    background: 'radial-gradient(circle at center, rgba(69, 107, 31, 0.12), rgba(255,255,255,0.92) 58%), linear-gradient(135deg, rgba(236,253,245,0.82), rgba(240,249,255,0.72))',
+    border: '1px solid rgba(69, 107, 31, 0.14)',
   },
   radarNarrow: {
     height: 320,
@@ -3805,7 +3805,7 @@ const S = {
     right: 0,
     top: '50%',
     height: 1,
-    background: 'rgba(20,131,79,0.12)',
+    background: 'rgba(69, 107, 31, 0.12)',
   },
   gridLineV: {
     position: 'absolute',
@@ -3813,19 +3813,19 @@ const S = {
     bottom: 0,
     left: '50%',
     width: 1,
-    background: 'rgba(20,131,79,0.12)',
+    background: 'rgba(69, 107, 31, 0.12)',
   },
   radarCircleLarge: {
     position: 'absolute',
     inset: '12%',
     borderRadius: '50%',
-    border: '1px solid rgba(20,131,79,0.16)',
+    border: '1px solid rgba(69, 107, 31, 0.16)',
   },
   radarCircleSmall: {
     position: 'absolute',
     inset: '31%',
     borderRadius: '50%',
-    border: '1px solid rgba(20,131,79,0.18)',
+    border: '1px solid rgba(69, 107, 31, 0.18)',
   },
   radarPoint: {
     position: 'absolute',
@@ -3842,7 +3842,7 @@ const S = {
     background: '#fff',
     textDecoration: 'none',
     fontWeight: 900,
-    boxShadow: '0 8px 18px rgba(15,95,58,0.12)',
+    boxShadow: '0 8px 18px rgba(69, 107, 31, 0.12)',
   },
   emptyRadar: {
     position: 'absolute',
@@ -3859,11 +3859,11 @@ const S = {
     gap: 8,
     justifyItems: 'center',
     maxWidth: 360,
-    border: '1px solid rgba(15,95,58,0.14)',
+    border: '1px solid rgba(69, 107, 31, 0.14)',
     borderRadius: 8,
     padding: 14,
     background: 'rgba(255,255,255,0.9)',
-    boxShadow: '0 14px 30px rgba(15,95,58,0.08)',
+    boxShadow: '0 14px 30px rgba(69, 107, 31, 0.08)',
   },
   locationList: {
     display: 'flex',
@@ -3877,10 +3877,10 @@ const S = {
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 14,
-    border: '1px solid rgba(20,131,79,0.12)',
+    border: '1px solid rgba(69, 107, 31, 0.12)',
     background: 'rgba(255,255,255,0.82)',
     padding: 14,
-    boxShadow: '0 10px 24px rgba(15,95,58,0.06)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.06)',
   },
   statusRail: {
     position: 'absolute',
@@ -3961,7 +3961,7 @@ const S = {
     alignItems: 'center',
     gap: 6,
     borderRadius: 12,
-    border: '1px solid rgba(20,131,79,0.24)',
+    border: '1px solid rgba(69, 107, 31, 0.24)',
     background: '#456b1f',
     color: '#fff',
     textDecoration: 'none',
@@ -3976,7 +3976,7 @@ const S = {
     justifyContent: 'center',
     gap: 6,
     borderRadius: 12,
-    border: '1px solid rgba(20,131,79,0.16)',
+    border: '1px solid rgba(69, 107, 31, 0.16)',
     background: 'rgba(255,255,255,0.82)',
     color: 'var(--text)',
     padding: '8px 10px',
@@ -3992,14 +3992,14 @@ const S = {
     padding: 16,
     marginTop: 14,
     background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.13)',
-    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
+    boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)',
   },
   historySummary: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
     gap: 10,
-    border: '1px solid rgba(20,131,79,0.12)',
+    border: '1px solid rgba(69, 107, 31, 0.12)',
     borderRadius: 8,
     background: 'rgba(255,255,255,0.82)',
     padding: 12,
@@ -4010,7 +4010,7 @@ const S = {
     alignItems: 'center',
     gap: 5,
     minHeight: 36,
-    border: '1px solid rgba(20,131,79,0.12)',
+    border: '1px solid rgba(69, 107, 31, 0.12)',
     borderRadius: 8,
     background: 'linear-gradient(90deg, rgba(236,253,245,0.86), rgba(240,249,255,0.78))',
     padding: '10px 12px',
@@ -4022,7 +4022,7 @@ const S = {
     height: 10,
     borderRadius: '50%',
     background: '#456b1f',
-    border: '1px solid rgba(15,95,58,0.22)',
+    border: '1px solid rgba(69, 107, 31, 0.22)',
     flex: '0 0 auto',
   },
   historyTimeline: {
@@ -4036,7 +4036,7 @@ const S = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    border: '1px solid rgba(20,131,79,0.12)',
+    border: '1px solid rgba(69, 107, 31, 0.12)',
     borderRadius: 8,
     background: 'rgba(255,255,255,0.84)',
     padding: 10,
@@ -4068,7 +4068,7 @@ const S = {
     gap: 8,
     justifyItems: 'center',
     borderRadius: 14,
-    border: '1px dashed rgba(20,131,79,0.18)',
+    border: '1px dashed rgba(69, 107, 31, 0.18)',
     color: 'var(--text-muted)',
     padding: 20,
     textAlign: 'center',

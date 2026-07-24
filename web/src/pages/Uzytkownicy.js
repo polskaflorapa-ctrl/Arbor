@@ -479,9 +479,9 @@ export default function Uzytkownicy() {
                         <div style={s.userListBottom}>
                           <span style={{
                             ...s.statusBadge,
-                            backgroundColor: u.aktywny ? 'var(--accent-surface)' : 'rgba(248,113,113,0.12)',
+                            backgroundColor: u.aktywny ? 'var(--accent-surface)' : 'rgba(192, 73, 47, 0.12)',
                             color: u.aktywny ? 'var(--accent-dk)' : 'var(--danger)',
-                            border: `1px solid ${u.aktywny ? 'var(--logo-tint-border)' : 'rgba(248,113,113,0.35)'}`
+                            border: `1px solid ${u.aktywny ? 'var(--logo-tint-border)' : 'rgba(192, 73, 47, 0.35)'}`
                           }}>
                             {u.aktywny ? 'Aktywny' : 'Nieaktywny'}
                           </span>
@@ -915,7 +915,7 @@ const s = {
   filtryRow: { display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', background: 'var(--surface-glass)', padding: '12px 16px', borderRadius: 8, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)', flexWrap: 'wrap' },
   searchInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1 },
   filtrInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)' },
-  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, cursor: 'pointer', fontSize: 12 },
+  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: 'var(--danger)', border: '1px solid rgba(192, 73, 47, 0.35)', borderRadius: 8, cursor: 'pointer', fontSize: 12 },
   countBadge: { fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' },
   card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)', marginBottom: 16 },
   listCardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
@@ -971,7 +971,7 @@ const s = {
     cursor: 'pointer',
     lineHeight: 1,
   },
-  actionIconBtnDanger: { backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)' },
+  actionIconBtnDanger: { backgroundColor: 'rgba(192, 73, 47, 0.12)', color: 'var(--danger)', border: '1px solid rgba(192, 73, 47, 0.35)' },
   actionIconBtnSuccess: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent-dk)', border: '1px solid var(--logo-tint-border)' },
   iconSm: { fontSize: 18, display: 'block' },
   btnSm: { padding: '5px 9px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },

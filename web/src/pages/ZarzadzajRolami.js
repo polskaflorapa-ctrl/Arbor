@@ -219,7 +219,7 @@ export default function ZarzadzajRolami() {
                   key={r.id}
                   style={{
                     ...S.roleRow,
-                    background: selected?.id === r.id ? 'rgba(52, 211, 153, 0.12)' : 'transparent',
+                    background: selected?.id === r.id ? 'rgba(127, 140, 18, 0.12)' : 'transparent',
                     borderLeftColor: color,
                     opacity: r.aktywna === false ? 0.5 : 1,
                   }}
@@ -476,7 +476,7 @@ function ToggleSwitch({ value, onChange, disabled }) {
       onClick={() => !disabled && onChange(!value)}
       style={{
         width: 44, height: 24, borderRadius: 12,
-        background: value ? '#7f8c12' : 'rgba(20, 83, 45, 0.55)',
+        background: value ? '#7f8c12' : 'rgba(69, 107, 31, 0.55)',
         position: 'relative', cursor: disabled ? 'default' : 'pointer',
         transition: 'background .2s', opacity: disabled ? 0.5 : 1,
       }}
@@ -531,7 +531,7 @@ const S = {
   roleName: { fontSize: 14, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   roleMeta: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 },
   tagSystem: {
-    fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(52, 211, 153, 0.14)',
+    fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(127, 140, 18, 0.14)',
     color: '#e4efd6', fontWeight: 600,
   },
   tagInactive: {
@@ -616,7 +616,7 @@ const S = {
     cursor: 'pointer', fontSize: 14,
   },
   btnSave: {
-    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8,
+    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8,
     padding: '10px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer',
   },
   center: { display: 'flex', justifyContent: 'center', padding: 24, color: '#8a8069' },

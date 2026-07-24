@@ -439,7 +439,7 @@ const inp = {
 const btnPri = {
   padding: '10px 18px',
   borderRadius: 8,
-  border: '1px solid rgba(20,131,79,0.24)',
+  border: '1px solid rgba(69, 107, 31, 0.24)',
   background: 'var(--accent-gradient)',
   color: 'var(--on-accent)',
   fontWeight: 700,

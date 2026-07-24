@@ -180,7 +180,7 @@ const btnGhost = {
   background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 13,
 };
 const btnPrimary = {
-  padding: '8px 18px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)',
+  padding: '8px 18px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.22)',
   background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer', fontSize: 13,
 };
 const foot = { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 };

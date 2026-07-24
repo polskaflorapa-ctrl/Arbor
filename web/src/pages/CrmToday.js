@@ -156,9 +156,9 @@ export default function CrmToday() {
                   cursor: 'pointer',
                   color: 'var(--text)',
                   borderColor: item.value && item.tone === 'danger'
-                    ? 'rgba(239,68,68,0.45)'
+                    ? 'rgba(192, 73, 47, 0.45)'
                     : item.value && item.tone === 'warning'
-                      ? 'rgba(245,158,11,0.45)'
+                      ? 'rgba(189, 112, 30, 0.45)'
                       : undefined,
                 }}
               >

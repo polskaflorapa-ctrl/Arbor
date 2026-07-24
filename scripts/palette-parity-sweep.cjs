@@ -16,6 +16,11 @@ const CANON = new Set([
   '5d6a0b', '456b1f', '995510', 'a3402a', 'c0492f', 'ffffff', '000000',
 ]);
 
+function hexToRgb(hex) {
+  const n = parseInt(hex, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 function hexToHsl(hex) {
   const n = parseInt(hex, 16);
   const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
@@ -97,13 +102,28 @@ let changedFiles = 0;
 for (const file of files) {
   const src = fs.readFileSync(file, 'utf8');
   let changed = false;
-  const out = src.replace(/#([0-9a-fA-F]{6})\b/g, (m, hex) => {
+  const outHex = src.replace(/#([0-9a-fA-F]{6})\b/g, (m, hex) => {
     const low = hex.toLowerCase();
     if (CANON.has(low)) return m;
     const to = mapToCanon(low);
     report.set(low, { to, count: (report.get(low)?.count ?? 0) + 1 });
     changed = true;
     return '#' + to;
+  });
+  // rgb()/rgba(): remapuj TYLKO nasycone obce odcienie (lesna zielen, teale, blekity).
+  // Neutralne (czarne/biale/szare cienie i nakladki, max-min<=30) zostaja nietkniete —
+  // ich odcien nie ma znaczenia, a zmiana psulaby subtelne cienie. Alpha zachowana.
+  const out = outHex.replace(/rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([\d.]+)\s*)?\)/g, (m, rs, gs, bs, a) => {
+    const r = +rs, g = +gs, b = +bs;
+    if (Math.max(r, g, b) - Math.min(r, g, b) <= 30) return m; // neutralne -> zostaw
+    const hex = ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+    if (CANON.has(hex)) return m;
+    const to = mapToCanon(hex);
+    const [R, G, B] = hexToRgb(to);
+    if (R === r && G === g && B === b) return m;
+    report.set('rgba:' + hex, { to, count: (report.get('rgba:' + hex)?.count ?? 0) + 1 });
+    changed = true;
+    return a !== undefined ? `rgba(${R}, ${G}, ${B}, ${a})` : `rgb(${R}, ${G}, ${B})`;
   });
   if (changed && write) { fs.writeFileSync(file, out); changedFiles++; }
 }

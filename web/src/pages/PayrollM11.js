@@ -368,7 +368,7 @@ export default function PayrollM11() {
               ...card,
               marginBottom: 16,
               borderColor: 'var(--warning, #995510)',
-              background: 'rgba(202, 138, 4, 0.08)',
+              background: 'rgba(153, 85, 16, 0.08)',
             }}
           >
             <p style={{ margin: 0, fontSize: 14, color: 'var(--text)' }}>

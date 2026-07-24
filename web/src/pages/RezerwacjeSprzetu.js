@@ -491,7 +491,7 @@ export default function RezerwacjeSprzetu() {
               sx={{
                 border: '1px solid var(--border)',
                 borderRadius: 2,
-                bgcolor: label === 'Kolizje' && value ? 'rgba(239,68,68,0.1)' : 'var(--surface-glass)',
+                bgcolor: label === 'Kolizje' && value ? 'rgba(192, 73, 47, 0.1)' : 'var(--surface-glass)',
                 p: 1.5,
               }}
             >
@@ -570,8 +570,8 @@ export default function RezerwacjeSprzetu() {
                 <TableRow
                   key={r.id}
                   sx={{
-                    bgcolor: conflictIds.has(String(r.id)) ? 'rgba(239,68,68,0.08)' : undefined,
-                    '& td': { borderColor: conflictIds.has(String(r.id)) ? 'rgba(239,68,68,0.22)' : undefined },
+                    bgcolor: conflictIds.has(String(r.id)) ? 'rgba(192, 73, 47, 0.08)' : undefined,
+                    '& td': { borderColor: conflictIds.has(String(r.id)) ? 'rgba(192, 73, 47, 0.22)' : undefined },
                   }}
                 >
                   <TableCell>

@@ -289,7 +289,7 @@ const S = {
     padding: 16,
     boxShadow: 'var(--shadow-sm)',
   },
-  winnerIcon: { width: 40, height: 40, borderRadius: 8, background: 'rgba(155,217,87,0.12)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' },
+  winnerIcon: { width: 40, height: 40, borderRadius: 8, background: 'rgba(160, 175, 20, 0.12)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' },
   cardLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 },
   cardTitle: { marginTop: 6, fontSize: 20, fontWeight: 800, color: 'var(--text)', overflowWrap: 'anywhere' },
   cardSub: { marginTop: 3, fontSize: 12, color: 'var(--text-sub)' },

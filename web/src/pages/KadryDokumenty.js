@@ -361,7 +361,7 @@ const S = {
   headerActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
   primaryBtn: {
     minHeight: 40,
-    border: '1px solid rgba(20,131,79,0.24)',
+    border: '1px solid rgba(69, 107, 31, 0.24)',
     borderRadius: 8,
     background: 'var(--accent-gradient)',
     color: 'var(--on-accent)',
@@ -461,9 +461,9 @@ const S = {
     fontSize: 12,
     fontWeight: 900,
   },
-  badgeOk: { color: '#7f8c12', borderColor: 'rgba(52,211,153,0.35)', background: 'rgba(52,211,153,0.09)' },
-  badgeWarn: { color: '#bd701e', borderColor: 'rgba(249,168,37,0.35)', background: 'rgba(249,168,37,0.09)' },
-  badgeDanger: { color: '#c0492f', borderColor: 'rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.09)' },
+  badgeOk: { color: '#7f8c12', borderColor: 'rgba(127, 140, 18, 0.35)', background: 'rgba(127, 140, 18, 0.09)' },
+  badgeWarn: { color: '#bd701e', borderColor: 'rgba(189, 112, 30, 0.35)', background: 'rgba(189, 112, 30, 0.09)' },
+  badgeDanger: { color: '#c0492f', borderColor: 'rgba(192, 73, 47, 0.35)', background: 'rgba(192, 73, 47, 0.09)' },
   rowBtn: {
     minHeight: 34,
     border: '1px solid var(--border)',
@@ -478,7 +478,7 @@ const S = {
   },
   rowBtnPrimary: {
     minHeight: 34,
-    border: '1px solid rgba(20,131,79,0.24)',
+    border: '1px solid rgba(69, 107, 31, 0.24)',
     borderRadius: 8,
     background: 'var(--accent-gradient)',
     color: 'var(--on-accent)',
@@ -490,9 +490,9 @@ const S = {
   },
   rowActions: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   alert: {
-    border: '1px solid rgba(248,113,113,0.35)',
+    border: '1px solid rgba(192, 73, 47, 0.35)',
     borderRadius: 8,
-    background: 'rgba(248,113,113,0.08)',
+    background: 'rgba(192, 73, 47, 0.08)',
     color: '#c0492f',
     padding: '10px 12px',
     marginBottom: 10,

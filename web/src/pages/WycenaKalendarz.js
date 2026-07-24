@@ -455,8 +455,8 @@ export default function WycenaKalendarz() {
             margin: '0 16px 12px',
             padding: 14,
             borderRadius: 12,
-            border: '1px solid rgba(239,68,68,0.45)',
-            background: 'rgba(239,68,68,0.08)',
+            border: '1px solid rgba(192, 73, 47, 0.45)',
+            background: 'rgba(192, 73, 47, 0.08)',
           }}
         >
           <div style={{ fontWeight: 700, color: '#c0492f', marginBottom: 8 }}>
@@ -616,8 +616,8 @@ export default function WycenaKalendarz() {
                 marginBottom: 12,
                 padding: '10px 12px',
                 borderRadius: 10,
-                border: '1px solid rgba(239,68,68,0.45)',
-                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(192, 73, 47, 0.45)',
+                background: 'rgba(192, 73, 47, 0.08)',
                 fontSize: 13,
                 color: '#f6e0d9',
               }}
@@ -730,7 +730,7 @@ export default function WycenaKalendarz() {
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>Sprzęt</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {SPRZET_POLA.filter(s => w[s.key]).map(s => (
-                            <span key={s.key} style={{ padding: '3px 8px', borderRadius: 6, background: 'var(--accent-soft, rgba(155,217,87,0.14))', color: 'var(--accent)', fontSize: 12, fontWeight: 600 }}>
+                            <span key={s.key} style={{ padding: '3px 8px', borderRadius: 6, background: 'var(--accent-soft, rgba(160, 175, 20, 0.14))', color: 'var(--accent)', fontSize: 12, fontWeight: 600 }}>
                               {s.label}
                             </span>
                           ))}
@@ -899,14 +899,14 @@ const S = {
   viewBtn: {
     padding: '6px 12px',
     borderRadius: 8,
-    border: '1px solid rgba(15,107,63,0.16)',
+    border: '1px solid rgba(69, 107, 31, 0.16)',
     background: '#ffffff',
     color: '#456b1f',
     fontSize: 12,
     fontWeight: 850,
     cursor: 'pointer',
   },
-  viewBtnOn: { borderColor: 'rgba(20,131,79,0.42)', color: '#456b1f', background: 'rgba(20,131,79,0.08)' },
+  viewBtnOn: { borderColor: 'rgba(69, 107, 31, 0.42)', color: '#456b1f', background: 'rgba(69, 107, 31, 0.08)' },
 
   hero: {
     display: 'grid',
@@ -918,7 +918,7 @@ const S = {
     background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 58%, #456b1f 100%)',
     border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: 8,
-    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
+    boxShadow: '0 22px 46px rgba(69, 107, 31, 0.16)',
     position: 'relative',
     zIndex: 1,
   },
@@ -954,7 +954,7 @@ const S = {
   backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
   headerTitle: { fontSize: 24, fontWeight: 850, color: 'var(--text)' },
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
-  addBtn: { padding: '10px 20px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(134,239,172,0.5)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  addBtn: { padding: '10px 20px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(228, 239, 214, 0.5)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
   linkBtn: {
     padding: '8px 12px',
     background: '#ffffff',
@@ -978,32 +978,32 @@ const S = {
   },
   kpiCard: {
     background: '#ffffff',
-    border: '1px solid rgba(15,107,63,0.14)',
+    border: '1px solid rgba(69, 107, 31, 0.14)',
     borderRadius: 8,
     padding: 12,
     boxShadow: 'var(--shadow-sm)',
   },
-  kpiCard_good: { borderColor: 'rgba(20,131,79,0.2)' },
-  kpiCard_warning: { borderColor: 'rgba(180,83,9,0.28)', background: 'rgba(255,251,235,0.9)' },
-  kpiCard_danger: { borderColor: 'rgba(220,38,38,0.28)', background: 'rgba(254,242,242,0.9)' },
+  kpiCard_good: { borderColor: 'rgba(69, 107, 31, 0.2)' },
+  kpiCard_warning: { borderColor: 'rgba(153, 85, 16, 0.28)', background: 'rgba(255,251,235,0.9)' },
+  kpiCard_danger: { borderColor: 'rgba(192, 73, 47, 0.28)', background: 'rgba(254,242,242,0.9)' },
   kpiLabel: { fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0 },
   kpiValue: { marginTop: 5, fontSize: 22, fontWeight: 950, color: 'var(--text)' },
   kpiDetail: { marginTop: 2, fontSize: 11, color: 'var(--text-sub)', fontWeight: 700 },
 
   body: { display: 'flex', gap: 18, padding: '6px 0 0', flexWrap: 'wrap', position: 'relative', zIndex: 1 },
 
-  calBox: { flex: '1 1 320px', maxWidth: 430, minWidth: 0, background: '#ffffff', borderRadius: 8, padding: 18, border: '1px solid rgba(15,107,63,0.14)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
+  calBox: { flex: '1 1 320px', maxWidth: 430, minWidth: 0, background: '#ffffff', borderRadius: 8, padding: 18, border: '1px solid rgba(69, 107, 31, 0.14)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
   monthNav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  navBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#f0ebdd', border: '1px solid rgba(15,107,63,0.16)', color: '#456b1f', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  navBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#f0ebdd', border: '1px solid rgba(69, 107, 31, 0.16)', color: '#456b1f', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   monthTitle: { fontSize: 17, fontWeight: 950, color: '#456b1f' },
   calGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 },
   dayHead: { textAlign: 'center', fontSize: 11, fontWeight: 850, color: 'var(--text-muted)', padding: '6px 0' },
   dayCell: { aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', padding: 2, transition: 'background 0.15s, transform 0.15s', border: '1px solid transparent' },
   blockedCell: {
-    background: 'repeating-linear-gradient(-45deg, rgba(239,68,68,0.10), rgba(239,68,68,0.10) 4px, transparent 4px, transparent 7px)',
-    border: '1px dashed rgba(239,68,68,0.45)',
+    background: 'repeating-linear-gradient(-45deg, rgba(192, 73, 47, 0.10), rgba(192, 73, 47, 0.10) 4px, transparent 4px, transparent 7px)',
+    border: '1px dashed rgba(192, 73, 47, 0.45)',
   },
-  todayCell: { border: '2px solid rgba(32,183,104,0.65)' },
+  todayCell: { border: '2px solid rgba(127, 140, 18, 0.65)' },
   selCell: { backgroundColor: '#456b1f', color: '#ffffff' },
   emptyCell: { aspectRatio: '1' },
   dayNum: { fontSize: 13, color: 'var(--text-sub)' },
@@ -1013,15 +1013,15 @@ const S = {
   legenda: { display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' },
   legendaItem: { display: 'flex', alignItems: 'center', gap: 6 },
 
-  dayPanel: { flex: '2 1 320px', minWidth: 0, background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
+  dayPanel: { flex: '2 1 320px', minWidth: 0, background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.14)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
   dayPanelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   dayPanelTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--text)' },
-  dayPanelCount: { fontSize: 13, color: '#456b1f', backgroundColor: 'rgba(20,131,79,0.08)', padding: '3px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.18)', fontWeight: 850 },
+  dayPanelCount: { fontSize: 13, color: '#456b1f', backgroundColor: 'rgba(69, 107, 31, 0.08)', padding: '3px 10px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.18)', fontWeight: 850 },
 
-  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, background: '#f0ebdd', borderRadius: 8, border: '1px dashed rgba(15,107,63,0.18)', boxShadow: 'none' },
-  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(20,131,79,0.28)', borderRadius: 8, fontWeight: 950, cursor: 'pointer' },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, background: '#f0ebdd', borderRadius: 8, border: '1px dashed rgba(69, 107, 31, 0.18)', boxShadow: 'none' },
+  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(69, 107, 31, 0.28)', borderRadius: 8, fontWeight: 950, cursor: 'pointer' },
 
-  wycenaCard: { background: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, border: '1px solid rgba(15,107,63,0.14)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
+  wycenaCard: { background: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, border: '1px solid rgba(69, 107, 31, 0.14)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
   wycenaTop: { display: 'flex', gap: 12, justifyContent: 'space-between' },
   wycenaKlient: { fontSize: 15, fontWeight: '600', color: 'var(--text)', marginBottom: 4 },
   wycenaSub: { fontSize: 12, color: 'var(--text-sub)', marginTop: 2 },
@@ -1031,22 +1031,22 @@ const S = {
   detailRow: { display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 },
   detailLabel: { color: 'var(--text-muted)', minWidth: 100 },
   detailVal: { color: 'var(--text)', flex: 1 },
-  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: '#456b1f', color: '#ffffff', border: '1px solid rgba(15,107,63,0.2)', borderRadius: 8, fontWeight: 850, cursor: 'pointer', fontSize: 13 },
+  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: '#456b1f', color: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.2)', borderRadius: 8, fontWeight: 850, cursor: 'pointer', fontSize: 13 },
 
   // Modal
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(6,16,11,0.68)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  modal: { background: '#ffffff', borderRadius: 8, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid rgba(15,107,63,0.14)', boxShadow: '0 28px 70px rgba(11,56,37,0.22)' },
+  modal: { background: '#ffffff', borderRadius: 8, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid rgba(69, 107, 31, 0.14)', boxShadow: '0 28px 70px rgba(69, 107, 31, 0.22)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: 'var(--text)' },
   closeBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: 4 },
 
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
-  formSection: { backgroundColor: '#f0ebdd', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid rgba(15,107,63,0.14)' },
+  formSection: { backgroundColor: '#f0ebdd', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid rgba(69, 107, 31, 0.14)' },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 4 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   fieldWrap: { display: 'flex', flexDirection: 'column', gap: 4 },
   label: { fontSize: 12, fontWeight: 900, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: 0 },
-  input: { minHeight: 40, padding: '10px 12px', backgroundColor: '#ffffff', border: '1px solid rgba(15,107,63,0.16)', borderRadius: 8, color: 'var(--text)', fontSize: 14, outline: 'none' },
+  input: { minHeight: 40, padding: '10px 12px', backgroundColor: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.16)', borderRadius: 8, color: 'var(--text)', fontSize: 14, outline: 'none' },
 
   ekipyGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   ekipaPill: {
@@ -1057,7 +1057,7 @@ const S = {
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(15,107,63,0.16)',
+    borderColor: 'rgba(69, 107, 31, 0.16)',
     backgroundColor: '#ffffff',
     color: '#456b1f',
     fontSize: 13,
@@ -1067,6 +1067,6 @@ const S = {
   },
 
   formBtns: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 },
-  cancelBtn: { padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid rgba(15,107,63,0.16)', borderRadius: 8, color: '#456b1f', cursor: 'pointer', fontSize: 14, fontWeight: 850 },
-  submitBtn: { padding: '10px 24px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(20,131,79,0.28)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  cancelBtn: { padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.16)', borderRadius: 8, color: '#456b1f', cursor: 'pointer', fontSize: 14, fontWeight: 850 },
+  submitBtn: { padding: '10px 24px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(69, 107, 31, 0.28)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 };

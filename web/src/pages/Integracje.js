@@ -1737,7 +1737,7 @@ const styles = {
   metricLabel: { fontSize: 12, color: 'var(--text-muted)' },
   filters: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginBottom: 12 },
   input: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
-  btn: { padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontWeight: 700 },
+  btn: { padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontWeight: 700 },
   tableWrap: { background: 'var(--surface-glass)', borderRadius: 8, padding: 12, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', marginBottom: 12 },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 },
   grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 },
@@ -1762,5 +1762,5 @@ const styles = {
   trendCount: { fontSize: 11, fontWeight: 700, color: 'var(--text)' },
   workflowStatRow: { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 8px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8 },
   statusPill: { display: 'inline-flex', alignItems: 'center', minHeight: 30, padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 800 },
-  rollbackBlockedBadge: { display: 'inline-block', marginBottom: 6, fontSize: 11, color: '#c0492f', backgroundColor: 'rgba(239,83,80,0.12)', borderRadius: 999, padding: '2px 8px' },
+  rollbackBlockedBadge: { display: 'inline-block', marginBottom: 6, fontSize: 11, color: '#c0492f', backgroundColor: 'rgba(192, 73, 47, 0.12)', borderRadius: 999, padding: '2px 8px' },
 };

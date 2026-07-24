@@ -110,7 +110,7 @@ export default function BlokadyKalendarza() {
     addBtn: {
       padding: '10px 16px',
       borderRadius: 10,
-      border: '1px solid rgba(20,131,79,0.24)',
+      border: '1px solid rgba(69, 107, 31, 0.24)',
       background: 'var(--accent-gradient)',
       color: 'var(--on-accent)',
       fontWeight: 700,
@@ -182,7 +182,7 @@ export default function BlokadyKalendarza() {
     btnPrimary: {
       padding: '10px 16px',
       borderRadius: 10,
-      border: '1px solid rgba(20,131,79,0.24)',
+      border: '1px solid rgba(69, 107, 31, 0.24)',
       background: 'var(--accent-gradient)',
       color: 'var(--on-accent)',
       fontWeight: 700,

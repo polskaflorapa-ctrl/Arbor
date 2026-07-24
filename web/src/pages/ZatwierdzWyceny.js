@@ -259,7 +259,7 @@ export default function ZatwierdzWyceny() {
     btnDanger: {
       padding: '8px 14px',
       borderRadius: 8,
-      border: '1px solid rgba(239,68,68,0.5)',
+      border: '1px solid rgba(192, 73, 47, 0.5)',
       background: 'transparent',
       color: '#c0492f',
       cursor: 'pointer',
@@ -269,7 +269,7 @@ export default function ZatwierdzWyceny() {
     btnOk: {
       padding: '8px 14px',
       borderRadius: 8,
-      border: '1px solid rgba(20,131,79,0.22)',
+      border: '1px solid rgba(69, 107, 31, 0.22)',
       background: 'var(--accent-gradient)',
       color: 'var(--on-accent)',
       cursor: 'pointer',

@@ -686,11 +686,11 @@ const mStyles = {
   textarea: { width: '100%', minHeight: 84, resize: 'vertical', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
   modalHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   subtle: { marginTop: 4, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35 },
-  statusPill: { padding: '4px 8px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', color: 'var(--accent)', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
+  statusPill: { padding: '4px 8px', borderRadius: 999, background: 'rgba(127, 140, 18, 0.14)', color: 'var(--accent)', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   fieldPackagePanel: {
-    border: '1px solid rgba(34,197,94,0.28)',
+    border: '1px solid rgba(127, 140, 18, 0.28)',
     borderRadius: 8,
-    background: 'linear-gradient(145deg, rgba(34,197,94,0.1), var(--surface-field))',
+    background: 'linear-gradient(145deg, rgba(127, 140, 18, 0.1), var(--surface-field))',
     padding: 12,
     marginBottom: 12,
     display: 'grid',
@@ -729,13 +729,13 @@ const mStyles = {
   },
   fieldPackagePillOk: {
     color: '#7f8c12',
-    border: '1px solid rgba(34,197,94,0.36)',
-    background: 'rgba(34,197,94,0.12)',
+    border: '1px solid rgba(127, 140, 18, 0.36)',
+    background: 'rgba(127, 140, 18, 0.12)',
   },
   fieldPackagePillWarn: {
     color: '#995510',
-    border: '1px solid rgba(245,158,11,0.36)',
-    background: 'rgba(245,158,11,0.12)',
+    border: '1px solid rgba(189, 112, 30, 0.36)',
+    background: 'rgba(189, 112, 30, 0.12)',
   },
   fieldPackageChecks: {
     display: 'grid',
@@ -752,12 +752,12 @@ const mStyles = {
     minWidth: 0,
   },
   fieldPackageCheckOk: {
-    border: '1px solid rgba(34,197,94,0.28)',
-    background: 'rgba(34,197,94,0.08)',
+    border: '1px solid rgba(127, 140, 18, 0.28)',
+    background: 'rgba(127, 140, 18, 0.08)',
   },
   fieldPackageCheckWarn: {
-    border: '1px solid rgba(245,158,11,0.32)',
-    background: 'rgba(245,158,11,0.08)',
+    border: '1px solid rgba(189, 112, 30, 0.32)',
+    background: 'rgba(189, 112, 30, 0.08)',
   },
   fieldPackageCheckStatus: {
     color: 'var(--text-muted)',
@@ -853,17 +853,17 @@ const mStyles = {
     lineHeight: 1.35,
   },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 },
-  slotPanel: { marginTop: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'rgba(34,197,94,0.06)' },
+  slotPanel: { marginTop: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'rgba(127, 140, 18, 0.06)' },
   slotHead: { display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--text)', fontSize: 12, marginBottom: 8, flexWrap: 'wrap' },
   slotList: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  slotBtn: { border: '1px solid rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.12)', color: 'var(--text)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, fontSize: 12, fontWeight: 800 },
+  slotBtn: { border: '1px solid rgba(127, 140, 18, 0.35)', background: 'rgba(127, 140, 18, 0.12)', color: 'var(--text)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, fontSize: 12, fontWeight: 800 },
   slotEmpty: { color: 'var(--text-muted)', fontSize: 12, fontWeight: 700 },
-  planWarning: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: '#a3402a', fontSize: 12, fontWeight: 700, lineHeight: 1.45 },
-  absenceGuard: { marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.34)', color: '#a3402a', fontSize: 12, fontWeight: 800, lineHeight: 1.45, display: 'grid', gap: 7 },
+  planWarning: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(189, 112, 30, 0.12)', border: '1px solid rgba(189, 112, 30, 0.35)', color: '#a3402a', fontSize: 12, fontWeight: 700, lineHeight: 1.45 },
+  absenceGuard: { marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(192, 73, 47, 0.1)', border: '1px solid rgba(192, 73, 47, 0.34)', color: '#a3402a', fontSize: 12, fontWeight: 800, lineHeight: 1.45, display: 'grid', gap: 7 },
   absenceConfirm: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#a3402a', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   warningList: { margin: '6px 0 0', paddingLeft: 18 },
-  errorBox: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.32)', color: '#c0492f', fontSize: 12, fontWeight: 700 },
-  linkedTaskBox: { marginTop: 10, padding: 10, borderRadius: 8, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.24)', lineHeight: 1.55 },
+  errorBox: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(192, 73, 47, 0.12)', border: '1px solid rgba(192, 73, 47, 0.32)', color: '#c0492f', fontSize: 12, fontWeight: 700 },
+  linkedTaskBox: { marginTop: 10, padding: 10, borderRadius: 8, background: 'rgba(127, 140, 18, 0.08)', border: '1px solid rgba(127, 140, 18, 0.24)', lineHeight: 1.55 },
   multiSelect: { minHeight: 112, lineHeight: 1.35 },
   equipmentHint: { marginTop: 6, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35, fontWeight: 700 },
   equipmentActions: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' },
@@ -2804,7 +2804,7 @@ export default function KalendarzZasobow() {
                                     ...st.dayHourSlot,
                                     top: (hour - DAY_START_HOUR) * DAY_HOUR_HEIGHT,
                                     height: DAY_HOUR_HEIGHT,
-                                    background: isDropHere ? 'rgba(34,197,94,0.18)' : 'transparent',
+                                    background: isDropHere ? 'rgba(127, 140, 18, 0.18)' : 'transparent',
                                   }}
                                   onDragOver={(e) => handleTaskDragOver(e, team.id, dayISO, slotTime)}
                                   onDragLeave={handleTaskDragLeave}
@@ -2897,11 +2897,11 @@ export default function KalendarzZasobow() {
                             minHeight: TEAM_ROW_H,
                             borderLeft: firstOfMonth ? '2px solid var(--accent)' : '1px solid var(--border)',
                             background: isDropHere
-                              ? 'rgba(34,197,94,0.18)'
+                              ? 'rgba(127, 140, 18, 0.18)'
                               : isFocusedTeamDay
-                              ? 'rgba(34,197,94,0.2)'
+                              ? 'rgba(127, 140, 18, 0.2)'
                               : isAbsentCell
-                              ? 'rgba(239,68,68,0.1)'
+                              ? 'rgba(192, 73, 47, 0.1)'
                               : isToday
                               ? 'var(--accent-surface)'
                               : isWeekend
@@ -3021,9 +3021,9 @@ export default function KalendarzZasobow() {
                             height: ROW_H,
                             borderLeft: firstOfMonth ? '2px solid var(--accent)' : '1px solid var(--border)',
                             background: isDropHere
-                              ? 'rgba(59,130,246,0.25)'
+                              ? 'rgba(118, 100, 64, 0.25)'
                               : isFocusedEquipmentDay
-                              ? 'rgba(59,130,246,0.2)'
+                              ? 'rgba(118, 100, 64, 0.2)'
                               : isToday
                               ? 'var(--accent-surface)'
                               : isWeekend
@@ -3103,12 +3103,12 @@ const st = {
   pageHeader: {
     display: 'flex', alignItems: 'center', gap: 16, padding: '16px 18px',
     margin: '22px clamp(16px, 2.4vw, 30px) 14px',
-    border: '1px solid rgba(15,95,58,0.14)',
+    border: '1px solid rgba(69, 107, 31, 0.14)',
     borderRadius: 8,
     background:
-      'linear-gradient(90deg, rgba(15,107,63,0.045) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.96))',
+      'linear-gradient(90deg, rgba(69, 107, 31, 0.045) 1px, transparent 1px), linear-gradient(0deg, rgba(69, 107, 31, 0.04) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.96))',
     backgroundSize: '34px 34px, 34px 34px, auto',
-    boxShadow: '0 16px 40px rgba(31,79,50,0.09)',
+    boxShadow: '0 16px 40px rgba(69, 107, 31, 0.09)',
     flexWrap: 'wrap',
   },
   pageTitle: {
@@ -3116,13 +3116,13 @@ const st = {
     marginLeft: 'auto',
   },
   navBtn: {
-    width: 34, height: 34, border: '1px solid rgba(15,95,58,0.16)', borderRadius: 8,
+    width: 34, height: 34, border: '1px solid rgba(69, 107, 31, 0.16)', borderRadius: 8,
     background: '#ffffff', cursor: 'pointer', fontSize: 18,
     color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
     lineHeight: 1,
   },
   todayBtn: {
-    padding: '7px 12px', border: '1px solid rgba(15,95,58,0.16)', borderRadius: 8,
+    padding: '7px 12px', border: '1px solid rgba(69, 107, 31, 0.16)', borderRadius: 8,
     background: '#ffffff', cursor: 'pointer', fontSize: 13,
     color: 'var(--text)', fontWeight: 850,
   },
@@ -3130,14 +3130,14 @@ const st = {
     fontSize: 15, fontWeight: 600, color: 'var(--text)',
   },
   viewBtn: {
-    padding: '7px 12px', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8,
+    padding: '7px 12px', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8,
     cursor: 'pointer', fontSize: 13, fontWeight: 850,
   },
   branchSelect: {
     minWidth: 170,
     height: 32,
     padding: '5px 10px',
-    border: '1px solid rgba(15,95,58,0.16)',
+    border: '1px solid rgba(69, 107, 31, 0.16)',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
@@ -3151,10 +3151,10 @@ const st = {
     display: 'flex', alignItems: 'center', gap: 16,
     margin: '0 clamp(16px, 2.4vw, 30px) 14px',
     padding: '10px 12px',
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     borderRadius: 8,
     background: '#ffffff',
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)',
     fontSize: 12,
   },
   legendItem: {
@@ -3165,10 +3165,10 @@ const st = {
   },
   opsPanel: {
     margin: '0 clamp(16px, 2.4vw, 30px) 14px',
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     borderRadius: 8,
     background: '#ffffff',
-    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)',
     padding: 14,
     display: 'flex',
     alignItems: 'center',
@@ -3193,7 +3193,7 @@ const st = {
   },
   opsMetric: {
     minHeight: 46,
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
@@ -3205,22 +3205,22 @@ const st = {
     boxSizing: 'border-box',
   },
   opsMetricWarn: {
-    border: '1px solid rgba(245,158,11,0.45)',
-    background: 'rgba(245,158,11,0.1)',
+    border: '1px solid rgba(189, 112, 30, 0.45)',
+    background: 'rgba(189, 112, 30, 0.1)',
   },
   opsMetricInfo: {
-    border: '1px solid rgba(14,165,233,0.45)',
-    background: 'rgba(14,165,233,0.1)',
+    border: '1px solid rgba(118, 100, 64, 0.45)',
+    background: 'rgba(118, 100, 64, 0.1)',
   },
   opsMetricBad: {
-    border: '1px solid rgba(239,68,68,0.55)',
-    background: 'rgba(239,68,68,0.12)',
+    border: '1px solid rgba(192, 73, 47, 0.55)',
+    background: 'rgba(192, 73, 47, 0.12)',
   },
   opsAction: {
     minHeight: 46,
-    border: '1px solid rgba(34,197,94,0.38)',
+    border: '1px solid rgba(127, 140, 18, 0.38)',
     borderRadius: 8,
-    background: 'rgba(34,197,94,0.13)',
+    background: 'rgba(127, 140, 18, 0.13)',
     color: 'var(--accent)',
     padding: '8px 10px',
     fontSize: 12,
@@ -3229,9 +3229,9 @@ const st = {
   },
   delegationStrip: {
     width: '100%',
-    border: '1px solid rgba(14,165,233,0.24)',
+    border: '1px solid rgba(118, 100, 64, 0.24)',
     borderRadius: 8,
-    background: 'rgba(14,165,233,0.08)',
+    background: 'rgba(118, 100, 64, 0.08)',
     padding: 10,
     display: 'flex',
     alignItems: 'center',
@@ -3252,7 +3252,7 @@ const st = {
     flexWrap: 'wrap',
   },
   delegationChip: {
-    border: '1px solid rgba(14,165,233,0.32)',
+    border: '1px solid rgba(118, 100, 64, 0.32)',
     borderRadius: 999,
     background: 'rgba(255,255,255,0.04)',
     color: 'var(--text)',
@@ -3271,7 +3271,7 @@ const st = {
     gap: 8,
   },
   opsAlert: {
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
@@ -3283,16 +3283,16 @@ const st = {
     minHeight: 92,
   },
   opsAlertBad: {
-    border: '1px solid rgba(239,68,68,0.46)',
-    background: 'rgba(239,68,68,0.1)',
+    border: '1px solid rgba(192, 73, 47, 0.46)',
+    background: 'rgba(192, 73, 47, 0.1)',
   },
   opsAlertWarn: {
-    border: '1px solid rgba(245,158,11,0.42)',
-    background: 'rgba(245,158,11,0.1)',
+    border: '1px solid rgba(189, 112, 30, 0.42)',
+    background: 'rgba(189, 112, 30, 0.1)',
   },
   opsAlertGood: {
-    border: '1px solid rgba(34,197,94,0.34)',
-    background: 'rgba(34,197,94,0.09)',
+    border: '1px solid rgba(127, 140, 18, 0.34)',
+    background: 'rgba(127, 140, 18, 0.09)',
   },
   opsAlertCategory: {
     color: 'var(--text-muted)',
@@ -3325,9 +3325,9 @@ const st = {
   },
   opsClear: {
     width: '100%',
-    border: '1px dashed rgba(34,197,94,0.3)',
+    border: '1px dashed rgba(127, 140, 18, 0.3)',
     borderRadius: 8,
-    background: 'rgba(34,197,94,0.07)',
+    background: 'rgba(127, 140, 18, 0.07)',
     color: 'var(--text-muted)',
     padding: '10px 12px',
     fontSize: 12,
@@ -3335,10 +3335,10 @@ const st = {
   },
   queuePanel: {
     margin: '0 clamp(16px, 2.4vw, 30px) 14px',
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     borderRadius: 8,
     background: '#ffffff',
-    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)',
     padding: 14,
   },
   queueHead: {
@@ -3374,7 +3374,7 @@ const st = {
   },
   queueFilterBtn: {
     minHeight: 31,
-    border: '1px solid rgba(15,95,58,0.16)',
+    border: '1px solid rgba(69, 107, 31, 0.16)',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
@@ -3387,8 +3387,8 @@ const st = {
     fontWeight: 850,
   },
   queueFilterBtnActive: {
-    border: '1px solid rgba(34,197,94,0.42)',
-    background: 'rgba(34,197,94,0.14)',
+    border: '1px solid rgba(127, 140, 18, 0.42)',
+    background: 'rgba(127, 140, 18, 0.14)',
     color: 'var(--accent)',
   },
   queueList: {
@@ -3397,15 +3397,15 @@ const st = {
     gap: 8,
   },
   queueTaskWrap: {
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     borderRadius: 8,
     background: '#ffffff',
     padding: 6,
     minWidth: 0,
   },
   queueTaskWrapReady: {
-    border: '1px solid rgba(34,197,94,0.32)',
-    background: 'rgba(34,197,94,0.07)',
+    border: '1px solid rgba(127, 140, 18, 0.32)',
+    background: 'rgba(127, 140, 18, 0.07)',
   },
   queueTaskMeta: {
     display: 'flex',
@@ -3420,20 +3420,20 @@ const st = {
   queueReadyPill: {
     borderRadius: 999,
     padding: '3px 6px',
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(69, 107, 31, 0.13)',
     fontSize: 10,
     lineHeight: 1,
     fontWeight: 950,
   },
   queueReadyPillOk: {
     color: '#7f8c12',
-    border: '1px solid rgba(34,197,94,0.35)',
-    background: 'rgba(34,197,94,0.12)',
+    border: '1px solid rgba(127, 140, 18, 0.35)',
+    background: 'rgba(127, 140, 18, 0.12)',
   },
   queueReadyPillWarn: {
     color: '#995510',
-    border: '1px solid rgba(245,158,11,0.35)',
-    background: 'rgba(245,158,11,0.12)',
+    border: '1px solid rgba(189, 112, 30, 0.35)',
+    background: 'rgba(189, 112, 30, 0.12)',
   },
   queueMissingList: {
     display: 'flex',
@@ -3444,8 +3444,8 @@ const st = {
   queueMissingPill: {
     borderRadius: 999,
     padding: '3px 6px',
-    border: '1px solid rgba(245,158,11,0.32)',
-    background: 'rgba(245,158,11,0.1)',
+    border: '1px solid rgba(189, 112, 30, 0.32)',
+    background: 'rgba(189, 112, 30, 0.1)',
     color: '#995510',
     fontSize: 10,
     lineHeight: 1,
@@ -3473,8 +3473,8 @@ const st = {
     textOverflow: 'ellipsis',
   },
   queueActionBtnPrimary: {
-    border: '1px solid rgba(34,197,94,0.42)',
-    background: 'rgba(34,197,94,0.14)',
+    border: '1px solid rgba(127, 140, 18, 0.42)',
+    background: 'rgba(127, 140, 18, 0.14)',
     color: 'var(--accent)',
   },
   queueEmpty: {
@@ -3494,7 +3494,7 @@ const st = {
     color: 'var(--text)',
     padding: '7px 8px',
     marginBottom: 6,
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)',
     cursor: 'grab',
     userSelect: 'none',
     boxSizing: 'border-box',
@@ -3550,13 +3550,13 @@ const st = {
   },
   taskBadgeOk: {
     color: '#456b1f',
-    border: '1px solid rgba(34,197,94,0.35)',
-    background: 'rgba(34,197,94,0.11)',
+    border: '1px solid rgba(127, 140, 18, 0.35)',
+    background: 'rgba(127, 140, 18, 0.11)',
   },
   taskBadgeWarn: {
     color: '#995510',
-    border: '1px solid rgba(245,158,11,0.35)',
-    background: 'rgba(245,158,11,0.12)',
+    border: '1px solid rgba(189, 112, 30, 0.35)',
+    background: 'rgba(189, 112, 30, 0.12)',
   },
   emptyTeamCell: {
     minHeight: 40,
@@ -3571,8 +3571,8 @@ const st = {
     opacity: 0.72,
   },
   emptyTeamCellAbsent: {
-    border: '1px dashed rgba(239,68,68,0.35)',
-    background: 'rgba(239,68,68,0.08)',
+    border: '1px dashed rgba(192, 73, 47, 0.35)',
+    background: 'rgba(192, 73, 47, 0.08)',
     color: '#c0492f',
   },
   dayPlanner: {
@@ -3614,9 +3614,9 @@ const st = {
     lineHeight: 1.25,
   },
   dayTeamHeaderAbsent: {
-    borderRight: '1px solid rgba(239,68,68,0.42)',
-    background: 'linear-gradient(135deg, rgba(239,68,68,0.14), var(--surface-glass))',
-    boxShadow: 'inset 0 -2px 0 rgba(239,68,68,0.65)',
+    borderRight: '1px solid rgba(192, 73, 47, 0.42)',
+    background: 'linear-gradient(135deg, rgba(192, 73, 47, 0.14), var(--surface-glass))',
+    boxShadow: 'inset 0 -2px 0 rgba(192, 73, 47, 0.65)',
   },
   dayTeamHeaderTop: {
     display: 'flex',
@@ -3649,9 +3649,9 @@ const st = {
   },
   teamBriefBtn: {
     flexShrink: 0,
-    border: '1px solid rgba(34,197,94,0.34)',
+    border: '1px solid rgba(127, 140, 18, 0.34)',
     borderRadius: 7,
-    background: 'rgba(34,197,94,0.1)',
+    background: 'rgba(127, 140, 18, 0.1)',
     color: 'var(--accent)',
     padding: '4px 7px',
     fontSize: 10,
@@ -3674,26 +3674,26 @@ const st = {
     color: '#c0492f',
   },
   focusedTeamHeader: {
-    background: 'linear-gradient(135deg, rgba(34,197,94,0.18), var(--surface-glass))',
-    boxShadow: 'inset 0 -2px 0 rgba(34,197,94,0.72)',
+    background: 'linear-gradient(135deg, rgba(127, 140, 18, 0.18), var(--surface-glass))',
+    boxShadow: 'inset 0 -2px 0 rgba(127, 140, 18, 0.72)',
   },
   focusedTeamColumn: {
-    background: 'linear-gradient(180deg, rgba(34,197,94,0.08), var(--surface-glass))',
+    background: 'linear-gradient(180deg, rgba(127, 140, 18, 0.08), var(--surface-glass))',
   },
   absentTeamRangeRow: {
     boxShadow: 'inset 3px 0 0 #c0492f',
-    background: 'rgba(239,68,68,0.045)',
+    background: 'rgba(192, 73, 47, 0.045)',
   },
   focusedTeamRangeRow: {
     boxShadow: 'inset 3px 0 0 var(--accent)',
-    background: 'rgba(34,197,94,0.05)',
+    background: 'rgba(127, 140, 18, 0.05)',
   },
   focusedEquipmentRow: {
     boxShadow: 'inset 3px 0 0 #766440',
-    background: 'rgba(59,130,246,0.05)',
+    background: 'rgba(118, 100, 64, 0.05)',
   },
   focusedEquipmentLabel: {
-    background: 'linear-gradient(135deg, rgba(59,130,246,0.16), transparent)',
+    background: 'linear-gradient(135deg, rgba(118, 100, 64, 0.16), transparent)',
   },
   dayPlannerBody: {
     display: 'flex',
@@ -3723,7 +3723,7 @@ const st = {
     overflow: 'hidden',
   },
   dayTeamColumnAbsent: {
-    background: 'linear-gradient(180deg, rgba(239,68,68,0.09), var(--surface-glass))',
+    background: 'linear-gradient(180deg, rgba(192, 73, 47, 0.09), var(--surface-glass))',
   },
   dayHourSlot: {
     position: 'absolute',
@@ -3748,9 +3748,9 @@ const st = {
     boxSizing: 'border-box',
   },
   dayTaskBlockConflict: {
-    border: '1px solid rgba(239,68,68,0.72)',
-    background: 'linear-gradient(135deg, rgba(239,68,68,0.16), var(--surface-field))',
-    boxShadow: '0 0 0 2px rgba(239,68,68,0.16), 0 2px 8px rgba(0,0,0,0.22)',
+    border: '1px solid rgba(192, 73, 47, 0.72)',
+    background: 'linear-gradient(135deg, rgba(192, 73, 47, 0.16), var(--surface-field))',
+    boxShadow: '0 0 0 2px rgba(192, 73, 47, 0.16), 0 2px 8px rgba(0,0,0,0.22)',
   },
   dayTaskTime: {
     color: 'var(--accent)',
@@ -3792,8 +3792,8 @@ const st = {
     opacity: 0.72,
   },
   dayEmptyColumnAbsent: {
-    border: '1px dashed rgba(239,68,68,0.35)',
-    background: 'rgba(239,68,68,0.08)',
+    border: '1px dashed rgba(192, 73, 47, 0.35)',
+    background: 'rgba(192, 73, 47, 0.08)',
     color: '#c0492f',
   },
   dayGapBlock: {
@@ -3801,9 +3801,9 @@ const st = {
     left: 9,
     right: 9,
     zIndex: 1,
-    border: '1px dashed rgba(34,197,94,0.48)',
+    border: '1px dashed rgba(127, 140, 18, 0.48)',
     borderRadius: 8,
-    background: 'rgba(34,197,94,0.08)',
+    background: 'rgba(127, 140, 18, 0.08)',
     color: '#7f8c12',
     fontSize: 10,
     fontWeight: 900,

@@ -39,24 +39,24 @@ export function getTelemetryTone(value) {
 /* Flat coloured chip — like Gemini HTML .m-status */
 const CHIP_COLOURS = {
   success: {
-    background: 'rgba(20, 131, 79, 0.12)',
+    background: 'rgba(69, 107, 31, 0.12)',
     color: '#456b1f',
-    border: '1px solid rgba(20, 131, 79, 0.22)',
+    border: '1px solid rgba(69, 107, 31, 0.22)',
   },
   warning: {
-    background: 'rgba(183, 121, 31, 0.13)',
+    background: 'rgba(153, 85, 16, 0.13)',
     color: '#995510',
-    border: '1px solid rgba(183, 121, 31, 0.22)',
+    border: '1px solid rgba(153, 85, 16, 0.22)',
   },
   danger: {
-    background: 'rgba(220, 38, 38, 0.1)',
+    background: 'rgba(192, 73, 47, 0.1)',
     color: '#a3402a',
-    border: '1px solid rgba(220, 38, 38, 0.2)',
+    border: '1px solid rgba(192, 73, 47, 0.2)',
   },
   info: {
-    background: 'rgba(23, 126, 170, 0.11)',
+    background: 'rgba(118, 100, 64, 0.11)',
     color: '#5d6a0b',
-    border: '1px solid rgba(23, 126, 170, 0.2)',
+    border: '1px solid rgba(118, 100, 64, 0.2)',
   },
 };
 

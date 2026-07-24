@@ -234,5 +234,5 @@ const styles = {
   textarea: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, outline: 'none', width: '100%', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 },
   cancelBtn: { padding: '10px 24px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' },
-  submitBtn: { padding: '10px 28px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }
+  submitBtn: { padding: '10px 28px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }
 };

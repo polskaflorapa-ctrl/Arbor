@@ -33,14 +33,14 @@ const buttonVariants = {
   danger: {
     backgroundColor: 'var(--danger-surface)',
     backgroundImage: 'none',
-    borderColor: 'rgba(220, 38, 38, 0.24)',
+    borderColor: 'rgba(192, 73, 47, 0.24)',
     color: 'var(--danger)',
     boxShadow: 'none',
   },
   warning: {
     backgroundColor: 'var(--warning-surface)',
     backgroundImage: 'none',
-    borderColor: 'rgba(183, 121, 31, 0.24)',
+    borderColor: 'rgba(153, 85, 16, 0.24)',
     color: 'var(--warning)',
     boxShadow: 'none',
   },

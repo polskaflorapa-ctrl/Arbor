@@ -361,7 +361,7 @@ const s = {
   title:      { fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 },
   sub:        { fontSize: 13, color: 'var(--text-sub)', marginTop: 4 },
   monthInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14 },
-  addBtn:     { padding: '9px 16px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
+  addBtn:     { padding: '9px 16px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   backBtn:    { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
   errorBox:   { padding: '12px 16px', borderRadius: 8, background: '#f6e0d9', color: '#c0492f', marginBottom: 16, fontSize: 14 },
   tabs:       { display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' },

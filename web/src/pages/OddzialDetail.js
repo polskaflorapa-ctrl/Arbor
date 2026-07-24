@@ -390,10 +390,10 @@ export default function OddzialDetail() {
         {/* KPI */}
         <div className="branch-detail-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
-            { label: '📋 Nowe', value: statsByStatus(TASK_STATUS.NOWE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
+            { label: '📋 Nowe', value: statsByStatus(TASK_STATUS.NOWE), color: 'var(--accent)', bg: 'rgba(127, 140, 18, 0.1)' },
             { label: '📅 Zaplanowane', value: statsByStatus(TASK_STATUS.ZAPLANOWANE), color: 'var(--accent)', bg: 'var(--accent-surface)' },
             { label: '⚡ W realizacji', value: statsByStatus(TASK_STATUS.W_REALIZACJI), color: '#bd701e', bg: '#fae7d2' },
-            { label: '✅ Zakończone', value: statsByStatus(TASK_STATUS.ZAKONCZONE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
+            { label: '✅ Zakończone', value: statsByStatus(TASK_STATUS.ZAKONCZONE), color: 'var(--accent)', bg: 'rgba(127, 140, 18, 0.1)' },
           ].map(k => (
             <div className="branch-detail-kpi" key={k.label} style={{
               background: 'var(--surface-glass)', borderRadius: 8, padding: '14px 16px',
@@ -542,7 +542,7 @@ export default function OddzialDetail() {
                     onClick={() => { setSelectedEkipa(e); loadEkipaDetail(e.id); setShowAddCzlonek(false); }}
                     style={{
                       background: 'var(--surface-glass)', borderRadius: 8, padding: 16, marginBottom: 10,
-                      boxShadow: selectedEkipa?.id === e.id ? '0 4px 16px rgba(20,131,79,0.18)' : 'var(--shadow-md)',
+                      boxShadow: selectedEkipa?.id === e.id ? '0 4px 16px rgba(69, 107, 31, 0.18)' : 'var(--shadow-md)',
                       borderLeft: `4px solid ${selectedEkipa?.id === e.id ? 'var(--accent)' : 'var(--border)'}`,
                       cursor: 'pointer', transition: 'all 0.2s',
                       animation: `slideIn 0.3s ease ${i * 0.06}s forwards`, opacity: 0,
@@ -611,7 +611,7 @@ export default function OddzialDetail() {
                             <span style={{ fontWeight: 'bold', color: 'var(--accent)' }}>%</span>
                             <button onClick={() => zmienProcent(ekipaDetail.brygadzista_id, brygadzistaProcent)}
                               disabled={rateSaving}
-                              style={{ padding: '5px 10px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', opacity: rateSaving ? 0.7 : 1 }}>
+                              style={{ padding: '5px 10px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', opacity: rateSaving ? 0.7 : 1 }}>
                               {rateSaving ? '⏳' : 'Zapisz'}
                             </button>
                           </div>
@@ -800,7 +800,7 @@ export default function OddzialDetail() {
                           <button style={S.editBtn} onClick={() => navigate(`/uzytkownicy/${p.id}`)}>Profil</button>
                           {isDyrektor && (
                             <button
-                              style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#fae7d2' : 'rgba(52,211,153,0.1)', color: p.aktywny ? '#bd701e' : 'var(--accent)' }}
+                              style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#fae7d2' : 'rgba(127, 140, 18, 0.1)', color: p.aktywny ? '#bd701e' : 'var(--accent)' }}
                               onClick={e => toggleAktywny(e, p.id, p.aktywny)}
                             >
                               {p.aktywny ? 'Zablokuj' : 'Aktywuj'}
@@ -861,7 +861,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
           {t('pages.branchAdmin.hint', { defaultValue: 'Włącz lub wyłącz funkcje mobilne dla tego oddziału (zapisywane lokalnie).' })}
         </div>
         {overrideCount > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 8, backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', border: '1px solid rgba(20,131,79,0.22)' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 8, backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', border: '1px solid rgba(69, 107, 31, 0.22)' }}>
             {overrideCount} override{overrideCount !== 1 ? 's' : ''}
           </span>
         )}
@@ -882,7 +882,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                backgroundColor: enabled ? 'var(--surface-field)' : 'rgba(248,113,113,0.06)',
+                backgroundColor: enabled ? 'var(--surface-field)' : 'rgba(192, 73, 47, 0.06)',
               }}
             >
               <span style={{ fontSize: 13, color: 'var(--text-sub)', fontFamily: 'monospace' }}>
@@ -965,7 +965,7 @@ function KalkulatorWynagrodzenia({ ekipa }) {
           </div>
         ))}
       </div>
-      <button onClick={oblicz} style={{ width: '100%', padding: 10, background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold', marginBottom: 12 }}>
+      <button onClick={oblicz} style={{ width: '100%', padding: 10, background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold', marginBottom: 12 }}>
         🧮 Oblicz wynagrodzenie
       </button>
       {wynik && (
@@ -1000,10 +1000,10 @@ function Field({ label, children }) {
 }
 
 const S = {
-  addBtn: { padding: '8px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
+  addBtn: { padding: '8px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   addSmallBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
-  deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
@@ -1011,5 +1011,5 @@ const S = {
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
   cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
 };

@@ -239,12 +239,12 @@ const dm = {
   td:      { padding: '9px 10px', color: 'var(--text)', verticalAlign: 'middle' },
   badge:   { display: 'inline-block', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: '#fff', fontWeight: 600 },
   csvBtn:  { padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12 },
-  repairPanel: { display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 2fr auto', gap: 10, alignItems: 'center', padding: 12, borderRadius: 8, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.10)' },
+  repairPanel: { display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 2fr auto', gap: 10, alignItems: 'center', padding: 12, borderRadius: 8, border: '1px solid rgba(189, 112, 30, 0.28)', background: 'rgba(189, 112, 30, 0.10)' },
   repairTitle: { fontSize: 13, fontWeight: 800, color: 'var(--text)' },
   repairSub: { fontSize: 12, color: 'var(--text-sub)', marginTop: 2 },
   repairChips: { display: 'flex', gap: 6, flexWrap: 'wrap' },
   missingChipRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 },
-  missingChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '2px 7px', borderRadius: 6, border: '1px solid rgba(194,65,12,0.22)', background: 'rgba(255,247,237,0.70)', color: '#a3402a', fontSize: 11, fontWeight: 800 },
+  missingChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '2px 7px', borderRadius: 6, border: '1px solid rgba(163, 64, 42, 0.22)', background: 'rgba(255,247,237,0.70)', color: '#a3402a', fontSize: 11, fontWeight: 800 },
   drillItem: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', overflow: 'hidden' },
   breakdown: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 8, padding: '10px 12px', borderTop: '1px solid var(--border)' },
   costPill: { display: 'grid', gap: 2, minHeight: 52, padding: '8px 10px', borderRadius: 7, background: 'var(--surface-glass)', border: '1px solid var(--glass-border)' },
@@ -252,7 +252,7 @@ const dm = {
   costValue: { fontSize: 13, color: 'var(--text)' },
   costOk: { fontSize: 10, color: '#456b1f', fontWeight: 800 },
   costMissing: { fontSize: 10, color: '#a3402a', fontWeight: 800 },
-  marginWarning: { padding: '10px 12px', borderTop: '1px solid rgba(194,65,12,0.24)', background: 'rgba(245,158,11,0.10)', color: '#a3402a', fontSize: 12, lineHeight: 1.4 },
+  marginWarning: { padding: '10px 12px', borderTop: '1px solid rgba(163, 64, 42, 0.24)', background: 'rgba(189, 112, 30, 0.10)', color: '#a3402a', fontSize: 12, lineHeight: 1.4 },
   redacted: { padding: '10px 12px', borderTop: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   finNote: { padding: '0 12px 10px', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 12px 10px', flexWrap: 'wrap' },
@@ -947,7 +947,7 @@ export default function BiDashboard() {
                 {alertResult.margin_risks?.length ? (
                   <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                     {alertResult.margin_risks.slice(0, 6).map((risk) => (
-                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.24)', background: 'rgba(220,38,38,0.08)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
+                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(192, 73, 47, 0.24)', background: 'rgba(192, 73, 47, 0.08)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
                         <strong>#{risk.id} {risk.klient_nazwa || 'Zlecenie'}</strong>
                         <span style={{ marginLeft: 8 }}>
                           marża {risk.margin_pct}% / próg {risk.threshold_pct}%
@@ -959,7 +959,7 @@ export default function BiDashboard() {
                 {alertResult.margin_data_risks?.length ? (
                   <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                     {alertResult.margin_data_risks.slice(0, 6).map((risk) => (
-                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.10)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
+                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(189, 112, 30, 0.28)', background: 'rgba(189, 112, 30, 0.10)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
                         <strong>#{risk.id} {risk.klient_nazwa || 'Zlecenie'}</strong>
                         <span style={{ marginLeft: 8 }}>
                           brakuje {(risk.missing_cost_fields || []).map(marginFieldLabel).join(', ')}
@@ -971,7 +971,7 @@ export default function BiDashboard() {
                 {alertResult.fleet_due?.length ? (
                   <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                     {alertResult.fleet_due.slice(0, 6).map((item) => (
-                      <div key={`${item.kind}-${item.id}-${item.due_type}`} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.10)' }}>
+                      <div key={`${item.kind}-${item.id}-${item.due_type}`} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(189, 112, 30, 0.28)', background: 'rgba(189, 112, 30, 0.10)' }}>
                         <strong>{item.label || `#${item.id}`}</strong>
                         <span style={{ marginLeft: 8 }}>{item.kind} / {item.due_type}: {String(item.due_date || '').slice(0, 10)}</span>
                       </div>
@@ -981,7 +981,7 @@ export default function BiDashboard() {
                 {alertResult.competency_risks?.length ? (
                   <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                     {alertResult.competency_risks.slice(0, 6).map((risk) => (
-                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.24)', background: 'rgba(220,38,38,0.08)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
+                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(192, 73, 47, 0.24)', background: 'rgba(192, 73, 47, 0.08)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
                         <strong>{risk.numer || `#${risk.id}`} {risk.klient_nazwa || 'Zlecenie'}</strong>
                         <span style={{ marginLeft: 8 }}>
                           {risk.ekipa_nazwa || 'Ekipa'}: brakuje {(risk.missing_competencies || []).join(', ')}
@@ -1042,7 +1042,7 @@ const s = {
   content:  { display: 'flex', flexDirection: 'column', gap: 16 },
   kpiRow:   { display: 'flex', gap: 12, flexWrap: 'wrap' },
   kpiCard:  { flex: 1, minWidth: 130, padding: '14px 16px', borderRadius: 8, border: '1px solid var(--border)' },
-  kpiCardClickable: { cursor: 'pointer', boxShadow: '0 0 0 1px rgba(37,99,235,0.12)' },
+  kpiCardClickable: { cursor: 'pointer', boxShadow: '0 0 0 1px rgba(118, 100, 64, 0.12)' },
   kpiValue: { fontSize: 24, fontWeight: 800, marginBottom: 2 },
   kpiLabel: { fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', marginTop: 6 },
   kpiSub:   { fontSize: 11, color: 'var(--text-muted, var(--text-sub))', marginTop: 2 },

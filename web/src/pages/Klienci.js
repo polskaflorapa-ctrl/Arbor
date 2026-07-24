@@ -272,9 +272,9 @@ export default function Klienci() {
         <div className="clients-workspace">
 
         {/* ── LEWA KOLUMNA: lista ── */}
-        <div className="clients-list-panel" style={{ width: 360, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
+        <div className="clients-list-panel" style={{ width: 360, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(69, 107, 31, 0.06)' }}>
           {/* Nagłówek */}
-          <div className="clients-list-header" style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(15,107,63,0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
+          <div className="clients-list-header" style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(69, 107, 31, 0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Klienci</h2>
@@ -711,21 +711,21 @@ function FormField({ label, children, style }) {
 const btn = {
   primary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8,
+    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8,
     fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   secondary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: '#ffffff', color: 'var(--accent-dk)', border: '1px solid rgba(15,107,63,0.18)',
+    background: '#ffffff', color: 'var(--accent-dk)', border: '1px solid rgba(69, 107, 31, 0.18)',
     borderRadius: 8, fontSize: 12, fontWeight: 850, cursor: 'pointer',
   },
   secondaryGhost: {
     padding: '9px 18px', background: '#ffffff', color: 'var(--text-sub)',
-    border: '1px solid rgba(15,107,63,0.18)', borderRadius: 8, fontSize: 13, fontWeight: 850, cursor: 'pointer',
+    border: '1px solid rgba(69, 107, 31, 0.18)', borderRadius: 8, fontSize: 13, fontWeight: 850, cursor: 'pointer',
   },
   danger: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.3)',
+    background: 'rgba(192, 73, 47, 0.12)', color: 'var(--danger)', border: '1px solid rgba(192, 73, 47, 0.3)',
     borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
 };
@@ -733,7 +733,7 @@ const btn = {
 const inp = {
   base: {
     width: '100%', minHeight: 40, padding: '9px 11px', background: '#ffffff',
-    border: '1px solid rgba(15,107,63,0.18)', borderRadius: 8,
+    border: '1px solid rgba(69, 107, 31, 0.18)', borderRadius: 8,
     color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
   },
 };
@@ -750,7 +750,7 @@ const sec = {
     borderRadius: 8,
     border: '1px solid rgba(255,255,255,0.16)',
     background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 58%, #456b1f 100%)',
-    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
+    boxShadow: '0 22px 46px rgba(69, 107, 31, 0.16)',
   },
   eyebrow: {
     color: '#e4efd6',
@@ -764,7 +764,7 @@ const sec = {
   title: { fontSize: 13, fontWeight: 700, color: 'var(--text)' },
   row: {
     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-    background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.14)',
+    background: '#ffffff', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.14)',
     transition: 'background 0.15s',
   },
 };
@@ -775,9 +775,9 @@ const badge = {
 
 const miniPill = {
   fontSize: 10,
-  background: 'rgba(20,131,79,0.08)',
+  background: 'rgba(69, 107, 31, 0.08)',
   color: 'var(--accent-dk)',
-  border: '1px solid rgba(20,131,79,0.18)',
+  border: '1px solid rgba(69, 107, 31, 0.18)',
   borderRadius: 6,
   padding: '2px 6px',
   fontWeight: 800,

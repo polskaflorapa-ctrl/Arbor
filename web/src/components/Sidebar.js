@@ -769,14 +769,14 @@ export default function Sidebar() {
                 className="ios-inset-row"
                 style={{
                   cursor: 'pointer',
-                  background: logoutHover ? 'rgba(248, 113, 113, 0.08)' : 'var(--ios-inset-bg)',
+                  background: logoutHover ? 'rgba(192, 73, 47, 0.08)' : 'var(--ios-inset-bg)',
                   color: logoutHover ? 'var(--danger)' : 'var(--text-muted)',
                   fontWeight: 500,
                   minHeight: 42,
                   padding: '7px 12px',
                 }}
               >
-                <span className="ios-icon-tile" style={logoutHover ? { color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)' } : undefined}>
+                <span className="ios-icon-tile" style={logoutHover ? { color: 'var(--danger)', border: '1px solid rgba(192, 73, 47, 0.35)' } : undefined}>
                   {ICONS.logout}
                 </span>
                 <span style={{ flex: 1, fontSize: 15 }}>{t('sidebar.logout')}</span>
@@ -870,7 +870,7 @@ export default function Sidebar() {
                   justifyContent: 'center',
                   padding: '10px 0',
                   color: logoutHover ? 'var(--danger)' : 'var(--text-muted)',
-                  background: logoutHover ? 'rgba(248,113,113,0.1)' : 'transparent',
+                  background: logoutHover ? 'rgba(192, 73, 47, 0.1)' : 'transparent',
                   cursor: 'pointer',
                   transition: 'all 0.15s',
                   borderLeft: '3px solid transparent',
@@ -893,7 +893,7 @@ export default function Sidebar() {
 /* Arbor navigation shell. */
 const NAV_BG = '#5d6a0b';
 const NAV_MUTED= 'rgba(226,232,240,0.72)';
-const NAV_BORDER = 'rgba(148,163,184,0.18)';
+const NAV_BORDER = 'rgba(154, 144, 122, 0.18)';
 
 const pfSb = {
   root: {
@@ -915,7 +915,7 @@ const pfSb = {
     alignItems: 'center',
     gap: 12,
     padding: '0 16px',
-    borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
+    borderBottom: '1px solid rgba(154, 144, 122, 0.22)',
   },
   logoIcon: {
     width: 40,
@@ -963,7 +963,7 @@ const pfSb = {
     display: 'grid',
     gap: 8,
     padding: 12,
-    borderTop: '1px solid rgba(148, 163, 184, 0.22)',
+    borderTop: '1px solid rgba(154, 144, 122, 0.22)',
   },
   userButton: {
     width: '100%',
@@ -1012,7 +1012,7 @@ const sb = {
   root: {
     height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 200,
     background:
-      'linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.025) 1px, transparent 1px), radial-gradient(circle at 18% 8%, rgba(132,204,22,0.22), transparent 25%), radial-gradient(circle at 88% 26%, rgba(37,99,235,0.18), transparent 24%), linear-gradient(180deg, #2c2011 0%, #5d6a0b 48%, #5d6a0b 100%)',
+      'linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.025) 1px, transparent 1px), radial-gradient(circle at 18% 8%, rgba(160, 175, 20, 0.22), transparent 25%), radial-gradient(circle at 88% 26%, rgba(118, 100, 64, 0.18), transparent 24%), linear-gradient(180deg, #2c2011 0%, #5d6a0b 48%, #5d6a0b 100%)',
     backgroundColor: NAV_BG,
     display: 'flex', flexDirection: 'column',
     borderRight: 'none',
@@ -1041,7 +1041,7 @@ const sb = {
   logoSub: { fontSize: 10, color: NAV_MUTED, letterSpacing: 0, marginTop: 2, fontWeight: 500 },
   userCard: {
     display: 'flex', alignItems: 'center', gap: 10, margin: '10px 10px 6px',
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.13), rgba(37,99,235,0.1))', borderRadius: 14,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.13), rgba(118, 100, 64, 0.1))', borderRadius: 14,
     border: `1px solid ${NAV_BORDER}`,
     padding: '10px 12px',
   },
@@ -1098,7 +1098,7 @@ const sb = {
   quickIcon: {
     width: 22, height: 22, borderRadius: 6,
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    color: '#e4efd6', background: 'rgba(34,211,142,0.12)',
+    color: '#e4efd6', background: 'rgba(127, 140, 18, 0.12)',
     flexShrink: 0,
   },
   sectionLabel: {
@@ -1158,7 +1158,7 @@ const sb = {
     flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500,
     lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
-  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#e4efd6', boxShadow: '0 0 18px rgba(134,239,172,0.8)' },
+  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#e4efd6', boxShadow: '0 0 18px rgba(228, 239, 214, 0.8)' },
   bottom: { padding: '4px 8px 10px', flexShrink: 0 },
   languageBlock: {
     display: 'grid',
@@ -1179,20 +1179,20 @@ const sb = {
   },
   notifPanel: {
     position: 'fixed', bottom: 80, width: 340, background: '#ffffff',
-    border: '1px solid rgba(15,95,58,0.12)', borderRadius: 10,
-    boxShadow: '0 18px 44px rgba(15,95,58,0.14)',
+    border: '1px solid rgba(69, 107, 31, 0.12)', borderRadius: 10,
+    boxShadow: '0 18px 44px rgba(69, 107, 31, 0.14)',
     zIndex: 1000, maxHeight: 460, overflowY: 'auto',
   },
   notifHeader: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '14px 16px', borderBottom: '1px solid rgba(15,95,58,0.12)',
+    padding: '14px 16px', borderBottom: '1px solid rgba(69, 107, 31, 0.12)',
     position: 'sticky', top: 0, background: '#ffffff', zIndex: 1,
   },
   notifTitle: { fontSize: 14, fontWeight: 700, color: '#2c2011' },
   markAllBtn: { fontSize: 12, color: '#456b1f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 },
   notifEmpty: { padding: '32px 24px', textAlign: 'center' },
   notifItem: {
-    display: 'flex', gap: 10, padding: '12px 14px', borderBottom: '1px solid rgba(15,95,58,0.12)',
+    display: 'flex', gap: 10, padding: '12px 14px', borderBottom: '1px solid rgba(69, 107, 31, 0.12)',
     cursor: 'pointer', transition: 'background 0.15s',
   },
   notifDot: { width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },

@@ -314,7 +314,7 @@ export default function RozliczeniaFieldEntry() {
         {msg && (
           <div style={{
             padding: '10px 14px', borderRadius: 8, marginBottom: 14,
-            background: msg.type === 'ok' ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
+            background: msg.type === 'ok' ? 'rgba(127, 140, 18, 0.12)' : 'rgba(192, 73, 47, 0.12)',
             border: `1px solid ${msg.type === 'ok' ? '#4ade8044' : '#f8717144'}`,
             color: msg.type === 'ok' ? '#7f8c12' : '#c0492f',
             fontSize: 13, fontWeight: 600,
@@ -467,8 +467,8 @@ export default function RozliczeniaFieldEntry() {
                   </div>
                   {p.godziny && p.stawka_godzinowa && (
                     <div style={{
-                      flex: '1 1 120px', background: 'rgba(74,222,128,0.08)',
-                      border: '1px solid rgba(74,222,128,0.25)',
+                      flex: '1 1 120px', background: 'rgba(127, 140, 18, 0.08)',
+                      border: '1px solid rgba(127, 140, 18, 0.25)',
                       borderRadius: 8, padding: '6px 12px',
                       display: 'flex', flexDirection: 'column', justifyContent: 'center',
                     }}>
@@ -486,14 +486,14 @@ export default function RozliczeniaFieldEntry() {
                     <button
                       type="button"
                       onClick={() => zatwierdz(p.id, 'Odrzucone')}
-                      style={{ ...actionBtn, background: 'rgba(248,113,113,0.1)', color: '#c0492f', border: '1px solid rgba(248,113,113,0.3)' }}
+                      style={{ ...actionBtn, background: 'rgba(192, 73, 47, 0.1)', color: '#c0492f', border: '1px solid rgba(192, 73, 47, 0.3)' }}
                     >
                       Odrzuć
                     </button>
                     <button
                       type="button"
                       onClick={() => zatwierdz(p.id, 'Potwierdzone')}
-                      style={{ ...actionBtn, background: 'rgba(74,222,128,0.1)', color: '#7f8c12', border: '1px solid rgba(74,222,128,0.3)' }}
+                      style={{ ...actionBtn, background: 'rgba(127, 140, 18, 0.1)', color: '#7f8c12', border: '1px solid rgba(127, 140, 18, 0.3)' }}
                     >
                       Zatwierdź
                     </button>
@@ -837,7 +837,7 @@ export default function RozliczeniaFieldEntry() {
             {dayData && (
               <>
                 {/* Podsumowanie dnia */}
-                <div style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 12, padding: 20, marginBottom: 16, textAlign: 'center' }}>
+                <div style={{ background: 'rgba(127, 140, 18, 0.08)', border: '1px solid rgba(127, 140, 18, 0.25)', borderRadius: 12, padding: 20, marginBottom: 16, textAlign: 'center' }}>
                   <div style={{ fontSize: 12, color: '#7f8c12', marginBottom: 6 }}>Zarobek dnia ({dayData.data})</div>
                   <div style={{ fontSize: 32, fontWeight: 900, color: '#7f8c12' }}>
                     {fmt(dayData.podsumowanie.wynagrodzenie_brygadzisty)} PLN

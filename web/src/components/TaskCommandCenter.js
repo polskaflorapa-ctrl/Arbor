@@ -247,7 +247,7 @@ const s = {
   value: { display: 'block', marginTop: 3, fontSize: 15, color: 'var(--text)', fontWeight: 800 },
   primaryBtn: {
     minHeight: 36,
-    border: '1px solid rgba(20,131,79,0.22)',
+    border: '1px solid rgba(69, 107, 31, 0.22)',
     borderRadius: 6,
     background: 'var(--accent-gradient)',
     color: 'var(--on-accent)',

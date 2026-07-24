@@ -145,8 +145,8 @@ export default function AiChat() {
           position: 'fixed', bottom: 24, right: 24, zIndex: 9000,
           width: 56, height: 56, borderRadius: '50%',
           background: open ? 'var(--surface-glass)' : 'var(--accent-gradient)',
-          border: open ? '1px solid var(--glass-border)' : '1px solid rgba(20,131,79,0.22)',
-          cursor: 'pointer', boxShadow: open ? 'var(--shadow-md)' : '0 8px 28px rgba(5,150,105,0.22)',
+          border: open ? '1px solid var(--glass-border)' : '1px solid rgba(69, 107, 31, 0.22)',
+          cursor: 'pointer', boxShadow: open ? 'var(--shadow-md)' : '0 8px 28px rgba(69, 107, 31, 0.22)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.2s', color: open ? 'var(--text)' : '#fff',
         }}
@@ -313,7 +313,7 @@ const S = {
   headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
   avatarAi: {
     width: 34, height: 34, borderRadius: 8,
-    background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)',
+    background: 'rgba(127, 140, 18, 0.12)', border: '1px solid rgba(127, 140, 18, 0.25)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text, #f0ebdd)' },
@@ -326,7 +326,7 @@ const S = {
   },
   keyWarning: {
     margin: '8px 12px 0', padding: '8px 12px', borderRadius: 8,
-    backgroundColor: 'rgba(245,158,11,0.14)', color: '#a3402a', border: '1px solid rgba(245,158,11,0.24)', fontSize: 12, lineHeight: 1.5,
+    backgroundColor: 'rgba(189, 112, 30, 0.14)', color: '#a3402a', border: '1px solid rgba(189, 112, 30, 0.24)', fontSize: 12, lineHeight: 1.5,
   },
   messages: {
     flex: 1, overflowY: 'auto', padding: '12px 14px',
@@ -349,7 +349,7 @@ const S = {
   },
   aiBubbleIcon: {
     width: 24, height: 24, borderRadius: 8, flexShrink: 0, alignSelf: 'flex-end',
-    background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)',
+    background: 'rgba(127, 140, 18, 0.1)', border: '1px solid rgba(127, 140, 18, 0.2)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 6,
   },
   suggestions: {
@@ -373,7 +373,7 @@ const S = {
   },
   sendBtn: {
     width: 38, height: 38, borderRadius: 8, flexShrink: 0,
-    background: 'var(--accent-gradient)', border: '1px solid rgba(20,131,79,0.22)', cursor: 'pointer',
+    background: 'var(--accent-gradient)', border: '1px solid rgba(69, 107, 31, 0.22)', cursor: 'pointer',
     color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
     transition: 'opacity 0.15s',
   },

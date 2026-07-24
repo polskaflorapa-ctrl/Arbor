@@ -7,14 +7,14 @@ const PALETTE = {
     border: '1px solid var(--logo-tint-border)',
   },
   warning: {
-    backgroundColor: 'rgba(248, 201, 107, 0.12)',
+    backgroundColor: 'rgba(250, 231, 210, 0.12)',
     color: 'var(--warning)',
-    border: '1px solid rgba(248, 201, 107, 0.4)',
+    border: '1px solid rgba(250, 231, 210, 0.4)',
   },
   error: {
-    backgroundColor: 'rgba(255, 127, 169, 0.12)',
+    backgroundColor: 'rgba(246, 224, 217, 0.12)',
     color: 'var(--danger)',
-    border: '1px solid rgba(255, 127, 169, 0.42)',
+    border: '1px solid rgba(246, 224, 217, 0.42)',
   },
   neutral: {
     backgroundColor: 'var(--surface-field)',

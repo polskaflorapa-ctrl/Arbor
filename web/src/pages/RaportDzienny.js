@@ -243,10 +243,10 @@ export default function RaportDzienny() {
         <Stack className="raport-dzienny-toolbar" spacing={2} sx={{
           mb: 2,
           p: 2,
-          border: '1px solid rgba(15,95,58,0.13)',
+          border: '1px solid rgba(69, 107, 31, 0.13)',
           borderRadius: '8px',
           bgcolor: '#fff',
-          boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+          boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)',
         }}>
           <TextField
             type="date"
@@ -264,21 +264,21 @@ export default function RaportDzienny() {
           )}
         </Stack>
         {loading ? (
-          <Typography className="raport-dzienny-panel" color="text.secondary" sx={{ p: 3, border: '1px solid rgba(15,95,58,0.13)', borderRadius: '8px', bgcolor: '#fff' }}>
+          <Typography className="raport-dzienny-panel" color="text.secondary" sx={{ p: 3, border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: '8px', bgcolor: '#fff' }}>
             {t('pages.dailyReport.loading')}
           </Typography>
         ) : (
           <Box className="raport-dzienny-panel" sx={{
             p: { xs: 1.5, sm: 2.5 },
-            border: '1px solid rgba(15,95,58,0.13)',
+            border: '1px solid rgba(69, 107, 31, 0.13)',
             borderRadius: '8px',
             bgcolor: '#fff',
-            boxShadow: '0 12px 30px rgba(31,79,50,0.065)',
+            boxShadow: '0 12px 30px rgba(69, 107, 31, 0.065)',
           }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               {t('pages.dailyReport.tasksSection')}
             </Typography>
-            <Box className="raport-dzienny-table" sx={{ mb: 3, overflowX: 'auto', border: '1px solid rgba(15,95,58,0.1)', borderRadius: '8px' }}>
+            <Box className="raport-dzienny-table" sx={{ mb: 3, overflowX: 'auto', border: '1px solid rgba(69, 107, 31, 0.1)', borderRadius: '8px' }}>
             <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow>
@@ -326,7 +326,7 @@ export default function RaportDzienny() {
             </Typography>
             <Stack className="raport-dzienny-materials" spacing={1} sx={{ mb: 2 }}>
               {materialy.map((m, i) => (
-                <Stack key={i} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start" sx={{ p: 1.25, border: '1px solid rgba(15,95,58,0.1)', borderRadius: '8px', bgcolor: 'rgba(241,249,244,0.46)' }}>
+                <Stack key={i} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start" sx={{ p: 1.25, border: '1px solid rgba(69, 107, 31, 0.1)', borderRadius: '8px', bgcolor: 'rgba(241,249,244,0.46)' }}>
                   <TextField
                     size="small"
                     label={t('pages.dailyReport.matName')}
