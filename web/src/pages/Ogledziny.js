@@ -669,10 +669,10 @@ export default function Ogledziny() {
       <div className="app-main command-content-main ogledziny-main ogledziny-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh' }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
-        <div className="ogledziny-list-panel" style={{ width: 390, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
+        <div className="ogledziny-list-panel" style={{ width: 390, borderRight: '1px solid #ece6d7', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(120, 100, 64,0.06)' }}>
 
           {/* Nagłówek */}
-          <div className="ogledziny-command-panel" style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(15,107,63,0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
+          <div className="ogledziny-command-panel" style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(120, 100, 64,0.12)', background: 'linear-gradient(135deg, rgba(250, 248, 241,0.98), #ffffff)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 950, textTransform: 'uppercase' }}>Field evidence</div>
@@ -697,7 +697,7 @@ export default function Ogledziny() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginBottom: 10 }}>
               {statusSummary.map((s) => (
-                <div key={s.key} style={{ background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: '6px 8px', boxShadow: 'var(--shadow-xs)' }}>
+                <div key={s.key} style={{ background: '#ffffff', border: '1px solid rgba(120, 100, 64,0.14)', borderRadius: 11, padding: '6px 8px', boxShadow: 'var(--shadow-xs)' }}>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 900, textTransform: 'uppercase' }}>{s.label}</div>
                   <div style={{ marginTop: 2, fontSize: 16, color: s.color, fontWeight: 800 }}>{s.count}</div>
                 </div>
@@ -706,7 +706,7 @@ export default function Ogledziny() {
 
             {/* Filtry statusów */}
             {fieldLiveRows.length > 0 ? (
-              <div style={{ marginBottom: 10, background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: 10, boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ marginBottom: 10, background: '#ffffff', border: '1px solid rgba(120, 100, 64,0.14)', borderRadius: 11, padding: 10, boxShadow: 'var(--shadow-sm)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <strong style={{ fontSize: 12, color: 'var(--text)' }}>Live teren</strong>
                   <span style={{ fontSize: 11, color: fieldDelayRows.length ? UI_COLORS.warning : 'var(--text-muted)', fontWeight: 700 }}>
@@ -725,7 +725,7 @@ export default function Ogledziny() {
                         style={{
                           textAlign: 'left',
                           border: `1px solid ${color}44`,
-                          borderRadius: 8,
+                          borderRadius: 11,
                           background: `${color}12`,
                           padding: '7px 8px',
                           color: 'var(--text)',
@@ -815,7 +815,7 @@ export default function Ogledziny() {
               </select>
             </div>
             {showZoneDictionary && (
-              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 11, padding: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <strong style={{ fontSize: 12, color: 'var(--text)' }}>Domyślne strefy klientów</strong>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -899,22 +899,22 @@ export default function Ogledziny() {
               {dispatchMode ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sortowanie priorytetem ETA</span> : null}
             </div>
             {dispatchMode && criticalRisks.length > 0 ? (
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--danger)', background: 'rgba(248,113,113,0.14)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '7px 9px' }}>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--danger)', background: 'rgba(248,113,113,0.14)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 11, padding: '7px 9px' }}>
                 Krytyczne opóźnienia: {criticalRisks.length}. Najwyższy priorytet przypięty na górę listy.
               </div>
             ) : null}
             {staleSignals.length > 0 ? (
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--danger)', background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, padding: '6px 8px' }}>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--danger)', background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 11, padding: '6px 8px' }}>
                 Uwaga: {staleSignals.length} ekip ma stary sygnał GPS (&gt;15 min).
               </div>
             ) : null}
             {withoutGpsRows.length > 0 ? (
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--warning)', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 8, padding: '6px 8px' }}>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--warning)', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 11, padding: '6px 8px' }}>
                 Bez GPS: {withoutGpsRows.length} przypisanych pozycji (np. specjalista ds. wyceny bez lokalizatora).
               </div>
             ) : null}
             {topRisks.length > 0 ? (
-              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 11, padding: 10 }}>
                 <strong style={{ fontSize: 12, color: 'var(--text)' }}>Top ryzyka opóźnienia</strong>
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {topRisks.map(({ o, etaMinutes, risk }, idx) => (
@@ -925,7 +925,7 @@ export default function Ogledziny() {
                       style={{
                         textAlign: 'left',
                         border: '1px solid var(--border)',
-                        borderRadius: 8,
+                        borderRadius: 11,
                         background: risk.level === 'high' ? 'rgba(248,113,113,0.13)' : risk.level === 'medium' ? 'rgba(251,191,36,0.12)' : 'rgba(52,211,153,0.1)',
                         padding: '6px 8px',
                         color: 'var(--text)',
@@ -944,7 +944,7 @@ export default function Ogledziny() {
               </div>
             ) : null}
             {withoutGpsRows.length > 0 ? (
-              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 11, padding: 10 }}>
                 <strong style={{ fontSize: 12, color: 'var(--text)' }}>Przypisane bez GPS</strong>
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 140, overflowY: 'auto' }}>
                   {withoutGpsRows.slice(0, 6).map(({ o }) => (
@@ -955,7 +955,7 @@ export default function Ogledziny() {
                       style={{
                         textAlign: 'left',
                         border: '1px solid var(--border)',
-                        borderRadius: 8,
+                        borderRadius: 11,
                         background: 'rgba(251,191,36,0.08)',
                         padding: '6px 8px',
                         color: 'var(--text)',
@@ -974,14 +974,14 @@ export default function Ogledziny() {
               </div>
             ) : null}
             {livePoints.length > 0 && (
-              <div style={{ marginTop: 10, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+              <div style={{ marginTop: 10, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 11, padding: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <strong style={{ fontSize: 12, color: 'var(--text)' }}>Mapa live ekip (GPS)</strong>
                   <button type="button" style={{ ...btn.secondary, fontSize: 11, padding: '4px 8px' }} onClick={() => loadLiveLocations(true)}>
                     Odśwież GPS
                   </button>
                 </div>
-                <div style={{ position: 'relative', height: 160, borderRadius: 8, background: 'linear-gradient(180deg, rgba(20,91,54,0.08), rgba(20,91,54,0.18))', overflow: 'hidden' }}>
+                <div style={{ position: 'relative', height: 160, borderRadius: 11, background: 'linear-gradient(180deg, rgba(20,91,54,0.08), rgba(20,91,54,0.18))', overflow: 'hidden' }}>
                   {livePoints.map((point) => {
                     const pos = pointToXY(point);
                     const gps = gpsState(point);
@@ -1175,7 +1175,7 @@ export default function Ogledziny() {
                           fontSize: 10,
                           fontWeight: 800,
                           padding: '3px 8px',
-                          borderRadius: 8,
+                          borderRadius: 11,
                           border: `1px solid ${fieldEventColor(o)}44`,
                           background: `${fieldEventColor(o)}12`,
                           color: fieldEventColor(o),
@@ -1246,7 +1246,7 @@ export default function Ogledziny() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
                     <span style={sec.heroEyebrow}>Paszport oględzin</span>
                     <span style={{
-                      fontSize: 11, fontWeight: 900, padding: '4px 10px', borderRadius: 8,
+                      fontSize: 11, fontWeight: 900, padding: '4px 10px', borderRadius: 11,
                       background: 'rgba(255,255,255,0.92)', color: sc(detail.status),
                     }}>
                       {STATUS_LABEL[detail.status] || detail.status}
@@ -1426,7 +1426,7 @@ export default function Ogledziny() {
                       )}
                     </div>
                     {detail.wycena_status && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 8,
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 11,
                         background: 'rgba(52,211,153,0.15)', color: 'var(--accent)' }}>
                         {detail.wycena_status}
                       </span>
@@ -1471,14 +1471,14 @@ export default function Ogledziny() {
                           {isVideo ? (
                             <video
                               controls
-                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)' }}
+                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-field)' }}
                               src={url}
                             />
                           ) : (
                             <img
                               src={url}
                               alt=""
-                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)' }}
+                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-field)' }}
                             />
                           )}
                           <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -1551,7 +1551,7 @@ function Chip({ children, active, onClick, color }) {
     <button
       onClick={onClick}
       style={{
-        padding: '5px 12px', borderRadius: 8, border: `1px solid ${active ? color : 'var(--border)'}`,
+        padding: '5px 12px', borderRadius: 11, border: `1px solid ${active ? color : 'var(--border)'}`,
         background: active ? color + '20' : 'var(--surface-field)',
         color: active ? color : 'var(--text-muted)',
         fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
@@ -1564,7 +1564,7 @@ function Chip({ children, active, onClick, color }) {
 
 function Card({ title, children }) {
   return (
-    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.13)', boxShadow: 'var(--shadow-sm)', padding: 16 }}>
+    <div style={{ background: '#ffffff', borderRadius: 11, border: '1px solid rgba(120, 100, 64,0.13)', boxShadow: 'var(--shadow-sm)', padding: 16 }}>
       <div style={{ fontSize: 11, fontWeight: 950, color: 'var(--text-muted)', letterSpacing: 0, marginBottom: 12, textTransform: 'uppercase' }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
     </div>
@@ -1594,28 +1594,28 @@ function FormField({ label, children, style }) {
 const btn = {
   primary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8,
+    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 11,
     fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: 'var(--shadow-sm)',
   },
   secondary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
     background: '#ffffff', color: '#456b1f', border: '1px solid rgba(20,131,79,0.24)',
-    borderRadius: 8, fontSize: 12, fontWeight: 850, cursor: 'pointer', boxShadow: 'var(--shadow-xs)',
+    borderRadius: 11, fontSize: 12, fontWeight: 850, cursor: 'pointer', boxShadow: 'var(--shadow-xs)',
   },
   secondaryGhost: {
     padding: '9px 18px', background: '#ffffff', color: '#456b1f',
-    border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, fontSize: 13, fontWeight: 850, cursor: 'pointer',
+    border: '1px solid rgba(20,131,79,0.24)', borderRadius: 11, fontSize: 13, fontWeight: 850, cursor: 'pointer',
   },
   danger: {
     padding: '7px 13px', background: 'rgba(255,127,169,0.14)', color: 'var(--danger)',
-    border: '1px solid rgba(255,127,169,0.3)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    border: '1px solid rgba(255,127,169,0.3)', borderRadius: 11, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
 };
 
 const inp = {
   base: {
     width: '100%', minHeight: 40, padding: '9px 11px', background: '#ffffff',
-    border: '1px solid rgba(15,107,63,0.16)', borderRadius: 8,
+    border: '1px solid rgba(120, 100, 64,0.16)', borderRadius: 11,
     color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
   },
 };
@@ -1627,16 +1627,16 @@ const sec = {
     alignItems: 'flex-start',
     gap: 18,
     flexWrap: 'wrap',
-    background: 'linear-gradient(135deg, #456b1f 0%, #456b1f 56%, #456b1f 100%)',
+    background: 'linear-gradient(160deg, #3B2A18 0%, #2f2413 56%, #2a1d0f 100%)',
     border: '1px solid rgba(255,255,255,0.18)',
-    borderRadius: 8,
+    borderRadius: 11,
     padding: 18,
     marginBottom: 12,
-    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
+    boxShadow: '0 22px 46px rgba(43,29,15,0.22)',
   },
   heroEyebrow: { color: '#e4efd6', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
   commandGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginBottom: 10 },
-  commandCard: { background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.14)', padding: '7px 8px', boxShadow: 'var(--shadow-xs)', display: 'grid', gap: 2 },
+  commandCard: { background: '#ffffff', borderRadius: 11, border: '1px solid rgba(120, 100, 64,0.14)', padding: '7px 8px', boxShadow: 'var(--shadow-xs)', display: 'grid', gap: 2 },
   commandCard_good: { borderColor: 'rgba(20,131,79,0.22)' },
   commandCard_warning: { borderColor: 'rgba(180,83,9,0.28)' },
   commandCard_danger: { borderColor: 'rgba(220,38,38,0.28)' },
@@ -1644,7 +1644,7 @@ const sec = {
   commandValue: { color: 'var(--text)', fontSize: 17, lineHeight: 1.05 },
   commandDetail: { color: 'var(--text-sub)', fontSize: 10, lineHeight: 1.25 },
   detailStatsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: 10, marginBottom: 20 },
-  detailStatCard: { background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: 12, display: 'grid', gap: 4, boxShadow: 'var(--shadow-sm)' },
+  detailStatCard: { background: '#ffffff', border: '1px solid rgba(120, 100, 64,0.14)', borderRadius: 11, padding: 12, display: 'grid', gap: 4, boxShadow: 'var(--shadow-sm)' },
   detailStatCard_warning: { borderColor: 'rgba(180,83,9,0.28)', background: 'rgba(255,251,235,0.82)' },
   detailStatCard_danger: { borderColor: 'rgba(220,38,38,0.28)', background: 'rgba(254,242,242,0.82)' },
   detailStatCard_good: { borderColor: 'rgba(20,131,79,0.2)' },
@@ -1653,10 +1653,10 @@ const sec = {
   detailStatDetail: { color: 'var(--text-sub)', fontSize: 11, lineHeight: 1.3 },
   wrap: {
     background: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 11,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(15,107,63,0.13)',
+    borderColor: 'rgba(120, 100, 64,0.13)',
     padding: 16,
     marginBottom: 16,
     boxShadow: 'var(--shadow-sm)',
@@ -1665,7 +1665,7 @@ const sec = {
   title: { fontSize: 13, fontWeight: 900, color: 'var(--text)' },
   row: {
     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-    background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.13)',
+    background: '#ffffff', borderRadius: 11, border: '1px solid rgba(120, 100, 64,0.13)',
   },
 };
 
@@ -1676,7 +1676,7 @@ const modal = {
   },
   box: {
     width: '90%', maxWidth: 600, background: '#ffffff',
-    borderRadius: 8, border: '1px solid rgba(15,107,63,0.14)',
+    borderRadius: 11, border: '1px solid rgba(120, 100, 64,0.14)',
     boxShadow: '0 28px 70px rgba(11,56,37,0.22)', display: 'flex', flexDirection: 'column',
     maxHeight: '90vh',
   },
