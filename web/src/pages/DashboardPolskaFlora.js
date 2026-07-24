@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import CommandSidebar from '../components/CommandSidebar';
+import { RefCard, StatusPill, Money, Icon } from './reference/ArborReferenceComponents';
 import StatusMessage from '../components/StatusMessage';
 import { summarizeTaskReadiness } from '../utils/taskReadiness';
 
@@ -343,307 +344,117 @@ export default function DashboardPolskaFlora({
     if (query) navigate(`/zlecenia?search=${encodeURIComponent(query)}`);
   };
 
+  const decisionRows = (moneyPreviewRows.length
+    ? moneyPreviewRows.map((r) => ({ task: r.task, label: r.label, path: r.path }))
+    : visibleFieldTasks.map((task) => ({ task, label: statusText(task.status), path: `/zlecenia/${task.id || ''}` }))
+  ).slice(0, 6);
+
   return (
-    // Skórę .arbor-os-shell zakłada ProtectedRoute dla wszystkich modułów —
-    // tu została tylko struktura strony (bez klasy: uniknięcie podwójnego tła).
+    // Skórę .arbor-os-shell zakłada ProtectedRoute; sidebar to realna nawigacja,
+    // a treść main odwzorowuje makietę Polska Flora (Centrum operacyjne).
     <div>
       <CommandSidebar active="dashboard" user={user} />
-      <main className="arbor-os-main">
+      <main className="arbor-os-main pf-dash">
         <StatusMessage message={error || ''} tone={error ? 'error' : undefined} style={error ? undefined : { display: 'none' }} />
-        <div className="arbor-os-compat-copy">
-          <span>{`Witaj, ${user?.imie || 'Ania'}.`}</span>
-          <span>Centrum operacyjne</span>
-          <span>Live ops</span>
-          <span>Przyjmij telefon</span>
-          <span>CRM dzisiaj</span>
-          <span>Telefon / Ania</span>
-          <span>Oględziny</span>
-          <span>Wycena</span>
-          <span>Ekipa</span>
-          <span>Dzisiaj do ogarnięcia</span>
-          <span>Telefon / CRM</span>
-          <span>Brak telefonu u klienta</span>
-          <span>Termin / SLA</span>
-          <span>Po terminie</span>
-          <span>Zlecenia bez ekipy</span>
-          <span>Wycena / oferta</span>
-          <span>Do wyceny lub wysłania oferty</span>
-          <span>Brak zaplanowanych prac na dziś.</span>
-          <span>{`${openTasks.length}/${openTasks.length || 0}`}</span>
-        </div>
 
-        <header className="arbor-os-topbar">
-          <div className="arbor-os-title">
-            <span>Polska Flora · Operacje</span>
-            <h1>Pulpit dowodzenia</h1>
+        <header className="ref-topbar">
+          <div className="ref-title-block">
+            <small>Arbor OS · {branchLabel || 'Polska Flora'}</small>
+            <h1>Centrum operacyjne</h1>
+            <p>{`Witaj, ${user?.imie || 'Ania'}. Przegląd operacji w czasie rzeczywistym i priorytet na szybkie decyzje.`}</p>
           </div>
-          <div className="arbor-os-view-toggle" aria-hidden="true">
-            <span className="is-active" />
-            <span />
-            <span />
+          <div className="ref-actions">
+            <form onSubmit={submitSearch} className="pf-dash-search">
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Szukaj zlecenia…"
+                aria-label="Szukaj zlecenia"
+              />
+            </form>
+            <button className="ref-button" type="button" onClick={() => navigate('/harmonogram')}><Icon name="calendar" /> Grafik</button>
+            <button className="ref-button is-primary" type="button" onClick={() => navigate('/nowe-zlecenie')}><Icon name="plus" /> Nowe zlecenie</button>
           </div>
-          <div className="arbor-os-segments" aria-label="Filtr oddziału">
-            <button type="button" className="is-active">Wszystkie</button>
-            <button type="button">Warszawa</button>
-            <button type="button">Kraków</button>
-            <button type="button">Gdańsk</button>
-          </div>
-          <form className="arbor-os-search" onSubmit={submitSearch}>
-            <Search size={16} aria-hidden="true" />
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Szukaj"
-              aria-label="Szukaj zleceń"
-            />
-            <kbd>Enter</kbd>
-          </form>
-          <button type="button" className="arbor-os-icon-button" onClick={() => navigate('/powiadomienia')} aria-label="Powiadomienia">
-            <span>{riskTotal || ''}</span>
-            <Bell size={18} aria-hidden="true" />
-          </button>
-          <button type="button" className="arbor-os-primary-button" onClick={() => navigate('/nowe-zlecenie')}>
-            <Plus size={19} aria-hidden="true" />
-            Nowe zlecenie
-          </button>
         </header>
 
-        <section className="arbor-os-range-row">
-          <p>Podsumowanie operacyjne · zakres: <strong>dziś</strong></p>
-          <div>
-            <button type="button" className="is-active">Dziś</button>
-            <button type="button">Tydzień</button>
-            <button type="button">Miesiąc</button>
+        <section className="ref-hero-dark" style={{ padding: 28, marginBottom: 18 }}>
+          <div className="ref-grid two" style={{ alignItems: 'center' }}>
+            <div>
+              <small>{monthLabel || dzisiaj || 'Dzisiaj'}</small>
+              <h2 style={{ margin: '8px 0 10px', fontSize: 'clamp(26px, 3.4vw, 46px)', lineHeight: 1.03 }}>Plan dnia jest pod kontrolą</h2>
+              <p style={{ maxWidth: 560, margin: 0 }}>
+                {`W realizacji: ${inProgressTasks.length}. Do decyzji: ${riskTotal + readiness.blockedTasks.length}. Ekipy w terenie: ${activeCrewNames.size || crewRows.filter((crew) => crew.active).length}.`}
+              </p>
+            </div>
+            <div className="ref-grid three">
+              <div><strong>{completionRate}%</strong><span>terminowości</span></div>
+              <div><strong>{visibleFieldTasks.length}</strong><span>tras dziś</span></div>
+              <div><strong>{marginPercent}%</strong><span>marży</span></div>
+            </div>
           </div>
         </section>
 
-        <section className="arbor-os-kpis" aria-label="Kluczowe wskaźniki">
+        <section className="ref-grid kpis" data-kpis>
           {kpis.map((kpi) => (
             <button
-              key={kpi.label}
+              className="ref-kpi"
               type="button"
-              className="arbor-os-kpi-card"
-              data-tone={kpi.tone || 'default'}
+              key={kpi.label}
               onClick={() => navigate(kpi.path)}
+              style={{ cursor: 'pointer', textAlign: 'left', font: 'inherit', border: 'none' }}
             >
-              <span>{kpi.label}</span>
-              <i aria-hidden="true"><kpi.Icon size={16} /></i>
+              <small>{kpi.label}</small>
               <strong>{kpi.value}</strong>
-              <small>{kpi.hint}</small>
+              <span>{kpi.hint}</span>
             </button>
           ))}
         </section>
 
-        <section className="arbor-os-priority-grid">
-          <div className="arbor-os-panel arbor-os-approval-panel">
-            <div className="arbor-os-approval-head">
-              <span aria-hidden="true"><Camera size={18} /></span>
-              <div>
-                <h2>Wyceny terenowe do potwierdzenia</h2>
-                <p>Z aplikacji wyceniającego · zatwierdź i przydziel ekipę</p>
-              </div>
-              <strong>{quoteTasks.length}</strong>
-            </div>
-            <div className="arbor-os-approval-list">
-              {approvalRows.length ? approvalRows.map((task, index) => (
-                <ApprovalRow
-                  key={task.id || task.numer || index}
-                  task={task}
-                  index={index}
-                  navigate={navigate}
-                />
-              )) : (
-                <div className="arbor-os-empty-mini">Brak wycen oczekujących na decyzję</div>
-              )}
-            </div>
-          </div>
-
-          <div className="arbor-os-panel">
-            <div className="arbor-os-panel-head compact">
-              <h2>Alerty & ryzyka</h2>
-            </div>
-            <div className="arbor-os-risk-list">
-              {riskCards.map((risk) => (
-                <button key={risk.title} type="button" data-tone={risk.tone} onClick={() => navigate(risk.path)}>
-                  <strong>{risk.title}</strong>
-                  <span>{risk.text}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="arbor-os-board">
-          <div className="arbor-os-panel arbor-os-queue-panel">
-            <div className="arbor-os-panel-head">
-              <div>
-                <h2>Kolejka operacyjna dnia</h2>
-                <p>Aktualizacja na żywo · {riskTotal + readiness.blockedTasks.length} spraw wymaga uwagi</p>
-              </div>
-              <button type="button" onClick={() => navigate('/zlecenia')}>Odśwież</button>
-            </div>
-            <div className="arbor-os-queue-grid">
-              {queueSections.map((section) => (
-                <QueueColumn key={section.title} section={section} navigate={navigate} loading={loading && !allTasks.length} />
-              ))}
-            </div>
-          </div>
-
-          <aside className="arbor-os-side-stack">
-            <div className="arbor-os-panel">
-              <div className="arbor-os-panel-head compact">
-                <h2>Status ekip</h2>
-              </div>
-              <div className="arbor-os-team-list">
-                {crewRows.length ? crewRows.map((crew) => (
-                  <button key={crew.name} type="button" onClick={() => navigate('/ekipy')}>
-                    <span>
-                      <i className={crew.active ? 'is-active' : ''} />
-                      <strong>{crew.name}</strong>
-                      <small>{crew.active ? crew.location : 'Nieaktywna'}</small>
-                    </span>
-                    <b>{crew.percent}%</b>
-                  </button>
-                )) : (
-                  <div className="arbor-os-empty-mini">Brak ekip do pokazania</div>
-                )}
-              </div>
-            </div>
-          </aside>
-        </section>
-
-        <section className="arbor-os-panel arbor-os-field-panel">
-          <div className="arbor-os-panel-head">
-            <div>
-              <h2>Dziś w terenie</h2>
-              <p>Zlecenia z oknem realizacji na dziś</p>
-            </div>
-            <button type="button" onClick={() => navigate('/harmonogram')}>Grafik</button>
-          </div>
-          <div className="arbor-os-field-table">
-            {loading && !visibleFieldTasks.length ? (
-              <>
-                <div className="arbor-os-skeleton-row wide" />
-                <div className="arbor-os-skeleton-row wide" />
-                <div className="arbor-os-skeleton-row wide" />
-              </>
-            ) : visibleFieldTasks.length ? visibleFieldTasks.map((task, index) => (
-              <button key={task.id || task.numer || index} type="button" onClick={() => navigate(`/zlecenia/${task.id || ''}`)}>
-                <span className="arbor-os-status-dot" />
-                <strong>{taskTitle(task)}</strong>
-                <small>{taskLocation(task, branchLabel)}</small>
-                <span>{taskTeam(task)}</span>
-                <b>{formatMoney(task.wartosc_planowana || task.wartosc_rzeczywista)}</b>
-                <em>{statusText(task.status)}</em>
-              </button>
-            )) : (
-              <div className="arbor-os-empty-state">
-                <strong>Plan dnia jest pusty</strong>
-                <span>Dodaj zlecenie albo otwórz harmonogram, żeby zaplanować pracę.</span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="arbor-os-analytics-grid">
-          <div className="arbor-os-panel">
-            <div className="arbor-os-panel-head">
-              <div>
-                <h2>Gotowość zleceń</h2>
-                <p>Klient, zakres, termin, wycena i ekipa</p>
-              </div>
-              <strong className="arbor-os-score">{readiness.ready}/{readiness.total || 0}</strong>
-            </div>
-            <div className="arbor-os-progress">
-              <span style={{ width: `${barPercent(readiness.ready, readiness.total)}%` }} />
-            </div>
-            <div className="arbor-os-readiness-list">
-              {readiness.blockedTasks.slice(0, 4).map((task) => (
-                <button key={task.id || task.numer} type="button" onClick={() => navigate(`/zlecenia/${task.id || ''}`)}>
-                  <span>
-                    <strong>{taskTitle(task)}</strong>
-                    <small>Pakiet dla ekipy niegotowy</small>
-                    <span className="arbor-os-blocker-chips">
-                      {task.readiness.blockers.length ? task.readiness.blockers.map((item) => (
-                        <small key={item.key}>{item.label}</small>
-                      )) : <small>Do sprawdzenia</small>}
-                    </span>
-                  </span>
-                  <b>{task.readiness.score}%</b>
-                </button>
-              ))}
-              {!readiness.blockedTasks.length && <div className="arbor-os-empty-mini">Pakiety są gotowe.</div>}
-            </div>
-          </div>
-
-          <div className="arbor-os-panel">
-            <div className="arbor-os-panel-head">
-              <div>
-                <h2>Co blokuje pieniądze</h2>
-                <p>Wyceny, akceptacje i rozliczenia</p>
-              </div>
-              <button type="button" onClick={() => navigate('/raporty')}>Raport</button>
-            </div>
-            <div className="arbor-os-money-grid">
-              {moneyBlockers.map((item) => (
-                <button key={item.label} type="button" onClick={() => navigate(item.path)}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                  <small>{item.detail}</small>
-                </button>
-              ))}
-            </div>
-            <div className="arbor-os-money-preview">
-              {moneyPreviewRows.length ? moneyPreviewRows.map(({ task, label, path }, index) => (
-                <button key={`${label}-${task.id || task.numer || index}`} type="button" onClick={() => navigate(`${path}?task=${task.id || ''}`)}>
-                  <span>{label}</span>
-                  <strong>{taskTitle(task)}</strong>
-                  <small>{formatMoney(task.wartosc_planowana || task.wartosc_rzeczywista || task.wartosc)}</small>
+        <div className="ref-grid two" style={{ marginTop: 18 }}>
+          <RefCard title="Zlecenia do decyzji">
+            <div className="ref-list">
+              {decisionRows.length ? decisionRows.map(({ task, label, path }, index) => (
+                <button
+                  className="ref-list-row"
+                  type="button"
+                  key={`${task?.id || 'row'}-${index}`}
+                  onClick={() => navigate(path)}
+                  style={{ cursor: 'pointer', textAlign: 'left', font: 'inherit', width: '100%', border: 'none', background: 'transparent' }}
+                >
+                  <div>
+                    <strong>{`#${task?.id || '—'} · ${task?.typ_uslugi || task?.tytul || task?.adres || 'Zlecenie'}`}</strong>
+                    <small>{taskLocation(task, branchLabel)}</small>
+                  </div>
+                  <StatusPill tone={/piln|termin/i.test(label) ? 'red' : /realiz|toku/i.test(label) ? 'orange' : 'olive'}>{label}</StatusPill>
+                  <Money>{formatMoney(task?.wartosc_planowana || task?.wartosc || 0)}</Money>
                 </button>
               )) : (
-                <div className="arbor-os-empty-mini">Brak blokad finansowych.</div>
-              )}
-            </div>
-          </div>
-
-          <div className="arbor-os-panel">
-            <div className="arbor-os-panel-head">
-              <div>
-                <h2>Typy usług</h2>
-                <p>Struktura aktywnych prac</p>
-              </div>
-            </div>
-            <div className="arbor-os-service-list">
-              {serviceRows.map(([label, value]) => (
-                <div key={label}>
-                  <span>{label}</span>
-                  <div><i style={{ width: `${barPercent(value, totalCount)}%` }} /></div>
-                  <strong>{value}</strong>
+                <div className="ref-list-row">
+                  <div><strong>Brak zleceń do decyzji</strong><small>wszystko obsłużone</small></div>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        </section>
+          </RefCard>
 
-        <section className="arbor-os-panel arbor-os-ops-panel">
-          <div className="arbor-os-panel-head">
-            <div>
-              <h2>Wydajność operacyjna</h2>
-              <p>Puls firmy dla {branchLabel}</p>
+          <RefCard title="Ekipy w terenie">
+            <div className="ref-list">
+              {crewRows.length ? crewRows.map((crew) => (
+                <div className="ref-list-row" key={crew.name}>
+                  <div>
+                    <strong>{crew.name}</strong>
+                    <small>{crew.location}</small>
+                  </div>
+                  <StatusPill tone={crew.active ? 'olive' : 'sand'}>{crew.active ? 'W terenie' : 'Wolna'}</StatusPill>
+                  <span style={{ fontWeight: 800, color: '#5d6a0b' }}>{crew.percent}%</span>
+                </div>
+              )) : (
+                <div className="ref-list-row">
+                  <div><strong>Brak aktywnych ekip</strong><small>{branchLabel || 'Polska Flora'}</small></div>
+                </div>
+              )}
             </div>
-            <button type="button" onClick={() => navigate('/bi')}>BI</button>
-          </div>
-          <div className="arbor-os-ops-grid">
-            {operationalMetrics.map((metric) => (
-              <div key={metric.label}>
-                <span>{metric.label}</span>
-                <strong>{metric.value}%</strong>
-                <div><i style={{ width: `${metric.value}%` }} /></div>
-                <small>{metric.meta}</small>
-              </div>
-            ))}
-          </div>
-        </section>
+          </RefCard>
+        </div>
       </main>
     </div>
   );
