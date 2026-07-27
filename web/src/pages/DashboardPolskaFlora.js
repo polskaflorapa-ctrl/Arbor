@@ -455,6 +455,62 @@ export default function DashboardPolskaFlora({
             </div>
           </RefCard>
         </div>
+
+        {/* Sekcje operacyjne (pod makieta) — realna wartosc dyspozytorska: szybki
+            przeplyw dnia, gotowosc zlecen i blokery pieniedzy. Dane liczone wyzej. */}
+        <RefCard title="Dzisiaj do ogarnięcia" className="pf-dash-flow-card">
+          <p style={{ margin: '0 0 12px', color: 'var(--text-sub)', fontWeight: 700, fontSize: 13 }}>
+            Telefon / Ania → CRM → Oględziny → Wycena → Ekipa
+          </p>
+          <div className="ref-actions">
+            <button className="ref-button is-primary" type="button" onClick={() => navigate('/telefonia')}>Przyjmij telefon</button>
+            <button className="ref-button" type="button" onClick={() => navigate('/crm-today')}>CRM dzisiaj</button>
+          </div>
+        </RefCard>
+
+        <div className="ref-grid two" style={{ marginTop: 18 }}>
+          <RefCard title="Gotowość zleceń">
+            <div className="ref-list">
+              {riskCards.map((card) => (
+                <button
+                  className="ref-list-row"
+                  type="button"
+                  key={card.title}
+                  onClick={() => navigate(card.path)}
+                  style={{ cursor: 'pointer', textAlign: 'left', font: 'inherit', width: '100%', border: 'none', background: 'transparent' }}
+                >
+                  <div>
+                    <strong>{card.title}</strong>
+                    <small>{card.text}</small>
+                  </div>
+                  <StatusPill tone={card.tone === 'danger' ? 'red' : card.tone === 'warning' ? 'orange' : 'olive'}>
+                    {card.tone === 'good' ? 'OK' : 'Uwaga'}
+                  </StatusPill>
+                </button>
+              ))}
+            </div>
+          </RefCard>
+
+          <RefCard title="Co blokuje pieniądze">
+            <div className="ref-list">
+              {moneyBlockers.map((blocker) => (
+                <button
+                  className="ref-list-row"
+                  type="button"
+                  key={blocker.label}
+                  onClick={() => navigate(blocker.path)}
+                  style={{ cursor: 'pointer', textAlign: 'left', font: 'inherit', width: '100%', border: 'none', background: 'transparent' }}
+                >
+                  <div>
+                    <strong>{blocker.label}</strong>
+                    <small>{blocker.detail}</small>
+                  </div>
+                  <span style={{ fontWeight: 800, color: '#5d6a0b' }}>{blocker.value}</span>
+                </button>
+              ))}
+            </div>
+          </RefCard>
+        </div>
       </main>
     </div>
   );
