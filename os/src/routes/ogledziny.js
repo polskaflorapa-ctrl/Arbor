@@ -104,7 +104,10 @@ const ogledzinyMediaStorage = multer.diskStorage({
 });
 const ogledzinyMediaUpload = multer({
   storage: ogledzinyMediaStorage,
-  limits: { fileSize: 200 * 1024 * 1024 },
+  // files: 1 — endpoint zapisuje dokladnie jeden plik na zadanie. Bez tego limitu
+  // multer przyjmowal caly upload, a handler bral tylko pierwszy plik: reszta ladowala
+  // na dysku jako sieroty (wyciek miejsca) i konczylo sie 500 zamiast czytelnego 400.
+  limits: { fileSize: 200 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, cb) => {
     const mime = String(file.mimetype || '');
     if (mime.startsWith('image/') || mime.startsWith('video/')) {
@@ -531,7 +534,23 @@ router.post(
   '/:id/media',
   authMiddleware,
   validateParams(ogledzinyIdParamsSchema),
-  ogledzinyMediaUpload.any(),
+  // Multer zglasza przekroczenie limitu jako blad — mapujemy go na czytelne 400
+  // (zamiast 500) i sprzatamy to, co zdazylo trafic na dysk przed przerwaniem.
+  (req, res, next) => {
+    ogledzinyMediaUpload.any()(req, res, (err) => {
+      if (!err) return next();
+      const files = Array.isArray(req.files) ? req.files : req.file ? [req.file] : [];
+      for (const file of files) cleanupLocalFile(file);
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({ code: 'TOO_MANY_FILES', error: 'Mozna wyslac tylko jeden plik na zadanie' });
+      }
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ code: 'FILE_TOO_LARGE', error: 'Plik przekracza dozwolony rozmiar' });
+      }
+      logger.error('ogledziny.media.upload', { message: err.message, requestId: req.requestId });
+      return res.status(400).json({ code: 'UPLOAD_REJECTED', error: err.message || 'Nie udalo sie przyjac pliku' });
+    });
+  },
   async (req, res) => {
     await runMigration();
     let storedMedia;
