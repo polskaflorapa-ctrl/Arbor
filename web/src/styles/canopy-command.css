@@ -1,23 +1,23 @@
 /* Canopy Command: final token layer and production UI polish. */
 :root,
 body.theme-light {
-  --cc-primary: #0f172a;
+  --cc-primary: #2c2011;
   --cc-on-primary: #ffffff;
-  --cc-secondary: #334155;
-  --cc-accent: #0f766e;
-  --cc-accent-strong: #115e59;
-  --cc-accent-soft: rgba(15, 118, 110, 0.1);
-  --cc-bg: #f8fafc;
-  --cc-fg: #020617;
+  --cc-secondary: #5a5040;
+  --cc-accent: #5d6a0b;
+  --cc-accent-strong: #5d6a0b;
+  --cc-accent-soft: rgba(93, 106, 11, 0.1);
+  --cc-bg: #f0ebdd;
+  --cc-fg: #2c2011;
   --cc-surface: #ffffff;
-  --cc-surface-2: #f1f5f9;
-  --cc-muted: #64748b;
-  --cc-border: #dbe4ea;
-  --cc-danger: #dc2626;
-  --cc-warning: #b45309;
-  --cc-success: #15803d;
-  --cc-info: #0369a1;
-  --cc-ring: rgba(15, 118, 110, 0.26);
+  --cc-surface-2: #f0ebdd;
+  --cc-muted: #8a8069;
+  --cc-border: #e0d9c8;
+  --cc-danger: #c0492f;
+  --cc-warning: #995510;
+  --cc-success: #456b1f;
+  --cc-info: #5d6a0b;
+  --cc-ring: rgba(93, 106, 11, 0.26);
   --cc-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 24px rgba(15, 23, 42, 0.06);
   --cc-shadow-2: 0 18px 42px rgba(15, 23, 42, 0.1);
   --cc-radius-xs: 4px;
@@ -30,9 +30,9 @@ body.theme-light {
   --bg: var(--cc-bg);
   --bg-card: var(--cc-surface);
   --bg-card2: var(--cc-surface-2);
-  --bg-deep: #eef4f7;
-  --bg-edge: #f5f8fb;
-  --sidebar: #0f2f28;
+  --bg-deep: #f0ebdd;
+  --bg-edge: #f0ebdd;
+  --sidebar: #2c2011;
   --accent: var(--cc-accent);
   --accent-dk: var(--cc-accent-strong);
   --accent-strong: var(--cc-accent-strong);
@@ -41,7 +41,7 @@ body.theme-light {
   --text-sub: var(--cc-secondary);
   --text-muted: var(--cc-muted);
   --border: var(--cc-border);
-  --border2: rgba(15, 118, 110, 0.28);
+  --border2: rgba(93, 106, 11, 0.28);
   --danger: var(--cc-danger);
   --warning: var(--cc-warning);
   --success: var(--cc-success);
@@ -65,41 +65,41 @@ body.theme-light {
   --glass-bg-strong: rgba(255, 255, 255, 0.98);
   --glass-border: var(--cc-border);
   --accent-surface: var(--cc-accent-soft);
-  --success-surface: rgba(21, 128, 61, 0.1);
-  --warning-surface: rgba(180, 83, 9, 0.11);
-  --danger-surface: rgba(220, 38, 38, 0.1);
-  --accent-gradient: linear-gradient(135deg, #0f766e, #15803d);
+  --success-surface: rgba(69, 107, 31, 0.1);
+  --warning-surface: rgba(153, 85, 16, 0.11);
+  --danger-surface: rgba(192, 73, 47, 0.1);
+  --accent-gradient: linear-gradient(135deg, #5d6a0b, #456b1f);
 }
 
 body.theme-dark {
-  --cc-primary: #e2e8f0;
-  --cc-on-primary: #020617;
-  --cc-secondary: #cbd5e1;
-  --cc-accent: #5eead4;
-  --cc-accent-strong: #99f6e4;
-  --cc-accent-soft: rgba(94, 234, 212, 0.12);
-  --cc-bg: #07111f;
-  --cc-fg: #f8fafc;
-  --cc-surface: #0f172a;
-  --cc-surface-2: #111c2f;
-  --cc-muted: #a8b3c7;
+  --cc-primary: #f0ebdd;
+  --cc-on-primary: #2c2011;
+  --cc-secondary: #e0d9c8;
+  --cc-accent: #f1f3d6;
+  --cc-accent-strong: #e4efd6;
+  --cc-accent-soft: rgba(241, 243, 214, 0.12);
+  --cc-bg: #2c2011;
+  --cc-fg: #f0ebdd;
+  --cc-surface: #2c2011;
+  --cc-surface-2: #2c2011;
+  --cc-muted: #9a907a;
   --cc-border: rgba(226, 232, 240, 0.16);
-  --cc-danger: #fca5a5;
-  --cc-warning: #fbbf24;
-  --cc-success: #86efac;
-  --cc-info: #7dd3fc;
-  --cc-ring: rgba(94, 234, 212, 0.32);
+  --cc-danger: #f6e0d9;
+  --cc-warning: #bd701e;
+  --cc-success: #e4efd6;
+  --cc-info: #f1f3d6;
+  --cc-ring: rgba(241, 243, 214, 0.32);
   --cc-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.32), 0 16px 32px rgba(0, 0, 0, 0.24);
   --cc-shadow-2: 0 24px 52px rgba(0, 0, 0, 0.36);
-  --bg-deep: #040b14;
-  --bg-edge: #0a1828;
-  --sidebar: #06130f;
+  --bg-deep: #2c2011;
+  --bg-edge: #2c2011;
+  --sidebar: #2c2011;
   --surface-field: rgba(226, 232, 240, 0.06);
   --surface-raised: linear-gradient(180deg, var(--cc-surface), var(--cc-surface-2));
   --surface-glass: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(17, 28, 47, 0.88));
   --glass-bg: rgba(15, 23, 42, 0.86);
   --glass-bg-strong: rgba(15, 23, 42, 0.97);
-  --accent-gradient: linear-gradient(135deg, #2dd4bf, #22c55e);
+  --accent-gradient: linear-gradient(135deg, #766440, #7f8c12);
 }
 
 html {
@@ -108,8 +108,8 @@ html {
 
 body {
   background:
-    linear-gradient(90deg, rgba(15, 118, 110, 0.035) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(15, 118, 110, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(93, 106, 11, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(93, 106, 11, 0.03) 1px, transparent 1px),
     linear-gradient(135deg, var(--bg-deep), var(--bg) 48%, var(--bg-edge)) !important;
   background-size: 36px 36px, 36px 36px, auto !important;
   font-family: var(--cc-font-sans);
@@ -384,9 +384,9 @@ textarea::placeholder {
 .landing-page {
   --landing-max: 1180px;
   background:
-    linear-gradient(90deg, rgba(15, 118, 110, 0.035) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(15, 118, 110, 0.03) 1px, transparent 1px),
-    linear-gradient(135deg, #f8fafc, #ffffff 44%, #eaf4f2) !important;
+    linear-gradient(90deg, rgba(93, 106, 11, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(93, 106, 11, 0.03) 1px, transparent 1px),
+    linear-gradient(135deg, #f0ebdd, #ffffff 44%, #f0ebdd) !important;
   background-size: 36px 36px, 36px 36px, auto !important;
 }
 
@@ -478,7 +478,7 @@ textarea::placeholder {
 }
 
 .login-command-panel h2 {
-  color: #f8fafc !important;
+  color: #f0ebdd !important;
   text-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
 }
 
@@ -493,8 +493,8 @@ textarea::placeholder {
 }
 
 .login-demo-btn:hover {
-  border-color: rgba(34, 211, 142, 0.44) !important;
-  background: rgba(34, 211, 142, 0.09) !important;
+  border-color: rgba(127, 140, 18, 0.44) !important;
+  background: rgba(127, 140, 18, 0.09) !important;
   transform: translateY(-1px);
 }
 
@@ -515,7 +515,7 @@ textarea::placeholder {
 }
 
 .login-submit:disabled {
-  background: #cfd4dc !important;
+  background: #e0d9c8 !important;
   color: #ffffff !important;
   cursor: not-allowed !important;
   box-shadow: none !important;
@@ -535,10 +535,10 @@ textarea::placeholder {
   width: 330px;
   height: 330px;
   border-radius: 50%;
-  border: 1px solid rgba(134, 239, 172, 0.22);
+  border: 1px solid rgba(228, 239, 214, 0.22);
   background:
-    linear-gradient(90deg, rgba(134, 239, 172, 0.11) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(134, 239, 172, 0.09) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(228, 239, 214, 0.11) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(228, 239, 214, 0.09) 1px, transparent 1px);
   background-size: 34px 34px;
   pointer-events: none;
 }

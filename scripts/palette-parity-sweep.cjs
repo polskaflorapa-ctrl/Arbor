@@ -41,7 +41,9 @@ function mapToCanon(hex) {
   const { h, s, l, c } = hexToHsl(hex);
   // Neutralne: mała chroma bezwzględna (slate-900 ma wysokie s, ale wygląda
   // grafitowo) LUB chłodne szarości (niebieskawe, nisko nasycone).
-  if (c < 0.09 || s < 0.16 || (h >= 180 && h < 300 && s < 0.35)) {
+  // Ciemne grafity (slate-900/#0f172a) maja chrome ~0.11 mimo ze wygladaja neutralnie —
+  // przy niskiej jasnosci luzniejszy prog, inaczej ciemne tla leca w oliwke zamiast atramentu.
+  if (c < 0.09 || s < 0.16 || (l < 0.22 && c < 0.16) || (h >= 180 && h < 300 && s < 0.35)) {
     if (l < 0.25) return '2c2011';
     if (l < 0.45) return '5a5040';
     if (l < 0.62) return '8a8069';
@@ -92,7 +94,7 @@ for (const dir of dirs) {
     for (const entry of fs.readdirSync(cur, { withFileTypes: true })) {
       const p = path.join(cur, entry.name);
       if (entry.isDirectory()) stack.push(p);
-      else if (/\.(js|jsx|ts|tsx)$/.test(entry.name) && !/\.test\./.test(entry.name)) files.push(p);
+      else if (/\.(js|jsx|ts|tsx|css)$/.test(entry.name) && !/\.test\./.test(entry.name)) files.push(p);
     }
   }
 }

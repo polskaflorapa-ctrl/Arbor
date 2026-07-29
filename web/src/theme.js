@@ -10,31 +10,31 @@ export const BRAND_COLORS = Object.freeze({
 
 // Polska Flora — semantic aliases backed by the approved brand-book palette.
 export const COLORS = {
-  bg: '#f7f4ec',
+  bg: '#f0ebdd',
   bgCard: '#ffffff',
-  bgCard2: '#fbfaf6',
-  bgAlt: '#f1ecdd',
+  bgCard2: '#f0ebdd',
+  bgAlt: '#f0ebdd',
   sidebar: BRAND_COLORS.darkBrown,
 
   accent: BRAND_COLORS.primaryGreen,
-  accentDark: '#88950f',
+  accentDark: '#5d6a0b',
   accentLight: BRAND_COLORS.lightGreen,
   accentBg: 'rgba(160,175,20,0.12)',
 
   text: BRAND_COLORS.darkBrown,
-  textSub: '#5e4d31',
+  textSub: '#995510',
   textMuted: BRAND_COLORS.lightBrown,
   white: '#FFFFFF',
 
-  success: '#5f6a0b',
+  success: '#5d6a0b',
   successBg: 'rgba(160,175,20,0.14)',
-  warning: '#8b4e0d',
+  warning: '#995510',
   warningBg: 'rgba(189,112,30,0.13)',
-  danger: '#dc2626',
-  dangerBg: 'rgba(220,38,38,0.09)',
+  danger: '#c0492f',
+  dangerBg: 'rgba(192, 73, 47, 0.09)',
   info: BRAND_COLORS.lightBrown,
   infoBg: 'rgba(118,100,64,0.12)',
-  purple: '#675d7a',
+  purple: '#5a5040',
   purpleBg: 'rgba(103,93,122,0.1)',
 
   border: 'rgba(59,42,24,0.14)',
@@ -42,7 +42,7 @@ export const COLORS = {
   shadow: 'rgba(59,42,24,0.14)',
 
   primary: BRAND_COLORS.primaryGreen,
-  primaryDark: '#88950f',
+  primaryDark: '#5d6a0b',
   primaryLight: BRAND_COLORS.lightGreen,
   primaryVeryLight: 'rgba(160,175,20,0.12)',
   primaryBorder: 'rgba(160,175,20,0.3)',
@@ -58,27 +58,27 @@ export const SHADOWS = {
 // CANONICAL SOURCE — must stay in sync with mobile/constants/theme.ts ROLA_COLORS.
 // Covers all 14 employee roles + spelling/diacritic variants.
 export const ROLA_COLORS = {
-  'Prezes':                      '#FACC15',
-  'Dyrektor':                    '#F59E0B',
-  'Dyrektor Sprzedazy':           '#FB7185',
-  'Dyrektor Sprzedaży':           '#FB7185',
-  'Dyrektor dzialu sprzedaz':     '#FB7185',
-  'Dyrektor działu sprzedaż':     '#FB7185',
-  'Administrator':               '#00E5FF',
-  'Kierownik':                   '#38BDF8',
-  'Dyspozytor':                  '#A78BFA',
-  'Brygadzista':                 '#00E676',
-  'Specjalista':                 '#22D3EE',
-  'Wyceniający':                 '#B45309',
-  'Wyceniajacy':                 '#B45309',
-  'Handlowiec':                  '#F472B6',
-  'Pracownik biurowy':           '#818CF8',
-  'Pomocnik':                    '#94A3B8',
-  'Pomocnik bez doświadczenia':  '#64748B',
-  'Magazynier':                  '#FF9100',
+  'Prezes':                      '#bd701e',
+  'Dyrektor':                    '#bd701e',
+  'Dyrektor Sprzedazy':           '#c0492f',
+  'Dyrektor Sprzedaży':           '#c0492f',
+  'Dyrektor dzialu sprzedaz':     '#c0492f',
+  'Dyrektor działu sprzedaż':     '#c0492f',
+  'Administrator':               '#766440',
+  'Kierownik':                   '#766440',
+  'Dyspozytor':                  '#f1f3d6',
+  'Brygadzista':                 '#7f8c12',
+  'Specjalista':                 '#766440',
+  'Wyceniający':                 '#995510',
+  'Wyceniajacy':                 '#995510',
+  'Handlowiec':                  '#f1f3d6',
+  'Pracownik biurowy':           '#f1f3d6',
+  'Pomocnik':                    '#9a907a',
+  'Pomocnik bez doświadczenia':  '#8a8069',
+  'Magazynier':                  '#bd701e',
 };
 
-export const getRolaColor = (rola) => ROLA_COLORS[rola] || '#64748B';
+export const getRolaColor = (rola) => ROLA_COLORS[rola] || '#8a8069';
 
 // Wszystkie dostępne role (do dropdownów)
 export const WSZYSTKIE_ROLE = [

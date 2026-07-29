@@ -808,7 +808,7 @@ export function getMockTaskLogi(taskId) {
  * Przygotowuje mockowe dane dla API (dokładne dopasowanie ścieżki).
  */
 function mockPhotoSvg(label, color) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420"><rect width="640" height="420" fill="#07130d"/><rect x="24" y="24" width="592" height="372" rx="24" fill="${color}" opacity="0.18" stroke="${color}" stroke-width="3"/><circle cx="132" cy="132" r="52" fill="${color}" opacity="0.28"/><path d="M92 312c78-116 132-120 194-34 42-66 96-70 170 34H92z" fill="${color}" opacity="0.5"/><text x="48" y="62" fill="#f8fafc" font-family="Arial, sans-serif" font-size="28" font-weight="700">${label}</text><text x="48" y="95" fill="#a7f3d0" font-family="Arial, sans-serif" font-size="16">POLSKA FLORA DEMO PHOTO</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420"><rect width="640" height="420" fill="#2c2011"/><rect x="24" y="24" width="592" height="372" rx="24" fill="${color}" opacity="0.18" stroke="${color}" stroke-width="3"/><circle cx="132" cy="132" r="52" fill="${color}" opacity="0.28"/><path d="M92 312c78-116 132-120 194-34 42-66 96-70 170 34H92z" fill="${color}" opacity="0.5"/><text x="48" y="62" fill="#f0ebdd" font-family="Arial, sans-serif" font-size="28" font-weight="700">${label}</text><text x="48" y="95" fill="#e4efd6" font-family="Arial, sans-serif" font-size="16">POLSKA FLORA DEMO PHOTO</text></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
@@ -826,11 +826,11 @@ function normalizeMockPhotoType(value) {
 
 function mockPhotoTypeMeta(type) {
   const meta = {
-    wycena: ['Wycena', '#22c55e'],
-    szkic: ['Szkic', '#38bdf8'],
-    dojazd: ['Dojazd', '#f59e0b'],
-    przed: ['Przed', '#84cc16'],
-    po: ['Po', '#10b981'],
+    wycena: ['Wycena', '#7f8c12'],
+    szkic: ['Szkic', '#766440'],
+    dojazd: ['Dojazd', '#bd701e'],
+    przed: ['Przed', '#a0af14'],
+    po: ['Po', '#7f8c12'],
   };
   return meta[type] || meta.wycena;
 }
@@ -860,11 +860,11 @@ function buildGeneratedMockTaskPhotos(taskId) {
   const id = Number(taskId);
   const now = Date.now();
   const templateRows = [
-    ['wycena', 'Wycena', 'Widok drzewa i zakresu prac', 'wycena,teren', '#22c55e'],
-    ['szkic', 'Szkic', 'Szkic ciecia narysowany przez wyceniajacego', 'szkic,zakres', '#38bdf8'],
-    ['dojazd', 'Dojazd', 'Brama i dojazd dla ekipy', 'dojazd,posesja', '#f59e0b'],
-    ['przed', 'Przed', 'Stan przed rozpoczeciem pracy', 'przed,zakres', '#84cc16'],
-    ['po', 'Po', 'Efekt po wykonaniu pracy', 'po,odbior', '#10b981'],
+    ['wycena', 'Wycena', 'Widok drzewa i zakresu prac', 'wycena,teren', '#7f8c12'],
+    ['szkic', 'Szkic', 'Szkic ciecia narysowany przez wyceniajacego', 'szkic,zakres', '#766440'],
+    ['dojazd', 'Dojazd', 'Brama i dojazd dla ekipy', 'dojazd,posesja', '#bd701e'],
+    ['przed', 'Przed', 'Stan przed rozpoczeciem pracy', 'przed,zakres', '#a0af14'],
+    ['po', 'Po', 'Efekt po wykonaniu pracy', 'po,odbior', '#7f8c12'],
   ];
   const base = getMockTaskBase(id);
   const hasExplicitPhotoTotal = base.photo_total !== undefined && base.photo_total !== null && base.photo_total !== '';

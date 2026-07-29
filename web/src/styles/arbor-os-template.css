@@ -8,11 +8,11 @@
   --template-brown: #3b2a18;
   --template-brown-deep: #2a1d0f;
   --template-ink: #3b2a18;
-  --template-muted: #766f5c;
-  --template-muted-soft: #a89f8c;
-  --template-paper: #f6f3e9;
+  --template-muted: #5a5040;
+  --template-muted-soft: #8a8069;
+  --template-paper: #f0ebdd;
   --template-panel: #ffffff;
-  --template-card: #fbfaf6;
+  --template-card: #f0ebdd;
   --template-line: #e6ddc9;
   --template-green: #a0af14;
   --template-green-dark: #7f8c12;
@@ -23,7 +23,7 @@
   min-height: 100vh !important;
   background:
     radial-gradient(circle at 96% 0%, rgba(160, 175, 20, 0.1), transparent 28rem),
-    linear-gradient(180deg, #faf9f3 0%, #f1eee2 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 100%) !important;
   color: var(--template-ink) !important;
   font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif !important;
 }
@@ -274,7 +274,7 @@
 }
 
 #root .arbor-os-title span {
-  color: #64720b !important;
+  color: #5d6a0b !important;
   font-size: 10px !important;
   line-height: 1.1 !important;
   font-weight: 800 !important;
@@ -312,7 +312,7 @@
   width: 15px !important;
   height: 15px !important;
   border-radius: 5px !important;
-  background: #766f5c !important;
+  background: #5a5040 !important;
 }
 
 #root .arbor-os-view-toggle span.is-active {
@@ -335,7 +335,7 @@
   border: 0 !important;
   border-radius: 8px !important;
   background: transparent !important;
-  color: #766f5c !important;
+  color: #5a5040 !important;
   font-size: 12px !important;
   font-weight: 700 !important;
   box-shadow: none !important;
@@ -370,8 +370,8 @@
   padding: 2px 5px !important;
   border: 0 !important;
   border-radius: 5px !important;
-  background: #eeeade !important;
-  color: #766f5c !important;
+  background: #f0ebdd !important;
+  color: #5a5040 !important;
   font-size: 10px !important;
 }
 
@@ -516,7 +516,7 @@
 
 #root .arbor-os-kpi-card[data-tone='dark'] > span,
 #root .arbor-os-kpi-card[data-tone='dark'] > small {
-  color: #cbbd9d !important;
+  color: #fae7d2 !important;
 }
 
 #root .arbor-os-kpi-card[data-tone='dark'] > strong {
@@ -525,7 +525,7 @@
 
 #root .arbor-os-kpi-card[data-tone='dark'] > i {
   background: rgba(189, 112, 30, 0.24) !important;
-  color: #e4a35d !important;
+  color: #fae7d2 !important;
 }
 
 #root .arbor-os-priority-grid,
@@ -562,7 +562,7 @@
   gap: 10px !important;
   padding: 14px 18px !important;
   border-bottom: 1px solid var(--template-line) !important;
-  background: #fff9f3 !important;
+  background: #f0ebdd !important;
 }
 
 #root .arbor-os-approval-head > span {
@@ -596,7 +596,7 @@
   display: grid !important;
   place-items: center !important;
   border-radius: 8px !important;
-  background: #aa5b10 !important;
+  background: #995510 !important;
   color: #ffffff !important;
   font-size: 11px !important;
 }
@@ -643,7 +643,7 @@
   padding: 3px 8px !important;
   border-radius: 6px !important;
   background: #fae7d2 !important;
-  color: #9a5611 !important;
+  color: #995510 !important;
   font-size: 9px !important;
   font-style: normal !important;
   font-weight: 700 !important;

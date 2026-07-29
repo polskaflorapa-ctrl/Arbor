@@ -112,11 +112,11 @@
 }
 
 #root :is(.dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) :is(small, p, span) {
-  color: #c7bda3 !important;
+  color: #fae7d2 !important;
 }
 
 #root :is(.dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) :is(h1, h2, strong, b) {
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
 }
 
 #root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
@@ -147,8 +147,8 @@
 #root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main)
   :is(button, .MuiButton-root, a[role='button']):not(.MuiIconButton-root):not(.pf-sidebar *):not(.command-native-sidebar *):hover {
   transform: translateY(-1px);
-  border-color: #d3da93 !important;
-  background-color: #f9faf0 !important;
+  border-color: #f1f3d6 !important;
+  background-color: #f0ebdd !important;
   box-shadow: 0 12px 24px rgba(43, 29, 15, 0.1) !important;
   filter: none !important;
 }

@@ -26,7 +26,7 @@
   --on-accent: #23260a !important;
 
   /* --- Tła i powierzchnie (krem + białe karty) --- */
-  --bg: #f3f0e6 !important;
+  --bg: #f0ebdd !important;
   --surface: #ffffff !important;
   --surface-1: #ffffff !important;
   --surface-2: #faf8f1 !important;
@@ -79,7 +79,7 @@
   --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
 
   /* Tło strony modułu = ciepły papier prototypu */
-  background: radial-gradient(1200px 700px at 100% -10%, rgba(160, 175, 20, 0.06), transparent 60%), #f3f0e6 !important;
+  background: radial-gradient(1200px 700px at 100% -10%, rgba(160, 175, 20, 0.06), transparent 60%), #f0ebdd !important;
 }
 
 /* --- Globalne poprawki, których tokeny nie łapią (bez konfliktu z inline) --- */
@@ -87,7 +87,7 @@
 /* Pasek przewijania w oliwce */
 #root .arbor-os-shell *::-webkit-scrollbar { width: 11px; height: 11px; }
 #root .arbor-os-shell *::-webkit-scrollbar-thumb {
-  background: #d8d0be; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box;
+  background: #fae7d2; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box;
 }
 #root .arbor-os-shell *::-webkit-scrollbar-thumb:hover { background: #a0af14; background-clip: padding-box; }
 #root .arbor-os-shell *::-webkit-scrollbar-track { background: transparent; }

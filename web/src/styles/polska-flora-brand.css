@@ -11,23 +11,23 @@ body.theme-light #root {
   --brand-light-green: #b4c232;
   --brand-orange-brown: #bd701e;
   --brand-white: #ffffff;
-  --brand-paper: #f7f4ec;
-  --brand-paper-soft: #fbfaf6;
-  --brand-paper-deep: #f1ecdd;
-  --brand-paper-edge: #e8e0d0;
-  --brand-line: #e4dccb;
-  --brand-line-strong: #cec2a9;
-  --brand-subtle-ink: #5e4d31;
-  --brand-green-dark: #88950f;
-  --brand-dark-deep: #2c1e11;
-  --brand-dark-surface: #493725;
-  --brand-dark-surface-raised: #503d29;
-  --brand-dark-edge: #5a472f;
-  --brand-warm-white: #fffaf0;
-  --status-success: #5f6a0b;
-  --status-warning: #8b4e0d;
-  --status-info: #66563a;
-  --status-danger: #b42318;
+  --brand-paper: #f0ebdd;
+  --brand-paper-soft: #f0ebdd;
+  --brand-paper-deep: #f0ebdd;
+  --brand-paper-edge: #fae7d2;
+  --brand-line: #fae7d2;
+  --brand-line-strong: #fae7d2;
+  --brand-subtle-ink: #995510;
+  --brand-green-dark: #5d6a0b;
+  --brand-dark-deep: #2c2011;
+  --brand-dark-surface: #2c2011;
+  --brand-dark-surface-raised: #995510;
+  --brand-dark-edge: #995510;
+  --brand-warm-white: #f0ebdd;
+  --status-success: #5d6a0b;
+  --status-warning: #995510;
+  --status-info: #995510;
+  --status-danger: #a3402a;
 
   /* Core application semantics. */
   --bg: var(--brand-paper) !important;
@@ -44,7 +44,7 @@ body.theme-light #root {
   --text-muted: var(--brand-light-brown) !important;
   --border: rgba(59, 42, 24, 0.14) !important;
   --border2: rgba(160, 175, 20, 0.3) !important;
-  --input-bg: #fffefa !important;
+  --input-bg: #f0ebdd !important;
   --focus-ring: rgba(160, 175, 20, 0.38) !important;
   --nav-active-bg: var(--brand-primary-green) !important;
   --nav-hover-bg: rgba(160, 175, 20, 0.12) !important;
@@ -53,7 +53,7 @@ body.theme-light #root {
   --accent-surface: rgba(160, 175, 20, 0.12) !important;
   --surface-raised: linear-gradient(180deg, #ffffff, var(--brand-paper-soft)) !important;
   --surface-glass: rgba(255, 255, 255, 0.94) !important;
-  --surface-field: #fffefa !important;
+  --surface-field: #f0ebdd !important;
   --accent-gradient: linear-gradient(135deg, var(--brand-primary-green), var(--brand-light-green)) !important;
   --success: var(--status-success) !important;
   --success-surface: rgba(160, 175, 20, 0.14) !important;
@@ -61,7 +61,7 @@ body.theme-light #root {
   --warning-surface: rgba(189, 112, 30, 0.13) !important;
   --info: var(--status-info) !important;
   --danger: var(--status-danger) !important;
-  --danger-surface: rgba(180, 35, 24, 0.1) !important;
+  --danger-surface: rgba(163, 64, 42, 0.1) !important;
   --glass-bg: rgba(255, 255, 255, 0.9) !important;
   --glass-bg-strong: rgba(255, 255, 255, 0.97) !important;
   --glass-border: rgba(59, 42, 24, 0.14) !important;
@@ -79,7 +79,7 @@ body.theme-light #root {
   --pf-brown-orange: var(--brand-orange-brown) !important;
   --pf-ink: var(--brand-dark-brown) !important;
   --pf-muted: var(--brand-light-brown) !important;
-  --pf-muted-2: #9d9073 !important;
+  --pf-muted-2: #bd701e !important;
   --pf-paper: var(--brand-paper) !important;
   --pf-paper-2: var(--brand-paper-deep) !important;
   --pf-card: #ffffff !important;
@@ -161,8 +161,8 @@ body.theme-light #root {
   --ux-panel-2: var(--brand-dark-surface-raised) !important;
   --ux-panel-3: var(--brand-dark-edge) !important;
   --ux-text: var(--brand-warm-white) !important;
-  --ux-text-2: #e8dfc9 !important;
-  --ux-muted: #c5b99f !important;
+  --ux-text-2: #fae7d2 !important;
+  --ux-muted: #fae7d2 !important;
   --ux-border: rgba(255, 250, 240, 0.18) !important;
   --ux-border-strong: rgba(180, 194, 50, 0.34) !important;
   --ux-accent: var(--brand-primary-green) !important;
@@ -186,8 +186,8 @@ body.theme-green #root {
   --accent-dk: var(--brand-primary-green) !important;
   --on-accent: var(--brand-dark-brown) !important;
   --text: var(--brand-warm-white) !important;
-  --text-sub: #e8dfc9 !important;
-  --text-muted: #c5b99f !important;
+  --text-sub: #fae7d2 !important;
+  --text-muted: #fae7d2 !important;
   --border: rgba(255, 250, 240, 0.14) !important;
   --border2: rgba(180, 194, 50, 0.32) !important;
   --input-bg: var(--brand-dark-surface) !important;
@@ -195,17 +195,17 @@ body.theme-green #root {
   --nav-hover-bg: rgba(180, 194, 50, 0.12) !important;
   --accent-surface: rgba(180, 194, 50, 0.14) !important;
   --surface-raised: linear-gradient(180deg, var(--brand-dark-surface-raised), var(--brand-dark-surface)) !important;
-  --surface-glass: rgba(73, 55, 37, 0.94) !important;
+  --surface-glass: rgba(44, 32, 17, 0.94) !important;
   --surface-field: var(--brand-dark-surface) !important;
-  --glass-bg: rgba(73, 55, 37, 0.88) !important;
+  --glass-bg: rgba(44, 32, 17, 0.88) !important;
   --glass-bg-strong: rgba(59, 42, 24, 0.97) !important;
   --glass-border: rgba(255, 250, 240, 0.14) !important;
   --command-bg: var(--brand-dark-brown) !important;
   --command-surface: var(--brand-dark-surface) !important;
   --command-surface-soft: var(--brand-dark-surface-raised) !important;
   --command-text: var(--brand-warm-white) !important;
-  --command-sub: #e8dfc9 !important;
-  --command-muted: #c5b99f !important;
+  --command-sub: #fae7d2 !important;
+  --command-muted: #fae7d2 !important;
   --command-line: rgba(255, 250, 240, 0.12) !important;
 }
 
@@ -288,8 +288,8 @@ body.theme-green::before {
 /* Approved dark-background lock-up in every application rail. */
 #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) {
   isolation: isolate;
-  background: linear-gradient(180deg, #3b2a18, #2c1e11) !important;
-  color: #fffaf0 !important;
+  background: linear-gradient(180deg, #3b2a18, #2c2011) !important;
+  color: #f0ebdd !important;
 }
 
 #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar)::before {
@@ -435,7 +435,7 @@ body.theme-green::before {
 
 #root .login-card :is(input, select, textarea) {
   border-color: var(--brand-line) !important;
-  background: #fffefa !important;
+  background: #f0ebdd !important;
   color: var(--brand-dark-brown) !important;
 }
 

@@ -19,15 +19,15 @@
 }
 
 .dev-panel-content {
-  background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
-  border: 2px solid #ff6b6b;
+  background: linear-gradient(135deg, #2c2011 0%, #2c2011 100%);
+  border: 2px solid #c0492f;
   border-radius: 8px;
   padding: 20px;
   min-width: 320px;
   max-width: 400px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  color: #e0e0e0;
+  color: #e0d9c8;
 }
 
 .dev-panel-header {
@@ -35,7 +35,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 107, 107, 0.3);
+  border-bottom: 1px solid rgba(192, 73, 47, 0.3);
   padding-bottom: 12px;
 }
 
@@ -43,13 +43,13 @@
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #ff6b6b;
+  color: #c0492f;
 }
 
 .dev-panel-close {
   background: none;
   border: none;
-  color: #ff6b6b;
+  color: #c0492f;
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -58,7 +58,7 @@
 }
 
 .dev-panel-close:hover {
-  color: #ff8888;
+  color: #f6e0d9;
 }
 
 .dev-panel-section {
@@ -78,17 +78,17 @@
   cursor: pointer;
   width: 18px;
   height: 18px;
-  accent-color: #ff6b6b;
+  accent-color: #c0492f;
 }
 
 .dev-panel-section select {
   width: 100%;
   padding: 8px 12px;
   margin-top: 8px;
-  background-color: #252535;
-  border: 1px solid rgba(255, 107, 107, 0.5);
+  background-color: #2c2011;
+  border: 1px solid rgba(192, 73, 47, 0.5);
   border-radius: 6px;
-  color: #e0e0e0;
+  color: #e0d9c8;
   font-size: 13px;
   cursor: pointer;
   transition: border-color 0.2s;
@@ -96,13 +96,13 @@
 
 .dev-panel-section select:hover,
 .dev-panel-section select:focus {
-  border-color: #ff6b6b;
+  border-color: #c0492f;
   outline: none;
 }
 
 .dev-panel-section select option {
-  background-color: #1e1e2e;
-  color: #e0e0e0;
+  background-color: #2c2011;
+  color: #e0d9c8;
 }
 
 .dev-panel-hint {
@@ -113,7 +113,7 @@
 }
 
 .dev-panel-footer {
-  border-top: 1px solid rgba(255, 107, 107, 0.3);
+  border-top: 1px solid rgba(192, 73, 47, 0.3);
   padding-top: 12px;
   font-size: 12px;
   color: #888;

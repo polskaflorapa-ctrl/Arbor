@@ -16,7 +16,7 @@
   border: 1px solid rgba(160, 175, 20, 0.28) !important;
   border-radius: 18px !important;
   background: rgba(255, 255, 255, 0.06) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
   box-shadow: none !important;
 }
 
@@ -38,7 +38,7 @@
   :is(input, select, textarea) {
   border-color: rgba(255, 255, 255, 0.12) !important;
   background: rgba(255, 255, 255, 0.06) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
 }
 
 #root :is(.field-quotes-main, .field-quote-detail-main, .wyceniajacy-hub-main, .quote-calendar-main)
@@ -52,7 +52,7 @@
   :is(button, a[role='button']):not(:disabled):hover {
   border-color: var(--pf-green) !important;
   background: rgba(160, 175, 20, 0.16) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
 }
 
 @media (max-width: 900px) {

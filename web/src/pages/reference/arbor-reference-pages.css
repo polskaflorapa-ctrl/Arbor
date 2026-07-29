@@ -2,7 +2,7 @@
   min-height: 100vh;
   background:
     radial-gradient(circle at 90% -6%, rgba(160, 175, 20, 0.1), transparent 32rem),
-    linear-gradient(180deg, #faf9f3 0%, #f1eee2 100%);
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 100%);
   color: #2c2011;
   font-family: "Road UA", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -164,7 +164,7 @@
 }
 
 .ref-sidebar-foot small {
-  color: #c7bda3;
+  color: #fae7d2;
   font-size: 12px;
   font-weight: 700;
 }
@@ -249,8 +249,8 @@
 }
 
 .ref-button:hover {
-  border-color: #d3da93;
-  background: #f9faf0;
+  border-color: #f1f3d6;
+  background: #f0ebdd;
 }
 
 .ref-icon-action {
@@ -281,7 +281,7 @@
 
 .ref-hero-dark p,
 .ref-hero-dark span {
-  color: #c7bda3;
+  color: #fae7d2;
 }
 
 .ref-grid {
@@ -404,7 +404,7 @@
   height: 26px;
   display: grid;
   place-items: center;
-  border: 2px solid #d8d1bf;
+  border: 2px solid #fae7d2;
   border-radius: 999px;
   background: #fff;
   color: #fff;
@@ -428,7 +428,7 @@
 .ref-step small {
   display: block;
   margin-top: 2px;
-  color: #a89f8c;
+  color: #8a8069;
   font-size: 12.5px;
 }
 
@@ -488,13 +488,13 @@
 .ref-estimator-page .ref-title-block h1,
 .ref-estimator-page .ref-card h2,
 .ref-estimator-page strong {
-  color: #fffaf0;
+  color: #f0ebdd;
 }
 
 .ref-estimator-page .ref-title-block p,
 .ref-estimator-page small,
 .ref-estimator-page p {
-  color: #c7bda3;
+  color: #fae7d2;
 }
 
 .ref-estimator-layout {
@@ -530,7 +530,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
-  color: #fffaf0;
+  color: #f0ebdd;
   font: inherit;
   font-weight: 700;
 }
@@ -552,11 +552,11 @@
   width: min(390px, 100%);
   min-height: 820px;
   overflow: hidden;
-  border: 10px solid #1f160b;
+  border: 10px solid #2c2011;
   border-radius: 34px;
   background:
     radial-gradient(circle at 90% -6%, rgba(160, 175, 20, 0.1), transparent 26rem),
-    linear-gradient(180deg, #faf9f3, #f1eee2);
+    linear-gradient(180deg, #f0ebdd, #f0ebdd);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.38);
 }
 
@@ -610,7 +610,7 @@
   min-height: 100vh;
   padding: clamp(24px, 5vw, 56px);
   background: #2a1d0f;
-  color: #fffaf0;
+  color: #f0ebdd;
 }
 
 .ref-deck-slide {
@@ -632,7 +632,7 @@
 
 .ref-deck p {
   max-width: 640px;
-  color: #c7bda3;
+  color: #fae7d2;
   font-size: clamp(18px, 2vw, 24px);
   line-height: 1.42;
 }

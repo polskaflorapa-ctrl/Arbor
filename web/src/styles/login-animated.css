@@ -12,7 +12,7 @@
   background:
     radial-gradient(1200px 800px at 12% -10%, rgba(160, 175, 20, 0.16), transparent 60%),
     radial-gradient(1000px 700px at 110% 10%, rgba(160, 175, 20, 0.10), transparent 55%),
-    linear-gradient(160deg, #faf8f1 0%, #f1efe6 55%, #eef1df 100%);
+    linear-gradient(160deg, #faf8f1 0%, #f0ebdd 55%, #e0d9c8 100%);
 }
 
 .login-shell::before {

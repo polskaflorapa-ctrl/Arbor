@@ -5,7 +5,7 @@
   --estimator-green: #a0af14;
   --estimator-green-dark: #5d6a0b;
   --estimator-orange: #bd701e;
-  --estimator-paper: #f7f5ec;
+  --estimator-paper: #f0ebdd;
   --estimator-line: #ece6d7;
   width: 100%;
   min-height: 100vh;
@@ -14,7 +14,7 @@
   color: var(--estimator-ink);
   background:
     radial-gradient(circle at 90% -6%, rgba(160, 175, 20, 0.1), transparent 32rem),
-    linear-gradient(180deg, #faf9f3, #f1eee2);
+    linear-gradient(180deg, #f0ebdd, #f0ebdd);
   isolation: isolate;
 }
 
@@ -68,7 +68,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 11px;
-  color: #bfa888;
+  color: #fae7d2;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -155,15 +155,15 @@
 }
 
 #root .estimator-office-priority.is-normal {
-  color: #574629;
-  background: #ede7da;
+  color: #995510;
+  background: #e0d9c8;
 }
 
 #root .estimator-office-queue-service {
   display: block;
   overflow: hidden;
   margin-top: 4px;
-  color: #c7bda3;
+  color: #fae7d2;
   font-size: 12px;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -171,7 +171,7 @@
 }
 
 #root .estimator-office-queue-item.is-active .estimator-office-queue-service {
-  color: #dbe7b0;
+  color: #f1f3d6;
 }
 
 #root .estimator-office-queue-meta {
@@ -179,19 +179,19 @@
   align-items: center;
   gap: 7px;
   margin-top: 7px;
-  color: #9a8e76;
+  color: #8a8069;
   font-size: 11px;
 }
 
 #root .estimator-office-queue-item.is-active .estimator-office-queue-meta {
-  color: #b9ca7e;
+  color: #f1f3d6;
 }
 
 #root .estimator-office-queue-empty {
   padding: 15px 14px;
   border: 1px dashed rgba(255, 255, 255, 0.14);
   border-radius: 13px;
-  color: #bfa888;
+  color: #fae7d2;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -245,7 +245,7 @@
 }
 
 #root .estimator-office-user-copy small {
-  color: #bfa888;
+  color: #fae7d2;
   font-size: 11.5px;
 }
 
@@ -287,7 +287,7 @@
 
 #root .estimator-office-header p {
   margin: 4px 0 0;
-  color: #7a7059;
+  color: #5a5040;
   font-size: 14px;
   line-height: 1.4;
 }
@@ -359,7 +359,7 @@
 #root .estimator-office-editor-row {
   align-items: center;
   padding: 10px 22px;
-  border-bottom: 1px solid #f4f0e6;
+  border-bottom: 1px solid #f0ebdd;
 }
 
 #root .estimator-office-editor-row label {
@@ -373,7 +373,7 @@
   height: 40px !important;
   min-height: 40px !important;
   padding: 0 10px;
-  border: 1px solid #e8e1d2 !important;
+  border: 1px solid #e0d9c8 !important;
   border-radius: 9px !important;
   outline: 0;
   color: var(--estimator-ink) !important;
@@ -421,7 +421,7 @@
 }
 
 #root .estimator-office-remove:hover {
-  background: #efcabd;
+  background: #f6e0d9;
 }
 
 #root .estimator-office-presets {
@@ -452,14 +452,14 @@
 
 #root .estimator-office-preset {
   border: 1px solid #f0ebdd;
-  color: #7a7059;
+  color: #5a5040;
   background: #faf8f1;
   font-size: 12.5px;
   font-weight: 700;
 }
 
 #root .estimator-office-preset:hover {
-  border-color: #d3da93;
+  border-color: #f1f3d6;
 }
 
 #root .estimator-office-summary-grid {
@@ -514,7 +514,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #c7bda3;
+  color: #fae7d2;
   font-size: 14px;
   line-height: 20px;
 }
@@ -600,7 +600,7 @@
   flex-direction: column;
   gap: 20px;
   padding: 24px 22px;
-  border-left: 1px solid #e7e2d4;
+  border-left: 1px solid #e0d9c8;
   background: #ffffff;
 }
 
@@ -668,7 +668,7 @@ body:has(#root .pf-estimator-workbench) #root button[aria-label='Zamknij asysten
 }
 
 #root .estimator-office-stats .is-value {
-  color: #bfa888;
+  color: #fae7d2;
   background: var(--estimator-ink);
 }
 
@@ -700,7 +700,7 @@ body:has(#root .pf-estimator-workbench) #root button[aria-label='Zamknij asysten
 }
 
 #root .estimator-office-sent-item:hover {
-  border-color: #d3da93;
+  border-color: #f1f3d6;
 }
 
 #root .estimator-office-sent-top > strong {
@@ -738,8 +738,8 @@ body:has(#root .pf-estimator-workbench) #root button[aria-label='Zamknij asysten
 }
 
 #root .estimator-office-sent-top > .is-rejected {
-  color: #9a3a2a;
-  background: #f4e1db;
+  color: #a3402a;
+  background: #f6e0d9;
 }
 
 #root .estimator-office-sent-bottom {
@@ -765,7 +765,7 @@ body:has(#root .pf-estimator-workbench) #root button[aria-label='Zamknij asysten
 #root .estimator-office-sent-empty {
   margin: 0;
   padding: 13px;
-  border: 1px dashed #e4dccb;
+  border: 1px dashed #fae7d2;
   border-radius: 13px;
   color: #8a8069;
   font-size: 12px;
@@ -778,7 +778,7 @@ body:has(#root .pf-estimator-workbench) #root button[aria-label='Zamknij asysten
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  color: #7a7059;
+  color: #5a5040;
   text-align: center;
 }
 
@@ -909,7 +909,7 @@ body:has(#root .pf-estimator-workbench) #root button[aria-label='Zamknij asysten
     grid-column: 2;
     height: auto;
     overflow: visible;
-    border-top: 1px solid #e7e2d4;
+    border-top: 1px solid #e0d9c8;
   }
 
   #root .estimator-office-sent-list {

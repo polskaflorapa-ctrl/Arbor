@@ -64,8 +64,8 @@ export const PRICE_REQUIRED_TASK_STATUSES = FIELD_EVIDENCE_REQUIRED_TASK_STATUSE
 
 export const TASK_STATUS_COLORS = Object.freeze({
   [TASK_STATUS.NOWE]: 'var(--accent)',
-  [TASK_STATUS.WYCENA_TERENOWA]: '#0EA5E9',
-  [TASK_STATUS.DO_ZATWIERDZENIA]: '#8B5CF6',
+  [TASK_STATUS.WYCENA_TERENOWA]: '#766440',
+  [TASK_STATUS.DO_ZATWIERDZENIA]: '#f1f3d6',
   [TASK_STATUS.ZAPLANOWANE]: 'var(--info)',
   [TASK_STATUS.W_REALIZACJI]: 'var(--warning)',
   [TASK_STATUS.ZAKONCZONE]: 'var(--success)',
@@ -74,12 +74,12 @@ export const TASK_STATUS_COLORS = Object.freeze({
 
 export const TASK_STATUS_BADGE_BG = Object.freeze({
   [TASK_STATUS.NOWE]: 'var(--accent-surface)',
-  [TASK_STATUS.WYCENA_TERENOWA]: 'rgba(14,165,233,0.14)',
-  [TASK_STATUS.DO_ZATWIERDZENIA]: 'rgba(139,92,246,0.14)',
-  [TASK_STATUS.ZAPLANOWANE]: 'rgba(112,182,255,0.16)',
-  [TASK_STATUS.W_REALIZACJI]: 'rgba(248,201,107,0.16)',
-  [TASK_STATUS.ZAKONCZONE]: 'rgba(52,211,153,0.16)',
-  [TASK_STATUS.ANULOWANE]: 'rgba(255,127,169,0.16)',
+  [TASK_STATUS.WYCENA_TERENOWA]: 'rgba(118, 100, 64, 0.14)',
+  [TASK_STATUS.DO_ZATWIERDZENIA]: 'rgba(241, 243, 214, 0.14)',
+  [TASK_STATUS.ZAPLANOWANE]: 'rgba(241, 243, 214, 0.16)',
+  [TASK_STATUS.W_REALIZACJI]: 'rgba(250, 231, 210, 0.16)',
+  [TASK_STATUS.ZAKONCZONE]: 'rgba(127, 140, 18, 0.16)',
+  [TASK_STATUS.ANULOWANE]: 'rgba(246, 224, 217, 0.16)',
 });
 
 export function normalizeTaskStatus(status) {
@@ -125,11 +125,11 @@ export function canTransitionTaskStatus(fromStatus, toStatus, options = {}) {
   return getNextTaskStatuses(from, options).includes(to);
 }
 
-export function getTaskStatusColor(status, fallback = '#6B7280') {
+export function getTaskStatusColor(status, fallback = '#8a8069') {
   return TASK_STATUS_COLORS[normalizeTaskStatus(status)] || fallback;
 }
 
-export function getTaskStatusBadgeBg(status, fallback = 'rgba(148,163,184,0.16)') {
+export function getTaskStatusBadgeBg(status, fallback = 'rgba(154, 144, 122, 0.16)') {
   return TASK_STATUS_BADGE_BG[normalizeTaskStatus(status)] || fallback;
 }
 

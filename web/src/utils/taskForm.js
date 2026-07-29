@@ -83,8 +83,8 @@ export const TASK_SETTLEMENT_OPTIONS = Object.freeze([
 
 export const TASK_PRIORITY_COLORS = Object.freeze({
   Niski: 'var(--text-muted)',
-  Normalny: '#1d4ed8',
-  Wysoki: '#b45309',
+  Normalny: '#766440',
+  Wysoki: '#995510',
   Pilny: 'var(--danger)',
 });
 

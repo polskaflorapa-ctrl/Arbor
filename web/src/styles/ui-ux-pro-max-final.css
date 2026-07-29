@@ -1,20 +1,20 @@
 :root {
-  --ux-bg: #020617;
-  --ux-bg-2: #07111f;
-  --ux-panel: #0f172a;
-  --ux-panel-2: #111c2f;
-  --ux-panel-3: #17243a;
-  --ux-text: #f8fafc;
-  --ux-text-2: #cbd5e1;
-  --ux-muted: #94a3b8;
-  --ux-border: rgba(148, 163, 184, 0.24);
+  --ux-bg: #2c2011;
+  --ux-bg-2: #2c2011;
+  --ux-panel: #2c2011;
+  --ux-panel-2: #2c2011;
+  --ux-panel-3: #2c2011;
+  --ux-text: #f0ebdd;
+  --ux-text-2: #e0d9c8;
+  --ux-muted: #9a907a;
+  --ux-border: rgba(154, 144, 122, 0.24);
   --ux-border-strong: rgba(226, 232, 240, 0.34);
-  --ux-accent: #22c55e;
-  --ux-accent-2: #5eead4;
-  --ux-blue: #38bdf8;
-  --ux-amber: #fbbf24;
-  --ux-red: #fb7185;
-  --ux-ring: rgba(34, 197, 94, 0.36);
+  --ux-accent: #7f8c12;
+  --ux-accent-2: #f1f3d6;
+  --ux-blue: #766440;
+  --ux-amber: #bd701e;
+  --ux-red: #c0492f;
+  --ux-ring: rgba(127, 140, 18, 0.36);
   --ux-radius: 8px;
   --ux-radius-sm: 6px;
   --ux-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
@@ -32,19 +32,19 @@
 #root .field-quote-detail-shell,
 #root .inspection-doc-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-2: #4b351f;
+  --pf-brown-2: #995510;
   --pf-green: #a0af14;
   --pf-green-soft: #b4c232;
   --pf-olive: #766440;
   --pf-orange: #bd701e;
-  --pf-ink: #261a0f;
-  --pf-muted: #776b59;
-  --pf-paper: #fbfaf6;
+  --pf-ink: #2c2011;
+  --pf-muted: #5a5040;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: 0 22px 52px rgba(59, 42, 24, 0.12);
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.08), transparent 38%),
-    linear-gradient(180deg, #f7f6ef 0%, #eeeadf 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 100%) !important;
   color: var(--pf-ink) !important;
 }
 
@@ -113,9 +113,9 @@
   border-left: 8px solid var(--pf-green) !important;
   border-radius: 8px !important;
   background:
-    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.93)),
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
   box-shadow: var(--pf-shadow) !important;
   overflow: hidden !important;
 }
@@ -175,9 +175,9 @@
   border: 1px solid rgba(160, 175, 20, 0.28) !important;
   border-radius: 8px !important;
   background:
-    linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)),
+    linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.9)),
     linear-gradient(45deg, rgba(160, 175, 20, 0.14), transparent) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
   box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
 }
 
@@ -413,14 +413,14 @@
   --pf-brown: #3b2a18;
   --pf-green: #a0af14;
   --pf-soft: #b4c232;
-  --pf-ink: #261a0f;
+  --pf-ink: #2c2011;
   --pf-muted: rgba(38, 26, 15, 0.66);
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-card: rgba(255, 255, 255, 0.94);
   --pf-shadow: 0 18px 44px rgba(59, 42, 24, 0.11);
   background:
     linear-gradient(130deg, rgba(160, 175, 20, 0.09), transparent 42%),
-    linear-gradient(180deg, #f8f6ef 0%, #ede9dd 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #e0d9c8 100%) !important;
   color: var(--pf-ink) !important;
 }
 
@@ -466,9 +466,9 @@
   border-left: 8px solid var(--pf-green) !important;
   border-radius: 8px !important;
   background:
-    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.93)),
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
   box-shadow: var(--pf-shadow) !important;
   padding: clamp(18px, 2.4vw, 28px) !important;
   margin-bottom: 18px !important;
@@ -544,8 +544,8 @@
 #root .calendar-blocks-command-card {
   border: 1px solid rgba(160, 175, 20, 0.28) !important;
   border-radius: 8px !important;
-  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)) !important;
-  color: #fffaf0 !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.9)) !important;
+  color: #f0ebdd !important;
   box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
   padding: 16px !important;
 }
@@ -850,23 +850,23 @@ body.theme-green {
   --bg-deep: var(--ux-bg);
   --bg-edge: var(--ux-bg-2);
   --accent: var(--ux-accent);
-  --accent-dk: #16a34a;
-  --on-accent: #02130a;
+  --accent-dk: #7f8c12;
+  --on-accent: #2c2011;
   --text: var(--ux-text);
   --text-sub: var(--ux-text-2);
   --text-muted: var(--ux-muted);
   --border: var(--ux-border);
-  --border2: rgba(34, 197, 94, 0.34);
-  --input-bg: #08111f;
+  --border2: rgba(127, 140, 18, 0.34);
+  --input-bg: #2c2011;
   --focus-ring: var(--ux-ring);
   --surface-field: rgba(15, 23, 42, 0.78);
   --surface-raised: linear-gradient(180deg, var(--ux-panel), var(--ux-panel-2));
   --surface-glass: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(17, 28, 47, 0.96));
   --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.03), 0 14px 34px rgba(0, 0, 0, 0.2);
   background:
-    radial-gradient(circle at 20% 0%, rgba(34, 197, 94, 0.16), transparent 28%),
-    radial-gradient(circle at 78% 8%, rgba(56, 189, 248, 0.13), transparent 30%),
-    linear-gradient(180deg, #020617 0%, #07111f 58%, #020617 100%) !important;
+    radial-gradient(circle at 20% 0%, rgba(127, 140, 18, 0.16), transparent 28%),
+    radial-gradient(circle at 78% 8%, rgba(118, 100, 64, 0.13), transparent 30%),
+    linear-gradient(180deg, #2c2011 0%, #2c2011 58%, #2c2011 100%) !important;
   color: var(--ux-text);
   font-family: var(--font-sans);
 }
@@ -883,8 +883,8 @@ body::after {
 #root :is(.app-shell, .dashboard-shell, .explore-command-shell, .raporty-centrum-shell) {
   min-height: 100vh;
   background:
-    linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(154, 144, 122, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(154, 144, 122, 0.045) 1px, transparent 1px),
     linear-gradient(180deg, rgba(2, 6, 23, 0.92), rgba(7, 17, 31, 0.96)) !important;
   background-size: 32px 32px, 32px 32px, auto !important;
 }
@@ -896,8 +896,8 @@ body.theme-light #root .app-shell.dashboard-shell,
 body.theme-light #root .app-shell.raporty-centrum-shell,
 body.theme-light #root .explore-shell.explore-command-shell {
   background:
-    linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(154, 144, 122, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(154, 144, 122, 0.045) 1px, transparent 1px),
     linear-gradient(180deg, rgba(2, 6, 23, 0.94), rgba(7, 17, 31, 0.98)) !important;
   background-size: 32px 32px, 32px 32px, auto !important;
 }
@@ -916,7 +916,7 @@ body.theme-light #root .explore-shell.explore-command-shell {
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.04) 1px, transparent 1px),
     linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, #f8f6ee 0%, #fbfaf6 50%, #eee8d6 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 50%, #fae7d2 100%) !important;
   background-size: 34px 34px, 34px 34px, auto !important;
 }
 
@@ -929,7 +929,7 @@ body.theme-light #root .explore-shell.explore-command-shell {
 #root .app-main.kierownik-main > .module-page-header-hero {
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
-    linear-gradient(90deg, #3b2a18, #4a351f) !important;
+    linear-gradient(90deg, #3b2a18, #995510) !important;
 }
 
 #root .app-main.ekipy-main .ekipy-command-lead,
@@ -937,7 +937,7 @@ body.theme-light #root .explore-shell.explore-command-shell {
 #root .app-main.kierownik-main .kierownik-cockpit-panel > div:first-child {
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.14), rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, #3b2a18, #2f2114) !important;
+    linear-gradient(180deg, #3b2a18, #2c2011) !important;
 }
 
 #root .app-main.ekipy-main .ekipy-summary-card,
@@ -969,7 +969,7 @@ body.theme-light #root .explore-shell.explore-command-shell {
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.04) 1px, transparent 1px),
     linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, #f8f6ee 0%, #fbfaf6 50%, #eee8d6 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 50%, #fae7d2 100%) !important;
   background-size: 34px 34px, 34px 34px, auto !important;
 }
 
@@ -994,8 +994,8 @@ body.theme-light #root .explore-shell.explore-command-shell {
 #root .ogledziny-detail-hero {
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
-    linear-gradient(90deg, #3b2a18, #4a351f) !important;
-  color: #fffaf0 !important;
+    linear-gradient(90deg, #3b2a18, #995510) !important;
+  color: #f0ebdd !important;
   border-left-color: #a0af14 !important;
 }
 
@@ -1051,14 +1051,14 @@ body.theme-dark #root .arbor-sidebar {
   --text-sub: var(--ux-text-2) !important;
   --text-muted: var(--ux-muted) !important;
   --border: var(--ux-border) !important;
-  --nav-active-bg: rgba(34, 197, 94, 0.13) !important;
+  --nav-active-bg: rgba(127, 140, 18, 0.13) !important;
   --ios-inset-bg: rgba(15, 23, 42, 0.72) !important;
-  --ios-row-hover: rgba(148, 163, 184, 0.12) !important;
+  --ios-row-hover: rgba(154, 144, 122, 0.12) !important;
 }
 
 #root .arbor-sidebar .ios-inset-row[aria-current='page'] {
-  background: rgba(34, 197, 94, 0.15) !important;
-  color: #ecfdf5 !important;
+  background: rgba(127, 140, 18, 0.15) !important;
+  color: #f0ebdd !important;
   box-shadow: inset 3px 0 0 var(--ux-accent) !important;
 }
 
@@ -1082,11 +1082,11 @@ body.theme-dark #root .arbor-sidebar {
   gap: 22px !important;
   padding: clamp(26px, 4vw, 48px) !important;
   overflow: hidden !important;
-  border-color: rgba(34, 197, 94, 0.32) !important;
+  border-color: rgba(127, 140, 18, 0.32) !important;
   background:
-    radial-gradient(circle at 84% 16%, rgba(34, 197, 94, 0.24), transparent 32%),
-    radial-gradient(circle at 16% 12%, rgba(56, 189, 248, 0.18), transparent 30%),
-    linear-gradient(135deg, #07111f 0%, #0f172a 52%, #042f2e 100%) !important;
+    radial-gradient(circle at 84% 16%, rgba(127, 140, 18, 0.24), transparent 32%),
+    radial-gradient(circle at 16% 12%, rgba(118, 100, 64, 0.18), transparent 30%),
+    linear-gradient(135deg, #2c2011 0%, #2c2011 52%, #5d6a0b 100%) !important;
 }
 
 #root .dashboard-command-hero::after {
@@ -1107,8 +1107,8 @@ body.theme-dark #root .arbor-sidebar {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(148, 163, 184, 0.11) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(154, 144, 122, 0.11) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(154, 144, 122, 0.08) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
 }
@@ -1217,7 +1217,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root input::placeholder,
 #root textarea::placeholder {
-  color: #94a3b8 !important;
+  color: #9a907a !important;
   opacity: 1;
 }
 
@@ -1242,12 +1242,12 @@ body.theme-dark #root .arbor-sidebar {
 
 #root :is(.dashboard-command-hero button, .arbor-action-primary, button[type='submit']) {
   min-height: 44px !important;
-  border: 1px solid rgba(34, 197, 94, 0.54) !important;
+  border: 1px solid rgba(127, 140, 18, 0.54) !important;
   border-radius: var(--ux-radius-sm) !important;
-  background: linear-gradient(135deg, #22c55e, #5eead4) !important;
-  color: #02130a !important;
+  background: linear-gradient(135deg, #7f8c12, #f1f3d6) !important;
+  color: #2c2011 !important;
   font-weight: 800 !important;
-  box-shadow: 0 14px 34px rgba(34, 197, 94, 0.22) !important;
+  box-shadow: 0 14px 34px rgba(127, 140, 18, 0.22) !important;
 }
 
 #root :is(.dashboard-decision-strip, .dashboard-kpi-grid) {
@@ -1341,8 +1341,8 @@ body.theme-dark #root .arbor-sidebar {
 #root :is(.dashboard-decision-strip > button, .dashboard-kpi-grid > button, .raporty-centrum-card, .explore-tile, .explore-priority-tile):hover {
   filter: none !important;
   transform: translateY(-1px) !important;
-  border-color: rgba(34, 197, 94, 0.48) !important;
-  background: linear-gradient(180deg, #132039, #0f1b30) !important;
+  border-color: rgba(127, 140, 18, 0.48) !important;
+  background: linear-gradient(180deg, #2c2011, #2c2011) !important;
 }
 
 #root .raporty-centrum-main {
@@ -1352,7 +1352,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .raporty-centrum-hero {
   min-height: 170px !important;
   padding: 24px 26px !important;
-  border-color: rgba(34, 197, 94, 0.28) !important;
+  border-color: rgba(127, 140, 18, 0.28) !important;
 }
 
 #root .raporty-centrum-hero h1 {
@@ -1391,7 +1391,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .raporty-centrum-hero > div:last-child > div {
-  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  border: 1px solid rgba(127, 140, 18, 0.3) !important;
   border-radius: var(--ux-radius-sm) !important;
   background: rgba(2, 6, 23, 0.48) !important;
   box-shadow: none !important;
@@ -1407,9 +1407,9 @@ body.theme-dark #root .arbor-sidebar {
   display: inline-flex !important;
   align-items: center !important;
   min-height: 30px !important;
-  border: 1px solid rgba(34, 197, 94, 0.34) !important;
+  border: 1px solid rgba(127, 140, 18, 0.34) !important;
   border-radius: var(--ux-radius-sm) !important;
-  background: rgba(34, 197, 94, 0.12) !important;
+  background: rgba(127, 140, 18, 0.12) !important;
   color: var(--ux-accent-2) !important;
   -webkit-text-fill-color: var(--ux-accent-2) !important;
   font-family: var(--font-mono) !important;
@@ -1431,7 +1431,7 @@ body.theme-dark #root .arbor-sidebar {
   gap: 18px !important;
   padding: clamp(24px, 4vw, 42px) !important;
   margin-bottom: 16px !important;
-  border-color: rgba(34, 197, 94, 0.28) !important;
+  border-color: rgba(127, 140, 18, 0.28) !important;
 }
 
 #root .explore-hero p,
@@ -1473,8 +1473,8 @@ body.theme-dark #root .arbor-sidebar {
 #root .explore-priority-icon,
 #root .explore-tile-icon,
 #root .ios-icon-tile {
-  border: 1px solid rgba(34, 197, 94, 0.3) !important;
-  background: rgba(34, 197, 94, 0.11) !important;
+  border: 1px solid rgba(127, 140, 18, 0.3) !important;
+  background: rgba(127, 140, 18, 0.11) !important;
   color: var(--ux-accent-2) !important;
 }
 
@@ -1495,7 +1495,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .skeleton-line,
 #root .skeleton-block {
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0.18), rgba(226, 232, 240, 0.28), rgba(148, 163, 184, 0.18)) !important;
+  background: linear-gradient(90deg, rgba(154, 144, 122, 0.18), rgba(226, 232, 240, 0.28), rgba(154, 144, 122, 0.18)) !important;
 }
 
 @media (max-width: 1040px) {
@@ -1559,11 +1559,11 @@ body.theme-dark #root .arbor-sidebar {
   place-items: center !important;
   padding: 24px !important;
   background:
-    radial-gradient(circle at 20% 0%, rgba(34, 197, 94, 0.16), transparent 28%),
-    radial-gradient(circle at 78% 8%, rgba(56, 189, 248, 0.13), transparent 30%),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px),
-    linear-gradient(180deg, #020617 0%, #07111f 100%) !important;
+    radial-gradient(circle at 20% 0%, rgba(127, 140, 18, 0.16), transparent 28%),
+    radial-gradient(circle at 78% 8%, rgba(118, 100, 64, 0.13), transparent 30%),
+    linear-gradient(90deg, rgba(154, 144, 122, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(154, 144, 122, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, #2c2011 0%, #2c2011 100%) !important;
   background-size: auto, auto, 32px 32px, 32px 32px, auto !important;
   color: var(--ux-text) !important;
 }
@@ -1591,9 +1591,9 @@ body.theme-dark #root .arbor-sidebar {
   min-height: 30px;
   margin-bottom: 18px;
   padding: 0 10px;
-  border: 1px solid rgba(34, 197, 94, 0.34);
+  border: 1px solid rgba(127, 140, 18, 0.34);
   border-radius: 6px;
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(127, 140, 18, 0.12);
   color: var(--ux-accent-2);
   font: 700 12px / 1 var(--font-mono);
   letter-spacing: 0;
@@ -1634,21 +1634,21 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .login-input-wrap input:focus,
 #root .login-card input:focus {
-  border-color: rgba(34, 197, 94, 0.72) !important;
+  border-color: rgba(127, 140, 18, 0.72) !important;
   box-shadow: 0 0 0 3px var(--ux-ring) !important;
 }
 
 #root .login-submit {
   min-height: 48px !important;
   border-radius: 8px !important;
-  background: linear-gradient(135deg, #22c55e, #5eead4) !important;
-  color: #02130a !important;
+  background: linear-gradient(135deg, #7f8c12, #f1f3d6) !important;
+  color: #2c2011 !important;
   font-weight: 800 !important;
 }
 
 #root .login-submit span,
 #root .login-submit svg {
-  color: #02130a !important;
+  color: #2c2011 !important;
 }
 
 #root .login-demo-panel {
@@ -1668,8 +1668,8 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .login-demo-btn:hover {
-  border-color: rgba(34, 197, 94, 0.48) !important;
-  background: rgba(19, 32, 57, 0.98) !important;
+  border-color: rgba(127, 140, 18, 0.48) !important;
+  background: rgba(44, 32, 17, 0.98) !important;
 }
 
 #root .login-demo-btn span {
@@ -1743,9 +1743,9 @@ body.theme-dark #root .arbor-sidebar {
 #root .dashboard-kpi-card {
   isolation: isolate;
   border-radius: 14px !important;
-  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  border: 1px solid rgba(154, 144, 122, 0.22) !important;
   background:
-    radial-gradient(circle at 92% 12%, rgba(94, 234, 212, 0.14), transparent 28%),
+    radial-gradient(circle at 92% 12%, rgba(241, 243, 214, 0.14), transparent 28%),
     linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(11, 18, 32, 0.98)) !important;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
   animation: arborCardIn 420ms cubic-bezier(0.2, 0.9, 0.2, 1) both !important;
@@ -1768,8 +1768,8 @@ body.theme-dark #root .arbor-sidebar {
 #root .dashboard-decision-card[data-index='0'] {
   min-height: 164px !important;
   background:
-    radial-gradient(circle at 85% 14%, rgba(251, 191, 36, 0.22), transparent 30%),
-    linear-gradient(145deg, rgba(25, 35, 56, 0.98), rgba(15, 23, 42, 0.98)) !important;
+    radial-gradient(circle at 85% 14%, rgba(189, 112, 30, 0.22), transparent 30%),
+    linear-gradient(145deg, rgba(44, 32, 17, 0.98), rgba(15, 23, 42, 0.98)) !important;
 }
 
 #root .dashboard-kpi-card[data-index='0'],
@@ -1779,38 +1779,38 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .dashboard-kpi-card[data-index='2'] {
   background:
-    radial-gradient(circle at 84% 18%, rgba(34, 197, 94, 0.2), transparent 30%),
+    radial-gradient(circle at 84% 18%, rgba(127, 140, 18, 0.2), transparent 30%),
     linear-gradient(145deg, rgba(13, 36, 30, 0.98), rgba(15, 23, 42, 0.98)) !important;
 }
 
 #root .dashboard-kpi-card[data-tone='danger'],
 #root .dashboard-decision-card[data-tone='danger'] {
-  border-color: rgba(251, 113, 133, 0.42) !important;
+  border-color: rgba(192, 73, 47, 0.42) !important;
   background:
-    radial-gradient(circle at 86% 16%, rgba(251, 113, 133, 0.2), transparent 30%),
+    radial-gradient(circle at 86% 16%, rgba(192, 73, 47, 0.2), transparent 30%),
     linear-gradient(145deg, rgba(46, 18, 32, 0.98), rgba(15, 23, 42, 0.98)) !important;
 }
 
 #root .dashboard-kpi-card[data-tone='amber'],
 #root .dashboard-decision-card[data-tone='warning'] {
-  border-color: rgba(251, 191, 36, 0.42) !important;
+  border-color: rgba(189, 112, 30, 0.42) !important;
   background:
-    radial-gradient(circle at 86% 16%, rgba(251, 191, 36, 0.2), transparent 30%),
+    radial-gradient(circle at 86% 16%, rgba(189, 112, 30, 0.2), transparent 30%),
     linear-gradient(145deg, rgba(45, 34, 16, 0.98), rgba(15, 23, 42, 0.98)) !important;
 }
 
 #root .dashboard-kpi-card[data-tone='blue'] {
-  border-color: rgba(56, 189, 248, 0.36) !important;
+  border-color: rgba(118, 100, 64, 0.36) !important;
   background:
-    radial-gradient(circle at 86% 16%, rgba(56, 189, 248, 0.18), transparent 30%),
-    linear-gradient(145deg, rgba(10, 29, 48, 0.98), rgba(15, 23, 42, 0.98)) !important;
+    radial-gradient(circle at 86% 16%, rgba(118, 100, 64, 0.18), transparent 30%),
+    linear-gradient(145deg, rgba(44, 32, 17, 0.98), rgba(15, 23, 42, 0.98)) !important;
 }
 
 #root .dashboard-decision-card:hover,
 #root .dashboard-kpi-card:hover {
   transform: translateY(-4px) rotateX(1deg) !important;
-  border-color: rgba(94, 234, 212, 0.58) !important;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(94, 234, 212, 0.08) !important;
+  border-color: rgba(241, 243, 214, 0.58) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(241, 243, 214, 0.08) !important;
 }
 
 #root .dashboard-decision-card::before,
@@ -1821,7 +1821,7 @@ body.theme-dark #root .arbor-sidebar {
   z-index: -1;
   background:
     linear-gradient(110deg, transparent 0 35%, rgba(255, 255, 255, 0.09) 45%, transparent 56%),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(154, 144, 122, 0.06) 1px, transparent 1px);
   background-size: auto, 26px 26px;
   opacity: 0.72;
   transform: translateX(-120%);
@@ -1841,7 +1841,7 @@ body.theme-dark #root .arbor-sidebar {
   height: 10px;
   border-radius: 999px;
   background: var(--ux-accent-2);
-  box-shadow: 0 0 0 7px rgba(94, 234, 212, 0.12), 0 0 24px rgba(94, 234, 212, 0.6);
+  box-shadow: 0 0 0 7px rgba(241, 243, 214, 0.12), 0 0 24px rgba(241, 243, 214, 0.6);
   animation: arborPulse 1800ms ease-in-out infinite;
 }
 
@@ -1853,7 +1853,7 @@ body.theme-dark #root .arbor-sidebar {
   height: 6px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(154, 144, 122, 0.18);
 }
 
 #root .dashboard-kpi-progress::after {
@@ -1863,7 +1863,7 @@ body.theme-dark #root .arbor-sidebar {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--ux-accent), var(--ux-accent-2));
-  box-shadow: 0 0 18px rgba(94, 234, 212, 0.28);
+  box-shadow: 0 0 18px rgba(241, 243, 214, 0.28);
 }
 
 #root .dashboard-kpi-card[data-index='0'] .dashboard-kpi-progress::after {
@@ -1896,7 +1896,7 @@ body.theme-dark #root .arbor-sidebar {
   border-radius: 12px !important;
   background:
     radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.16), transparent 34%),
-    rgba(34, 197, 94, 0.13) !important;
+    rgba(127, 140, 18, 0.13) !important;
   color: var(--ux-accent-2) !important;
   transform: translateZ(0);
 }
@@ -2059,8 +2059,8 @@ body.theme-dark #root .arbor-sidebar {
   margin-top: 10px !important;
   padding: 7px 10px !important;
   border-radius: 999px !important;
-  background: rgba(94, 234, 212, 0.1) !important;
-  color: #a7f3d0 !important;
+  background: rgba(241, 243, 214, 0.1) !important;
+  color: #e4efd6 !important;
 }
 
 #root .dashboard-decision-card[data-index='0'] {
@@ -2151,11 +2151,11 @@ body.theme-dark #root .arbor-sidebar {
   gap: 16px !important;
   margin: 0 0 18px !important;
   padding: 16px !important;
-  border: 1px solid rgba(94, 234, 212, 0.2) !important;
+  border: 1px solid rgba(241, 243, 214, 0.2) !important;
   border-radius: 28px !important;
   background:
-    radial-gradient(circle at 24% 18%, rgba(94, 234, 212, 0.13), transparent 30%),
-    radial-gradient(circle at 86% 8%, rgba(251, 191, 36, 0.09), transparent 22%),
+    radial-gradient(circle at 24% 18%, rgba(241, 243, 214, 0.13), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(189, 112, 30, 0.09), transparent 22%),
     linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(8, 17, 31, 0.96)) !important;
   box-shadow: 0 34px 90px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
   overflow: hidden !important;
@@ -2168,8 +2168,8 @@ body.theme-dark #root .arbor-sidebar {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(154, 144, 122, 0.05) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(154, 144, 122, 0.045) 1px, transparent 1px);
   background-size: 28px 28px;
   mask-image: radial-gradient(circle at 42% 42%, #000, transparent 78%);
 }
@@ -2177,12 +2177,12 @@ body.theme-dark #root .arbor-sidebar {
 #root .dashboard-cockpit-map {
   grid-area: map;
   min-height: 430px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid rgba(154, 144, 122, 0.22);
   border-radius: 24px;
   background:
-    radial-gradient(circle at 50% 50%, rgba(94, 234, 212, 0.16), transparent 10%),
-    radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.1), transparent 34%),
-    radial-gradient(circle at 72% 30%, rgba(34, 197, 94, 0.14), transparent 24%),
+    radial-gradient(circle at 50% 50%, rgba(241, 243, 214, 0.16), transparent 10%),
+    radial-gradient(circle at 50% 50%, rgba(118, 100, 64, 0.1), transparent 34%),
+    radial-gradient(circle at 72% 30%, rgba(127, 140, 18, 0.14), transparent 24%),
     linear-gradient(145deg, rgba(8, 17, 31, 0.92), rgba(2, 6, 23, 0.94));
   overflow: hidden;
   position: relative;
@@ -2206,10 +2206,10 @@ body.theme-dark #root .arbor-sidebar {
   align-items: center;
   gap: 9px;
   padding: 0 14px;
-  border: 1px solid rgba(94, 234, 212, 0.32);
+  border: 1px solid rgba(241, 243, 214, 0.32);
   border-radius: 14px;
   background: rgba(15, 23, 42, 0.84);
-  color: #f8fafc;
+  color: #f0ebdd;
   font: 850 14px var(--font-sans);
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
   cursor: pointer;
@@ -2217,13 +2217,13 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .dashboard-cockpit-actions button:first-child {
-  background: linear-gradient(135deg, #0f9f75, #22c55e);
-  color: #04120d;
+  background: linear-gradient(135deg, #456b1f, #7f8c12);
+  color: #2c2011;
 }
 
 #root .dashboard-cockpit-actions button:hover {
   transform: translateY(-2px);
-  border-color: rgba(94, 234, 212, 0.68);
+  border-color: rgba(241, 243, 214, 0.68);
 }
 
 #root .dashboard-cockpit-map::before,
@@ -2232,12 +2232,12 @@ body.theme-dark #root .arbor-sidebar {
   position: absolute;
   inset: 28px;
   border-radius: 999px;
-  border: 1px solid rgba(94, 234, 212, 0.16);
+  border: 1px solid rgba(241, 243, 214, 0.16);
 }
 
 #root .dashboard-cockpit-map::after {
   inset: 92px;
-  border-color: rgba(56, 189, 248, 0.14);
+  border-color: rgba(118, 100, 64, 0.14);
 }
 
 #root .dashboard-radar-sweep {
@@ -2247,7 +2247,7 @@ body.theme-dark #root .arbor-sidebar {
   width: 56%;
   height: 56%;
   transform-origin: 0 0;
-  background: conic-gradient(from 0deg, rgba(94, 234, 212, 0.34), rgba(94, 234, 212, 0.05), transparent 34%);
+  background: conic-gradient(from 0deg, rgba(241, 243, 214, 0.34), rgba(241, 243, 214, 0.05), transparent 34%);
   clip-path: polygon(0 0, 100% 0, 0 100%);
   animation: arborRadarSweep 7s linear infinite;
   opacity: 0.75;
@@ -2258,7 +2258,7 @@ body.theme-dark #root .arbor-sidebar {
   left: 50%;
   top: 50%;
   border-radius: 999px;
-  border: 1px solid rgba(94, 234, 212, 0.18);
+  border: 1px solid rgba(241, 243, 214, 0.18);
   transform: translate(-50%, -50%);
   animation: arborRadarPulse 3.8s ease-in-out infinite;
 }
@@ -2291,10 +2291,10 @@ body.theme-dark #root .arbor-sidebar {
   place-items: center;
   gap: 5px;
   padding: 22px;
-  border: 1px solid rgba(94, 234, 212, 0.34);
+  border: 1px solid rgba(241, 243, 214, 0.34);
   border-radius: 28px;
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.78));
-  box-shadow: 0 0 52px rgba(94, 234, 212, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 52px rgba(241, 243, 214, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   text-align: center;
   z-index: 2;
 }
@@ -2328,7 +2328,7 @@ body.theme-dark #root .arbor-sidebar {
   display: grid;
   gap: 4px;
   padding: 12px 14px;
-  border: 1px solid rgba(94, 234, 212, 0.24);
+  border: 1px solid rgba(241, 243, 214, 0.24);
   border-radius: 16px;
   background: rgba(2, 6, 23, 0.72);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
@@ -2349,7 +2349,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .dashboard-cockpit-node-b {
   right: 8%;
   top: 22%;
-  border-color: rgba(251, 113, 133, 0.34);
+  border-color: rgba(192, 73, 47, 0.34);
 }
 
 #root .dashboard-cockpit-node-c {
@@ -2373,7 +2373,7 @@ body.theme-dark #root .arbor-sidebar {
   gap: 12px;
   min-height: 58px;
   padding: 14px 16px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(154, 144, 122, 0.2);
   border-radius: 18px;
   background: rgba(15, 23, 42, 0.76);
 }
@@ -2519,23 +2519,23 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .dashboard-main > section.dashboard-live-cockpit.dashboard-live-cockpit[class] {
-  border: 1px solid rgba(94, 234, 212, 0.22) !important;
+  border: 1px solid rgba(241, 243, 214, 0.22) !important;
   border-radius: 28px !important;
-  background-color: #020617 !important;
+  background-color: #2c2011 !important;
   background-image:
-    radial-gradient(circle at 24% 18%, rgba(94, 234, 212, 0.13), transparent 30%),
-    radial-gradient(circle at 86% 8%, rgba(251, 191, 36, 0.09), transparent 22%),
+    radial-gradient(circle at 24% 18%, rgba(241, 243, 214, 0.13), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(189, 112, 30, 0.09), transparent 22%),
     linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(8, 17, 31, 0.96)) !important;
   box-shadow: 0 34px 90px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
 }
 
 #root .app-main.dashboard-main > section.dashboard-live-cockpit.dashboard-live-cockpit.dashboard-live-cockpit[class][aria-label] {
-  border: 1px solid rgba(94, 234, 212, 0.22) !important;
+  border: 1px solid rgba(241, 243, 214, 0.22) !important;
   border-radius: 28px !important;
-  background-color: #020617 !important;
+  background-color: #2c2011 !important;
   background-image:
-    radial-gradient(circle at 24% 18%, rgba(94, 234, 212, 0.13), transparent 30%),
-    radial-gradient(circle at 86% 8%, rgba(251, 191, 36, 0.09), transparent 22%),
+    radial-gradient(circle at 24% 18%, rgba(241, 243, 214, 0.13), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(189, 112, 30, 0.09), transparent 22%),
     linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(8, 17, 31, 0.96)) !important;
   box-shadow: 0 34px 90px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
 }
@@ -2568,7 +2568,7 @@ body.theme-dark #root .arbor-sidebar {
   width: 56%;
   height: 56%;
   transform-origin: 0 0;
-  background: conic-gradient(from 0deg, rgba(94, 234, 212, 0.34), rgba(94, 234, 212, 0.05), transparent 34%);
+  background: conic-gradient(from 0deg, rgba(241, 243, 214, 0.34), rgba(241, 243, 214, 0.05), transparent 34%);
   clip-path: polygon(0 0, 100% 0, 0 100%);
   animation: pfRadarSweep 7s linear infinite;
   opacity: 0.75;
@@ -2579,7 +2579,7 @@ body.theme-dark #root .arbor-sidebar {
   left: 50%;
   top: 50%;
   border-radius: 999px;
-  border: 1px solid rgba(94, 234, 212, 0.18);
+  border: 1px solid rgba(241, 243, 214, 0.18);
   transform: translate(-50%, -50%);
   animation: pfRadarPulse 3.8s ease-in-out infinite;
 }
@@ -2671,7 +2671,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .pf-shell {
-  color: #f8fafc !important;
+  color: #f0ebdd !important;
 }
 
 #root .pf-main h1,
@@ -2679,7 +2679,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .pf-main h3,
 #root .pf-main strong,
 #root .pf-main b {
-  color: #f8fafc !important;
+  color: #f0ebdd !important;
   text-shadow: 0 1px 18px rgba(15, 23, 42, 0.28);
 }
 
@@ -2698,7 +2698,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .pf-live-cockpit small,
 #root .pf-branch-panel small,
 #root .pf-grid-two small {
-  color: #b8c7d9 !important;
+  color: #e0d9c8 !important;
 }
 
 #root .pf-live-cockpit button,
@@ -2710,7 +2710,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .pf-live-cockpit button:focus-visible,
 #root .pf-grid-two button:focus-visible,
 #root .pf-branch-panel button:focus-visible {
-  outline: 3px solid rgba(94, 234, 212, 0.48) !important;
+  outline: 3px solid rgba(241, 243, 214, 0.48) !important;
   outline-offset: 3px;
 }
 
@@ -2724,12 +2724,12 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .zlecenia-v2-cockpit :is(button, a):hover {
   transform: translateY(-2px);
-  border-color: rgba(94, 234, 212, 0.52) !important;
+  border-color: rgba(241, 243, 214, 0.52) !important;
   box-shadow: 0 16px 34px rgba(2, 8, 23, 0.22);
 }
 
 #root .zlecenia-v2-cockpit :is(button, a):focus-visible {
-  outline: 3px solid rgba(94, 234, 212, 0.52) !important;
+  outline: 3px solid rgba(241, 243, 214, 0.52) !important;
   outline-offset: 3px;
 }
 
@@ -2739,7 +2739,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .zlecenia-v2-cockpit small {
-  color: #b8c7d9 !important;
+  color: #e0d9c8 !important;
 }
 
 #root .zlecenia-shell .zlecenia-main {
@@ -2796,8 +2796,8 @@ body.theme-dark #root .arbor-sidebar {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, transparent, rgba(94, 234, 212, 0.13), transparent),
-    repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.06) 0 1px, transparent 1px 78px);
+    linear-gradient(90deg, transparent, rgba(241, 243, 214, 0.13), transparent),
+    repeating-linear-gradient(90deg, rgba(154, 144, 122, 0.06) 0 1px, transparent 1px 78px);
   transform: translateX(-120%);
   animation: zleceniaScanLine 7s ease-in-out infinite;
 }
@@ -2820,9 +2820,9 @@ body.theme-dark #root .arbor-sidebar {
 #root .zlecenia-data-card {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(237, 248, 242, 0.88)),
-    linear-gradient(90deg, rgba(16, 185, 129, 0.13), rgba(14, 165, 233, 0.08), transparent 58%) !important;
-  border-color: rgba(15, 95, 58, 0.22) !important;
-  box-shadow: 0 22px 54px rgba(31, 79, 50, 0.14) !important;
+    linear-gradient(90deg, rgba(127, 140, 18, 0.13), rgba(118, 100, 64, 0.08), transparent 58%) !important;
+  border-color: rgba(69, 107, 31, 0.22) !important;
+  box-shadow: 0 22px 54px rgba(69, 107, 31, 0.14) !important;
   animation: zleceniaCardIn 360ms ease both;
 }
 
@@ -2831,9 +2831,9 @@ body.theme-dark #root .arbor-sidebar {
 #root .zlecenia-ops-grid > button {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(239, 248, 243, 0.82)),
-    linear-gradient(90deg, rgba(16, 185, 129, 0.1), transparent 58%) !important;
-  border-color: rgba(15, 95, 58, 0.18) !important;
-  box-shadow: 0 16px 38px rgba(31, 79, 50, 0.11) !important;
+    linear-gradient(90deg, rgba(127, 140, 18, 0.1), transparent 58%) !important;
+  border-color: rgba(69, 107, 31, 0.18) !important;
+  box-shadow: 0 16px 38px rgba(69, 107, 31, 0.11) !important;
 }
 
 #root .zlecenia-data-card::before,
@@ -2846,7 +2846,7 @@ body.theme-dark #root .arbor-sidebar {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  background: linear-gradient(120deg, transparent 0%, rgba(34, 197, 94, 0.1) 42%, rgba(14, 165, 233, 0.12) 54%, transparent 72%);
+  background: linear-gradient(120deg, transparent 0%, rgba(127, 140, 18, 0.1) 42%, rgba(118, 100, 64, 0.12) 54%, transparent 72%);
   opacity: 0;
   transform: translateX(-34%);
   transition: opacity 180ms ease, transform 360ms ease;
@@ -2859,7 +2859,7 @@ body.theme-dark #root .arbor-sidebar {
   inset: 10px auto 10px 8px;
   width: 2px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #10b981, #38bdf8, #f59e0b);
+  background: linear-gradient(180deg, #7f8c12, #766440, #bd701e);
   opacity: 0.72;
   pointer-events: none;
 }
@@ -2869,8 +2869,8 @@ body.theme-dark #root .arbor-sidebar {
 #root .zlecenia-daily-grid > button:hover,
 #root .zlecenia-ops-grid > button:hover {
   transform: translateY(-3px);
-  border-color: rgba(15, 95, 58, 0.32) !important;
-  box-shadow: 0 24px 54px rgba(31, 79, 50, 0.16) !important;
+  border-color: rgba(69, 107, 31, 0.32) !important;
+  box-shadow: 0 24px 54px rgba(69, 107, 31, 0.16) !important;
 }
 
 #root .zlecenia-data-card:hover::before,
@@ -2885,9 +2885,9 @@ body.theme-dark #root .arbor-sidebar {
 #root .zlecenia-kanban-card:focus-within,
 #root .zlecenia-daily-grid > button:focus-visible,
 #root .zlecenia-ops-grid > button:focus-visible {
-  outline: 3px solid rgba(16, 185, 129, 0.26) !important;
+  outline: 3px solid rgba(127, 140, 18, 0.26) !important;
   outline-offset: 3px;
-  border-color: rgba(16, 185, 129, 0.46) !important;
+  border-color: rgba(127, 140, 18, 0.46) !important;
 }
 
 #root .zlecenia-data-card :is(button, a),
@@ -2900,7 +2900,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .zlecenia-data-card input[type='checkbox'] {
   width: 18px;
   height: 18px;
-  accent-color: #10b981;
+  accent-color: #7f8c12;
 }
 
 #root .zlecenia-data-card :is(button, a):hover,
@@ -3118,11 +3118,11 @@ body.theme-dark #root .arbor-sidebar {
 #root .pf-shell,
 #root .zlecenia-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #5b472c;
+  --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
   --pf-orange: #bd701e;
-  --pf-paper: #fbfaf6;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
 }
 
@@ -3130,7 +3130,7 @@ body.theme-dark #root .arbor-sidebar {
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.055) 1px, transparent 1px),
     linear-gradient(0deg, rgba(160, 175, 20, 0.045) 1px, transparent 1px),
-    linear-gradient(180deg, #2a1e12, #3b2a18 52%, #1c150d) !important;
+    linear-gradient(180deg, #2c2011, #3b2a18 52%, #2c2011) !important;
   background-size: 36px 36px, 36px 36px, auto !important;
 }
 
@@ -3242,17 +3242,17 @@ body.theme-dark #root .arbor-sidebar {
   background: linear-gradient(145deg, rgba(59, 42, 24, 0.86), rgba(31, 24, 15, 0.92)) !important;
 }
 
-#root .pf-main [style*='#5eead4'],
-#root .pf-main [style*='rgb(94, 234, 212)'] {
+#root .pf-main [style*='#f1f3d6'],
+#root .pf-main [style*='rgb(241, 243, 214)'] {
   color: var(--pf-olive-soft) !important;
 }
 
 #root .zlecenia-shell {
   --command-accent: var(--pf-olive);
   --command-amber: var(--pf-orange);
-  --command-text: #261b10;
-  --command-sub: #665a48;
-  --command-muted: #877c6b;
+  --command-text: #2c2011;
+  --command-sub: #995510;
+  --command-muted: #8a8069;
   --command-line: var(--pf-line);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
@@ -3334,17 +3334,17 @@ body.theme-dark #root .arbor-sidebar {
 /* Polska Flora active brand layer: telephony command center. */
 #root .telefonia-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #5b472c;
+  --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
   --pf-orange: #bd701e;
-  --pf-paper: #fbfaf6;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: rgba(59, 42, 24, 0.12);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
     linear-gradient(0deg, rgba(160, 175, 20, 0.038) 1px, transparent 1px),
-    linear-gradient(180deg, #fbfaf6, #f4f2ea) !important;
+    linear-gradient(180deg, #f0ebdd, #f0ebdd) !important;
   background-size: 36px 36px, 36px 36px, auto !important;
 }
 
@@ -3424,7 +3424,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .telefonia-tabs button {
   min-height: 42px !important;
   border: 1px solid transparent !important;
-  color: #4f412f !important;
+  color: #995510 !important;
   font-weight: 800 !important;
 }
 
@@ -3503,7 +3503,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(59, 42, 24, 0.16) !important;
   border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.92) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
 }
 
@@ -3543,7 +3543,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .telefonia-manual-box button[type='submit'] {
   border-color: rgba(160, 175, 20, 0.62) !important;
   background: linear-gradient(135deg, var(--pf-olive), var(--pf-olive-soft)) !important;
-  color: #23190f !important;
+  color: #2c2011 !important;
 }
 
 #root .telefonia-command-strip {
@@ -3611,16 +3611,16 @@ body.theme-dark #root .arbor-sidebar {
 /* Polska Flora active brand layer: resource calendar and dispatch planning. */
 #root .zasoby-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #5b472c;
+  --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
   --pf-orange: #bd701e;
-  --pf-paper: #fbfaf6;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
     linear-gradient(0deg, rgba(160, 175, 20, 0.04) 1px, transparent 1px),
-    linear-gradient(180deg, #fbfaf6, #f3f1e8) !important;
+    linear-gradient(180deg, #f0ebdd, #f0ebdd) !important;
   background-size: 36px 36px, 36px 36px, auto !important;
 }
 
@@ -3670,7 +3670,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .zasoby-header option {
-  color: #261b10 !important;
+  color: #2c2011 !important;
 }
 
 #root .zasoby-command-strip {
@@ -3745,7 +3745,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .zasoby-command-card.is-danger {
-  border-color: rgba(226, 68, 92, 0.42) !important;
+  border-color: rgba(192, 73, 47, 0.42) !important;
 }
 
 #root .zasoby-command-card.is-blue {
@@ -3838,7 +3838,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(59, 42, 24, 0.16) !important;
   border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.92) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
 }
 
@@ -3904,16 +3904,16 @@ body.theme-dark #root .arbor-sidebar {
 /* Polska Flora active brand layer: live map dispatch. */
 #root .mapa-live-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #5b472c;
+  --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
   --pf-orange: #bd701e;
-  --pf-paper: #fbfaf6;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
     linear-gradient(0deg, rgba(160, 175, 20, 0.04) 1px, transparent 1px),
-    linear-gradient(180deg, #fbfaf6, #f3f1e8) !important;
+    linear-gradient(180deg, #f0ebdd, #f0ebdd) !important;
   background-size: 36px 36px, 36px 36px, auto !important;
 }
 
@@ -4007,7 +4007,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(59, 42, 24, 0.16) !important;
   border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.92) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
 }
 
@@ -4185,16 +4185,16 @@ body.theme-dark #root .arbor-sidebar {
 /* Polska Flora active brand layer: fleet and equipment control. */
 #root .fleet-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #5b472c;
+  --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
   --pf-orange: #bd701e;
-  --pf-paper: #fbfaf6;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
     linear-gradient(0deg, rgba(160, 175, 20, 0.04) 1px, transparent 1px),
-    linear-gradient(180deg, #fbfaf6, #f3f1e8) !important;
+    linear-gradient(180deg, #f0ebdd, #f0ebdd) !important;
   background-size: 36px 36px, 36px 36px, auto !important;
 }
 
@@ -4331,7 +4331,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .fleet-command-card.is-danger {
-  border-color: rgba(226, 68, 92, 0.42) !important;
+  border-color: rgba(192, 73, 47, 0.42) !important;
 }
 
 #root .fleet-command-actions {
@@ -4389,7 +4389,7 @@ body.theme-dark #root .arbor-sidebar {
   min-height: 42px !important;
   border: 1px solid transparent !important;
   border-radius: 8px !important;
-  color: #4f412f !important;
+  color: #995510 !important;
   font-weight: 850 !important;
 }
 
@@ -4432,7 +4432,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(59, 42, 24, 0.16) !important;
   border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.92) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
 }
 
@@ -4557,17 +4557,17 @@ body.theme-dark #root .arbor-sidebar {
 #root .crm-pipeline-shell,
 #root .crm-today-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #5b472c;
+  --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
   --pf-orange: #bd701e;
-  --pf-paper: #fbfaf6;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: rgba(59, 42, 24, 0.12);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.045) 1px, transparent 1px),
     linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, #f7f5ec 0%, #fbfaf6 48%, #eee9d8 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 48%, #e0d9c8 100%) !important;
   background-size: 34px 34px, 34px 34px, auto !important;
 }
 
@@ -4576,7 +4576,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .crm-inbox-main,
 #root .crm-pipeline-main,
 #root .crm-today-main {
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   max-width: 1500px !important;
   padding: 18px clamp(16px, 2.4vw, 30px) 44px !important;
 }
@@ -4602,7 +4602,7 @@ body.theme-dark #root .arbor-sidebar {
   border-radius: 8px !important;
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.16), rgba(255, 255, 255, 0) 46%),
-    linear-gradient(90deg, var(--pf-brown), #4a351f) !important;
+    linear-gradient(90deg, var(--pf-brown), #995510) !important;
   box-shadow: 0 24px 54px rgba(59, 42, 24, 0.18) !important;
 }
 
@@ -4679,7 +4679,7 @@ body.theme-dark #root .arbor-sidebar {
   border-radius: 8px !important;
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.14), rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, #3b2a18, #2f2114) !important;
+    linear-gradient(180deg, #3b2a18, #2c2011) !important;
   box-shadow: 0 18px 42px rgba(59, 42, 24, 0.2) !important;
 }
 
@@ -4749,7 +4749,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .crm-command-card.is-danger,
 #root .crm-dashboard-command-card.is-danger,
 #root .crm-inbox-command-card.is-danger {
-  border-color: rgba(226, 68, 92, 0.44) !important;
+  border-color: rgba(192, 73, 47, 0.44) !important;
 }
 
 #root .crm-command-main .ios-inset:not(.arbor-sidebar .ios-inset),
@@ -4802,7 +4802,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(59, 42, 24, 0.16) !important;
   border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.94) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
 }
 
@@ -4847,7 +4847,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .crm-today-main button[type='submit'] {
   border-color: rgba(160, 175, 20, 0.78) !important;
   background: linear-gradient(135deg, var(--pf-olive), var(--pf-olive-soft)) !important;
-  color: #24190f !important;
+  color: #2c2011 !important;
   box-shadow: 0 12px 24px rgba(160, 175, 20, 0.24) !important;
 }
 
@@ -4899,7 +4899,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(180, 194, 50, 0.42) !important;
   border-radius: 8px !important;
   background: var(--pf-olive) !important;
-  color: #2f2114 !important;
+  color: #2c2011 !important;
   font-weight: 950 !important;
 }
 
@@ -4935,7 +4935,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .crm-kommo-kpis span {
-  color: #74664f !important;
+  color: #995510 !important;
   font-weight: 850 !important;
   letter-spacing: 0 !important;
 }
@@ -4971,7 +4971,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .crm-pipeline-column > div:first-child > div:last-child {
-  color: #756851 !important;
+  color: #995510 !important;
 }
 
 #root .crm-pipeline-lead-card {
@@ -4998,7 +4998,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .crm-kommo-avatar {
   border-radius: 8px !important;
-  background: linear-gradient(135deg, var(--pf-brown), #1f150d) !important;
+  background: linear-gradient(135deg, var(--pf-brown), #2c2011) !important;
   color: var(--pf-olive-soft) !important;
 }
 
@@ -5008,12 +5008,12 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .crm-kommo-lead-title:hover {
-  color: #75820f !important;
+  color: #5d6a0b !important;
 }
 
 #root .crm-kommo-contact,
 #root .crm-kommo-lead-meta strong {
-  color: #51432f !important;
+  color: #995510 !important;
 }
 
 #root .crm-kommo-card-actions .ios-btn {
@@ -5023,7 +5023,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .crm-stage-lead {
-  border-top-color: #7f8d10 !important;
+  border-top-color: #5d6a0b !important;
 }
 
 #root .crm-stage-oględziny,
@@ -5044,11 +5044,11 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .crm-stage-wygrane {
-  border-top-color: #5f7410 !important;
+  border-top-color: #5d6a0b !important;
 }
 
 #root .crm-stage-przegrane {
-  border-top-color: #a23a2a !important;
+  border-top-color: #a3402a !important;
 }
 
 #root .crm-kommo-inspector {
@@ -5071,7 +5071,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .crm-inspector-metrics span {
   border-radius: 8px !important;
-  color: #51432f !important;
+  color: #995510 !important;
 }
 
 #root .crm-inspector-ai {
@@ -5226,23 +5226,23 @@ body.theme-dark #root .arbor-sidebar {
 #root .harmonogram-shell,
 #root .autodispatch-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #5b472c;
+  --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
   --pf-orange: #bd701e;
-  --pf-paper: #fbfaf6;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: rgba(59, 42, 24, 0.12);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.04) 1px, transparent 1px),
     linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, #f8f6ee 0%, #fbfaf6 48%, #eee8d6 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 48%, #fae7d2 100%) !important;
   background-size: 34px 34px, 34px 34px, auto !important;
 }
 
 #root .harmonogram-main,
 #root .autodispatch-main {
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   max-width: 1760px !important;
   margin: 0 auto !important;
   padding: 18px clamp(16px, 2.4vw, 30px) 46px !important;
@@ -5258,7 +5258,7 @@ body.theme-dark #root .arbor-sidebar {
   border-radius: 8px !important;
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
-    linear-gradient(90deg, var(--pf-brown), #4a351f) !important;
+    linear-gradient(90deg, var(--pf-brown), #995510) !important;
   box-shadow: 0 24px 54px rgba(59, 42, 24, 0.18) !important;
 }
 
@@ -5329,7 +5329,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .autodispatch-controls input {
   border: 1px solid rgba(59, 42, 24, 0.16) !important;
   background: rgba(255, 255, 255, 0.96) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
 }
 
@@ -5405,7 +5405,7 @@ body.theme-dark #root .arbor-sidebar {
   border-radius: 8px !important;
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.14), rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, #3b2a18, #2f2114) !important;
+    linear-gradient(180deg, #3b2a18, #2c2011) !important;
   color: #ffffff !important;
   box-shadow: 0 18px 42px rgba(59, 42, 24, 0.2) !important;
 }
@@ -5444,7 +5444,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .autodispatch-command-card.is-danger {
-  border-color: rgba(226, 68, 92, 0.44) !important;
+  border-color: rgba(192, 73, 47, 0.44) !important;
 }
 
 #root .harmonogram-slot-board {
@@ -5513,7 +5513,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .autodispatch-controls label {
-  color: #51432f !important;
+  color: #995510 !important;
   font-weight: 900 !important;
 }
 
@@ -5525,7 +5525,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .harmonogram-quick-panel button {
   border: 1px solid rgba(59, 42, 24, 0.14) !important;
   background: rgba(255, 255, 255, 0.92) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
   font-weight: 850 !important;
 }
@@ -5536,7 +5536,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .harmonogram-dispatch-panel button:first-of-type {
   border-color: rgba(160, 175, 20, 0.68) !important;
   background: linear-gradient(135deg, var(--pf-olive), var(--pf-olive-soft)) !important;
-  color: #24190f !important;
+  color: #2c2011 !important;
   box-shadow: 0 12px 24px rgba(160, 175, 20, 0.2) !important;
 }
 
@@ -5570,7 +5570,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(59, 42, 24, 0.16) !important;
   border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.94) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
 }
 
@@ -5699,17 +5699,17 @@ body.theme-dark #root .arbor-sidebar {
 #root .kontrola-shell,
 #root .operator-tasks-shell {
   --pf-brown: #3b2a18;
-  --pf-brown-soft: #5b472c;
+  --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
   --pf-orange: #bd701e;
-  --pf-paper: #fbfaf6;
+  --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: rgba(59, 42, 24, 0.12);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.04) 1px, transparent 1px),
     linear-gradient(0deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, #f8f6ee 0%, #fbfaf6 48%, #eee8d6 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 48%, #fae7d2 100%) !important;
   background-size: 34px 34px, 34px 34px, auto !important;
 }
 
@@ -5717,7 +5717,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .integrations-main,
 #root .kontrola-main,
 #root .operator-tasks-main {
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   max-width: 1540px !important;
   margin: 0 auto !important;
   padding: 18px clamp(16px, 2.4vw, 30px) 46px !important;
@@ -5737,7 +5737,7 @@ body.theme-dark #root .arbor-sidebar {
   border-radius: 8px !important;
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
-    linear-gradient(90deg, var(--pf-brown), #4a351f) !important;
+    linear-gradient(90deg, var(--pf-brown), #995510) !important;
   box-shadow: 0 24px 54px rgba(59, 42, 24, 0.18) !important;
 }
 
@@ -5812,7 +5812,7 @@ body.theme-dark #root .arbor-sidebar {
   border-radius: 8px !important;
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.14), rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, #3b2a18, #2f2114) !important;
+    linear-gradient(180deg, #3b2a18, #2c2011) !important;
   color: #ffffff !important;
   box-shadow: 0 18px 42px rgba(59, 42, 24, 0.2) !important;
 }
@@ -5850,7 +5850,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .ekipy-command-card.is-danger {
-  border-color: rgba(226, 68, 92, 0.44) !important;
+  border-color: rgba(192, 73, 47, 0.44) !important;
 }
 
 #root .ekipy-command-actions button {
@@ -5978,7 +5978,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(59, 42, 24, 0.16) !important;
   border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.94) !important;
-  color: #2f2418 !important;
+  color: #2c2011 !important;
   box-shadow: none !important;
 }
 
@@ -6016,7 +6016,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .ekipy-main button[style*='accent-gradient'] {
   border-color: rgba(160, 175, 20, 0.72) !important;
   background: linear-gradient(135deg, var(--pf-olive), var(--pf-olive-soft)) !important;
-  color: #24190f !important;
+  color: #2c2011 !important;
   box-shadow: 0 12px 24px rgba(160, 175, 20, 0.2) !important;
 }
 
@@ -6034,7 +6034,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .kontrola-main th {
-  color: #5b4b34 !important;
+  color: #995510 !important;
   background: rgba(180, 194, 50, 0.1) !important;
 }
 
@@ -6160,8 +6160,8 @@ body.theme-dark #root .arbor-sidebar {
   --pf-shadow: 0 22px 52px rgba(59, 42, 24, 0.12);
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.08), transparent 38%),
-    linear-gradient(180deg, #f7f6ef 0%, #eeeadf 100%) !important;
-  color: #261a0f !important;
+    linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 100%) !important;
+  color: #2c2011 !important;
 }
 
 #root .clients-main,
@@ -6191,9 +6191,9 @@ body.theme-dark #root .arbor-sidebar {
   border-left: 8px solid var(--pf-green) !important;
   border-radius: 8px !important;
   background:
-    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.93)),
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
   box-shadow: var(--pf-shadow) !important;
 }
 
@@ -6239,8 +6239,8 @@ body.theme-dark #root .arbor-sidebar {
 #root .inspection-doc-command-card {
   border: 1px solid rgba(160, 175, 20, 0.28) !important;
   border-radius: 8px !important;
-  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)) !important;
-  color: #fffaf0 !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.9)) !important;
+  color: #f0ebdd !important;
   box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
 }
 
@@ -6349,18 +6349,18 @@ body.theme-dark #root .arbor-sidebar {
 #root .notifications-shell,
 #root .roles-admin-shell {
   --pf-admin-brown: #3b2a18;
-  --pf-admin-brown-2: #4b351f;
+  --pf-admin-brown-2: #995510;
   --pf-admin-green: #a0af14;
   --pf-admin-soft: #b4c232;
   --pf-admin-olive: #766440;
   --pf-admin-orange: #bd701e;
-  --pf-admin-ink: #261a0f;
-  --pf-admin-muted: #756953;
+  --pf-admin-ink: #2c2011;
+  --pf-admin-muted: #995510;
   --pf-admin-line: rgba(59, 42, 24, 0.14);
   --pf-admin-shadow: 0 22px 54px rgba(59, 42, 24, 0.12);
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.08), transparent 40%),
-    linear-gradient(180deg, #f8f6ee 0%, #eee9dc 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #e0d9c8 100%) !important;
   color: var(--pf-admin-ink) !important;
 }
 
@@ -6401,9 +6401,9 @@ body.theme-dark #root .arbor-sidebar {
   border-left: 8px solid var(--pf-admin-green) !important;
   border-radius: 8px !important;
   background:
-    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.93)),
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
   box-shadow: var(--pf-admin-shadow) !important;
 }
 
@@ -6466,8 +6466,8 @@ body.theme-dark #root .arbor-sidebar {
 #root .accounting-command-actions {
   border: 1px solid rgba(160, 175, 20, 0.28) !important;
   border-radius: 8px !important;
-  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)) !important;
-  color: #fffaf0 !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.9)) !important;
+  color: #f0ebdd !important;
   box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
 }
 
@@ -6739,17 +6739,17 @@ body.theme-dark #root .arbor-sidebar {
 #root .kpi-week-shell,
 #root .calendar-blocks-shell {
   --pf-org-brown: #3b2a18;
-  --pf-org-brown-2: #4b351f;
+  --pf-org-brown-2: #995510;
   --pf-org-green: #a0af14;
   --pf-org-soft: #b4c232;
   --pf-org-olive: #766440;
   --pf-org-orange: #bd701e;
-  --pf-org-ink: #261a0f;
+  --pf-org-ink: #2c2011;
   --pf-org-line: rgba(59, 42, 24, 0.14);
   --pf-org-shadow: 0 22px 54px rgba(59, 42, 24, 0.12);
   background:
     linear-gradient(135deg, rgba(160, 175, 20, 0.08), transparent 40%),
-    linear-gradient(180deg, #f8f6ee 0%, #eee9dc 100%) !important;
+    linear-gradient(180deg, #f0ebdd 0%, #e0d9c8 100%) !important;
   color: var(--pf-org-ink) !important;
 }
 
@@ -6804,9 +6804,9 @@ body.theme-dark #root .arbor-sidebar {
   border-left: 8px solid var(--pf-org-green) !important;
   border-radius: 8px !important;
   background:
-    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.93)),
+    linear-gradient(118deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.93)),
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), transparent) !important;
-  color: #fffaf0 !important;
+  color: #f0ebdd !important;
   box-shadow: var(--pf-org-shadow) !important;
 }
 
@@ -6886,8 +6886,8 @@ body.theme-dark #root .arbor-sidebar {
 #root .calendar-blocks-command-card {
   border: 1px solid rgba(160, 175, 20, 0.28) !important;
   border-radius: 8px !important;
-  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(75, 53, 31, 0.9)) !important;
-  color: #fffaf0 !important;
+  background: linear-gradient(145deg, rgba(59, 42, 24, 0.96), rgba(153, 85, 16, 0.9)) !important;
+  color: #f0ebdd !important;
   box-shadow: 0 18px 36px rgba(59, 42, 24, 0.16) !important;
 }
 
@@ -7236,12 +7236,12 @@ body.theme-dark #root .arbor-sidebar {
 /* Final authenticated module alignment: keeps production modules calm and consistent. */
 #root .app-shell:not(.login-shell):not(.explore-command-shell),
 #root .notifications-shell {
-  --pf-shell-text: #17231b;
-  --pf-shell-muted: #617064;
-  --pf-shell-line: rgba(35, 66, 44, 0.12);
+  --pf-shell-text: #2c2011;
+  --pf-shell-muted: #5a5040;
+  --pf-shell-line: rgba(44, 32, 17, 0.12);
   display: flex;
   min-height: 100vh;
-  background: linear-gradient(180deg, #f5f8f4 0%, #edf3ee 100%) !important;
+  background: linear-gradient(180deg, #f0ebdd 0%, #f0ebdd 100%) !important;
   color: var(--pf-shell-text) !important;
 }
 
@@ -7268,7 +7268,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 18px 20px !important;
   overflow: hidden !important;
   border: 1px solid var(--pf-shell-line) !important;
-  border-left: 4px solid #178548 !important;
+  border-left: 4px solid #456b1f !important;
   border-radius: 8px !important;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 247, 0.92)) !important;
   box-shadow: 0 16px 34px rgba(19, 48, 30, 0.07) !important;
@@ -7335,8 +7335,8 @@ body.theme-dark #root .arbor-sidebar {
   place-items: center !important;
   margin-bottom: 12px !important;
   border-radius: 8px !important;
-  background: #eef7ef !important;
-  color: #178548 !important;
+  background: #f0ebdd !important;
+  color: #456b1f !important;
   opacity: 1 !important;
 }
 
@@ -7658,7 +7658,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #7a7059;
+  color: #5a5040;
   font-weight: 900;
   cursor: pointer;
 }
@@ -7806,7 +7806,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .arbor-os-kpi-card small {
-  color: #a89f8c;
+  color: #8a8069;
   font-size: 12px;
   font-weight: 800;
 }
@@ -7915,9 +7915,9 @@ body.theme-dark #root .arbor-sidebar {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 2px 8px;
   padding: 13px;
-  border: 1px solid #e9dfca;
+  border: 1px solid #fae7d2;
   border-radius: 12px;
-  background: #fbfaf6;
+  background: #f0ebdd;
   color: var(--arbor-ink);
   text-align: left;
   cursor: pointer;
@@ -7944,7 +7944,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .arbor-os-queue-card em {
   grid-column: 2 / 3;
   grid-row: 1 / 2;
-  color: #a89f8c;
+  color: #8a8069;
   font-size: 12px;
   font-style: normal;
   font-weight: 800;
@@ -7972,7 +7972,7 @@ body.theme-dark #root .arbor-sidebar {
   display: grid;
   gap: 6px;
   padding: 16px;
-  border: 1px solid #efcfbd;
+  border: 1px solid #f6e0d9;
   border-radius: 14px;
   background: #fae7d2;
   color: #995510;
@@ -7981,13 +7981,13 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .arbor-os-risk-list button[data-tone='danger'] {
-  border-color: #ecc7bf;
-  background: #f8e1d9;
-  color: #a13b28;
+  border-color: #f6e0d9;
+  background: #f6e0d9;
+  color: #a3402a;
 }
 
 #root .arbor-os-risk-list button[data-tone='good'] {
-  border-color: #dce5a8;
+  border-color: #f1f3d6;
   background: #f1f3d6;
   color: #5d6a0b;
 }
@@ -8030,7 +8030,7 @@ body.theme-dark #root .arbor-sidebar {
   height: 9px;
   grid-row: 1 / 3;
   border-radius: 50%;
-  background: #c7bda3;
+  background: #fae7d2;
 }
 
 #root .arbor-os-team-list i.is-active {
@@ -8053,7 +8053,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .arbor-os-team-list b {
-  color: #7a7059;
+  color: #5a5040;
   font-size: 14px;
   font-weight: 900;
 }
@@ -8075,7 +8075,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 0 18px;
   border: 0;
   border-bottom: 1px solid var(--arbor-line);
-  background: #fbfaf6 !important;
+  background: #f0ebdd !important;
   color: var(--arbor-ink) !important;
   text-align: left;
   cursor: pointer;
@@ -8175,7 +8175,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 13px;
   border: 1px solid var(--arbor-line);
   border-radius: 12px;
-  background: #fbfaf6;
+  background: #f0ebdd;
   color: var(--arbor-ink);
   text-align: left;
   cursor: pointer;
@@ -8237,7 +8237,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 10px 12px;
   border: 1px solid var(--arbor-line);
   border-radius: 12px;
-  background: #fbfaf6;
+  background: #f0ebdd;
   color: var(--arbor-ink);
   text-align: left;
   cursor: pointer;
@@ -8291,7 +8291,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 14px;
   border: 1px solid var(--arbor-line);
   border-radius: 14px;
-  background: #fbfaf6;
+  background: #f0ebdd;
   color: var(--arbor-ink);
 }
 
@@ -8320,7 +8320,7 @@ body.theme-dark #root .arbor-sidebar {
   min-height: 76px;
   padding: 18px;
   border-radius: 12px;
-  background: #fbfaf6;
+  background: #f0ebdd;
   color: #8a8069;
   font-weight: 850;
   text-align: center;
@@ -8339,7 +8339,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .arbor-os-skeleton-row {
   height: 78px;
   border-radius: 12px;
-  background: linear-gradient(90deg, #f0ebdd 0%, #fbfaf6 42%, #f0ebdd 84%);
+  background: linear-gradient(90deg, #f0ebdd 0%, #f0ebdd 42%, #f0ebdd 84%);
   background-size: 220% 100%;
   animation: arborOsShimmer 1.25s linear infinite;
 }
@@ -8489,7 +8489,7 @@ body.theme-dark #root .arbor-sidebar {
   --arbor-app-paper: #faf8f1;
   --arbor-app-soft: #f0ebdd;
   --arbor-app-panel: #fffdf8;
-  --arbor-app-card: #fbfaf6;
+  --arbor-app-card: #f0ebdd;
   --arbor-app-line: #e6ddc9;
   --arbor-app-green: #a0af14;
   --arbor-app-green-2: #7f8c12;
@@ -8688,13 +8688,13 @@ body:not(.theme-dark) {
 #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
   :is(.modern-data-row, .ios-inset-row, .MuiTableRow-root, [class*='row'], [class*='Row']):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *) {
   border-color: var(--arbor-app-line) !important;
-  background: #fbfaf6 !important;
+  background: #f0ebdd !important;
   color: var(--arbor-app-ink) !important;
 }
 
 #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
   :is(.modern-data-row:hover, .ios-inset-row:hover, .MuiTableRow-root:hover, [class*='row']:hover, [class*='Row']:hover):not(.arbor-sidebar *):not(.pf-sidebar *):not(.command-native-sidebar *) {
-  background: #f6f1e5 !important;
+  background: #f0ebdd !important;
 }
 
 #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
@@ -8709,7 +8709,7 @@ body:not(.theme-dark) {
 #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
   :is([class*='command-card'], [class*='CommandCard'], [class*='kpi'], [class*='Kpi'], [class*='metric'], [class*='Metric']) {
   border-color: var(--arbor-app-line) !important;
-  background: #fbfaf6 !important;
+  background: #f0ebdd !important;
   color: var(--arbor-app-ink) !important;
 }
 
@@ -8759,7 +8759,7 @@ body:not(.theme-dark) {
 #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
   :is(.modern-data-empty, [class*='empty'], [class*='Empty'], [class*='loading'], [class*='Loading']) {
   border-color: var(--arbor-app-line) !important;
-  background: #fbfaf6 !important;
+  background: #f0ebdd !important;
   color: var(--arbor-app-muted) !important;
 }
 
