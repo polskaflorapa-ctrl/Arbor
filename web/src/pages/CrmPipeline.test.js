@@ -129,7 +129,7 @@ test('opens a lead detail panel from lead_id URL parameter', async () => {
   await screen.findByText('Deep linked lead');
   expect(await screen.findByText('Unified Inbox')).toBeInTheDocument();
   expect(await screen.findByText('Rozmowy telefoniczne')).toBeInTheDocument();
-  expect(await screen.findByText('Ustalono kontakt jutro.')).toBeInTheDocument();
+  expect((await screen.findAllByText('Ustalono kontakt jutro.')).length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { name: /Pobierz nagranie/i })).toBeInTheDocument();
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith('/crm/leads/51/activities', expect.objectContaining({ headers: expect.any(Object) }));
@@ -196,8 +196,8 @@ test('lets a user add a unified inbox message to a lead', async () => {
   await userEvent.click(screen.getByRole('button', { name: /Aktywno/i }));
 
   expect(await screen.findByText('Unified Inbox')).toBeInTheDocument();
-  expect(await screen.findByText('Brak odpowiedzi 24h')).toBeInTheDocument();
-  expect(screen.getByText(/no_response_after_hours/i)).toBeInTheDocument();
+  expect((await screen.findAllByText('Brak odpowiedzi 24h')).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/no_response_after_hours/i).length).toBeGreaterThan(0);
   await userEvent.type(screen.getByPlaceholderText('Treść wiadomości...'), 'Prosze o kontakt');
   await userEvent.click(screen.getByRole('button', { name: 'Zapisz wiadomość' }));
 
@@ -270,7 +270,7 @@ test('lets a user save lead NPS feedback', async () => {
   await userEvent.click(screen.getByRole('button', { name: /Aktywno/i }));
 
   expect(await screen.findByText('NPS klienta')).toBeInTheDocument();
-  expect(await screen.findByText(/10\/10/)).toBeInTheDocument();
+  expect((await screen.findAllByText(/10\/10/)).length).toBeGreaterThan(0);
   fireEvent.change(screen.getByLabelText('Ocena NPS'), { target: { value: '8' } });
   fireEvent.change(screen.getByPlaceholderText('Komentarz klienta...'), { target: { value: 'Dobry kontakt' } });
   await userEvent.click(screen.getByRole('button', { name: /Zapisz NPS/i }));

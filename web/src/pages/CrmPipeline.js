@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Activity, Bot, CheckCircle, Download, MessageSquarePlus, Play, Plus, RefreshCw, RotateCcw, Send, Star, Trash2, X, XCircle } from 'lucide-react';
+import { Activity, Bot, CheckCircle, Download, Filter, Mail, MessageSquarePlus, Phone, Play, Plus, RefreshCw, RotateCcw, Send, Sparkles, Star, Trash2, X, XCircle } from 'lucide-react';
 import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import { Button } from '../components/ui/Button';
@@ -113,6 +113,7 @@ export default function CrmPipeline() {
   const [workflows, setWorkflows] = useState([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
   const [savingWorkflow, setSavingWorkflow] = useState(false);
+  const [timelineFilter, setTimelineFilter] = useState('all');
 
   const currentUser = useMemo(() => readStoredUser(), []);
   const requestHeaders = useMemo(() => authHeaders(getStoredToken()), []);
@@ -529,6 +530,66 @@ export default function CrmPipeline() {
     return t('crm.pipeline.activities.typeNote', { defaultValue: 'Notatka' });
   };
 
+  const unifiedTimeline = useMemo(() => {
+    const entries = [
+      ...activities.map((item) => ({
+        id: `activity-${item.id}`,
+        kind: item.type === 'task' ? 'task' : item.type === 'call' ? 'call' : 'note',
+        title: activityTypeLabel(item.type),
+        text: item.text,
+        at: item.created_at,
+        author: item.author_name,
+        source: item,
+      })),
+      ...messages.map((item) => ({
+        id: `message-${item.id}`,
+        kind: 'message',
+        title: `${messageChannelLabel(item.channel)} · ${item.direction === 'outbound' ? 'wychodząca' : 'przychodząca'}`,
+        text: item.body,
+        at: item.created_at,
+        author: item.sender_handle || item.recipient_handle,
+        meta: item.status,
+      })),
+      ...phoneCalls.map((item) => ({
+        id: `phone-${item.id}`,
+        kind: 'phone',
+        title: 'Rozmowa telefoniczna',
+        text: item.raport || item.transcript || 'Połączenie zapisane przy leadzie.',
+        at: item.created_at,
+        author: item.agent_name,
+        meta: item.recording_duration_sec != null ? `${item.recording_duration_sec}s` : item.status,
+      })),
+      ...workflowEvents.map((item) => ({
+        id: `workflow-${item.id}`,
+        kind: 'automation',
+        title: item.workflow_name || 'Automatyzacja',
+        text: item.reason || `${item.trigger_type || 'zdarzenie'} → ${item.action_type || 'akcja'}`,
+        at: item.created_at,
+        meta: workflowEventStatusLabel(item.status),
+      })),
+      ...npsSurveys.map((item) => ({
+        id: `nps-${item.id}`,
+        kind: 'nps',
+        title: `NPS ${item.score}/10`,
+        text: item.comment || npsGroupLabel(item.nps_group),
+        at: item.responded_at || item.created_at,
+        meta: item.channel,
+      })),
+    ];
+    return entries
+      .filter((item) => timelineFilter === 'all' || item.kind === timelineFilter)
+      .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime());
+  }, [activities, messages, npsSurveys, phoneCalls, timelineFilter, workflowEvents]);
+
+  const timelineIcon = (kind) => {
+    if (kind === 'message') return Mail;
+    if (kind === 'call' || kind === 'phone') return Phone;
+    if (kind === 'automation') return Sparkles;
+    if (kind === 'nps') return Star;
+    if (kind === 'task') return CheckCircle;
+    return MessageSquarePlus;
+  };
+
   const submitNps = async () => {
     if (!selectedLeadId) return;
     const score = Number(npsForm.score);
@@ -723,7 +784,7 @@ export default function CrmPipeline() {
     }
   };
 
-  const messageChannelLabel = (channel) => {
+  function messageChannelLabel(channel) {
     const labels = {
       whatsapp: 'WhatsApp',
       instagram: 'Instagram',
@@ -737,21 +798,21 @@ export default function CrmPipeline() {
       other: 'Inne',
     };
     return labels[channel] || labels.other;
-  };
+  }
 
-  const workflowEventStatusLabel = (status) => {
+  function workflowEventStatusLabel(status) {
     if (status === 'completed') return t('crm.pipeline.workflowEvents.completed', { defaultValue: 'wykonane' });
     if (status === 'skipped') return t('crm.pipeline.workflowEvents.skipped', { defaultValue: 'pominięte' });
     if (status === 'error') return t('crm.pipeline.workflowEvents.error', { defaultValue: 'błąd' });
     return status || '—';
-  };
+  }
 
-  const npsGroupLabel = (group) => {
+  function npsGroupLabel(group) {
     if (group === 'promoter') return t('crm.pipeline.nps.promoter', { defaultValue: 'promotor' });
     if (group === 'passive') return t('crm.pipeline.nps.passive', { defaultValue: 'pasywny' });
     if (group === 'detractor') return t('crm.pipeline.nps.detractor', { defaultValue: 'krytyk' });
     return group || '—';
-  };
+  }
 
   const ownerInitials = (lead) => {
     const name = String(lead.owner_name || '').trim();
@@ -1274,7 +1335,7 @@ export default function CrmPipeline() {
               right: 0,
               top: 0,
               bottom: 0,
-              width: 'min(440px, 100vw)',
+              width: 'min(760px, 100vw)',
               zIndex: 260,
               margin: 0,
               borderRadius: '16px 0 0 16px',
@@ -1308,6 +1369,68 @@ export default function CrmPipeline() {
                 {t('crm.pipeline.activities.close', { defaultValue: 'Zamknij' })}
               </Button>
             </div>
+
+            <section className="ios-inset crm-unified-timeline" aria-label="Pełna historia leada">
+              <div className="crm-unified-timeline-head">
+                <div>
+                  <strong>Pełna historia</strong>
+                  <div>Wiadomości, telefony, notatki, zadania i działania systemu w jednej osi.</div>
+                </div>
+                <span>{unifiedTimeline.length} wpisów</span>
+              </div>
+              <div className="crm-unified-timeline-filters" aria-label="Filtry historii">
+                <Filter size={14} aria-hidden="true" />
+                {[
+                  ['all', 'Wszystko'],
+                  ['note', 'Notatki'],
+                  ['task', 'Zadania'],
+                  ['message', 'Wiadomości'],
+                  ['phone', 'Telefony'],
+                  ['automation', 'System'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={timelineFilter === value ? 'is-active' : ''}
+                    onClick={() => setTimelineFilter(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="crm-unified-timeline-list">
+                {unifiedTimeline.map((entry) => {
+                  const EntryIcon = timelineIcon(entry.kind);
+                  return (
+                    <article key={entry.id} className={`crm-unified-timeline-entry is-${entry.kind}`}>
+                      <div className="crm-unified-timeline-icon"><EntryIcon size={15} aria-hidden="true" /></div>
+                      <div className="crm-unified-timeline-body">
+                        <div className="crm-unified-timeline-meta">
+                          <strong>{entry.title}</strong>
+                          <time>{formatActivityWhen(entry.at, lng)}</time>
+                        </div>
+                        <div className="crm-unified-timeline-text">{entry.text || '—'}</div>
+                        {(entry.author || entry.meta) ? (
+                          <div className="crm-unified-timeline-foot">
+                            {[entry.author, entry.meta].filter(Boolean).join(' · ')}
+                          </div>
+                        ) : null}
+                        {entry.kind === 'task' && entry.source && !entry.source.completed_at ? (
+                          <Button size="sm" variant="outline" leftIcon={CheckCircle} onClick={() => completeActivity(entry.source.id)}>
+                            Oznacz wykonane
+                          </Button>
+                        ) : null}
+                      </div>
+                    </article>
+                  );
+                })}
+                {!activitiesLoading && !messagesLoading && !phoneCallsLoading && !workflowEventsLoading && unifiedTimeline.length === 0 ? (
+                  <div className="crm-unified-timeline-empty">
+                    Brak wpisów w tym widoku. Dodaj notatkę, zadanie albo wiadomość poniżej.
+                  </div>
+                ) : null}
+              </div>
+            </section>
 
             <div className="ios-inset crm-inspector-panel crm-inspector-ai" style={{ padding: 10, display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

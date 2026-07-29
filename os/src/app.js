@@ -113,7 +113,7 @@ const createApp = ({ sentry = getSentry() } = {}) => {
   }
   const cspDirectives = {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://my.zadarma.com'],
     styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
     fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
     imgSrc: ["'self'", 'data:', 'https:', 'blob:'],

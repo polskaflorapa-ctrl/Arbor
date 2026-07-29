@@ -145,6 +145,12 @@ const zadarmaWebrtcKeySchema = z.object({
   sip: z.string().trim().min(1, 'Podaj SIP login albo numer wewnetrzny PBX.').max(128),
 });
 
+const zadarmaExtensionSaveSchema = z.object({
+  user_id: z.coerce.number().int().positive(),
+  sip: z.string().trim().min(1).max(128),
+  enabled: z.boolean().optional(),
+});
+
 const DEFAULT_RETEST_MAX_AGE_DAYS = 14;
 
 const isManagementRole = (user) =>
@@ -266,6 +272,83 @@ router.post('/zadarma/webrtc-key', authMiddleware, validateBody(zadarmaWebrtcKey
   }
 });
 
+router.get('/zadarma/webrtc-config', authMiddleware, async (req, res) => {
+  try {
+    await ensureTelephonyTables();
+    const assignment = (await pool.query(
+      `SELECT e.sip, e.enabled, e.updated_at
+         FROM telephony_zadarma_extensions e
+        WHERE e.user_id = $1`,
+      [req.user.id],
+    )).rows[0];
+    if (!assignment?.enabled || !assignment?.sip) {
+      return res.status(404).json({
+        ok: false,
+        code: 'ZADARMA_EXTENSION_NOT_ASSIGNED',
+        error: 'Administrator nie przypisal jeszcze numeru wewnetrznego Zadarma do tego konta.',
+      });
+    }
+    const data = await getWebrtcKey({ sip: assignment.sip });
+    const key = data?.key || data?.webrtc_key || data?.result?.key;
+    if (!key) {
+      return res.status(502).json({ ok: false, code: 'ZADARMA_WEBRTC_KEY_MISSING', error: 'Zadarma nie zwrocila klucza WebRTC.' });
+    }
+    return res.json({ ok: true, provider: 'zadarma', sip: assignment.sip, key, expires_in_hours: 72 });
+  } catch (err) {
+    logger.warn('telephony.zadarma.webrtc_config', { message: err.message, requestId: req.requestId });
+    return res.status(err.code === 'ZADARMA_NOT_CONFIGURED' ? 503 : 502).json({
+      ok: false,
+      code: err.code || 'ZADARMA_WEBRTC_CONFIG_FAILED',
+      error: err.message || 'Nie udalo sie uruchomic telefonu WebRTC.',
+    });
+  }
+});
+
+router.get('/zadarma/extensions', authMiddleware, async (req, res) => {
+  if (!canManageGlobalProviderSettings(req.user)) {
+    return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  }
+  await ensureTelephonyTables();
+  const { rows } = await pool.query(
+    `SELECT e.user_id, e.sip, e.enabled, e.updated_at,
+            u.login, u.imie, u.nazwisko, u.oddzial_id
+       FROM telephony_zadarma_extensions e
+       JOIN users u ON u.id = e.user_id
+      ORDER BY u.nazwisko NULLS LAST, u.imie NULLS LAST, u.login`,
+  );
+  return res.json(rows);
+});
+
+router.put('/zadarma/extensions', authMiddleware, validateBody(zadarmaExtensionSaveSchema), async (req, res) => {
+  if (!canManageGlobalProviderSettings(req.user)) {
+    return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  }
+  await ensureTelephonyTables();
+  const { user_id: userId, sip, enabled = true } = req.body;
+  const duplicate = (await pool.query(
+    'SELECT user_id FROM telephony_zadarma_extensions WHERE sip = $1 AND user_id <> $2',
+    [sip, userId],
+  )).rows[0];
+  if (duplicate) {
+    return res.status(409).json({
+      error: 'Ten numer wewnetrzny SIP jest juz przypisany do innego pracownika.',
+      code: 'ZADARMA_SIP_ALREADY_ASSIGNED',
+    });
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO telephony_zadarma_extensions (user_id, sip, enabled, updated_by, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,NOW(),NOW())
+     ON CONFLICT (user_id) DO UPDATE SET
+       sip = EXCLUDED.sip,
+       enabled = EXCLUDED.enabled,
+       updated_by = EXCLUDED.updated_by,
+       updated_at = NOW()
+     RETURNING user_id, sip, enabled, updated_at`,
+    [userId, sip, enabled, req.user.id],
+  );
+  return res.json(rows[0]);
+});
+
 const telephonyScope = (user, oddzialId) => {
   if (isManagementRole(user)) {
     if (oddzialId) {
@@ -352,6 +435,17 @@ async function ensureTelephonyTables() {
   `);
   await pool.query('CREATE INDEX IF NOT EXISTS idx_telephony_callbacks_oddzial_status ON telephony_callbacks(oddzial_id, status)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_telephony_callbacks_due ON telephony_callbacks(due_at)');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS telephony_zadarma_extensions (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      sip VARCHAR(128) NOT NULL,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_telephony_zadarma_extensions_sip ON telephony_zadarma_extensions(sip)');
 }
 
 async function ensureVoiceAgentIntakesTable() {

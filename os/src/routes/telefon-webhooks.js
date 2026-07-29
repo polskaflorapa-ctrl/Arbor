@@ -13,6 +13,7 @@ const {
   requestPbxRecord,
   verifyWebhookSignatureAsync: verifyZadarmaWebhookSignature,
 } = require('../services/zadarma');
+const { publishPhoneEvent } = require('../services/phone-realtime');
 
 const router = express.Router();
 
@@ -86,6 +87,19 @@ router.post('/zadarma', express.urlencoded({ extended: false }), async (req, res
       return res.status(403).type('text/plain').send('Forbidden');
     }
 
+    if (['NOTIFY_START', 'NOTIFY_OUT_START', 'NOTIFY_ANSWER'].includes(event)) {
+      const isOutbound = event === 'NOTIFY_OUT_START';
+      publishPhoneEvent({
+        type: event === 'NOTIFY_ANSWER' ? 'phone.answered' : 'phone.ringing',
+        provider: 'zadarma',
+        call_id: String(req.body?.pbx_call_id || req.body?.call_id || '').trim() || null,
+        direction: isOutbound ? 'outbound' : 'inbound',
+        phone: String(isOutbound ? req.body?.destination || '' : req.body?.caller_id || '').trim(),
+        internal: String(req.body?.internal || req.body?.called_did || '').trim() || null,
+      });
+      return res.status(204).send();
+    }
+
     if (event === 'NOTIFY_OUT_END' || event === 'NOTIFY_END') {
       const pbxCallId = String(req.body?.pbx_call_id || '').trim();
       if (!pbxCallId) return res.status(204).send();
@@ -104,6 +118,15 @@ router.post('/zadarma', express.urlencoded({ extended: false }), async (req, res
         callSid: conversationId,
         durationSec: req.body?.duration,
         status: req.body?.disposition || 'completed',
+      });
+      publishPhoneEvent({
+        type: 'phone.ended',
+        provider: 'zadarma',
+        call_id: pbxCallId,
+        direction: isOutbound ? 'outbound' : 'inbound',
+        phone: clientNumber,
+        duration_sec: Number(req.body?.duration || 0),
+        disposition: req.body?.disposition || 'completed',
       });
       return res.status(204).send();
     }
@@ -129,6 +152,11 @@ router.post('/zadarma', express.urlencoded({ extended: false }), async (req, res
       recordingSid: callId || pbxCallId,
       recordingUrl,
       durationSec: null,
+    });
+    publishPhoneEvent({
+      type: 'phone.recording_ready',
+      provider: 'zadarma',
+      call_id: pbxCallId || callId,
     });
     setImmediate(() => {
       processRecordingPipeline(conversationId).catch((e) =>

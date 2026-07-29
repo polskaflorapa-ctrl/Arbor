@@ -19,6 +19,677 @@ body.theme-light {
   --command-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
 }
 
+/* CRM lead record: Kommo-style unified chronological activity feed. */
+.crm-unified-timeline {
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--accent) 6%);
+}
+
+.crm-unified-timeline-head,
+.crm-unified-timeline-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.crm-unified-timeline-head > div > div,
+.crm-unified-timeline-head > span,
+.crm-unified-timeline-meta time,
+.crm-unified-timeline-foot {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.crm-unified-timeline-filters {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.crm-unified-timeline-filters button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-sub);
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.crm-unified-timeline-filters button.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--text);
+  font-weight: 800;
+}
+
+.crm-unified-timeline-list {
+  position: relative;
+  display: grid;
+  max-height: 430px;
+  overflow: auto;
+}
+
+.crm-unified-timeline-list::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 15px;
+  width: 1px;
+  background: var(--border);
+}
+
+.crm-unified-timeline-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 9px;
+  padding: 7px 2px;
+}
+
+.crm-unified-timeline-icon {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.crm-unified-timeline-entry.is-message .crm-unified-timeline-icon,
+.crm-unified-timeline-entry.is-phone .crm-unified-timeline-icon {
+  color: #2563eb;
+}
+
+.crm-unified-timeline-entry.is-automation .crm-unified-timeline-icon {
+  color: #7c3aed;
+}
+
+.crm-unified-timeline-body {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.crm-unified-timeline-meta strong {
+  font-size: 12px;
+}
+
+.crm-unified-timeline-text {
+  margin-top: 5px;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.crm-unified-timeline-foot {
+  margin-top: 6px;
+}
+
+.crm-unified-timeline-body > button {
+  margin-top: 8px;
+}
+
+.crm-unified-timeline-empty {
+  padding: 20px 12px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 12px;
+}
+
+/* Global Zadarma-style softphone */
+.phone-widget {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1180;
+  font-family: var(--font-ui, inherit);
+}
+
+.phone-widget-launcher {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #527b29, #315617);
+  box-shadow: 0 14px 34px rgba(30, 64, 20, 0.32);
+  cursor: pointer;
+}
+
+.phone-widget-launcher span {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #c43f32;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.phone-widget.has-incoming .phone-widget-launcher {
+  animation: phone-widget-ring 1s ease-in-out infinite;
+}
+
+.phone-widget-panel {
+  width: min(354px, calc(100vw - 24px));
+  overflow: hidden;
+  border: 1px solid rgba(24, 49, 33, 0.18);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  color: var(--text, #18221b);
+  box-shadow: 0 24px 70px rgba(20, 37, 27, 0.28);
+}
+
+.phone-widget-panel > header {
+  padding: 12px 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;
+  background: #173b2d;
+}
+
+.phone-widget-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.phone-widget-title div {
+  display: grid;
+  gap: 1px;
+}
+
+.phone-widget-title small {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 10px;
+}
+
+.phone-widget-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #69d378;
+  box-shadow: 0 0 0 4px rgba(105, 211, 120, 0.14);
+}
+
+.phone-widget-panel > header button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255,255,255,.09);
+  color: #fff;
+  cursor: pointer;
+}
+
+.phone-widget-head-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.phone-widget-settings {
+  padding: 12px;
+  display: grid;
+  gap: 7px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-field, #f7f8f6);
+}
+
+.phone-widget-settings > small {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.phone-widget-settings input {
+  min-width: 0;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.phone-widget-settings > button {
+  min-height: 36px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: #456b1f;
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.phone-widget-extension-manager {
+  margin-top: 5px;
+  padding-top: 10px;
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid var(--border);
+}
+
+.phone-widget-extension-manager > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.phone-widget-extension-manager small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.phone-widget-extension-manager select,
+.phone-widget-extension-manager > input {
+  min-width: 0;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.phone-widget-extension-manager > label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: var(--text-sub);
+  font-size: 11px;
+}
+
+.phone-widget-extension-manager > label input {
+  width: 15px;
+  height: 15px;
+}
+
+.phone-widget-extension-manager > button {
+  min-height: 36px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: #456b1f;
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.phone-widget-extension-list {
+  max-height: 170px;
+  display: grid;
+  overflow: auto;
+}
+
+.phone-widget-extension-list > button {
+  padding: 7px 2px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.phone-widget-extension-list > button span {
+  min-width: 0;
+  display: grid;
+}
+
+.phone-widget-extension-list em {
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.phone-widget-extension-list em.is-ready {
+  background: rgba(69, 107, 31, 0.11);
+  color: #456b1f;
+}
+
+.phone-widget-extension-list em.is-off {
+  background: rgba(192, 73, 47, 0.1);
+  color: #a3402a;
+}
+
+.phone-widget-webrtc-warning {
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(189, 112, 30, 0.2);
+  background: rgba(189, 112, 30, 0.08);
+  color: #8a531e;
+  font-size: 10px;
+}
+
+.phone-widget-incoming {
+  margin: 10px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 9px;
+  align-items: center;
+  border-radius: 11px;
+  background: rgba(69, 107, 31, 0.11);
+  border: 1px solid rgba(69, 107, 31, 0.22);
+}
+
+.phone-widget-incoming > div {
+  display: grid;
+  min-width: 0;
+}
+
+.phone-widget-incoming small,
+.phone-widget-incoming span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.phone-widget-answer,
+.phone-widget-reject {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+}
+
+.phone-widget-answer { background: #3e8a45; }
+.phone-widget-reject { background: #bc4338; }
+
+.phone-widget-dial {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.phone-widget-dial label,
+.phone-widget-recording {
+  grid-column: 1 / -1;
+}
+
+.phone-widget-dial label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.phone-widget-dial input {
+  min-width: 0;
+  height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-field, #fff);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.phone-widget-dial > button {
+  height: 40px;
+  padding: 0 13px;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: #456b1f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.phone-widget-dial > button:disabled { opacity: .58; cursor: wait; }
+
+.phone-widget-recording {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.phone-widget-recording svg { color: #c43f32; }
+
+.phone-widget-message {
+  margin: 0 12px 10px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: rgba(69, 107, 31, 0.09);
+  color: var(--text-sub);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.phone-widget-crm-context {
+  margin: 0 12px 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+
+.phone-widget-lookup,
+.phone-widget-no-match {
+  padding: 9px 12px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.phone-widget-lead {
+  width: 100%;
+  padding: 9px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(69, 107, 31, 0.18);
+  border-radius: 9px;
+  background: rgba(69, 107, 31, 0.06);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.phone-widget-lead span {
+  min-width: 0;
+  display: grid;
+}
+
+.phone-widget-lead small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-widget-outcome {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.phone-widget-outcome select,
+.phone-widget-outcome textarea,
+.phone-widget-outcome input {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-field, #fff);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.phone-widget-outcome textarea {
+  grid-column: 1 / -1;
+  resize: vertical;
+}
+
+.phone-widget-outcome label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.phone-widget-outcome label input {
+  grid-column: 1 / -1;
+}
+
+.phone-widget-outcome > button {
+  min-height: 38px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 8px;
+  background: #456b1f;
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.phone-widget-outcome > button:disabled {
+  opacity: .58;
+  cursor: wait;
+}
+
+.phone-widget-missed {
+  padding: 0 12px 10px;
+}
+
+.phone-widget-section-title {
+  margin-bottom: 5px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.phone-widget-missed > button {
+  width: 100%;
+  padding: 7px 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.phone-widget-missed > button span {
+  display: grid;
+}
+
+.phone-widget-missed > button small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.phone-widget-panel > footer {
+  padding: 9px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  background: var(--surface-field, #f7f8f6);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.phone-widget-panel > footer button {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@keyframes phone-widget-ring {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(8deg); }
+  40% { transform: rotate(-8deg); }
+  60% { transform: rotate(5deg); }
+  80% { transform: rotate(-5deg); }
+}
+
+@media (max-width: 640px) {
+  .phone-widget {
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Field inspection command center */
 .ogledziny-shell {
   background:

@@ -6,6 +6,7 @@ import { ROLE_GROUPS } from './utils/routeAccess';
 import Login from './pages/Login';
 import AiChat from './components/AiChat';
 import { DevPanel } from './components/DevPanel';
+import PhoneWidget from './components/PhoneWidget';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Zlecenia = lazy(() => import('./pages/Zlecenia'));
@@ -88,7 +89,7 @@ function AppChrome() {
     || location.pathname === '/login'
     || location.pathname === '/portal-klienta'
     || location.pathname.startsWith('/portal-klienta/');
-  return hideChat ? null : <AiChat />;
+  return hideChat ? null : <><PhoneWidget /><AiChat /></>;
 }
 
 function RouteLoadingFallback() {
