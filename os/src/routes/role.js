@@ -96,7 +96,7 @@ router.post('/', authMiddleware, requireRole('Prezes', 'Dyrektor'), validateBody
   try {
     const { rows } = await pool.query(
       `INSERT INTO role (nazwa, kolor, opis, poziom, uprawnienia) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [nazwa.trim(), kolor || '#94A3B8', opis || null, poziom ?? 1, JSON.stringify(uprawnienia || defaultPermissions())]
+      [nazwa.trim(), kolor || '#9a907a', opis || null, poziom ?? 1, JSON.stringify(uprawnienia || defaultPermissions())]
     );
     res.status(201).json(rows[0]);
   } catch (e) {

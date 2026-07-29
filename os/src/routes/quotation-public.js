@@ -26,13 +26,13 @@ const BRAND = {
   email: 'kontakt@wycinka-drzewpl.pl',
   site: 'wycinka-drzewpl.pl',
   // kolory marki (z firmowej strony)
-  ink: '#2c2722',
-  green: '#507d30',
-  greenDeep: '#34501f',
-  greenSoft: '#64b375',
-  cream: '#f6f8f3',
-  line: '#e2e8dc',
-  muted: '#6b7a6f',
+  ink: '#2c2011',
+  green: '#456b1f',
+  greenDeep: '#456b1f',
+  greenSoft: '#7f8c12',
+  cream: '#f0ebdd',
+  line: '#e0d9c8',
+  muted: '#5a5040',
 };
 
 /** Znak firmowy — logo w białym kafelku (na stronie i ekranach statusu). */
@@ -151,7 +151,7 @@ function pageHead(title) {
   .gallery img{height:150px;border-radius:14px;object-fit:cover;flex:0 0 auto;border:1px solid var(--line)}
   /* ITEMS */
   .item{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;
-    box-shadow:0 1px 2px rgba(15,61,32,.04)}
+    box-shadow:0 1px 2px rgba(69, 107, 31, .04)}
   .item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .item-name{font-weight:700;font-size:16px}
   .item-price{font-weight:800;color:var(--green);white-space:nowrap;font-size:16px}
@@ -179,8 +179,8 @@ function pageHead(title) {
   .actions{display:grid;gap:12px;margin:8px 0 4px}
   .btn{display:block;width:100%;text-align:center;padding:16px;border-radius:14px;border:0;
     font-size:16px;font-weight:800;cursor:pointer;text-decoration:none}
-  .btn-accept{background:var(--green);color:#fff;box-shadow:0 6px 18px rgba(31,122,61,.32)}
-  .btn-reject{background:#fff;color:#9a2b2b;border:1.5px solid #e7cccc}
+  .btn-accept{background:var(--green);color:#fff;box-shadow:0 6px 18px rgba(69, 107, 31, .32)}
+  .btn-reject{background:#fff;color:#a3402a;border:1.5px solid #f6e0d9}
   .btn-pdf{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);
     display:inline-block;width:auto;padding:12px 22px;font-size:14px}
   .legal{color:var(--muted);font-size:12px;text-align:center;padding:18px 0 40px}

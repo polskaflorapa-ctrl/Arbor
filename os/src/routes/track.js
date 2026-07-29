@@ -40,13 +40,13 @@ const trackParamsSchema = z.object({
 });
 
 const STATUS_META = {
-  Nowe: { label: 'Zgloszenie przyjete', color: '#64748b' },
-  Wycena_Terenowa: { label: 'Oględziny / wycena', color: '#0284c7' },
-  Do_Zatwierdzenia: { label: 'Uzgadniamy szczegoly', color: '#d97706' },
-  Zaplanowane: { label: 'Zaplanowane', color: '#16a34a' },
-  W_Realizacji: { label: 'Realizacja w toku', color: '#2563eb' },
-  Zakonczone: { label: 'Zakonczone', color: '#15803d' },
-  Anulowane: { label: 'Anulowane', color: '#dc2626' },
+  Nowe: { label: 'Zgloszenie przyjete', color: '#8a8069' },
+  Wycena_Terenowa: { label: 'Oględziny / wycena', color: '#766440' },
+  Do_Zatwierdzenia: { label: 'Uzgadniamy szczegoly', color: '#bd701e' },
+  Zaplanowane: { label: 'Zaplanowane', color: '#7f8c12' },
+  W_Realizacji: { label: 'Realizacja w toku', color: '#766440' },
+  Zakonczone: { label: 'Zakonczone', color: '#456b1f' },
+  Anulowane: { label: 'Anulowane', color: '#c0492f' },
 };
 
 const PUBLIC_STEPS = [
@@ -163,7 +163,7 @@ function renderPage(payload) {
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Status zlecenia ARBOR</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#eef2f6;color:#172033;padding:20px 14px 34px}.shell{max-width:560px;margin:0 auto;background:#fff;border:1px solid #d9e1ea;border-radius:14px;overflow:hidden;box-shadow:0 16px 44px rgba(23,32,51,.12)}header{background:#173525;color:#fff;padding:22px 24px}header h1{font-size:19px;margin:0 0 4px}header p{margin:0;color:#b9d5c4;font-size:13px}.body{padding:22px 24px}.badge{display:inline-flex;background:${escHtml(meta.color)};color:#fff;border-radius:999px;padding:9px 14px;font-weight:800;font-size:14px;margin-bottom:18px}.field{margin:0 0 14px}.field span{display:block;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}.field strong{font-size:17px}.steps{display:flex;gap:6px;margin:22px 0}.step{flex:1;text-align:center;color:#94a3b8;font-size:11px}.step span{display:block;width:18px;height:18px;border:2px solid #cbd5e1;border-radius:50%;margin:0 auto 6px;background:#fff}.step.done span{background:#16a34a;border-color:#16a34a}.step.done{color:#15803d}.step.active span{background:#2563eb;border-color:#2563eb;box-shadow:0 0 0 4px #dbeafe}.step.active{color:#1d4ed8;font-weight:800}.actions{display:grid;gap:10px;margin:18px 0}.tel,.map{display:block;text-decoration:none;text-align:center;border-radius:9px;padding:12px 14px;font-weight:800}.tel{background:#173525;color:#fff}.map{background:#edf7ef;color:#173525;border:1px solid #b9d5c4}.timeline{border-top:1px solid #e2e8f0;margin-top:20px;padding-top:18px}.timeline h2{font-size:15px;margin:0 0 10px}.timeline ul{list-style:none;margin:0;padding:0}.timeline li{padding:10px 0;border-bottom:1px solid #edf2f7}.timeline strong{display:block}.timeline time{display:block;color:#64748b;font-size:12px;margin-top:2px}.timeline p{margin:5px 0 0;color:#475569;font-size:13px}.foot{text-align:center;color:#64748b;font-size:12px;margin:16px auto 0;max-width:520px}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#f0ebdd;color:#2c2011;padding:20px 14px 34px}.shell{max-width:560px;margin:0 auto;background:#fff;border:1px solid #e0d9c8;border-radius:14px;overflow:hidden;box-shadow:0 16px 44px rgba(23,32,51,.12)}header{background:#2c2011;color:#fff;padding:22px 24px}header h1{font-size:19px;margin:0 0 4px}header p{margin:0;color:#e4efd6;font-size:13px}.body{padding:22px 24px}.badge{display:inline-flex;background:${escHtml(meta.color)};color:#fff;border-radius:999px;padding:9px 14px;font-weight:800;font-size:14px;margin-bottom:18px}.field{margin:0 0 14px}.field span{display:block;color:#8a8069;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}.field strong{font-size:17px}.steps{display:flex;gap:6px;margin:22px 0}.step{flex:1;text-align:center;color:#9a907a;font-size:11px}.step span{display:block;width:18px;height:18px;border:2px solid #e0d9c8;border-radius:50%;margin:0 auto 6px;background:#fff}.step.done span{background:#7f8c12;border-color:#7f8c12}.step.done{color:#456b1f}.step.active span{background:#766440;border-color:#766440;box-shadow:0 0 0 4px #f1f3d6}.step.active{color:#766440;font-weight:800}.actions{display:grid;gap:10px;margin:18px 0}.tel,.map{display:block;text-decoration:none;text-align:center;border-radius:9px;padding:12px 14px;font-weight:800}.tel{background:#2c2011;color:#fff}.map{background:#f0ebdd;color:#2c2011;border:1px solid #e4efd6}.timeline{border-top:1px solid #f0ebdd;margin-top:20px;padding-top:18px}.timeline h2{font-size:15px;margin:0 0 10px}.timeline ul{list-style:none;margin:0;padding:0}.timeline li{padding:10px 0;border-bottom:1px solid #f0ebdd}.timeline strong{display:block}.timeline time{display:block;color:#8a8069;font-size:12px;margin-top:2px}.timeline p{margin:5px 0 0;color:#5a5040;font-size:13px}.foot{text-align:center;color:#8a8069;font-size:12px;margin:16px auto 0;max-width:520px}
 </style>
 </head>
 <body>

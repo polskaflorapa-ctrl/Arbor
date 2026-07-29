@@ -50,7 +50,7 @@ const formatCurrency = (amount) => {
 };
 
 /** Nagłówki PDF — neutralna czerń (spójnie z Platinum Chrome, bez niebieskiego brandu). */
-const PDF_BRAND = '#111111';
+const PDF_BRAND = '#2c2011';
 
 const parseBhpChecklist = (value) => {
   const raw = typeof value === 'string'
@@ -75,8 +75,8 @@ const parseBhpChecklist = (value) => {
 };
 
 const getStatusColor = (status) => {
-  const colors = { Nowe: '#3B82F6', W_Realizacji: '#F59E0B', Zakonczone: '#10B981', Anulowane: '#EF4444' };
-  return colors[status] || '#6B7280';
+  const colors = { Nowe: '#766440', W_Realizacji: '#bd701e', Zakonczone: '#7f8c12', Anulowane: '#c0492f' };
+  return colors[status] || '#8a8069';
 };
 
 const getStatusText = (status) => {
@@ -226,11 +226,11 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
     doc.pipe(res);
 
     doc.fontSize(22).fillColor(PDF_BRAND).font('Helvetica-Bold').text('ARBOR-OS', { align: 'center' });
-    doc.fontSize(12).fillColor('#6B7280').font('Helvetica').text('System Zarządzania Usługami Terenowymi', { align: 'center' });
+    doc.fontSize(12).fillColor('#8a8069').font('Helvetica').text('System Zarządzania Usługami Terenowymi', { align: 'center' });
     doc.moveDown();
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#f0ebdd').stroke();
     doc.moveDown();
-    doc.fontSize(18).fillColor('#1F2937').font('Helvetica-Bold').text(`Protokół zlecenia #${z.id}`, { align: 'center' });
+    doc.fontSize(18).fillColor('#2c2011').font('Helvetica-Bold').text(`Protokół zlecenia #${z.id}`, { align: 'center' });
     doc.moveDown(0.5);
     doc.fontSize(10).fillColor(getStatusColor(z.status)).text(`Status: ${getStatusText(z.status)}`, { align: 'center' });
     doc.moveDown();
@@ -238,7 +238,7 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
     doc.fontSize(14).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Dane podstawowe');
     doc.moveDown(0.5);
     let startY = doc.y;
-    doc.fontSize(10).fillColor('#374151').font('Helvetica');
+    doc.fontSize(10).fillColor('#5a5040').font('Helvetica');
     doc.text('Klient:', 50, startY); doc.text(`${z.klient_nazwa || '-'}`, 150, startY);
     doc.text('Telefon:', 300, startY); doc.text(`${z.klient_telefon || '-'}`, 400, startY);
     doc.text('Adres:', 50, startY + 20); doc.text(`${z.adres || '-'}, ${z.miasto || '-'}`, 150, startY + 20);
@@ -251,16 +251,16 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
     doc.moveDown(6);
 
     if (z.notatki_wewnetrzne) {
-      doc.fontSize(10).fillColor('#92400E').text(`Notatki wewnętrzne: ${z.notatki_wewnetrzne}`, { width: 450 });
+      doc.fontSize(10).fillColor('#a3402a').text(`Notatki wewnętrzne: ${z.notatki_wewnetrzne}`, { width: 450 });
       doc.moveDown();
     }
 
     if (signature) {
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#f0ebdd').stroke();
       doc.moveDown();
       doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Podpis klienta (mobilny)');
       doc.moveDown(0.5);
-      doc.fontSize(10).fillColor('#374151').font('Helvetica');
+      doc.fontSize(10).fillColor('#5a5040').font('Helvetica');
       doc.text(`Podpisujący: ${signature.signer_name || '-'}`);
       doc.text(`Data podpisu: ${formatDateTime(signature.signed_at)}`);
       if (signature.note) {
@@ -278,61 +278,61 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
           doc.image(signatureBuffer, { fit: [220, 90], align: 'left' });
         } catch {
           doc.moveDown(0.5);
-          doc.fontSize(9).fillColor('#6B7280').text('Podpis zapisano jako dane elektroniczne (podgląd niedostępny w PDF).');
+          doc.fontSize(9).fillColor('#8a8069').text('Podpis zapisano jako dane elektroniczne (podgląd niedostępny w PDF).');
         }
       } else {
         doc.moveDown(0.5);
-        doc.fontSize(9).fillColor('#6B7280').text('Podpis zapisano jako dane elektroniczne (podgląd niedostępny w PDF).');
+        doc.fontSize(9).fillColor('#8a8069').text('Podpis zapisano jako dane elektroniczne (podgląd niedostępny w PDF).');
       }
       doc.moveDown();
     }
 
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#f0ebdd').stroke();
     doc.moveDown();
     doc.fontSize(14).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Podsumowanie finansowe');
     doc.moveDown(0.5);
     startY = doc.y;
-    doc.fontSize(11).fillColor('#374151').font('Helvetica');
+    doc.fontSize(11).fillColor('#5a5040').font('Helvetica');
     doc.text('Wartość zlecenia brutto:', 50, startY); doc.text(`${formatCurrency(wartosc)}`, 250, startY);
     doc.text('Łączny czas pracy:', 50, startY + 20); doc.text(`${Math.floor(lacznieGodzin)}h ${Math.round((lacznieGodzin % 1) * 60)}min`, 250, startY + 20);
     doc.text('Koszt robocizny (szac.):', 50, startY + 40); doc.text(`${formatCurrency(kosztRobocizny)}`, 250, startY + 40);
     if (rozliczenie) {
       doc.text('Koszt pomocników:', 50, startY + 60); doc.text(`${formatCurrency(rozliczenie.koszt_pomocnikow)}`, 250, startY + 60);
       doc.text('Podstawa brygadzisty:', 50, startY + 80); doc.text(`${formatCurrency(rozliczenie.podstawa_brygadzisty)}`, 250, startY + 80);
-      doc.fontSize(12).fillColor(rozliczenie.wynagrodzenie_brygadzisty >= 0 ? '#10B981' : '#EF4444');
+      doc.fontSize(12).fillColor(rozliczenie.wynagrodzenie_brygadzisty >= 0 ? '#7f8c12' : '#c0492f');
       doc.text('Wynagrodzenie brygadzisty:', 50, startY + 100); doc.text(`${formatCurrency(rozliczenie.wynagrodzenie_brygadzisty)}`, 250, startY + 100);
     } else {
-      doc.fontSize(12).fillColor(marza >= 0 ? '#10B981' : '#EF4444');
+      doc.fontSize(12).fillColor(marza >= 0 ? '#7f8c12' : '#c0492f');
       doc.text('Szacowana marża:', 50, startY + 60); doc.text(`${formatCurrency(marza)} (${((marza / wartosc) * 100).toFixed(1)}%)`, 250, startY + 60);
     }
     doc.moveDown(6);
 
     if (payment || materialUsage.length > 0 || operationalCosts.length > 0) {
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#f0ebdd').stroke();
       doc.moveDown();
       doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Rozliczenie z terenu');
       doc.moveDown(0.5);
       if (payment) {
-        doc.fontSize(9).fillColor('#374151').font('Helvetica')
+        doc.fontSize(9).fillColor('#5a5040').font('Helvetica')
           .text(`Platnosc: ${payment.forma_platnosc || '-'} | Odebrano: ${formatCurrency(payment.kwota_odebrana)} | Faktura VAT: ${payment.faktura_vat ? 'tak' : 'nie'}`, { width: 450 });
-        if (payment.nip) doc.fontSize(8).fillColor('#6B7280').text(`   NIP: ${payment.nip}`, { width: 450 });
-        if (payment.notatki) doc.fontSize(8).fillColor('#6B7280').text(`   Notatka platnosci: ${payment.notatki}`, { width: 450 });
+        if (payment.nip) doc.fontSize(8).fillColor('#8a8069').text(`   NIP: ${payment.nip}`, { width: 450 });
+        if (payment.notatki) doc.fontSize(8).fillColor('#8a8069').text(`   Notatka platnosci: ${payment.notatki}`, { width: 450 });
       }
       if (materialUsage.length > 0) {
         doc.moveDown(0.3);
-        doc.fontSize(9).fillColor('#374151').font('Helvetica-Bold').text('Materialy zuzyte:');
+        doc.fontSize(9).fillColor('#5a5040').font('Helvetica-Bold').text('Materialy zuzyte:');
         materialUsage.forEach((row, i) => {
           const qty = row.ilosc ? ` | ${row.ilosc} ${row.jednostka || ''}` : '';
           const cost = row.koszt_laczny ? ` | koszt ${formatCurrency(row.koszt_laczny)}` : '';
-          doc.fontSize(8).fillColor('#374151').font('Helvetica').text(`   ${i + 1}. ${row.nazwa || '-'}${qty}${cost}`, { width: 450 });
-          if (row.notatka) doc.fontSize(7).fillColor('#6B7280').text(`      ${row.notatka}`, { width: 450 });
+          doc.fontSize(8).fillColor('#5a5040').font('Helvetica').text(`   ${i + 1}. ${row.nazwa || '-'}${qty}${cost}`, { width: 450 });
+          if (row.notatka) doc.fontSize(7).fillColor('#8a8069').text(`      ${row.notatka}`, { width: 450 });
         });
       }
       if (operationalCosts.length > 0) {
         doc.moveDown(0.3);
-        doc.fontSize(9).fillColor('#374151').font('Helvetica-Bold').text('Koszty operacyjne:');
+        doc.fontSize(9).fillColor('#5a5040').font('Helvetica-Bold').text('Koszty operacyjne:');
         operationalCosts.forEach((row, i) => {
-          doc.fontSize(8).fillColor('#374151').font('Helvetica')
+          doc.fontSize(8).fillColor('#5a5040').font('Helvetica')
             .text(`   ${i + 1}. ${row.label || row.category || '-'}: ${formatCurrency(row.amount)}${row.source ? ` (${row.source})` : ''}`, { width: 450 });
         });
       }
@@ -340,43 +340,43 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
     }
 
     if (helpers.length > 0) {
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#f0ebdd').stroke();
       doc.moveDown();
       doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Pomocnicy');
       doc.moveDown(0.5);
       helpers.forEach((h, i) => {
-        doc.fontSize(10).fillColor('#374151').text(`${i+1}. ${h.imie} ${h.nazwisko} - ${h.godziny || 0}h × ${formatCurrency(h.stawka_godzinowa)}/h`);
+        doc.fontSize(10).fillColor('#5a5040').text(`${i+1}. ${h.imie} ${h.nazwisko} - ${h.godziny || 0}h × ${formatCurrency(h.stawka_godzinowa)}/h`);
       });
       doc.moveDown();
     }
 
     if (logs.length > 0) {
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#f0ebdd').stroke();
       doc.moveDown();
       doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Rejestr czasu pracy');
       doc.moveDown(0.5);
       logs.forEach((log, i) => {
         const czas = log.duration_hours ? `${parseFloat(log.duration_hours).toFixed(1)}h` : (log.czas_pracy_minuty ? `${Math.floor(log.czas_pracy_minuty/60)}h ${Math.round(log.czas_pracy_minuty%60)}min` : '-');
-        doc.fontSize(9).fillColor('#374151').text(`${i+1}. ${log.pracownik || '-'} | ${formatDateTime(log.start_time)} → ${formatDateTime(log.end_time)} | ${czas}`);
+        doc.fontSize(9).fillColor('#5a5040').text(`${i+1}. ${log.pracownik || '-'} | ${formatDateTime(log.start_time)} → ${formatDateTime(log.end_time)} | ${czas}`);
         const bhpRows = parseBhpChecklist(log.bhp_checklista);
         const legacyBhp = log.bhp_potwierdzone === true || log.bhp_potwierdzone === 'true';
         if (bhpRows.length > 0) {
           const doneCount = bhpRows.filter((row) => row.done).length;
-          doc.fontSize(8).fillColor('#047857').text(`   Protokol BHP startu: ${doneCount}/${bhpRows.length} potwierdzone`, { width: 450 });
+          doc.fontSize(8).fillColor('#456b1f').text(`   Protokol BHP startu: ${doneCount}/${bhpRows.length} potwierdzone`, { width: 450 });
           bhpRows.forEach((row) => {
             const marker = row.done ? '[x]' : '[ ]';
             const hint = row.hint ? ` - ${row.hint}` : '';
-            doc.fontSize(8).fillColor(row.done ? '#047857' : '#92400E').text(`     ${marker} ${row.label}${hint}`, { width: 450 });
+            doc.fontSize(8).fillColor(row.done ? '#456b1f' : '#a3402a').text(`     ${marker} ${row.label}${hint}`, { width: 450 });
           });
         } else if (legacyBhp) {
-          doc.fontSize(8).fillColor('#047857').text('   Protokol BHP startu: potwierdzony (stary zapis)', { width: 450 });
+          doc.fontSize(8).fillColor('#456b1f').text('   Protokol BHP startu: potwierdzony (stary zapis)', { width: 450 });
         }
       });
       doc.moveDown();
     }
 
     if (photos.length > 0) {
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#f0ebdd').stroke();
       doc.moveDown();
       doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Dokumentacja zdjeciowa');
       doc.moveDown(0.5);
@@ -388,38 +388,38 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
       const summary = Object.entries(photoCounts)
         .map(([typ, count]) => `${typ}: ${count}`)
         .join(' | ');
-      doc.fontSize(9).fillColor('#047857').text(`Lacznie zdjec: ${photos.length}${summary ? ` (${summary})` : ''}`, { width: 450 });
+      doc.fontSize(9).fillColor('#456b1f').text(`Lacznie zdjec: ${photos.length}${summary ? ` (${summary})` : ''}`, { width: 450 });
       photos.slice(0, 12).forEach((photo, i) => {
         const path = photo.sciezka || photo.url || '-';
         const opis = photo.opis ? ` | ${photo.opis}` : '';
         const autor = photo.autor ? ` | ${photo.autor}` : '';
-        doc.fontSize(8).fillColor('#374151').text(
+        doc.fontSize(8).fillColor('#5a5040').text(
           `${i+1}. ${photo.typ || 'inne'} | ${formatDateTime(photo.data_dodania || photo.created_at)}${autor}${opis}`,
           { width: 450 }
         );
-        doc.fontSize(7).fillColor('#6B7280').text(`   Plik: ${path}`, { width: 450 });
+        doc.fontSize(7).fillColor('#8a8069').text(`   Plik: ${path}`, { width: 450 });
       });
       if (photos.length > 12) {
-        doc.fontSize(8).fillColor('#6B7280').text(`   + ${photos.length - 12} kolejnych zdjec w teczce zlecenia.`, { width: 450 });
+        doc.fontSize(8).fillColor('#8a8069').text(`   + ${photos.length - 12} kolejnych zdjec w teczce zlecenia.`, { width: 450 });
       }
       doc.moveDown();
     }
 
     if (issues.length > 0) {
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#f0ebdd').stroke();
       doc.moveDown();
       doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Zgłoszenia problemów');
       doc.moveDown(0.5);
       issues.forEach((issue, i) => {
-        doc.fontSize(9).fillColor('#EF4444').text(`${i+1}. ${issue.typ?.replace(/_/g, ' ') || 'Problem'}`, { continued: true })
-          .fillColor('#374151').text(` - ${issue.status || 'Nowy'} (${issue.zglaszajacy || '-'})`);
-        if (issue.opis) doc.fontSize(8).fillColor('#6B7280').text(`   Opis: ${issue.opis}`, { width: 450 });
+        doc.fontSize(9).fillColor('#c0492f').text(`${i+1}. ${issue.typ?.replace(/_/g, ' ') || 'Problem'}`, { continued: true })
+          .fillColor('#5a5040').text(` - ${issue.status || 'Nowy'} (${issue.zglaszajacy || '-'})`);
+        if (issue.opis) doc.fontSize(8).fillColor('#8a8069').text(`   Opis: ${issue.opis}`, { width: 450 });
       });
       doc.moveDown();
     }
 
     doc.moveDown(2);
-    doc.fontSize(8).fillColor('#9CA3AF');
+    doc.fontSize(8).fillColor('#9a907a');
     doc.text(`Wygenerowano: ${formatDateTime(new Date())} przez: ${req.user.imie} ${req.user.nazwisko} (${req.user.rola})`, { align: 'center' });
     doc.text('ARBOR-OS v2.0 | System Zarządzania Usługami Terenowymi', { align: 'center' });
     doc.end();
@@ -450,32 +450,32 @@ router.get('/faktura/:id', authMiddleware, validateParams(pdfIdParamsSchema), as
     doc.pipe(res);
 
     doc.fontSize(20).fillColor(PDF_BRAND).font('Helvetica-Bold').text('ARBOR-OS', { align: 'center' });
-    doc.fontSize(10).fillColor('#6B7280').text('Firma Usług Ogrodniczych', { align: 'center' });
+    doc.fontSize(10).fillColor('#8a8069').text('Firma Usług Ogrodniczych', { align: 'center' });
     doc.moveDown();
-    doc.fontSize(24).fillColor('#1F2937').text('FAKTURA', { align: 'center' });
-    doc.fontSize(12).fillColor('#6B7280').text(`Nr ${faktura.numer}`, { align: 'center' });
+    doc.fontSize(24).fillColor('#2c2011').text('FAKTURA', { align: 'center' });
+    doc.fontSize(12).fillColor('#8a8069').text(`Nr ${faktura.numer}`, { align: 'center' });
     doc.moveDown();
 
-    doc.fontSize(10).fillColor('#374151').font('Helvetica-Bold').text('Sprzedawca:');
-    doc.fontSize(9).fillColor('#374151').font('Helvetica');
+    doc.fontSize(10).fillColor('#5a5040').font('Helvetica-Bold').text('Sprzedawca:');
+    doc.fontSize(9).fillColor('#5a5040').font('Helvetica');
     doc.text('ARBOR-OS'); doc.text('ul. Leśna 15'); doc.text('60-001 Poznań'); doc.text('NIP: 1234567890');
     doc.moveDown();
-    doc.fontSize(10).fillColor('#374151').font('Helvetica-Bold').text('Nabywca:');
-    doc.fontSize(9).fillColor('#374151').font('Helvetica');
+    doc.fontSize(10).fillColor('#5a5040').font('Helvetica-Bold').text('Nabywca:');
+    doc.fontSize(9).fillColor('#5a5040').font('Helvetica');
     doc.text(`${faktura.klient_nazwa}`);
     if (faktura.klient_adres) doc.text(`${faktura.klient_adres}`);
     if (faktura.klient_nip) doc.text(`NIP: ${faktura.klient_nip}`);
     doc.moveDown();
 
     const tableTop = doc.y;
-    doc.fontSize(9).font('Helvetica-Bold').fillColor('#1F2937');
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#2c2011');
     doc.text('Lp.', 50, tableTop); doc.text('Nazwa usługi', 80, tableTop);
     doc.text('Ilość', 300, tableTop); doc.text('Cena netto', 350, tableTop);
     doc.text('VAT', 420, tableTop); doc.text('Wartość netto', 460, tableTop);
     doc.moveTo(50, tableTop + 15).lineTo(545, tableTop + 15).stroke();
 
     let y = tableTop + 25;
-    doc.font('Helvetica').fillColor('#374151');
+    doc.font('Helvetica').fillColor('#5a5040');
     pozycje.forEach((p, i) => {
       doc.text(`${i+1}`, 50, y); doc.text(p.nazwa.substring(0, 40), 80, y);
       doc.text(`${p.ilosc} ${p.jednostka || 'szt'}`, 300, y);
@@ -492,9 +492,9 @@ router.get('/faktura/:id', authMiddleware, validateParams(pdfIdParamsSchema), as
     doc.fontSize(12).fillColor(PDF_BRAND);
     doc.text('Razem brutto:', 350, y); doc.text(`${formatCurrency(faktura.brutto)}`, 460, y);
     doc.moveDown(3);
-    if (faktura.uwagi) { doc.fontSize(9).fillColor('#6B7280').font('Helvetica').text(`Uwagi: ${faktura.uwagi}`); }
+    if (faktura.uwagi) { doc.fontSize(9).fillColor('#8a8069').font('Helvetica').text(`Uwagi: ${faktura.uwagi}`); }
     doc.moveDown(2);
-    doc.fontSize(8).fillColor('#9CA3AF');
+    doc.fontSize(8).fillColor('#9a907a');
     doc.text(`Wygenerowano: ${formatDateTime(new Date())}`, { align: 'center' });
     doc.text(`Status: ${faktura.status}`, { align: 'center' });
     doc.end();
@@ -549,24 +549,24 @@ router.get('/cmr/:id', authMiddleware, validateParams(pdfIdParamsSchema), async 
     doc.pipe(res);
 
     const label = (x, y, w, h, t, bold) => {
-      doc.fontSize(8).font(bold ? 'Helvetica-Bold' : 'Helvetica').fillColor('#111827');
+      doc.fontSize(8).font(bold ? 'Helvetica-Bold' : 'Helvetica').fillColor('#2c2011');
       doc.text(t, x, y, { width: w, height: h });
     };
     const box = (x, y, w, h) => {
-      doc.rect(x, y, w, h).strokeColor('#D1D5DB').lineWidth(0.5).stroke();
+      doc.rect(x, y, w, h).strokeColor('#e0d9c8').lineWidth(0.5).stroke();
     };
 
     doc.fontSize(14).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Lista przewozowa (CMR)', { align: 'center' });
-    doc.fontSize(10).font('Helvetica').fillColor('#4B5563').text(`Numer: ${c.numer}   Status: ${c.status || '-'}`, { align: 'center' });
+    doc.fontSize(10).font('Helvetica').fillColor('#5a5040').text(`Numer: ${c.numer}   Status: ${c.status || '-'}`, { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(8).fillColor('#6B7280').text(`Wygenerowano: ${formatDateTime(new Date())}`, { align: 'center' });
+    doc.fontSize(8).fillColor('#8a8069').text(`Wygenerowano: ${formatDateTime(new Date())}`, { align: 'center' });
     doc.moveDown(1);
 
     let y = doc.y;
     const colW = 255;
     box(40, y, colW, 72);
     label(45, y + 4, colW - 10, 12, '1. Nadawca (wysyłający towar)', true);
-    doc.font('Helvetica').fillColor('#374151');
+    doc.font('Helvetica').fillColor('#5a5040');
     doc.text(c.nadawca_nazwa || '—', 45, y + 16, { width: colW - 10 });
     doc.text(c.nadawca_adres || '—', 45, y + 30, { width: colW - 10 });
     doc.text(`Kraj: ${c.nadawca_kraj || 'PL'}`, 45, y + 56, { width: colW - 10 });
@@ -580,7 +580,7 @@ router.get('/cmr/:id', authMiddleware, validateParams(pdfIdParamsSchema), async 
 
     box(40, y, 520, 52);
     label(45, y + 4, 500, 10, '3. Miejsce przejęcia towaru / miejsce przeznaczenia', true);
-    doc.font('Helvetica').fillColor('#374151');
+    doc.font('Helvetica').fillColor('#5a5040');
     doc.text(`Załadunek: ${c.miejsce_zaladunku || '—'}`, 45, y + 18, { width: 500 });
     doc.text(`Rozładunek: ${c.miejsce_rozladunku || '—'}`, 45, y + 32, { width: 500 });
     y += 58;
@@ -626,10 +626,10 @@ router.get('/cmr/:id', authMiddleware, validateParams(pdfIdParamsSchema), async 
     label(182, y + 3, 200, 10, 'Opis', true);
     label(390, y + 3, 70, 10, 'Masa kg', true);
     label(465, y + 3, 80, 10, 'm³', true);
-    doc.moveTo(40, y + th).lineTo(560, y + th).strokeColor('#D1D5DB').stroke();
+    doc.moveTo(40, y + th).lineTo(560, y + th).strokeColor('#e0d9c8').stroke();
     let ry = y + th + 2;
     tRows.forEach((row, i) => {
-      doc.font('Helvetica').fontSize(8).fillColor('#374151');
+      doc.font('Helvetica').fontSize(8).fillColor('#5a5040');
       doc.text(String(i + 1), 45, ry, { width: 28 });
       doc.text(String(row.ilosc ?? '—'), 78, ry, { width: 36 });
       doc.text(String(row.opakowanie ?? '—'), 118, ry, { width: 58 });
@@ -643,7 +643,7 @@ router.get('/cmr/:id', authMiddleware, validateParams(pdfIdParamsSchema), async 
     const yInstr = y;
     box(40, yInstr, 520, 44);
     label(45, yInstr + 4, 500, 10, '4/5. Instrukcje nadawcy / umowy szczególne', true);
-    doc.font('Helvetica').fontSize(8).fillColor('#374151');
+    doc.font('Helvetica').fontSize(8).fillColor('#5a5040');
     doc.text(c.instrukcje_nadawcy || '—', 45, yInstr + 16, { width: 248 });
     doc.text(c.umowy_szczegolne || '—', 305, yInstr + 16, { width: 248 });
     y = yInstr + 50;
@@ -668,7 +668,7 @@ router.get('/cmr/:id', authMiddleware, validateParams(pdfIdParamsSchema), async 
       y = yPl + 32;
     }
 
-    doc.fontSize(7).fillColor('#9CA3AF').text('Dokument informacyjny wygenerowany z ARBOR-OS — w razie transportu międzynarodowego uzupełnij oryginał CMR wg konwencji.', 40, y + 6, {
+    doc.fontSize(7).fillColor('#9a907a').text('Dokument informacyjny wygenerowany z ARBOR-OS — w razie transportu międzynarodowego uzupełnij oryginał CMR wg konwencji.', 40, y + 6, {
       width: 520,
       align: 'center',
     });
@@ -706,8 +706,8 @@ router.get('/raport/dzienny/:data', authMiddleware, validateParams(pdfDailyDateP
     doc.fontSize(12).text(`Liczba zleceń: ${zlecenia.length}`, { align: 'center' });
     doc.moveDown();
     zlecenia.forEach((z, i) => {
-      doc.fontSize(11).fillColor('#1F2937').text(`${i+1}. Zlecenie #${z.id} - ${z.klient_nazwa}`);
-      doc.fontSize(9).fillColor('#374151').text(`   Adres: ${z.adres}, ${z.miasto}`);
+      doc.fontSize(11).fillColor('#2c2011').text(`${i+1}. Zlecenie #${z.id} - ${z.klient_nazwa}`);
+      doc.fontSize(9).fillColor('#5a5040').text(`   Adres: ${z.adres}, ${z.miasto}`);
       doc.text(`   Typ: ${z.typ_uslugi} | Status: ${getStatusText(z.status)}`);
       if (z.wartosc_planowana) doc.text(`   Wartość: ${formatCurrency(z.wartosc_planowana)}`);
       doc.moveDown(0.5);
