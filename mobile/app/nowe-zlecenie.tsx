@@ -231,7 +231,7 @@ const FIELD_PHOTO_TYPES: { key: FieldPhotoType; label: string; icon: IoniconName
   { key: 'dojazd', label: 'Dojazd', icon: 'navigate-outline' },
 ];
 const REQUIRED_FIELD_PHOTO_TYPES: FieldPhotoType[] = ['wycena', 'szkic', 'dojazd'];
-const DRAW_COLORS = ['#EF4444', '#F97316', '#FACC15', '#22C55E', '#3B82F6', '#111827', '#FFFFFF'];
+const DRAW_COLORS = ['#c0492f', '#c0492f', '#bd701e', '#7f8c12', '#766440', '#2c2011', '#FFFFFF'];
 const DRAW_WIDTHS = [3, 6, 10];
 const NEW_ORDER_DRAFT_KEY = 'new_order_mobile_draft_v1';
 
@@ -3071,7 +3071,7 @@ export default function NoweZlecenieScreen() {
 
       <Modal visible={!!drawPhoto} animationType="slide" onRequestClose={closeDrawEditor}>
         <View style={S.drawModalRoot}>
-          <StatusBar barStyle="light-content" backgroundColor="#05080f" />
+          <StatusBar barStyle="light-content" backgroundColor="#2c2011" />
           <View style={S.drawModalHeader}>
             <TouchableOpacity style={S.drawHeaderBtn} onPress={closeDrawEditor} disabled={drawSaving}>
               <Ionicons name="close" size={22} color={theme.headerText} />
@@ -4509,14 +4509,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   drawShot: {
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#111827',
+    backgroundColor: '#2c2011',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
   },
   drawCanvas: { position: 'relative', overflow: 'hidden' },
-  drawImage: { ...StyleSheet.absoluteFill, backgroundColor: '#111827' },
+  drawImage: { ...StyleSheet.absoluteFill, backgroundColor: '#2c2011' },
   drawTools: {
-    backgroundColor: '#0b1220',
+    backgroundColor: '#2c2011',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.12)',
     paddingTop: 10,

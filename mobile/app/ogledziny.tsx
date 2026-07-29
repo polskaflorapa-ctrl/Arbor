@@ -56,12 +56,12 @@ const ZONE_RULES: Record<string, string[]> = {
   'Krakow-ZACHOD': ['zwierzyniec', 'wola justowska', 'ruczaj', 'tyniec', 'salwator'],
 };
 const ZONE_COLOR = {
-  'Krakow-POLNOC': '#0F766E',
-  'Krakow-WSCHOD': '#6B8E23',
-  'Krakow-POŁUDNIE': '#15803D',
-  'Krakow-ZACHOD': '#B45309',
-  'Krakow-NIEJEDNOZNACZNA': '#B91C1C',
-  'POZA-KRAKOWEM': '#647567',
+  'Krakow-POLNOC': '#5d6a0b',
+  'Krakow-WSCHOD': '#5d6a0b',
+  'Krakow-POŁUDNIE': '#456b1f',
+  'Krakow-ZACHOD': '#995510',
+  'Krakow-NIEJEDNOZNACZNA': '#a3402a',
+  'POZA-KRAKOWEM': '#5a5040',
 } as const;
 const ZONE_OVERRIDE_KEY = 'ogledziny_zone_overrides_mobile_v1';
 const ZONE_CLIENT_DEFAULT_KEY = 'ogledziny_zone_client_defaults_mobile_v1';

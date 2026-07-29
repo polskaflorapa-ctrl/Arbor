@@ -1113,7 +1113,7 @@ function makeStyles(theme: Theme) {
     visitDeck: {
       borderRadius: 7,
       borderWidth: 1,
-      borderColor: theme.name === 'dark' ? 'rgba(24,224,123,0.24)' : theme.cardBorder,
+      borderColor: theme.name === 'dark' ? 'rgba(127, 140, 18, 0.24)' : theme.cardBorder,
       backgroundColor: theme.name === 'dark' ? 'rgba(4,11,8,0.96)' : theme.cardBg,
       padding: 12,
       gap: 12,

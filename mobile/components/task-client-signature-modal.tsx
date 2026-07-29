@@ -188,7 +188,7 @@ export function TaskClientSignatureModal({
                       <SvgPath
                         key={`${idx}-${stroke.length}`}
                         d={stroke}
-                        stroke="#111111"
+                        stroke="#2c2011"
                         strokeWidth={2.4}
                         fill="none"
                         strokeLinecap="round"
@@ -198,7 +198,7 @@ export function TaskClientSignatureModal({
                     {currentPath ? (
                       <SvgPath
                         d={currentPath}
-                        stroke="#111111"
+                        stroke="#2c2011"
                         strokeWidth={2.4}
                         fill="none"
                         strokeLinecap="round"
@@ -208,7 +208,7 @@ export function TaskClientSignatureModal({
                   </Svg>
                   {!signed ? (
                     <View style={{ pointerEvents: 'none', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ color: '#6b7280' }}>Podpisz palcem lub rysikiem →</Text>
+                      <Text style={{ color: '#8a8069' }}>Podpisz palcem lub rysikiem →</Text>
                     </View>
                   ) : null}
                 </View>

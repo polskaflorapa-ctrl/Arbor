@@ -27,12 +27,12 @@ import { fetchWithTimeout } from '../utils/api-client';
 
 /** Stała paleta kreślarska (nie motyw UI — musi być czytelna na zdjęciu). */
 const KOLORY = [
-  '#EF4444',
-  '#F97316',
-  '#EAB308',
-  '#22C55E',
-  '#3B82F6',
-  '#14b8a6',
+  '#c0492f',
+  '#c0492f',
+  '#bd701e',
+  '#7f8c12',
+  '#766440',
+  '#766440',
   '#000000',
   '#ffffff',
 ];
@@ -40,10 +40,10 @@ const BIALY_SWATCH = '#ffffff';
 
 const GRUBOSCI = [3, 6, 12];
 const TOOL_PRESETS = [
-  { key: 'cut', label: 'Cięcie', icon: 'git-branch-outline', color: '#EF4444', width: 6 },
-  { key: 'risk', label: 'Ryzyko', icon: 'warning-outline', color: '#EAB308', width: 10 },
-  { key: 'access', label: 'Dojazd', icon: 'navigate-outline', color: '#3B82F6', width: 6 },
-  { key: 'keep', label: 'Zostawić', icon: 'leaf-outline', color: '#22C55E', width: 6 },
+  { key: 'cut', label: 'Cięcie', icon: 'git-branch-outline', color: '#c0492f', width: 6 },
+  { key: 'risk', label: 'Ryzyko', icon: 'warning-outline', color: '#bd701e', width: 10 },
+  { key: 'access', label: 'Dojazd', icon: 'navigate-outline', color: '#766440', width: 6 },
+  { key: 'keep', label: 'Zostawić', icon: 'leaf-outline', color: '#7f8c12', width: 6 },
 ] as const;
 
 interface Stroke {
@@ -72,7 +72,7 @@ export default function WycenaRysujScreen() {
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [currentPath, setCurrentPath] = useState('');
-  const [selectedKolor, setSelectedKolor] = useState('#EF4444');
+  const [selectedKolor, setSelectedKolor] = useState('#c0492f');
   const [selectedGrubosc, setSelectedGrubosc] = useState(6);
   const [saving, setSaving] = useState(false);
   const [drawNotice, setDrawNotice] = useState<{ message: string; tone: DrawNoticeTone } | null>(null);
@@ -583,7 +583,7 @@ function makeDrawStyles(t: Theme, canvasW: number, canvasH: number) {
       width: canvasW,
       height: canvasH,
       alignSelf: 'center',
-      backgroundColor: '#07130f',
+      backgroundColor: '#2c2011',
     },
     canvas: { width: canvasW, height: canvasH, position: 'relative', overflow: 'hidden' },
     bgImage: { width: canvasW, height: canvasH, position: 'absolute' },

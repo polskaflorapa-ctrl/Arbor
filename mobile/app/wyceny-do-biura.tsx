@@ -1351,7 +1351,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   successNoticeText: { flex: 1, color: t.success, fontSize: 12, lineHeight: 17, fontWeight: '800' },
   commandPanel: {
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
+    borderColor: t.name === 'dark' ? 'rgba(127, 140, 18, 0.20)' : t.cardBorder,
     backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.94)' : t.cardBg,
     borderRadius: 7,
     padding: 14,
@@ -1377,7 +1377,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     height: 42,
     borderRadius: 7,
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.20)' : t.cardBorder,
+    borderColor: t.name === 'dark' ? 'rgba(127, 140, 18, 0.20)' : t.cardBorder,
     backgroundColor: t.name === 'dark' ? 'rgba(16,28,24,0.92)' : t.surface2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1385,7 +1385,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   officeBoard: {
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.18)' : t.cardBorder,
+    borderColor: t.name === 'dark' ? 'rgba(127, 140, 18, 0.18)' : t.cardBorder,
     backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
     borderRadius: 7,
     padding: 13,
@@ -1501,7 +1501,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   officeFlowText: { color: t.textSub, fontSize: 9, fontWeight: '900', textAlign: 'center' },
   focusCard: {
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.18)' : t.cardBorder,
+    borderColor: t.name === 'dark' ? 'rgba(127, 140, 18, 0.18)' : t.cardBorder,
     backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
     borderRadius: 7,
     padding: 14,
@@ -1549,7 +1549,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   filterText: { color: t.textMuted, fontSize: 11, fontWeight: '900' },
   card: {
     borderWidth: 1,
-    borderColor: t.name === 'dark' ? 'rgba(24,224,123,0.16)' : t.cardBorder,
+    borderColor: t.name === 'dark' ? 'rgba(127, 140, 18, 0.16)' : t.cardBorder,
     backgroundColor: t.name === 'dark' ? 'rgba(8,18,14,0.92)' : t.cardBg,
     borderRadius: 7,
     padding: 14,
