@@ -109,10 +109,141 @@
   border-radius: 14px;
 }
 
-/* Nagłówki sekcji — atrament + waga prototypu */
+/* Nagłówki sekcji — atrament + waga prototypu (na JASNYCH tłach) */
 #root .arbor-os-shell h1,
 #root .arbor-os-shell h2,
 #root .arbor-os-shell h3 {
   color: #2c2011;
   letter-spacing: -0.01em;
+}
+
+/* KONTRAST: w ciemnych sekcjach nagłówek MUSI dziedziczyć jasny kolor rodzica —
+   bez tego atrament z reguły wyżej daje ciemny tekst na ciemnym tle i napis znika
+   (bylo widoczne na hero pulpitu „Plan dnia..." i ciemnych kartach Zlecen). */
+#root .arbor-os-shell .ref-hero-dark h1,
+#root .arbor-os-shell .ref-hero-dark h2,
+#root .arbor-os-shell .ref-hero-dark h3,
+#root .arbor-os-shell .module-page-header-hero h1,
+#root .arbor-os-shell .module-page-header-hero h2,
+#root .arbor-os-shell .module-page-header-hero h3,
+#root .arbor-os-shell [class*="hero"] h1,
+#root .arbor-os-shell [class*="hero"] h2,
+#root .arbor-os-shell [class*="hero"] h3,
+#root .arbor-os-shell [class*="command-strip"] h1,
+#root .arbor-os-shell [class*="command-strip"] h2,
+#root .arbor-os-shell [class*="command-strip"] h3,
+#root .arbor-os-shell [data-tone="dark"] h1,
+#root .arbor-os-shell [data-tone="dark"] h2,
+#root .arbor-os-shell [data-tone="dark"] h3 {
+  /* !important konieczne: globalna regula `h1..h6 { color: var(--text) !important }`
+     wymusza ciemny atrament na KAZDYM nagloweku — takze na ciemnym tle, gdzie tekst
+     staje sie niewidoczny. Tu przywracamy dziedziczenie jasnego koloru sekcji. */
+  color: inherit !important;
+}
+
+/* KONTRAST w kartach statystyk: komponenty byly projektowane pod CIEMNE tlo
+   (bialy tekst), a po ujednoliceniu skory maja tlo biale/kremowe — przez co
+   tytul i WARTOSC stawaly sie niewidoczne (bialy na bialym; karty Floty
+   wygladaly na puste). Wymuszamy hierarchie prototypu: wartosc = atrament,
+   etykieta = stonowany braz. Ciemne warianty (data-tone="dark") wylaczone. */
+#root .arbor-os-shell [class*="command-card"]:not([data-tone="dark"]) strong,
+#root .arbor-os-shell [class*="kpi-card"]:not([data-tone="dark"]) strong,
+#root .arbor-os-shell [class*="stat-card"]:not([data-tone="dark"]) strong {
+  color: #2c2011 !important;
+}
+
+#root .arbor-os-shell [class*="command-card"]:not([data-tone="dark"]) > span,
+#root .arbor-os-shell [class*="command-card"]:not([data-tone="dark"]) small,
+#root .arbor-os-shell [class*="kpi-card"]:not([data-tone="dark"]) > span,
+#root .arbor-os-shell [class*="kpi-card"]:not([data-tone="dark"]) small,
+#root .arbor-os-shell [class*="stat-card"]:not([data-tone="dark"]) > span,
+#root .arbor-os-shell [class*="stat-card"]:not([data-tone="dark"]) small {
+  color: #5a5040 !important;
+}
+
+/* =====================================================================
+   DOMKNIECIE KASKADY: naglowek modulu (hero).
+
+   Tlo `.module-page-header-hero` definiuje ponad 60 nawarstwionych regul
+   w 6 arkuszach; czesc ma !important i wyzsza specyficznosc niz warstwa
+   referencyjna (np. `#root .fleet-main > .module-page-header-hero`).
+   Efekt: hero bywal jasny, mimo ze jego tresc jest jasna Z ZALOZENIA
+   (tytul #f0ebdd, przyciski rgba(255,255,255,.12)) — tytul, podtytul
+   i przyciski byly niewidoczne (jasne na jasnym) w Zleceniach, Flocie,
+   Ekipach i Raportach.
+
+   Ten plik jest OSTATNIM importem (web/src/index.jsx), a selektor ma
+   specyficznosc (1 id, 2 klasy, 2 elementy) — wyzsza niz kazdy z tamtych.
+   Dzieki temu naglowek modulu ma jeden, przewidywalny wyglad: ciemny
+   brazowy pasek prototypu Polska Flora.
+   ===================================================================== */
+
+html body #root .module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero {
+  background: linear-gradient(135deg, #3b2a18 0%, #2a1d0f 100%) !important;
+  border: 1px solid rgba(160, 175, 20, 0.22) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 16px 40px rgba(43, 29, 15, 0.22) !important;
+  color: #efe9da !important;
+}
+
+html body #root .module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero :is(h1, h2, h3, h4, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root .module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero :is(p, span, small, li, label) {
+  color: #fae7d2 !important;
+}
+
+html body #root .module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero :is(button, a[role='button']) {
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #f0ebdd !important;
+}
+
+html body #root .module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero.module-page-header-hero :is(button, a[role='button']):hover {
+  border-color: rgba(160, 175, 20, 0.55) !important;
+  background: rgba(160, 175, 20, 0.22) !important;
+}
+
+/* Etykieta bedaca jedynym dzieckiem przycisku dziedziczy jego kolor.
+   Bez tego globalne `span { color: var(--text-muted) }` ladowalo stonowany
+   braz na akcentowym (oliwkowym) tle przycisku i napis gasl — widoczne np.
+   na „Nowa ekipa" w module Ekipy. */
+html body #root button > span:not([class]),
+html body #root a[role='button'] > span:not([class]) {
+  color: inherit !important;
+}
+
+/* Harmonogram — pasek nad kalendarzem ma CIEMNY gradient (braz -> miedz),
+   wiec jego naglowek i opisy musza byc jasne (byly ciemnym brazem = niewidoczne). */
+html body #root .harmonogram-header.harmonogram-header.harmonogram-header.harmonogram-header.harmonogram-header :is(h1, h2, h3, h4, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root .harmonogram-header.harmonogram-header.harmonogram-header :is(p, span, small, div) {
+  color: #fae7d2 !important;
+}
+
+/* Radar dyspozytorski: kafle sa JASNE (rgba(255,255,255,.92)), wiec liczniki
+   w nich musza byc atramentem — bialy na bialym czynil je pustymi. */
+html body #root .harmonogram-radar :is(button, [role='button']) :is(strong, b) {
+  color: #2c2011 !important;
+}
+
+html body #root .harmonogram-radar :is(button, [role='button']) :is(span, small) {
+  color: #5a5040 !important;
+}
+
+/* Wariant `plain` naglowka modulu jest JASNY (biala karta), ale czesc modulow
+   (np. Telefonia) stylowala jego przyciski pod ciemne tlo — bialy napis na
+   pol-przezroczystym bialym tle znikal. Ustawiamy czytelny wariant jasny. */
+html body #root .module-page-header-plain.module-page-header-plain.module-page-header-plain :is(button, a[role='button']) {
+  border: 1px solid #e0d9c8 !important;
+  background: #faf8f1 !important;
+  color: #2c2011 !important;
+}
+
+html body #root .module-page-header-plain.module-page-header-plain.module-page-header-plain :is(button, a[role='button']):hover {
+  border-color: rgba(160, 175, 20, 0.55) !important;
+  background: rgba(160, 175, 20, 0.14) !important;
 }

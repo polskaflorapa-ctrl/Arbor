@@ -859,9 +859,9 @@ body.theme-green {
   --border2: rgba(127, 140, 18, 0.34);
   --input-bg: #2c2011;
   --focus-ring: var(--ux-ring);
-  --surface-field: rgba(15, 23, 42, 0.78);
+  --surface-field: rgba(44, 32, 17, 0.78);
   --surface-raised: linear-gradient(180deg, var(--ux-panel), var(--ux-panel-2));
-  --surface-glass: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(17, 28, 47, 0.96));
+  --surface-glass: linear-gradient(180deg, rgba(44, 32, 17, 0.96), rgba(17, 28, 47, 0.96));
   --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.03), 0 14px 34px rgba(0, 0, 0, 0.2);
   background:
     radial-gradient(circle at 20% 0%, rgba(127, 140, 18, 0.16), transparent 28%),
@@ -1040,7 +1040,7 @@ body.theme-light #root .arbor-sidebar,
 body.theme-green #root .arbor-sidebar,
 body.theme-dark #root .arbor-sidebar {
   background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.98)) !important;
+    linear-gradient(180deg, rgba(44, 32, 17, 0.96), rgba(2, 6, 23, 0.98)) !important;
   border-right: 1px solid var(--ux-border) !important;
   box-shadow: 18px 0 48px rgba(0, 0, 0, 0.32) !important;
   color: var(--ux-text) !important;
@@ -1052,7 +1052,7 @@ body.theme-dark #root .arbor-sidebar {
   --text-muted: var(--ux-muted) !important;
   --border: var(--ux-border) !important;
   --nav-active-bg: rgba(127, 140, 18, 0.13) !important;
-  --ios-inset-bg: rgba(15, 23, 42, 0.72) !important;
+  --ios-inset-bg: rgba(44, 32, 17, 0.72) !important;
   --ios-row-hover: rgba(154, 144, 122, 0.12) !important;
 }
 
@@ -1065,12 +1065,13 @@ body.theme-dark #root .arbor-sidebar {
 #root :is(.ios-inset, .arbor-panel, .arbor-card, .MuiPaper-root, .MuiCard-root),
 #root :is(.dashboard-topbar, .dashboard-command-hero, .dashboard-decision-strip > button, .dashboard-kpi-grid > button),
 #root :is(.dashboard-content-grid > *, .dashboard-lower-grid > *),
-#root :is(.raporty-centrum-hero, .raporty-centrum-section, .raporty-centrum-card),
 #root :is(.explore-hero, .explore-priority, .explore-group-panel, .explore-priority-tile, .explore-tile) {
   border: 1px solid var(--ux-border) !important;
   border-radius: var(--ux-radius) !important;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(17, 28, 47, 0.98)) !important;
-  background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(17, 28, 47, 0.98)) !important;
+  /* Braz palety zamiast obcego granatu rgba(17,28,47) — kafle Raportow sa CIEMNE
+     z zalozenia (maja bialy tekst), wiec tlo musi zostac ciemne i w palecie. */
+  background: linear-gradient(180deg, #3b2a18, #2a1d0f) !important;
+  background-image: linear-gradient(180deg, #3b2a18, #2a1d0f) !important;
   box-shadow: var(--ux-shadow) !important;
   color: var(--ux-text) !important;
 }
@@ -1342,7 +1343,7 @@ body.theme-dark #root .arbor-sidebar {
   filter: none !important;
   transform: translateY(-1px) !important;
   border-color: rgba(127, 140, 18, 0.48) !important;
-  background: linear-gradient(180deg, #2c2011, #2c2011) !important;
+  background: #faf8f1 !important;
 }
 
 #root .raporty-centrum-main {
@@ -1365,7 +1366,8 @@ body.theme-dark #root .arbor-sidebar {
 #root .raporty-centrum-main span,
 #root .raporty-centrum-main small,
 #root .raporty-centrum-main div {
-  color: var(--ux-text-2) !important;
+  /* Jasne tlo modulu -> stonowany braz zamiast jasnego --ux-text-2. */
+  color: #5a5040 !important;
 }
 
 #root .raporty-centrum-grid {
@@ -1387,7 +1389,8 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .raporty-centrum-card strong,
 #root .raporty-centrum-card [style*='font-weight'] {
-  color: #ffffff !important;
+  /* Kafel jest bialy — atrament, nie biel (wczesniej: bialy na bialym). */
+  color: #2c2011 !important;
 }
 
 #root .raporty-centrum-hero > div:last-child > div {
@@ -1410,8 +1413,8 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(127, 140, 18, 0.34) !important;
   border-radius: var(--ux-radius-sm) !important;
   background: rgba(127, 140, 18, 0.12) !important;
-  color: var(--ux-accent-2) !important;
-  -webkit-text-fill-color: var(--ux-accent-2) !important;
+  color: #5d6a0b !important;
+  -webkit-text-fill-color: #5d6a0b !important;
   font-family: var(--font-mono) !important;
 }
 
@@ -1579,7 +1582,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 30px !important;
   border: 1px solid var(--ux-border) !important;
   border-radius: 10px !important;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(17, 28, 47, 0.98)) !important;
+  background: linear-gradient(180deg, rgba(44, 32, 17, 0.98), rgba(17, 28, 47, 0.98)) !important;
   box-shadow: var(--ux-shadow) !important;
   color: var(--ux-text) !important;
 }
@@ -1663,7 +1666,7 @@ body.theme-dark #root .arbor-sidebar {
   min-height: 52px !important;
   border: 1px solid var(--ux-border) !important;
   border-radius: 7px !important;
-  background: rgba(15, 23, 42, 0.86) !important;
+  background: rgba(44, 32, 17, 0.86) !important;
   color: var(--ux-text) !important;
 }
 
@@ -1746,7 +1749,7 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(154, 144, 122, 0.22) !important;
   background:
     radial-gradient(circle at 92% 12%, rgba(241, 243, 214, 0.14), transparent 28%),
-    linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(11, 18, 32, 0.98)) !important;
+    linear-gradient(145deg, rgba(44, 32, 17, 0.98), rgba(11, 18, 32, 0.98)) !important;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
   animation: arborCardIn 420ms cubic-bezier(0.2, 0.9, 0.2, 1) both !important;
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease !important;
@@ -1769,7 +1772,7 @@ body.theme-dark #root .arbor-sidebar {
   min-height: 164px !important;
   background:
     radial-gradient(circle at 85% 14%, rgba(189, 112, 30, 0.22), transparent 30%),
-    linear-gradient(145deg, rgba(44, 32, 17, 0.98), rgba(15, 23, 42, 0.98)) !important;
+    linear-gradient(145deg, rgba(44, 32, 17, 0.98), rgba(44, 32, 17, 0.98)) !important;
 }
 
 #root .dashboard-kpi-card[data-index='0'],
@@ -1780,7 +1783,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .dashboard-kpi-card[data-index='2'] {
   background:
     radial-gradient(circle at 84% 18%, rgba(127, 140, 18, 0.2), transparent 30%),
-    linear-gradient(145deg, rgba(13, 36, 30, 0.98), rgba(15, 23, 42, 0.98)) !important;
+    linear-gradient(145deg, rgba(13, 36, 30, 0.98), rgba(44, 32, 17, 0.98)) !important;
 }
 
 #root .dashboard-kpi-card[data-tone='danger'],
@@ -1788,7 +1791,7 @@ body.theme-dark #root .arbor-sidebar {
   border-color: rgba(192, 73, 47, 0.42) !important;
   background:
     radial-gradient(circle at 86% 16%, rgba(192, 73, 47, 0.2), transparent 30%),
-    linear-gradient(145deg, rgba(46, 18, 32, 0.98), rgba(15, 23, 42, 0.98)) !important;
+    linear-gradient(145deg, rgba(46, 18, 32, 0.98), rgba(44, 32, 17, 0.98)) !important;
 }
 
 #root .dashboard-kpi-card[data-tone='amber'],
@@ -1796,14 +1799,14 @@ body.theme-dark #root .arbor-sidebar {
   border-color: rgba(189, 112, 30, 0.42) !important;
   background:
     radial-gradient(circle at 86% 16%, rgba(189, 112, 30, 0.2), transparent 30%),
-    linear-gradient(145deg, rgba(45, 34, 16, 0.98), rgba(15, 23, 42, 0.98)) !important;
+    linear-gradient(145deg, rgba(45, 34, 16, 0.98), rgba(44, 32, 17, 0.98)) !important;
 }
 
 #root .dashboard-kpi-card[data-tone='blue'] {
   border-color: rgba(118, 100, 64, 0.36) !important;
   background:
     radial-gradient(circle at 86% 16%, rgba(118, 100, 64, 0.18), transparent 30%),
-    linear-gradient(145deg, rgba(44, 32, 17, 0.98), rgba(15, 23, 42, 0.98)) !important;
+    linear-gradient(145deg, rgba(44, 32, 17, 0.98), rgba(44, 32, 17, 0.98)) !important;
 }
 
 #root .dashboard-decision-card:hover,
@@ -2208,7 +2211,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 0 14px;
   border: 1px solid rgba(241, 243, 214, 0.32);
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.84);
+  background: rgba(44, 32, 17, 0.84);
   color: #f0ebdd;
   font: 850 14px var(--font-sans);
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
@@ -2293,7 +2296,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 22px;
   border: 1px solid rgba(241, 243, 214, 0.34);
   border-radius: 28px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.78));
+  background: linear-gradient(180deg, rgba(44, 32, 17, 0.86), rgba(2, 6, 23, 0.78));
   box-shadow: 0 0 52px rgba(241, 243, 214, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   text-align: center;
   z-index: 2;
@@ -2375,7 +2378,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 14px 16px;
   border: 1px solid rgba(154, 144, 122, 0.2);
   border-radius: 18px;
-  background: rgba(15, 23, 42, 0.76);
+  background: rgba(44, 32, 17, 0.76);
 }
 
 #root .dashboard-cockpit-heading strong {
@@ -2680,7 +2683,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .pf-main strong,
 #root .pf-main b {
   color: #f0ebdd !important;
-  text-shadow: 0 1px 18px rgba(15, 23, 42, 0.28);
+  text-shadow: 0 1px 18px rgba(44, 32, 17, 0.28);
 }
 
 #root .pf-main p,
@@ -3366,9 +3369,8 @@ body.theme-dark #root .arbor-sidebar {
   border: 1px solid rgba(59, 42, 24, 0.12) !important;
   border-left: 6px solid var(--pf-olive) !important;
   border-radius: 8px !important;
-  background:
-    linear-gradient(135deg, rgba(59, 42, 24, 0.97), rgba(59, 42, 24, 0.88) 55%, rgba(118, 100, 64, 0.78)) !important;
-  box-shadow: 0 24px 56px rgba(59, 42, 24, 0.18) !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(43, 29, 15, 0.08) !important;
 }
 
 #root .telefonia-main > .module-page-header-hero *,
@@ -3378,7 +3380,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .telefonia-main > .module-page-header-hero h1,
 #root .telefonia-main > .module-page-header-plain h1 {
-  color: #fff !important;
+  color: #2c2011 !important;
   font-size: clamp(30px, 3vw, 42px) !important;
 }
 
@@ -3386,7 +3388,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .telefonia-main > .module-page-header-plain p,
 #root .telefonia-main > .module-page-header-hero span,
 #root .telefonia-main > .module-page-header-plain span {
-  color: rgba(255, 255, 255, 0.72) !important;
+  color: #5a5040 !important;
 }
 
 #root .telefonia-main > .module-page-header-hero svg,
@@ -3406,9 +3408,9 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .telefonia-main > .module-page-header-hero button,
 #root .telefonia-main > .module-page-header-plain button {
-  border-color: rgba(255, 255, 255, 0.18) !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: #fff !important;
+  border-color: #e0d9c8 !important;
+  background: #faf8f1 !important;
+  color: #2c2011 !important;
 }
 
 #root .telefonia-tabs {
@@ -3424,8 +3426,19 @@ body.theme-dark #root .arbor-sidebar {
 #root .telefonia-tabs button {
   min-height: 42px !important;
   border: 1px solid transparent !important;
-  color: #995510 !important;
+  /* Stonowany braz zamiast miedzi #995510 (spoza palety) — zakladki siedza
+     na jasnym pasku, a miedz na zieleni aktywnej zakladki byla nieczytelna. */
+  color: #5a5040 !important;
   font-weight: 800 !important;
+}
+
+/* Aktywna zakladka ma ciemnozielone tlo (arbor-command-redesign.css) — jej
+   napis musi byc jasny. Prefiks #root, bo inaczej regula wyzej ja przebija. */
+#root .telefonia-tabs button[style*='var(--accent)'],
+#root .telefonia-tabs button[style*='rgb(69, 107, 31)'],
+#root .telefonia-tabs button[style*='#456b1f'],
+#root .telefonia-tabs button[style*='127, 140, 18'] {
+  color: #f0ebdd !important;
 }
 
 #root .telefonia-tabs button[style*='3b82f6'],
@@ -8698,7 +8711,10 @@ body:not(.theme-dark) {
 }
 
 #root :is(.app-main, .command-content-main):not(.login-card):not(.explore-command-main)
-  :is([class*='command-strip'], [class*='CommandStrip'], [class*='hero'], [class*='Hero']) {
+  :is([class*='command-strip'], [class*='CommandStrip'], [class*='hero'], [class*='Hero']):not(.module-page-header-hero) {
+  /* .module-page-header-hero wykluczony: to CIEMNY pasek naglowka modulu — jego
+     tresc (tytul, podtytul, przyciski) jest jasna z zalozenia, wiec jasne tlo
+     z tej reguly czynilo caly naglowek niewidocznym. */
   border: 1px solid var(--arbor-app-line) !important;
   border-radius: 18px !important;
   background: rgba(255, 253, 248, 0.94) !important;

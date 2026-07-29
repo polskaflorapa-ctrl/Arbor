@@ -90,7 +90,10 @@
 }
 
 #root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
-  :is(.module-page-header, .module-page-header-plain, .module-page-header-hero, [class*='hero'], [class*='Hero']) {
+  :is(.module-page-header, .module-page-header-plain, [class*='hero'], [class*='Hero']):not(.module-page-header-hero) {
+  /* .module-page-header-hero wykluczony: to CIEMNY hero prototypu (jego tresc ma
+     bialy tekst i przyciski rgba(255,255,255,.12)). Bialo-kartowe tlo z tej reguly
+     czynilo naglowek modulu niewidocznym — bialy na bialym. Stylowany nizej. */
   overflow: hidden !important;
   border: 1px solid var(--pf-line) !important;
   border-radius: 18px !important;
@@ -99,7 +102,7 @@
   color: var(--pf-ink) !important;
 }
 
-#root :is(.dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) {
+#root :is(.module-page-header-hero, .zlecenia-v2-primary, .clients-command-lead, .users-command-lead, .crew-att-command-lead, .field-quotes-command-lead, .field-quote-detail-command-lead, .inspection-doc-command-lead, .dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) {
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 22px !important;
   background: linear-gradient(165deg, var(--pf-brown-2), var(--pf-brown)) !important;
@@ -107,20 +110,20 @@
   box-shadow: 0 16px 40px rgba(43, 29, 15, 0.22) !important;
 }
 
-#root :is(.dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) * {
+#root :is(.module-page-header-hero, .zlecenia-v2-primary, .clients-command-lead, .users-command-lead, .crew-att-command-lead, .field-quotes-command-lead, .field-quote-detail-command-lead, .inspection-doc-command-lead, .dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) * {
   color: inherit !important;
 }
 
-#root :is(.dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) :is(small, p, span) {
+#root :is(.module-page-header-hero, .zlecenia-v2-primary, .clients-command-lead, .users-command-lead, .crew-att-command-lead, .field-quotes-command-lead, .field-quote-detail-command-lead, .inspection-doc-command-lead, .dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) :is(small, p, span) {
   color: #fae7d2 !important;
 }
 
-#root :is(.dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) :is(h1, h2, strong, b) {
+#root :is(.module-page-header-hero, .zlecenia-v2-primary, .clients-command-lead, .users-command-lead, .crew-att-command-lead, .field-quotes-command-lead, .field-quote-detail-command-lead, .inspection-doc-command-lead, .dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) :is(h1, h2, strong, b) {
   color: #f0ebdd !important;
 }
 
 #root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
-  :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card']):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar):not(.route-loading-card) {
+  :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card']):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar):not(.route-loading-card):not(.module-page-header-hero):not(.zlecenia-v2-primary):not(.clients-command-lead, .users-command-lead):not(.crew-att-command-lead):not(.field-quotes-command-lead):not(.field-quote-detail-command-lead):not(.inspection-doc-command-lead):not(.dashboard-command-hero):not(.wycena-calendar-hero):not(.branch-detail-hero):not(.clients-client-hero):not(.ogledziny-detail-hero):not(.inspection-doc-hero) {
   border: 1px solid var(--pf-line) !important;
   border-radius: 18px !important;
   background: var(--pf-card) !important;
@@ -202,4 +205,16 @@
     :is(.module-page-header, .module-page-header-plain, .module-page-header-hero, [class*='hero'], [class*='Hero'], [class*='panel'], [class*='card']) {
     border-radius: 14px !important;
   }
+}
+
+/* Domkniecie kaskady: te same selektory co globalna regula naglowkow modulu,
+   zeby CIEMNE hero/panele nie dostawaly ciemnego atramentu na ciemnym tle. */
+#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
+  :is(.module-page-header-hero, .zlecenia-v2-primary, .clients-command-lead, .users-command-lead, .crew-att-command-lead, .field-quotes-command-lead, .field-quote-detail-command-lead, .inspection-doc-command-lead, .dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) :is(h1, h2, h3, h4, strong, b) {
+  color: #f0ebdd !important;
+}
+
+#root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
+  :is(.module-page-header-hero, .zlecenia-v2-primary, .clients-command-lead, .users-command-lead, .crew-att-command-lead, .field-quotes-command-lead, .field-quote-detail-command-lead, .inspection-doc-command-lead, .dashboard-command-hero, .wycena-calendar-hero, .branch-detail-hero, .clients-client-hero, .ogledziny-detail-hero, .inspection-doc-hero) :is(small, p, span, li, dd, dt, label, td, th) {
+  color: #fae7d2 !important;
 }

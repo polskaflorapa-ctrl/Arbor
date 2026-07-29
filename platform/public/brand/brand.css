@@ -1,0 +1,138 @@
+/* Polska Flora — cyfrowe odwzorowanie Brand Booka, strony 6–15. */
+@font-face {
+  font-family: "Road UA";
+  src: url("/brand/fonts/RoadUA-Thin.otf") format("opentype");
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("/brand/fonts/RoadUA-ExtraLight.otf") format("opentype");
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("/brand/fonts/RoadUA-Light.otf") format("opentype");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("/brand/fonts/RoadUA-Regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("/brand/fonts/RoadUA-Medium.otf") format("opentype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("/brand/fonts/RoadUA-Bold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("/brand/fonts/RoadUA-ExtraBold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Road UA";
+  src: url("/brand/fonts/RoadUA-Black.otf") format("opentype");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
+
+:root {
+  --pf-dark-brown: #3B2A18;
+  --pf-light-brown: #766440;
+  --pf-primary-green: #A0AF14;
+  --pf-light-green: #B4C232;
+  --pf-orange-brown: #BD701E;
+  --pf-white: #FFFFFF;
+  --pf-font: "Road UA", Arial, sans-serif;
+  --pf-logo-clear-space: 12px;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--pf-font);
+  font-synthesis: none;
+}
+
+h1 {
+  font-weight: 800;
+}
+
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 700;
+}
+
+.pf-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 8px var(--pf-logo-clear-space);
+}
+
+.pf-official-logo {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.pf-official-logo--start {
+  width: 176px;
+}
+
+.pf-official-logo--sidebar {
+  width: 156px;
+}
+
+.pf-official-logo--portal {
+  width: 164px;
+}
+
+.pf-official-logo--mobile {
+  width: 112px;
+}
+
+@media (max-width: 620px) {
+  .pf-official-logo--start {
+    width: 156px;
+  }
+
+  .pf-official-logo--portal {
+    width: 140px;
+  }
+}

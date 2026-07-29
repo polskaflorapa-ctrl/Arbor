@@ -2770,7 +2770,7 @@ const S = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    border: '1px solid rgba(15,23,42,0.1)',
+    border: '1px solid rgba(44, 32, 17,0.1)',
     background: '#FFFFFF',
     borderRadius: 8,
     padding: '8px 10px',
@@ -2792,7 +2792,7 @@ const S = {
     margin: '0 0 10px',
     padding: 4,
     borderRadius: 8,
-    border: '1px solid rgba(15,23,42,0.08)',
+    border: '1px solid rgba(44, 32, 17,0.08)',
     background: '#FFFFFF',
   },
   commandTab: {
@@ -2839,7 +2839,7 @@ const S = {
     marginBottom: 10,
   },
   commandKpi: {
-    border: '1px solid rgba(15,23,42,0.08)',
+    border: '1px solid rgba(44, 32, 17,0.08)',
     background: '#FFFFFF',
     borderRadius: 8,
     padding: 11,
@@ -2872,7 +2872,7 @@ const S = {
   },
   commandMapPanel: {
     minWidth: 0,
-    border: '1px solid rgba(15,23,42,0.08)',
+    border: '1px solid rgba(44, 32, 17,0.08)',
     background: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
@@ -2915,7 +2915,7 @@ const S = {
   commandMapGrid: {
     position: 'absolute',
     inset: 0,
-    backgroundImage: 'linear-gradient(rgba(15,23,42,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.055) 1px, transparent 1px)',
+    backgroundImage: 'linear-gradient(rgba(44, 32, 17,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(44, 32, 17,0.055) 1px, transparent 1px)',
     backgroundSize: '48px 48px',
     maskImage: 'radial-gradient(circle at 50% 50%, black, transparent 82%)',
   },
@@ -2944,7 +2944,7 @@ const S = {
     textDecoration: 'none',
     fontSize: 11,
     fontWeight: 950,
-    boxShadow: '0 10px 22px rgba(15,23,42,0.12)',
+    boxShadow: '0 10px 22px rgba(44, 32, 17,0.12)',
   },
   commandCrewPointActive: {
     width: 40,
@@ -2983,7 +2983,7 @@ const S = {
     display: 'flex',
     flexWrap: 'wrap',
     gap: 8,
-    border: '1px solid rgba(15,23,42,0.08)',
+    border: '1px solid rgba(44, 32, 17,0.08)',
     background: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
     padding: '8px 9px',
@@ -2993,7 +2993,7 @@ const S = {
   },
   commandQueue: {
     minWidth: 0,
-    border: '1px solid rgba(15,23,42,0.08)',
+    border: '1px solid rgba(44, 32, 17,0.08)',
     background: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
@@ -3019,7 +3019,7 @@ const S = {
     gap: 9,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(15,23,42,0.08)',
+    borderColor: 'rgba(44, 32, 17,0.08)',
     background: '#f0ebdd',
     borderRadius: 8,
     padding: 10,
@@ -3073,7 +3073,7 @@ const S = {
     bottom: 10,
     zIndex: 20,
     marginTop: 12,
-    boxShadow: '0 -18px 38px rgba(15,23,42,0.18)',
+    boxShadow: '0 -18px 38px rgba(44, 32, 17,0.18)',
   },
   commandSelectedTop: {
     display: 'flex',
@@ -3117,7 +3117,7 @@ const S = {
     fontWeight: 900,
   },
   commandEmpty: {
-    border: '1px dashed rgba(15,23,42,0.14)',
+    border: '1px dashed rgba(44, 32, 17,0.14)',
     borderRadius: 8,
     color: '#8a8069',
     padding: 12,
@@ -3127,7 +3127,7 @@ const S = {
   },
   commandTimeline: {
     marginTop: 12,
-    border: '1px solid rgba(15,23,42,0.08)',
+    border: '1px solid rgba(44, 32, 17,0.08)',
     background: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
@@ -3188,7 +3188,7 @@ const S = {
     background: '#f0ebdd',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(15,23,42,0.07)',
+    borderColor: 'rgba(44, 32, 17,0.07)',
   },
   commandTimelineBlock: {
     position: 'absolute',

@@ -2944,7 +2944,7 @@ const S = {
   dangerBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(192, 73, 47, 0.35)', background: 'rgba(192, 73, 47, 0.08)', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   warningBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(153, 85, 16, 0.35)', background: 'rgba(189, 112, 30, 0.1)', color: '#995510', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   assetTitleButton: { display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', color: 'var(--text)', cursor: 'pointer', padding: 0, fontSize: 15, fontWeight: 700, textAlign: 'left' },
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(44, 32, 17,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
   modalPanel: { width: 'min(680px, 100%)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface-glass)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 },
   modalHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: 12 },
   modalEyebrow: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },

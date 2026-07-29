@@ -907,7 +907,7 @@ const pfSb = {
     flexDirection: 'column',
     background: '#5d6a0b',
     color: '#ffffff',
-    boxShadow: '18px 0 42px rgba(15, 23, 42, 0.18)',
+    boxShadow: '18px 0 42px rgba(44, 32, 17, 0.18)',
   },
   logo: {
     height: 64,
@@ -1062,7 +1062,7 @@ const sb = {
     padding: '10px',
     borderRadius: 12,
     border: `1px solid ${NAV_BORDER}`,
-    background: 'linear-gradient(135deg, rgba(2,6,23,0.76), rgba(15,23,42,0.9))',
+    background: 'linear-gradient(135deg, rgba(2,6,23,0.76), rgba(44, 32, 17,0.9))',
   },
   quickTitle: {
     margin: '0 0 8px',

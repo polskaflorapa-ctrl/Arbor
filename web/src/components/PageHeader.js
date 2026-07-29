@@ -38,7 +38,10 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
 
   return (
     <header
-      className={`module-page-header ${isHero ? 'module-page-header-hero ios-glass-panel' : 'module-page-header-plain'} ${className}`.trim()}
+      // `ios-glass-panel` swiadomie usuniete z hero: to klasa "bialego szkla",
+      // ktora sciagala ~10 regul wybielajacych tlo ([class*='panel'] itd.),
+      // podczas gdy pasek naglowka modulu jest CIEMNY (jasny tytul i przyciski).
+      className={`module-page-header ${isHero ? 'module-page-header-hero' : 'module-page-header-plain'} ${className}`.trim()}
       style={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -55,8 +58,8 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               background:
                 'linear-gradient(90deg, rgba(154, 144, 122, 0.16) 1px, transparent 1px), linear-gradient(0deg, rgba(154, 144, 122, 0.12) 1px, transparent 1px), linear-gradient(135deg, #5d6a0b 0%, #456b1f 58%, #456b1f 100%)',
               backgroundSize: '52px 52px, 52px 52px, auto',
-              border: '1px solid rgba(15, 23, 42, 0.1)',
-              boxShadow: '0 26px 70px rgba(15, 23, 42, 0.16)',
+              border: '1px solid rgba(44, 32, 17, 0.1)',
+              boxShadow: '0 26px 70px rgba(44, 32, 17, 0.16)',
               minHeight: 210,
               overflow: 'hidden',
             }
@@ -64,9 +67,13 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
           ? {
               padding: '18px 20px',
               borderRadius: 10,
-              background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
-              border: '1px solid var(--glass-border)',
-              boxShadow: 'var(--shadow-sm)',
+              // Ciemny brazowy pasek naglowka jak w prototypie Polska Flora.
+              // Wczesniej byl jasny (--glass-bg), a tresc hero jest jasna z zalozenia
+              // (tytul #f0ebdd, przyciski rgba(255,255,255,.12)) — naglowek znikal.
+              background: 'linear-gradient(135deg, #3b2a18 0%, #2a1d0f 100%)',
+              border: '1px solid rgba(160, 175, 20, 0.22)',
+              boxShadow: '0 16px 40px rgba(43, 29, 15, 0.22)',
+              color: '#efe9da',
             }
           : {
               paddingBottom: 16,

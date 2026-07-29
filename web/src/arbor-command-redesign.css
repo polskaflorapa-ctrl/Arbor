@@ -16,7 +16,7 @@ body.theme-light {
   --command-blue: #766440;
   --command-amber: #995510;
   --command-red: #c0492f;
-  --command-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
+  --command-shadow: 0 10px 28px rgba(44, 32, 17, 0.07);
 }
 
 /* CRM lead record: Kommo-style unified chronological activity feed. */
@@ -1941,8 +1941,8 @@ body.theme-dark {
 
 .dashboard-shell {
   background:
-    linear-gradient(90deg, rgba(15, 23, 42, 0.028) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(15, 23, 42, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(44, 32, 17, 0.028) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(44, 32, 17, 0.022) 1px, transparent 1px),
     var(--command-bg) !important;
   background-size: 32px 32px, 32px 32px, auto !important;
 }
@@ -2142,7 +2142,7 @@ body.theme-dark {
 .dashboard-lower-grid > *:hover,
 .dashboard-shortcuts-grid > *:hover {
   transform: translateY(-1px) !important;
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.09) !important;
+  box-shadow: 0 14px 32px rgba(44, 32, 17, 0.09) !important;
 }
 
 .dashboard-kpi-grid {

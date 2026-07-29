@@ -264,9 +264,13 @@ export default function Oddzialy() {
             { key: 'oddzialy', label: t('pages.oddzialy.tabBranches', { count: oddzialy.length }) },
             { key: 'delegacje', label: t('pages.oddzialy.tabDelegations', { count: delegacje.length }) },
           ].map((tab) => (
+            /* Zakladka zawsze `ghost`: aktywnosc niesie podkreslenie + kolor tekstu.
+               `primary` dokladal akcentowy GRADIENT tla, ktorego inline
+               `backgroundColor: transparent` nie zdejmuje — akcentowy tekst
+               ladowal wtedy na akcentowym tle i zakladka byla nieczytelna. */
             <Button
               key={tab.key}
-              variant={activeTab === tab.key ? 'primary' : 'ghost'}
+              variant="ghost"
               size="sm"
               style={{ padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: activeTab === tab.key ? 'var(--accent)' : '#8a8069', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' }}
               onClick={() => setActiveTab(tab.key)}

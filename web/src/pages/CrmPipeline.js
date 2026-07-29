@@ -1322,7 +1322,7 @@ export default function CrmPipeline() {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(15,23,42,0.18)',
+              background: 'rgba(44, 32, 17,0.18)',
               backdropFilter: 'blur(2px)',
               zIndex: 250,
             }}

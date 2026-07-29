@@ -611,7 +611,7 @@ const s = {
     height: 9,
     borderRadius: '50%',
     flex: '0 0 auto',
-    boxShadow: '0 0 0 4px rgba(15,23,42,0.04)',
+    boxShadow: '0 0 0 4px rgba(44, 32, 17,0.04)',
   },
   demoText: {
     minWidth: 0,
