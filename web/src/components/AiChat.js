@@ -4,6 +4,7 @@ import { MessageCircle, RotateCcw, Send, X } from 'lucide-react';
 import api from '../api';
 import { Button } from './ui/Button';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import useDraggablePanel from '../hooks/useDraggablePanel';
 
 const PAGE_CONTEXT = {
   '/dashboard': 'Dashboard — przegląd statystyk i szybkich akcji',
@@ -135,6 +136,10 @@ export default function AiChat() {
       ? 'Claude AI'
       : 'AI';
 
+  // Panel da sie chwycic za naglowek i postawic gdziekolwiek — wczesniej byl
+  // przyklejony do prawego dolnego rogu i potrafil zaslaniac tresc.
+  const dock = useDraggablePanel('pf-ai-chat-pos', { width: 380, height: 520 });
+
   return (
     <>
       {/* Pływający przycisk */}
@@ -156,9 +161,9 @@ export default function AiChat() {
 
       {/* Panel chatu */}
       {open && (
-        <div style={S.panel}>
+        <div style={{ ...S.panel, ...dock.style }} data-draggable-panel="ai-chat">
           {/* Header */}
-          <div style={S.header}>
+          <div {...dock.handleProps} style={{ ...S.header, ...dock.handleProps.style }}>
             <div style={S.headerLeft}>
               <div style={S.avatarAi}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7f8c12" strokeWidth="2" strokeLinecap="round">

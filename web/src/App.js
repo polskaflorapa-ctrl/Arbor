@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import AiChat from './components/AiChat';
 import { DevPanel } from './components/DevPanel';
 import PhoneWidget from './components/PhoneWidget';
+import PhoneWidgetDock from './components/PhoneWidgetDock';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Zlecenia = lazy(() => import('./pages/Zlecenia'));
@@ -89,7 +90,7 @@ function AppChrome() {
     || location.pathname === '/login'
     || location.pathname === '/portal-klienta'
     || location.pathname.startsWith('/portal-klienta/');
-  return hideChat ? null : <><PhoneWidget /><AiChat /></>;
+  return hideChat ? null : <><PhoneWidget /><PhoneWidgetDock /><AiChat /></>;
 }
 
 function RouteLoadingFallback() {

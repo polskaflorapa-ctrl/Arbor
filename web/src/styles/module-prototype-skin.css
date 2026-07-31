@@ -392,3 +392,173 @@ html body #root .fleet-command-radar .fleet-command-actions :is(button, a[role='
 html body #root .fleet-command-radar .fleet-command-actions :is(button, a[role='button']) :is(span, small, strong) {
   color: #efe9da !important;
 }
+
+/* =====================================================================
+   DOMKNIECIE II: pozostale moduly (audyt AA na wszystkich 63 trasach).
+
+   Dwa lustrzane wzorce, oba znane z wczesniejszych napraw:
+   A) pasek naglowka JEST ciemny, ale tytul dostaje ciemny atrament
+      z globalnej reguly `[class*='-main'] h1..h4` — napis znika,
+   B) komponent zaprojektowano jako CIEMNY (jego tresc ma jasny tekst),
+      ale warstwa referencyjna wybielila mu tlo — tresc znika.
+   ===================================================================== */
+
+/* --- A) Ciemne paski naglowkowe: tytul i opis musza byc jasne --- */
+html body #root :is(.hr-docs-header, .bi-dashboard-topbar, .crm-kommo-topbar,
+  .field-settlements-header, .operator-tasks-header, .kierownik-cockpit-panel,
+  .mapa-live-command-center) :is(h1, h2, h3, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root :is(.hr-docs-header, .bi-dashboard-topbar, .crm-kommo-topbar,
+  .field-settlements-header, .operator-tasks-header, .kierownik-cockpit-panel,
+  .mapa-live-command-center) :is(p, small, span:not([class]), div:not([class])) {
+  color: #fae7d2 !important;
+}
+
+/* --- B) Komponenty projektowane jako ciemne: przywracamy ciemne tlo --- */
+html body #root .wycena-calendar-hero.wycena-calendar-hero.wycena-calendar-hero,
+html body #root .explore-hero.explore-hero.explore-hero,
+html body #root .crm-inbox-command-strip.crm-inbox-command-strip.crm-inbox-command-strip,
+html body #root .mapa-live-command-kpis.mapa-live-command-kpis > div {
+  background: linear-gradient(135deg, #3b2a18 0%, #2a1d0f 100%) !important;
+  border-color: rgba(160, 175, 20, 0.22) !important;
+  color: #efe9da !important;
+}
+
+html body #root :is(.wycena-calendar-hero, .explore-hero, .crm-inbox-command-strip,
+  .mapa-live-command-kpis) :is(h1, h2, h3, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root :is(.wycena-calendar-hero, .explore-hero, .crm-inbox-command-strip,
+  .mapa-live-command-kpis) :is(p, small, span) {
+  color: #fae7d2 !important;
+}
+
+/* --- Drobne, pojedyncze przypadki zmierzone na zywym UI --- */
+
+/* Panel HR ma ciemne tlo — pusty stan byl w stonowanym brazie. */
+html body #root .hr-panel-shell :is(.modern-data-empty, [class*='empty']) {
+  color: #cbbd9a !important;
+}
+
+/* Tabela Kontroli operacyjnej i przelaczniki okresu w BI stoja na bialym. */
+html body #root .kontrola-operacyjna-main td,
+html body #root table tbody td[style*='250, 231, 210'],
+html body #root .bi-dashboard-periods button :is(span, small) {
+  color: #5a5040 !important;
+}
+
+/* Plakietka priorytetu u wyceniajacego: miedz na jasnym piasku (3.1). */
+html body #root .estimator-office-priority {
+  color: #7a4310 !important;
+}
+
+/* Cockpit kierownika i pulpit BI: kafle maja jasny, kremowy tekst (#f0ebdd /
+   #fae7d2) — byly projektowane jako CIEMNE panele. Warstwa referencyjna
+   wybielila im tlo, przez co caly widok stawal sie wyblakly i nieczytelny
+   (audyt: 51 elementow w Kierowniku, 34 w BI). Przywracamy ciemne tlo,
+   spojnie z radarami Zlecen i Floty, ktore juz tak wygladaja. */
+html body #root .kierownik-cockpit-panel.kierownik-cockpit-panel > div > div,
+html body #root .bi-dashboard-kpis.bi-dashboard-kpis > div,
+html body #root .bi-dashboard-topbar.bi-dashboard-topbar,
+html body #root .kierownik-cockpit-panel.kierownik-cockpit-panel {
+  border: 1px solid rgba(160, 175, 20, 0.22) !important;
+  background: linear-gradient(135deg, #3b2a18 0%, #2a1d0f 100%) !important;
+  color: #efe9da !important;
+}
+
+html body #root :is(.kierownik-cockpit-panel, .bi-dashboard-kpis, .bi-dashboard-topbar) :is(h1, h2, h3, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root :is(.kierownik-cockpit-panel, .bi-dashboard-kpis, .bi-dashboard-topbar) :is(p, small, span, div:not([class])) {
+  color: #fae7d2 !important;
+}
+
+/* Przelaczniki okresu w BI stoja na BIALYM pasku — tam atrament, nie krem. */
+html body #root .bi-dashboard-periods button,
+html body #root .bi-dashboard-periods button :is(span, small) {
+  color: #2c2011 !important;
+}
+
+html body #root .bi-dashboard-periods button[style*='160, 175, 20'],
+html body #root .bi-dashboard-periods button[style*='var(--accent)'],
+html body #root .bi-dashboard-periods button[aria-pressed='true'],
+html body #root .bi-dashboard-periods button[aria-pressed='true'] :is(span, small) {
+  color: #23260a !important;
+}
+
+/* =====================================================================
+   WZMOCNIENIE: powyzsze reguly przegrywaly ze wczesniejszymi warstwami,
+   ktore maja dlugie lancuchy :not() (kazdy :not() dodaje klase do
+   specyficznosci). Powtorzenie :is() mnozy specyficznosc bez zmiany
+   tego, co selektor dopasowuje.
+   ===================================================================== */
+
+/* Ciemne paski naglowkowe — tytul jasny. */
+html body #root
+  :is(.hr-docs-header, .bi-dashboard-topbar, .crm-kommo-topbar, .field-settlements-header,
+      .operator-tasks-header, .kierownik-cockpit-panel, .mapa-live-command-center)
+  :is(.hr-docs-header, .bi-dashboard-topbar, .crm-kommo-topbar, .field-settlements-header,
+      .operator-tasks-header, .kierownik-cockpit-panel, .mapa-live-command-center, *)
+  :is(h1, h2, h3, h4, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root
+  :is(.hr-docs-header, .bi-dashboard-topbar, .crm-kommo-topbar, .field-settlements-header,
+      .operator-tasks-header, .kierownik-cockpit-panel, .mapa-live-command-center)
+  :is(.hr-docs-header, .bi-dashboard-topbar, .crm-kommo-topbar, .field-settlements-header,
+      .operator-tasks-header, .kierownik-cockpit-panel, .mapa-live-command-center, *)
+  :is(p, small, span, li, td, div) {
+  color: #fae7d2 !important;
+}
+
+/* Naglowki bezposrednio w tych paskach (bez posrednika). */
+html body #root .hr-docs-header.hr-docs-header.hr-docs-header.hr-docs-header :is(h1, h2, h3, strong),
+html body #root .bi-dashboard-topbar.bi-dashboard-topbar.bi-dashboard-topbar.bi-dashboard-topbar :is(h1, h2, h3, strong),
+html body #root .operator-tasks-header.operator-tasks-header.operator-tasks-header.operator-tasks-header :is(h1, h2, h3, strong),
+html body #root .crm-kommo-topbar.crm-kommo-topbar.crm-kommo-topbar.crm-kommo-topbar :is(h1, h2, h3, strong),
+html body #root .field-settlements-header.field-settlements-header.field-settlements-header.field-settlements-header :is(h1, h2, h3, strong),
+html body #root .kierownik-cockpit-panel.kierownik-cockpit-panel.kierownik-cockpit-panel.kierownik-cockpit-panel :is(h1, h2, h3, strong) {
+  color: #f0ebdd !important;
+}
+
+html body #root .hr-docs-header.hr-docs-header.hr-docs-header.hr-docs-header :is(p, small, span),
+html body #root .bi-dashboard-topbar.bi-dashboard-topbar.bi-dashboard-topbar.bi-dashboard-topbar :is(p, small, span),
+html body #root .operator-tasks-header.operator-tasks-header.operator-tasks-header.operator-tasks-header :is(p, small, span),
+html body #root .crm-kommo-topbar.crm-kommo-topbar.crm-kommo-topbar.crm-kommo-topbar :is(p, small, span),
+html body #root .field-settlements-header.field-settlements-header.field-settlements-header.field-settlements-header :is(p, small, span),
+html body #root .kierownik-cockpit-panel.kierownik-cockpit-panel.kierownik-cockpit-panel.kierownik-cockpit-panel :is(p, small, span, button) {
+  color: #fae7d2 !important;
+}
+
+/* Przelaczniki okresu BI stoja na BIALYM pasku — atrament, nie krem. */
+html body #root .bi-dashboard-periods.bi-dashboard-periods.bi-dashboard-periods.bi-dashboard-periods button,
+html body #root .bi-dashboard-periods.bi-dashboard-periods.bi-dashboard-periods.bi-dashboard-periods button :is(span, small) {
+  color: #2c2011 !important;
+}
+
+/* Ostateczne domkniecie tych kilku naglowkow i paskow akcji.
+   Potrojone #root daje specyficznosc (3 id), ktorej zadna z wczesniejszych
+   warstw nie osiaga — konczy licytacje zamiast kolejnej rundy zgadywania. */
+
+html body #root#root#root :is(.hr-docs-header, .bi-dashboard-topbar, .operator-tasks-header,
+  .crm-kommo-topbar, .field-settlements-header, .kierownik-cockpit-panel) :is(h1, h2, h3) {
+  color: #f0ebdd !important;
+}
+
+html body #root#root#root :is(.hr-docs-header, .bi-dashboard-topbar, .operator-tasks-header,
+  .crm-kommo-topbar, .field-settlements-header, .kierownik-cockpit-panel) > div > p,
+html body #root#root#root :is(.hr-docs-header, .bi-dashboard-topbar, .operator-tasks-header,
+  .crm-kommo-topbar, .field-settlements-header) p {
+  color: #fae7d2 !important;
+}
+
+/* Paski akcji w tych naglowkach maja JASNE przyciski — tam atrament. */
+html body #root#root#root :is(.bi-dashboard-actions, .kierownik-cockpit-panel) button,
+html body #root#root#root :is(.bi-dashboard-actions, .kierownik-cockpit-panel) button :is(span, small) {
+  color: #2c2011 !important;
+}
