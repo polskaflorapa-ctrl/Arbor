@@ -68,6 +68,14 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    # `api` mial healthcheck, `web` nie — stack raportowal gotowosc, zanim nginx
+    # faktycznie zaczal odpowiadac. Sonda /healthz jest w nginx.conf.
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     restart: unless-stopped
     logging:
       driver: json-file
