@@ -689,3 +689,23 @@ html body #root#root#root .kierownik-cockpit-panel.kierownik-cockpit-panel butto
   --text-muted: #b5a67f !important;
   --text-3: #b5a67f !important;
 }
+
+/* =====================================================================
+   UKLAD: tresc modulu nie moze wychodzic poza ekran.
+
+   Kontener tresci dostaje `margin-left` rownej szerokosci bocznego paska,
+   ale w kilku modulach ma tez wlasna szerokosc liczona od PELNEGO okna
+   (1280 * 90% = 1152). Razem z marginesem 248px daje to 1400px przy oknie
+   1280 — prawa czesc interfejsu (przyciski naglowka, kolumny tabel)
+   wyjezdzala poza krawedz. Widoczne w Oddzialach, Uzytkownikach, BI
+   i Magazynie.
+
+   Blok z marginesem sam dopelnia dostepna szerokosc, wiec wystarczy
+   oddac mu decyzje o szerokosci.
+   ===================================================================== */
+html body #root [class*='-shell'] > [class*='-main']:not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar),
+html body #root [class*='-shell'] > main:not(.pf-sidebar):not(.command-native-sidebar) {
+  width: auto !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
