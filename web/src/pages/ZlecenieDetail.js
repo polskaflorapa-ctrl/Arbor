@@ -1297,7 +1297,7 @@ export default function ZlecenieDetail() {
         {/* KPI */}
         <div className="task-detail-kpis" style={styles.kpiRow}>
           <div style={{ ...styles.kpi, borderTopColor: 'var(--accent)', display: canSeeFinance ? undefined : 'none' }}>
-            <div style={styles.kpiIcon}><AttachMoney sx={{ fontSize: 26, color: 'var(--accent)' }} /></div>
+            <div style={styles.kpiIcon}><AttachMoney sx={{ fontSize: 26, color: 'var(--accent-text)' }} /></div>
             <div style={styles.kpiNum}>{formatCurrency(wartosc)}</div>
             <div style={styles.kpiLabel}>Wartość</div>
           </div>
@@ -1334,7 +1334,7 @@ export default function ZlecenieDetail() {
             <div style={styles.kpiLabel}>Filmy</div>
           </div>
           <div style={{ ...styles.kpi, borderTopColor: 'var(--accent)' }}>
-            <div style={styles.kpiIcon}><ChecklistOutlined sx={{ fontSize: 26, color: 'var(--accent)' }} /></div>
+            <div style={styles.kpiIcon}><ChecklistOutlined sx={{ fontSize: 26, color: 'var(--accent-text)' }} /></div>
             <div style={styles.kpiNum}>{activeEquipmentReservations.length}</div>
             <div style={styles.kpiLabel}>Sprzet</div>
           </div>
@@ -2362,7 +2362,7 @@ export default function ZlecenieDetail() {
                         <div style={{ fontWeight: '600', color: 'var(--text)', fontSize: 15 }}>
                           {d.imie} {d.nazwisko}
                         </div>
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, backgroundColor: d.zatwierdzona ? 'var(--accent)22' : '#F59E0B22', color: d.zatwierdzona ? 'var(--accent)' : '#bd701e', fontWeight: '600' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, backgroundColor: d.zatwierdzona ? 'var(--accent)22' : '#F59E0B22', color: d.zatwierdzona ? 'var(--accent)' : '#9a5613', fontWeight: '600' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             {d.zatwierdzona ? <CheckCircleOutline sx={{ fontSize: 14 }} /> : <HourglassEmptyOutlined sx={{ fontSize: 14 }} />}
                             {d.zatwierdzona ? 'Zatwierdzona' : 'Oczekuje'}
@@ -2379,7 +2379,7 @@ export default function ZlecenieDetail() {
                           {d.godziny}h × {d.stawka_wartosc} PLN/h
                         </div>
                       )}
-                      <div style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--accent)', marginTop: 8 }}>
+                      <div style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--accent-text)', marginTop: 8 }}>
                         {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(d.kwota)}
                       </div>
                     </div>
@@ -2387,7 +2387,7 @@ export default function ZlecenieDetail() {
                 </div>
                 <div style={{ marginTop: 16, padding: '12px 16px', backgroundColor: 'var(--bg)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--text-sub)', fontWeight: '600' }}>Łącznie wypłacono:</span>
-                  <span style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent)' }}>
+                  <span style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent-text)' }}>
                     {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(dniowki.reduce((s, d) => s + parseFloat(d.kwota || 0), 0))}
                   </span>
                 </div>
@@ -2510,7 +2510,7 @@ export default function ZlecenieDetail() {
                 marginBottom: 10,
                 alignItems: 'flex-start',
               }}>
-                <AttachMoney sx={{ fontSize: 18, color: 'var(--accent)' }} />
+                <AttachMoney sx={{ fontSize: 18, color: 'var(--accent-text)' }} />
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
                     {finishCostSuggestionsLoading ? 'Pobieram stawki oddzialu...' : 'Podpowiedzi ze stawek oddzialu'}
@@ -2548,7 +2548,7 @@ export default function ZlecenieDetail() {
                           borderRadius: 8,
                           padding: '6px 8px',
                           background: 'var(--accent-soft, rgba(160, 175, 20, 0.14))',
-                          color: 'var(--accent)',
+                          color: 'var(--accent-text)',
                           cursor: 'pointer',
                           fontSize: 12,
                           fontWeight: 700,
@@ -2772,7 +2772,7 @@ const styles = {
   spinner: { width: 24, height: 24, border: '3px solid var(--border)', borderTop: '3px solid var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' },
   topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 },
   breadcrumb: { display: 'flex', gap: 8, fontSize: 14, alignItems: 'center', flexWrap: 'wrap' },
-  link: { color: 'var(--accent)', cursor: 'pointer', fontWeight: '500', '&:hover': { textDecoration: 'underline' } },
+  link: { color: 'var(--accent-text)', cursor: 'pointer', fontWeight: '500', '&:hover': { textDecoration: 'underline' } },
   sep: { color: 'var(--text-muted)' },
   topActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   pdfBtn: { padding: '8px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.22)', cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
@@ -2781,11 +2781,11 @@ const styles = {
   cancelBtn: { padding: '8px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   heroCard: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 },
   heroLeft: { flex: 1 },
-  heroTitle: { fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: 'var(--accent)', marginBottom: 8 },
+  heroTitle: { fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 8 },
   heroAddr: { fontSize: 14, color: 'var(--text-muted)', marginBottom: 8 },
   heroContact: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' },
-  phoneLink: { color: 'var(--accent)', textDecoration: 'none', fontWeight: '600', fontSize: 14 },
-  mapBtn: { backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 8, textDecoration: 'none', fontSize: 12, fontWeight: '500' },
+  phoneLink: { color: 'var(--accent-text)', textDecoration: 'none', fontWeight: '600', fontSize: 14 },
+  mapBtn: { backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 8, textDecoration: 'none', fontSize: 12, fontWeight: '500' },
   heroBadges: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   statusSelect: { padding: '6px 12px', borderRadius: 999, color: '#fff', fontSize: 13, fontWeight: '600', border: 'none', cursor: 'pointer' },
   prioBadge: {
@@ -2805,10 +2805,10 @@ const styles = {
   kpiLabel: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
   tabs: { display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid var(--border)', flexWrap: 'wrap' },
   tab: { padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: 'var(--text-muted)', borderBottom: '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' },
-  tabActive: { color: 'var(--accent)', borderBottom: '2px solid var(--accent)' },
+  tabActive: { color: 'var(--accent-text)', borderBottom: '2px solid var(--accent)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
   card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)', marginBottom: 20 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
+  cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   presenceCard: { background: 'var(--surface-glass)', borderRadius: 8, padding: 18, boxShadow: 'var(--shadow-md)', marginBottom: 20, border: '1px solid var(--glass-border)' },
   presenceHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 },
   presenceTitleWrap: { display: 'flex', alignItems: 'center', gap: 12 },
@@ -2825,7 +2825,7 @@ const styles = {
   gpsHistorySub: { fontSize: 12, color: 'var(--text-muted)', marginTop: 2 },
   gpsHistoryControls: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' },
   gpsHistoryDateInput: { padding: '5px 8px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 700 },
-  gpsHistoryCount: { border: '1px solid var(--border)', borderRadius: 999, padding: '5px 9px', color: 'var(--accent)', backgroundColor: 'var(--surface-field)', fontSize: 12, fontWeight: 900 },
+  gpsHistoryCount: { border: '1px solid var(--border)', borderRadius: 999, padding: '5px 9px', color: 'var(--accent-text)', backgroundColor: 'var(--surface-field)', fontSize: 12, fontWeight: 900 },
   gpsHistoryError: { border: '1px solid rgba(192, 73, 47, 0.28)', color: 'var(--danger)', backgroundColor: 'rgba(192, 73, 47, 0.08)', borderRadius: 8, padding: '9px 10px', marginBottom: 10, fontSize: 12, fontWeight: 800 },
   gpsHistorySummary: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 10 },
   gpsHistoryStrip: { display: 'flex', alignItems: 'center', gap: 5, minHeight: 34, border: '1px solid var(--border)', borderRadius: 8, backgroundColor: 'var(--surface-field)', padding: '9px 10px', overflowX: 'auto', marginBottom: 10 },
@@ -2839,7 +2839,7 @@ const styles = {
   equipmentCard: { border: '1px solid var(--border)', borderRadius: 8, padding: 12, backgroundColor: 'var(--surface-field)' },
   equipmentTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, fontSize: 14, color: 'var(--text)', flexWrap: 'wrap' },
   equipmentStatus: { padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' },
-  equipmentStatusActive: { backgroundColor: 'rgba(127, 140, 18, 0.16)', color: 'var(--accent)' },
+  equipmentStatusActive: { backgroundColor: 'rgba(127, 140, 18, 0.16)', color: 'var(--accent-text)' },
   equipmentStatusInactive: { backgroundColor: 'rgba(154, 144, 122, 0.18)', color: 'var(--text-muted)' },
   equipmentMeta: { marginTop: 5, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35 },
   equipmentNote: { marginTop: 8, padding: '8px 10px', borderRadius: 8, backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.45 },
@@ -2848,10 +2848,10 @@ const styles = {
   notatkiText: { fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.6 },
   statusGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 },
   statusBtn: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-1px)' } },
-  mapBigBtn: { display: 'block', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', padding: '12px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: '500', marginBottom: 8, textAlign: 'center', transition: 'all 0.2s' },
-  pdfBigBtn: { display: 'block', width: '100%', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 14, fontWeight: '500', textAlign: 'center', transition: 'all 0.2s' },
+  mapBigBtn: { display: 'block', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '12px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: '500', marginBottom: 8, textAlign: 'center', transition: 'all 0.2s' },
+  pdfBigBtn: { display: 'block', width: '100%', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 14, fontWeight: '500', textAlign: 'center', transition: 'all 0.2s' },
   smsInfo: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, padding: '6px 10px', backgroundColor: 'var(--surface-field)', borderRadius: 6 },
-  smsBtn: { display: 'block', width: '100%', padding: '10px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'left', transition: 'all 0.2s' },
+  smsBtn: { display: 'block', width: '100%', padding: '10px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'left', transition: 'all 0.2s' },
   noPhone: { textAlign: 'center', padding: '12px', color: 'var(--text-muted)', backgroundColor: 'var(--surface-field)', borderRadius: 8 },
   evidenceWebCard: { border: '1px solid var(--border)', borderRadius: 8, backgroundColor: 'var(--surface-field)', padding: 14, marginBottom: 16 },
   evidenceWebHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 },
@@ -2860,7 +2860,7 @@ const styles = {
   evidenceWebScore: { border: '1px solid var(--border)', borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
   evidenceWebGrid: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   evidenceWebChip: { border: '1px solid var(--border)', borderRadius: 999, backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)', padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 },
-  evidenceWebChipActive: { color: 'var(--accent)', borderColor: 'var(--accent)', backgroundColor: 'rgba(127, 140, 18, 0.12)' },
+  evidenceWebChipActive: { color: 'var(--accent-text)', borderColor: 'var(--accent)', backgroundColor: 'rgba(127, 140, 18, 0.12)' },
   evidenceWebChipMissing: { color: 'var(--warning)', borderColor: 'rgba(189, 112, 30, 0.4)', backgroundColor: 'rgba(189, 112, 30, 0.12)' },
   evidenceWebMissing: { marginTop: 10, color: 'var(--warning)', fontSize: 12, fontWeight: 800 },
   evidenceWebOk: { marginTop: 10, color: 'var(--success)', fontSize: 12, fontWeight: 800 },
@@ -2873,7 +2873,7 @@ const styles = {
   th: { padding: '12px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--text-muted)', textAlign: 'left', fontSize: 13, fontWeight: '700' },
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   badge: { padding: '3px 10px', borderRadius: 999, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
-  mapLink: { color: 'var(--accent)', textDecoration: 'none', fontSize: 12, fontWeight: '500' },
+  mapLink: { color: 'var(--accent-text)', textDecoration: 'none', fontSize: 12, fontWeight: '500' },
   issueCard: { padding: 14, backgroundColor: 'var(--surface-field)', borderRadius: 8, marginBottom: 12, borderLeft: '4px solid var(--warning)' },
   issueHeader: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' },
   issueOpis: { fontSize: 14, color: 'var(--text-sub)', margin: '8px 0 4px', lineHeight: 1.5 },
@@ -2882,7 +2882,7 @@ const styles = {
   uploadBox: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   filtrSelect: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   uploadBtn: { padding: '8px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
-  photoSectionTitle: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 12, display: 'inline-block', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 6 },
+  photoSectionTitle: { fontSize: 13, fontWeight: '600', color: 'var(--accent-text)', marginBottom: 12, display: 'inline-block', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 6 },
   photoSectionSub: { fontSize: 12, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 },
   photoCard: { borderRadius: 8, overflow: 'hidden', boxShadow: 'var(--shadow-md)', cursor: 'pointer', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', transition: 'all 0.2s' },
@@ -2901,7 +2901,7 @@ const styles = {
   },
   photoTagSnippet: {
     fontSize: 10,
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontWeight: 600,
     marginTop: 2,
     marginBottom: 2,

@@ -44,7 +44,7 @@ const GROUPS = [
     key: 'operacje',
     label: 'Operacje',
     note: 'Zlecenia, ekipy i codzienna dyspozytornia.',
-    color: '#7f8c12',
+    color: 'var(--accent-text)',
     Icon: RouteOutlined,
     tiles: [
       { path: '/zlecenia', label: 'Zlecenia', Icon: AssignmentOutlined, desc: 'Lista, statusy i szczegóły zleceń', roles: [...FIELD_OPS, 'Magazynier'] },
@@ -91,7 +91,7 @@ const GROUPS = [
     key: 'zasoby',
     label: 'Zasoby i sprzęt',
     note: 'Magazyn, flota i rezerwacje narzędzi.',
-    color: '#bd701e',
+    color: '#9a5613',
     Icon: HandymanOutlined,
     tiles: [
       { path: '/magazyn', label: 'Magazyn', Icon: Inventory2Outlined, desc: 'Stan sprzętu i materiałów', roles: ASSETS },
@@ -116,7 +116,7 @@ const GROUPS = [
     key: 'kadry',
     label: 'Kadry i konfiguracja',
     note: 'Ludzie, oddziały, role i integracje.',
-    color: '#8a8069',
+    color: '#6f6555',
     Icon: SettingsOutlined,
     tiles: [
       { path: '/uzytkownicy', label: 'Użytkownicy', Icon: ManageAccountsOutlined, desc: 'Pracownicy i uprawnienia', roles: ADMIN },

@@ -178,7 +178,7 @@ export default function TaskCommandCenter({
               <span style={s.checkLabel}>{item.label}</span>
               <span style={s.checkDetail}>{item.detail}</span>
             </span>
-            <span style={{ ...s.state, color: item.ok ? 'var(--accent)' : 'var(--warning)' }}>
+            <span style={{ ...s.state, color: item.ok ? 'var(--accent-text)' : 'var(--warning)' }}>
               {item.ok ? 'OK' : 'Do uzupełnienia'}
             </span>
           </Button>
@@ -226,7 +226,7 @@ const s = {
     padding: '9px 10px',
     textAlign: 'right',
   },
-  score: { display: 'block', fontSize: 25, lineHeight: 1, fontWeight: 850, color: 'var(--accent)' },
+  score: { display: 'block', fontSize: 25, lineHeight: 1, fontWeight: 850, color: 'var(--accent-text)' },
   scoreLabel: { display: 'block', marginTop: 3, fontSize: 11, color: 'var(--text-muted)' },
   moveRow: {
     display: 'grid',

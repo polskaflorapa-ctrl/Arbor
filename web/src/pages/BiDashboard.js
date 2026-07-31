@@ -89,7 +89,7 @@ function marginConfidenceTone(fin = {}) {
 }
 function delta(n) {
   if (n == null) return null;
-  return { label: `${n >= 0 ? '+' : ''}${n}%`, color: n >= 0 ? '#7f8c12' : '#c0492f' };
+  return { label: `${n >= 0 ? '+' : ''}${n}%`, color: n >= 0 ? '#5d6a0b' : '#c0492f' };
 }
 
 // ─── CSV export helper ───────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ function BarChart({ data, valueKey, labelKey, color = 'var(--accent)', height = 
 
 // ─── Donut slice chart ───────────────────────────────────────────────────────
 
-const DONUT_COLORS = ['#7f8c12','#766440','#bd701e','#c0492f','#766440','#766440','#a3402a','#5d6a0b','#a3402a'];
+const DONUT_COLORS = ['#7f8c12','#766440','#9a5613','#c0492f','#766440','#766440','#a3402a','#5d6a0b','#a3402a'];
 
 function DonutChart({ data, valueKey, labelKey, size = 160 }) {
   if (!data?.length) return <div style={ch.empty}>Brak danych</div>;
@@ -736,7 +736,7 @@ export default function BiDashboard() {
             <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>Przychód wg usługi</div>
               <BarChart data={serviceMix} valueKey="revenue" labelKey="typ_uslugi"
-                color="#bd701e" height={140}
+                color="#9a5613" height={140}
                 onBarClick={sm => openDrill({ title: `Zlecenia — ${sm.typ_uslugi}`, dim: 'usluga', val: sm.typ_uslugi })} />
             </div>
             <div className="bi-card" style={s.card}>
@@ -789,7 +789,7 @@ export default function BiDashboard() {
                 {[
                   { label: t('biDashboard.funnelSteps.allQuotes'), value: funnel.quotes_total,      color: '#766440' },
                   { label: t('biDashboard.funnelSteps.accepted'),  value: funnel.quotes_accepted,   color: '#766440' },
-                  { label: t('biDashboard.funnelSteps.orders'),    value: funnel.converted_to_task, color: '#7f8c12' },
+                  { label: t('biDashboard.funnelSteps.orders'),    value: funnel.converted_to_task, color: 'var(--accent-text)' },
                 ].map((step, i, arr) => {
                   const maxV = arr[0].value || 1;
                   const w = Math.round((step.value / maxV) * 100);
@@ -939,7 +939,7 @@ export default function BiDashboard() {
                   <div style={al.stat}><span style={al.statN}>{alertResult.tasks_overdue}</span><span style={al.statL}>Przeterminowane</span></div>
                 </div>
                 {alertResult.alerts.length === 0
-                  ? <div style={{ color: '#7f8c12', fontWeight: 600 }}>✅ Wszystko w normie — brak alertów</div>
+                  ? <div style={{ color: 'var(--accent-text)', fontWeight: 600 }}>✅ Wszystko w normie — brak alertów</div>
                   : alertResult.alerts.map((a, i) => (
                       <div key={i} style={{ color: '#c0492f', fontWeight: 600, marginBottom: 6 }}>{a}</div>
                     ))
@@ -1038,7 +1038,7 @@ const s = {
   errorBox: { padding: '12px 16px', borderRadius: 8, background: '#f6e0d9', color: '#c0492f', marginBottom: 16, fontSize: 14 },
   tabs:     { display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' },
   tab:      { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14, fontWeight: 500 },
-  tabActive:{ background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--accent)', fontWeight: 700 },
+  tabActive:{ background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--accent-text)', fontWeight: 700 },
   content:  { display: 'flex', flexDirection: 'column', gap: 16 },
   kpiRow:   { display: 'flex', gap: 12, flexWrap: 'wrap' },
   kpiCard:  { flex: 1, minWidth: 130, padding: '14px 16px', borderRadius: 8, border: '1px solid var(--border)' },

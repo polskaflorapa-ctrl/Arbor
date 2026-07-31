@@ -876,7 +876,7 @@ function TakNie({ label, field, form, onChange, disabled }) {
       padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
       <span style={{ fontSize: 14, color: 'var(--text-sub)' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 12, color: form[field] ? 'var(--accent-dk)' : 'var(--text-muted)', fontWeight: '600', minWidth: 24 }}>
+        <span style={{ fontSize: 12, color: form[field] ? 'var(--accent-text)' : 'var(--text-muted)', fontWeight: '600', minWidth: 24 }}>
           {form[field] ? t('common.yes') : t('common.no')}
         </span>
         <Toggle value={form[field]} onChange={v => onChange(field, v)} disabled={disabled} />
@@ -7114,7 +7114,7 @@ export default function Zlecenia() {
                         ...s.z2ProgressFill,
                         width: `${missionReadiness}%`,
                         background: missionReadiness < 70
-                          ? 'linear-gradient(90deg, #bd701e, #bd701e)'
+                          ? 'linear-gradient(90deg, #9a5613, #9a5613)'
                           : 'linear-gradient(90deg, #7f8c12, #f1f3d6)',
                       }}
                     />
@@ -8385,7 +8385,7 @@ export default function Zlecenia() {
                               style={{
                                 ...s.readinessFill,
                                 width: `${diagnostics.score}%`,
-                                backgroundColor: diagnostics.level === 'danger' ? '#c0492f' : diagnostics.level === 'warning' ? '#bd701e' : '#7f8c12',
+                                backgroundColor: diagnostics.level === 'danger' ? '#c0492f' : diagnostics.level === 'warning' ? '#9a5613' : '#7f8c12',
                               }}
                             />
                           </div>
@@ -9669,7 +9669,7 @@ export default function Zlecenia() {
                     <span style={s.detailLabel}>{l}</span>
                     <span style={s.detailValue}>
                       {kind === 'tel' && telHref(v) ? (
-                        <a href={telHref(v)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>{v}</a>
+                        <a href={telHref(v)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>{v}</a>
                       ) : (
                         v
                       )}
@@ -9700,14 +9700,14 @@ export default function Zlecenia() {
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
                 <div style={{ backgroundColor: 'var(--surface-glass)', borderRadius: 10, padding: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
                     <RouteOutlined style={{ fontSize: 16 }} aria-hidden />
                     Logistyka
                   </div>
                   {[['2. Wywóz', wybraneZlecenie.wywoz], ['3. Usuwanie pni', wybraneZlecenie.usuwanie_pni]].map(([l, v]) => (
                     <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{l}</span>
-                      <span style={{ fontSize: 13, fontWeight: '600', color: v ? 'var(--accent)' : '#c0492f' }}>{v ? t('common.yes') : t('common.no')}</span>
+                      <span style={{ fontSize: 13, fontWeight: '600', color: v ? 'var(--accent-text)' : '#c0492f' }}>{v ? t('common.yes') : t('common.no')}</span>
                     </div>
                   ))}
                   {wybraneZlecenie.czas_realizacji_godz && (
@@ -9724,19 +9724,19 @@ export default function Zlecenia() {
                   )}
                 </div>
                 <div style={{ backgroundColor: 'var(--surface-glass)', borderRadius: 10, padding: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>Sprzęt</div>
+                  <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>Sprzęt</div>
                   {[['6. Rębak', wybraneZlecenie.rebak], ['7. Piła na wysięgniku', wybraneZlecenie.pila_wysiegniku],
                     ['8. Nożyce długie', wybraneZlecenie.nozyce_dlugie], ['16. Arborysta', wybraneZlecenie.arborysta],
                     ['17. Kosiarka', wybraneZlecenie.kosiarka], ['18. Podkaszarka', wybraneZlecenie.podkaszarka],
                     ['19. Łopata', wybraneZlecenie.lopata], ['20. Mulczer', wybraneZlecenie.mulczer]].map(([l, v]) => (
                     <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{l}</span>
-                      <span style={{ fontSize: 13, fontWeight: '600', color: v ? 'var(--accent)' : '#c0492f' }}>{v ? t('common.yes') : t('common.no')}</span>
+                      <span style={{ fontSize: 13, fontWeight: '600', color: v ? 'var(--accent-text)' : '#c0492f' }}>{v ? t('common.yes') : t('common.no')}</span>
                     </div>
                   ))}
                 </div>
                 <div style={{ backgroundColor: 'var(--surface-glass)', borderRadius: 10, padding: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>Finanse</div>
+                  <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>Finanse</div>
                   {[['11. Budżet', formatCurrency(wybraneZlecenie.budzet)],
                     ['12. Rabat', wybraneZlecenie.rabat ? wybraneZlecenie.rabat + '%' : null],
                     ['13. Kwota minimalna', formatCurrency(wybraneZlecenie.kwota_minimalna)],
@@ -9745,7 +9745,7 @@ export default function Zlecenia() {
                     ['15. Drewno', wybraneZlecenie.drzewno]].map(([l, v]) => v && v !== '—' ? (
                     <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{l}</span>
-                      <span style={{ fontSize: 13, fontWeight: '600', color: 'var(--accent)' }}>{v}</span>
+                      <span style={{ fontSize: 13, fontWeight: '600', color: 'var(--accent-text)' }}>{v}</span>
                     </div>
                   ) : null)}
                   {wybraneZlecenie.wynik && (
@@ -9756,7 +9756,7 @@ export default function Zlecenia() {
                 </div>
               </div>
               {wybraneZlecenie.notatki && (
-                <div style={{ marginTop: 16, padding: '12px 14px', backgroundColor: 'var(--surface-field)', borderRadius: 8, fontSize: 14, borderLeft: '3px solid #bd701e' }}>
+                <div style={{ marginTop: 16, padding: '12px 14px', backgroundColor: 'var(--surface-field)', borderRadius: 8, fontSize: 14, borderLeft: '3px solid #9a5613' }}>
                   <strong>Notatki:</strong> {wybraneZlecenie.notatki}
                 </div>
               )}
@@ -10237,9 +10237,9 @@ const s = {
   },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 12 },
-  title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
+  title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent-text)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
-  backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid #e4efd6', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid #e4efd6', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   filtryRow: {
     display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center',
     background:
@@ -10251,7 +10251,7 @@ const s = {
   searchInput: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1, backgroundColor: 'var(--surface-field)' },
   filtrInput: { padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   clearBtn: { padding: '8px 13px', backgroundColor: 'rgba(192, 73, 47, 0.12)', color: 'var(--danger)', border: '1px solid rgba(192, 73, 47, 0.3)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 800 },
-  countBadge: { fontSize: 12, color: 'var(--accent)', marginLeft: 'auto', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 9px', backgroundColor: 'var(--accent-surface)', fontWeight: 900 },
+  countBadge: { fontSize: 12, color: 'var(--accent-text)', marginLeft: 'auto', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 9px', backgroundColor: 'var(--accent-surface)', fontWeight: 900 },
   z2Cockpit: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1.42fr) minmax(280px, 0.72fr)',
@@ -10319,7 +10319,8 @@ const s = {
   z2PrimaryBtn: {
     border: '1px solid rgba(127, 140, 18, 0.72)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, #7f8c12, #456b1f)',
+    // Przyciemnione: krem #efe9da na poprzednim gradiencie mial kontrast 3.93 (AA=4.5).
+    background: 'linear-gradient(135deg, #5d6a0b, #3d5a10)',
     color: '#2c2011',
     minHeight: 42,
     padding: '9px 13px',
@@ -10392,7 +10393,7 @@ const s = {
   z2Metric_warning: { borderColor: 'rgba(250, 231, 210, 0.3)', background: 'linear-gradient(135deg, rgba(189, 112, 30, 0.16), rgba(44, 32, 17,0.6))' },
   z2Metric_danger: { borderColor: 'rgba(192, 73, 47, 0.32)', background: 'linear-gradient(135deg, rgba(192, 73, 47, 0.16), rgba(44, 32, 17,0.6))' },
   z2Metric_blue: { borderColor: 'rgba(241, 243, 214, 0.26)', background: 'linear-gradient(135deg, rgba(118, 100, 64, 0.16), rgba(44, 32, 17,0.6))' },
-  z2MetricLabel: { color: '#9a907a', fontSize: 11, fontWeight: 950, textTransform: 'uppercase' },
+  z2MetricLabel: { color: '#6f6555', fontSize: 11, fontWeight: 950, textTransform: 'uppercase' },
   z2MetricValue: { color: '#ffffff', fontSize: 24, lineHeight: 1, fontWeight: 950, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' },
   z2MetricDetail: { color: '#e0d9c8', fontSize: 12, fontWeight: 780 },
   decisionBand: {
@@ -10529,7 +10530,7 @@ const s = {
   decisionQuickBtnActive: {
     border: '1px solid var(--accent)',
     background: 'linear-gradient(180deg, var(--accent-surface), rgba(255,255,255,0.78))',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     boxShadow: 'inset 3px 0 0 var(--accent)',
   },
   decisionQuickBtnSpan: {
@@ -10644,7 +10645,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.35)',
     borderRadius: 8,
     backgroundColor: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '5px 9px',
     fontSize: 11,
     fontWeight: 950,
@@ -10686,7 +10687,7 @@ const s = {
     border: '1px solid rgba(69, 107, 31, 0.22)',
     borderRadius: 8,
     background: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '5px 8px',
     fontSize: 11,
     fontWeight: 900,
@@ -10752,7 +10753,7 @@ const s = {
     height: 22,
     borderRadius: 8,
     background: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -10802,7 +10803,7 @@ const s = {
     border: '1px solid rgba(69, 107, 31, 0.24)',
     borderRadius: 8,
     background: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '5px 8px',
     fontSize: 11,
     fontWeight: 950,
@@ -10865,7 +10866,7 @@ const s = {
   },
   quickCallPackageDotReady: {
     background: 'rgba(127, 140, 18, 0.14)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
   },
   quickCallPackageDotMissing: {
     background: 'rgba(189, 112, 30, 0.14)',
@@ -10900,7 +10901,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.24)',
     borderRadius: 8,
     background: 'rgba(127, 140, 18, 0.08)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '5px 7px',
     fontSize: 10,
     lineHeight: 1.15,
@@ -11016,7 +11017,7 @@ const s = {
     fontWeight: 950,
   },
   quickCallReady: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontWeight: 950,
   },
   quickCallFooterHint: {
@@ -11243,7 +11244,7 @@ const s = {
     overflowWrap: 'anywhere',
   },
   opsCardDetail: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 11,
     fontWeight: 850,
     lineHeight: 1.25,
@@ -11358,7 +11359,7 @@ const s = {
     textTransform: 'uppercase',
     lineHeight: 1.2,
   },
-  savedViewOk: { color: 'var(--accent)' },
+  savedViewOk: { color: 'var(--accent-text)' },
   savedViewWarn: { color: 'var(--warning)' },
   savedViewCount: {
     gridRow: '1 / 4',
@@ -11453,7 +11454,7 @@ const s = {
   sortTabActive: {
     border: '1px solid var(--accent)',
     background: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
   },
   sortTabLabel: { fontSize: 12, fontWeight: 900, lineHeight: 1.2 },
   sortTabDetail: { fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.2 },
@@ -11484,7 +11485,7 @@ const s = {
     justifyContent: 'center',
     background: 'var(--surface-glass)',
     border: '1px solid var(--border)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 13,
     fontWeight: 900,
     fontVariantNumeric: 'tabular-nums',
@@ -11492,7 +11493,7 @@ const s = {
   queueBody: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
   queueTitle: { fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   queueMeta: { fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  queueValue: { fontSize: 12, color: 'var(--accent)', fontWeight: 900, whiteSpace: 'nowrap' },
+  queueValue: { fontSize: 12, color: 'var(--accent-text)', fontWeight: 900, whiteSpace: 'nowrap' },
   queueEmpty: {
     border: '1px dashed var(--border)',
     borderRadius: 8,
@@ -11520,7 +11521,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     background: 'var(--surface-glass)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '6px 10px',
     cursor: 'pointer',
     fontSize: 12,
@@ -11553,12 +11554,12 @@ const s = {
     fontWeight: 900,
   },
   businessHealth_good: {
-    color: '#7f8c12',
+    color: 'var(--accent-text)',
     border: '1px solid rgba(127, 140, 18, 0.28)',
     background: 'rgba(127, 140, 18, 0.09)',
   },
   businessHealth_warning: {
-    color: '#bd701e',
+    color: '#9a5613',
     border: '1px solid rgba(189, 112, 30, 0.32)',
     background: 'rgba(189, 112, 30, 0.1)',
   },
@@ -11607,7 +11608,7 @@ const s = {
     lineHeight: 1.2,
   },
   businessKpiValue: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 15,
     fontWeight: 900,
     lineHeight: 1.2,
@@ -11704,7 +11705,7 @@ const s = {
     fontVariantNumeric: 'tabular-nums',
   },
   businessRiskValue: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     fontWeight: 900,
     whiteSpace: 'nowrap',
@@ -11813,7 +11814,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid var(--border)',
     background: 'var(--surface-glass)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -11822,7 +11823,7 @@ const s = {
     fontVariantNumeric: 'tabular-nums',
   },
   closureAuditValue: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 11,
     fontWeight: 900,
     whiteSpace: 'nowrap',
@@ -11851,7 +11852,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'var(--surface-field)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '6px 9px',
     cursor: 'pointer',
     fontSize: 12,
@@ -11894,7 +11895,7 @@ const s = {
     overflowWrap: 'anywhere',
   },
   closureRepairValue: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 11,
     fontWeight: 900,
     whiteSpace: 'nowrap',
@@ -11910,7 +11911,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'var(--surface-field)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '6px 8px',
     cursor: 'pointer',
     fontSize: 11,
@@ -11920,7 +11921,7 @@ const s = {
     border: '1px solid var(--accent)',
     borderRadius: 8,
     backgroundColor: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '6px 8px',
     cursor: 'pointer',
     fontSize: 11,
@@ -12005,7 +12006,7 @@ const s = {
   },
   smartFilterChipActive: {
     border: '1px solid var(--accent)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     background: 'linear-gradient(90deg, var(--accent-surface), rgba(255,255,255,0.82))',
     boxShadow: 'inset 3px 0 0 var(--accent)',
   },
@@ -12109,7 +12110,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'var(--surface-field)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     fontWeight: 900,
     fontVariantNumeric: 'tabular-nums',
@@ -12150,7 +12151,7 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'var(--surface-glass)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     fontWeight: 900,
     fontVariantNumeric: 'tabular-nums',
@@ -12215,7 +12216,7 @@ const s = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     fontWeight: 950,
     fontVariantNumeric: 'tabular-nums',
@@ -12328,7 +12329,7 @@ const s = {
   inspectionChipActive: {
     border: '1px solid var(--accent)',
     backgroundColor: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     boxShadow: 'inset 3px 0 0 var(--accent)',
   },
   formWizardActions: {
@@ -12412,7 +12413,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'var(--surface-field)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -12469,7 +12470,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.32)',
     borderRadius: 8,
     backgroundColor: 'rgba(127, 140, 18, 0.12)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '9px 12px',
     cursor: 'pointer',
     fontSize: 12,
@@ -12593,15 +12594,15 @@ const s = {
   th: { padding: '12px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--text-muted)', textAlign: 'left', fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: '800', letterSpacing: 0, textTransform: 'uppercase' },
   tdCheck: { padding: '12px 8px', borderBottom: '1px solid var(--border)' },
   td: { padding: '12px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-sans)' },
-  idBadge: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.2)', fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: '800' },
-  badge: { padding: '4px 10px', borderRadius: 8, color: 'var(--accent)', backgroundColor: 'var(--accent-surface)', border: '1px solid rgba(69, 107, 31, 0.2)', fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: '800', display: 'inline-block', textTransform: 'uppercase', letterSpacing: 0 },
+  idBadge: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent-text)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.2)', fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: '800' },
+  badge: { padding: '4px 10px', borderRadius: 8, color: 'var(--accent-text)', backgroundColor: 'var(--accent-surface)', border: '1px solid rgba(69, 107, 31, 0.2)', fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: '800', display: 'inline-block', textTransform: 'uppercase', letterSpacing: 0 },
   akcjeRow: { display: 'flex', gap: 6 },
-  btnSm: { padding: '6px 9px', backgroundColor: 'rgba(69, 107, 31, 0.08)', color: 'var(--accent)', border: '1px solid rgba(69, 107, 31, 0.26)', borderRadius: 10, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+  btnSm: { padding: '6px 9px', backgroundColor: 'rgba(69, 107, 31, 0.08)', color: 'var(--accent-text)', border: '1px solid rgba(69, 107, 31, 0.26)', borderRadius: 10, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
   btnPrimary: { padding: '10px 20px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.24)', borderRadius: 12, cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: '900', boxShadow: 'var(--shadow-sm)', textTransform: 'none', letterSpacing: 0 },
   btnSecondary: {
     padding: '8px 16px',
     backgroundColor: 'rgba(69, 107, 31, 0.08)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     border: '1px solid rgba(69, 107, 31, 0.26)',
     borderRadius: 12,
     cursor: 'pointer',
@@ -12683,7 +12684,7 @@ const s = {
     padding: '6px 10px',
     border: '1px solid var(--border)',
     backgroundColor: 'var(--surface-field)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     borderRadius: 8,
     cursor: 'pointer',
     fontSize: 12,
@@ -12718,7 +12719,7 @@ const s = {
     fontSize: 10,
     fontWeight: 700,
     backgroundColor: 'rgba(127, 140, 18, 0.18)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     border: '1px solid rgba(127, 140, 18, 0.25)',
   },
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)', fontSize: 16 },
@@ -12752,7 +12753,7 @@ const s = {
   kpiValue: {
     marginTop: 2,
     fontSize: 12,
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontWeight: 700,
   },
   workflowPanel: {
@@ -12894,7 +12895,7 @@ const s = {
     padding: '4px 8px',
     fontSize: 12,
     backgroundColor: 'rgba(69, 107, 31, 0.08)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
@@ -12902,7 +12903,7 @@ const s = {
   },
   kanbanValue: {
     fontSize: 12,
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontWeight: 700,
   },
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
@@ -13303,7 +13304,7 @@ const s = {
     border: '1px solid rgba(69, 107, 31, 0.22)',
     borderRadius: 8,
     background: 'rgba(255,255,255,0.82)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '7px 10px',
     cursor: 'pointer',
     fontSize: 12,
@@ -13585,7 +13586,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.38)',
     borderRadius: 8,
     background: 'rgba(127, 140, 18, 0.14)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '9px 12px',
     fontSize: 12,
     lineHeight: 1,
@@ -13646,7 +13647,7 @@ const s = {
   },
   detailRepairItemAction: {
     marginTop: 'auto',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 11,
     fontWeight: 950,
     textTransform: 'uppercase',
@@ -13734,7 +13735,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid rgba(127, 140, 18, 0.28)',
     background: 'rgba(127, 140, 18, 0.1)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -13774,12 +13775,12 @@ const s = {
     border: '1px solid var(--border)',
   },
   officePlanningBadgeGood: {
-    color: '#7f8c12',
+    color: 'var(--accent-text)',
     border: '1px solid rgba(127, 140, 18, 0.34)',
     background: 'rgba(127, 140, 18, 0.1)',
   },
   officePlanningBadgeWarning: {
-    color: '#bd701e',
+    color: '#9a5613',
     border: '1px solid rgba(189, 112, 30, 0.36)',
     background: 'rgba(189, 112, 30, 0.1)',
   },
@@ -13800,7 +13801,7 @@ const s = {
     border: '1px solid var(--accent)',
     borderRadius: 8,
     background: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '7px 10px',
     cursor: 'pointer',
     fontSize: 12,
@@ -14018,7 +14019,7 @@ const s = {
     lineHeight: 1.35,
   },
   timeWindowUrl: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontFamily: 'var(--font-mono)',
     fontSize: 11,
     overflowWrap: 'anywhere',
@@ -14233,7 +14234,7 @@ const s = {
     borderRadius: 7,
     border: '1px solid rgba(69, 107, 31, 0.28)',
     background: 'rgba(69, 107, 31, 0.12)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     cursor: 'pointer',
     fontSize: 10,
     fontWeight: 900,
@@ -14393,7 +14394,7 @@ const s = {
     minWidth: 0,
   },
   detailOwnerActionTitle: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 16,
     fontWeight: 950,
     lineHeight: 1.2,
@@ -14410,7 +14411,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.36)',
     borderRadius: 8,
     background: 'rgba(127, 140, 18, 0.14)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '8px 11px',
     cursor: 'pointer',
     fontSize: 12,
@@ -14495,7 +14496,7 @@ const s = {
     borderRadius: 8,
     backgroundColor: 'var(--surface-glass)',
     border: '1px solid var(--border)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -14515,7 +14516,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.38)',
     borderRadius: 8,
     backgroundColor: 'rgba(127, 140, 18, 0.14)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '8px 11px',
     cursor: 'pointer',
     fontSize: 12,
@@ -14576,7 +14577,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.32)',
     borderRadius: 8,
     backgroundColor: 'rgba(127, 140, 18, 0.12)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '7px 10px',
     fontSize: 12,
     fontWeight: 950,
@@ -14632,7 +14633,7 @@ const s = {
     borderRadius: 8,
     backgroundColor: 'var(--surface-glass)',
     border: '1px solid var(--border)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -14654,7 +14655,7 @@ const s = {
     fontWeight: 950,
   },
   detailWorkflowPrimary: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     lineHeight: 1.25,
     fontWeight: 900,
@@ -14698,7 +14699,7 @@ const s = {
     lineHeight: 1.1,
   },
   detailWorkflowOk: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     fontWeight: 900,
   },
@@ -14706,7 +14707,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.35)',
     borderRadius: 8,
     backgroundColor: 'rgba(127, 140, 18, 0.14)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '8px 10px',
     cursor: 'pointer',
     fontSize: 12,
@@ -14863,7 +14864,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.42)',
     borderRadius: 8,
     backgroundColor: 'rgba(127, 140, 18, 0.16)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '8px 10px',
     cursor: 'pointer',
     fontSize: 12,
@@ -15098,7 +15099,7 @@ const s = {
     lineHeight: 1.2,
   },
   detailDecisionHeroText: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 18,
     lineHeight: 1.2,
     overflowWrap: 'anywhere',
@@ -15155,7 +15156,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'var(--surface-glass)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '6px 10px',
     cursor: 'pointer',
     fontSize: 12,
@@ -15237,7 +15238,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid var(--border)',
     backgroundColor: 'var(--surface-glass)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -15351,7 +15352,7 @@ const s = {
   contactStatusBtnActive: {
     border: '1px solid var(--accent)',
     backgroundColor: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
   },
   contactTextarea: {
     width: '100%',
@@ -15400,7 +15401,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'var(--surface-glass)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '6px 9px',
     cursor: 'pointer',
     fontSize: 12,
@@ -15564,7 +15565,7 @@ const s = {
     border: '1px solid rgba(69, 107, 31, 0.24)',
     borderRadius: 8,
     background: 'rgba(255,255,255,0.78)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '8px 12px',
     cursor: 'pointer',
     fontSize: 12,
@@ -15666,7 +15667,7 @@ const s = {
     boxShadow: '0 0 8px rgba(192, 73, 47, 0.42)',
   },
   contactDot_muted: {
-    backgroundColor: '#9a907a',
+    backgroundColor: '#6f6555',
     boxShadow: '0 0 0 2px rgba(154, 144, 122, 0.12)',
   },
   workflowStageRow: {
@@ -15684,7 +15685,7 @@ const s = {
     height: 24,
     borderRadius: 8,
     backgroundColor: 'var(--accent-surface)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -15763,7 +15764,7 @@ const s = {
     lineHeight: 1.1,
   },
   stageOwnerName: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     fontWeight: 950,
     lineHeight: 1.15,
@@ -15802,7 +15803,7 @@ const s = {
     border: '1px solid rgba(127, 140, 18, 0.36)',
     borderRadius: 8,
     background: 'rgba(127, 140, 18, 0.14)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '6px 9px',
     cursor: 'pointer',
     fontSize: 11,
@@ -15822,7 +15823,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'rgba(69, 107, 31, 0.08)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '6px 8px',
     cursor: 'pointer',
     display: 'inline-flex',
@@ -15919,7 +15920,7 @@ const s = {
     whiteSpace: 'nowrap',
   },
   fieldExecutionChipReady: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     borderColor: 'rgba(127, 140, 18, 0.28)',
     backgroundColor: 'rgba(127, 140, 18, 0.1)',
   },
@@ -16037,7 +16038,7 @@ const s = {
   blockerGood: {
     backgroundColor: 'rgba(127, 140, 18, 0.14)',
     border: '1px solid rgba(127, 140, 18, 0.3)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
   },
   nextActionRow: {
     display: 'flex',
@@ -16066,5 +16067,5 @@ const s = {
   },
   listTaskFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
   listTaskDate: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
-  listTaskValue: { fontSize: 13, color: 'var(--accent)', fontWeight: 800 },
+  listTaskValue: { fontSize: 13, color: 'var(--accent-text)', fontWeight: 800 },
 };

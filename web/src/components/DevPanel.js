@@ -309,7 +309,7 @@ export function DevPanel() {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12,
               }}>
-                <span style={{ color: p.status === 'ok' ? '#7f8c12' : p.status === 'error' ? '#c0492f' : '#888', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>
+                <span style={{ color: p.status === 'ok' ? '#5d6a0b' : p.status === 'error' ? '#c0492f' : '#888', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>
                   {p.status === 'ok' ? '✓' : p.status === 'error' ? '✗' : '○'} {p.name}
                 </span>
                 <span style={{ color: '#aaa', fontSize: 11, whiteSpace: 'nowrap' }}>

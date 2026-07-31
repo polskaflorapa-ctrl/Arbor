@@ -424,7 +424,7 @@ function buildPlanDefaults(task) {
 
 function getFreshness(row) {
   const age = ageMinutes(row.recorded_at);
-  if (age == null) return { key: 'unknown', label: 'Brak czasu', color: '#9a907a' };
+  if (age == null) return { key: 'unknown', label: 'Brak czasu', color: '#6f6555' };
   if (age <= ONLINE_MINUTES) return { key: 'online', label: 'Online', color: '#456b1f' };
   if (age <= STALE_MINUTES) return { key: 'stale', label: 'Opóźniony', color: '#995510' };
   return { key: 'offline', label: 'Offline', color: '#a3402a' };
@@ -525,8 +525,8 @@ function taskStatusColor(status) {
   if (status === 'Zaplanowane') return '#5d6a0b';
   if (status === 'Do_Zatwierdzenia') return '#995510';
   if (status === 'Wycena_Terenowa') return '#456b1f';
-  if (CLOSED_STATUSES.has(status)) return '#9a907a';
-  return '#8a8069';
+  if (CLOSED_STATUSES.has(status)) return '#6f6555';
+  return '#6f6555';
 }
 
 function taskPhotoSummary(task) {
@@ -1741,7 +1741,7 @@ export default function MapaLive() {
               </span>
             </div>
             <div style={{ ...S.alertCard, borderColor: staleTaskGps.length ? 'rgba(153, 85, 16, 0.28)' : 'rgba(69, 107, 31, 0.14)' }}>
-              <MyLocationOutlined style={{ color: staleTaskGps.length ? '#995510' : '#8a8069', fontSize: 18 }} />
+              <MyLocationOutlined style={{ color: staleTaskGps.length ? '#995510' : '#6f6555', fontSize: 18 }} />
               <span>
                 {staleTaskGps.length
                   ? `${staleTaskGps.length} zlecen ma opozniony albo stary sygnal.`
@@ -2164,7 +2164,7 @@ function CommandCenter({
       y1: percentValue(from.top),
       x2: percentValue(to.left),
       y2: percentValue(to.top),
-      color: String(task.id) === String(selected?.id) ? '#766440' : '#9a907a',
+      color: String(task.id) === String(selected?.id) ? '#766440' : '#6f6555',
     };
   }).filter(Boolean);
   const commandKpis = [
@@ -2760,7 +2760,7 @@ const S = {
   },
   commandSub: {
     margin: '5px 0 0',
-    color: '#8a8069',
+    color: '#6f6555',
     fontSize: 12,
     lineHeight: 1.45,
     fontWeight: 700,
@@ -2847,7 +2847,7 @@ const S = {
   },
   commandKpiLabel: {
     display: 'block',
-    color: '#8a8069',
+    color: '#6f6555',
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0,
@@ -2895,7 +2895,7 @@ const S = {
   },
   commandMapSub: {
     display: 'block',
-    color: '#8a8069',
+    color: '#6f6555',
     fontSize: 11,
     lineHeight: 1.35,
     marginTop: 2,
@@ -3119,7 +3119,7 @@ const S = {
   commandEmpty: {
     border: '1px dashed rgba(44, 32, 17,0.14)',
     borderRadius: 8,
-    color: '#8a8069',
+    color: '#6f6555',
     padding: 12,
     fontSize: 12,
     fontWeight: 800,

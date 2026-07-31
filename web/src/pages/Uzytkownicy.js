@@ -466,7 +466,7 @@ export default function Uzytkownicy() {
                         <div style={s.userListContactMuted}>
                           {u.telefon ? (
                             telHref(u.telefon) ? (
-                              <a href={telHref(u.telefon)} onClick={(e) => e.stopPropagation()} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                              <a href={telHref(u.telefon)} onClick={(e) => e.stopPropagation()} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                                 {u.telefon}
                               </a>
                             ) : (
@@ -480,7 +480,7 @@ export default function Uzytkownicy() {
                           <span style={{
                             ...s.statusBadge,
                             backgroundColor: u.aktywny ? 'var(--accent-surface)' : 'rgba(192, 73, 47, 0.12)',
-                            color: u.aktywny ? 'var(--accent-dk)' : 'var(--danger)',
+                            color: u.aktywny ? 'var(--accent-text)' : 'var(--danger)',
                             border: `1px solid ${u.aktywny ? 'var(--logo-tint-border)' : 'rgba(192, 73, 47, 0.35)'}`
                           }}>
                             {u.aktywny ? 'Aktywny' : 'Nieaktywny'}
@@ -539,7 +539,7 @@ export default function Uzytkownicy() {
                   if (!row.value && row.value !== 0) return null;
                   const display =
                     row.kind === 'tel' && telHref(row.value) ? (
-                      <a href={telHref(row.value)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                      <a href={telHref(row.value)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                         {row.value}
                       </a>
                     ) : (
@@ -607,7 +607,7 @@ export default function Uzytkownicy() {
                           <span style={s.detailLabel}>Telefon</span>
                           <span style={s.detailValue}>
                             {telHref(wybranyUser.kontakt_awaryjny_telefon) ? (
-                              <a href={telHref(wybranyUser.kontakt_awaryjny_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                              <a href={telHref(wybranyUser.kontakt_awaryjny_telefon)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                                 {wybranyUser.kontakt_awaryjny_telefon}
                               </a>
                             ) : (
@@ -909,9 +909,9 @@ const s = {
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexWrap: 'wrap' },
   headerActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
+  title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent-text)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
-  backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   filtryRow: { display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', background: 'var(--surface-glass)', padding: '12px 16px', borderRadius: 8, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)', flexWrap: 'wrap' },
   searchInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1 },
   filtrInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)' },
@@ -965,19 +965,19 @@ const s = {
     justifyContent: 'center',
     padding: 0,
     backgroundColor: 'var(--surface-field)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     border: '1px solid var(--logo-tint-border)',
     borderRadius: 8,
     cursor: 'pointer',
     lineHeight: 1,
   },
   actionIconBtnDanger: { backgroundColor: 'rgba(192, 73, 47, 0.12)', color: 'var(--danger)', border: '1px solid rgba(192, 73, 47, 0.35)' },
-  actionIconBtnSuccess: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent-dk)', border: '1px solid var(--logo-tint-border)' },
+  actionIconBtnSuccess: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent-text)', border: '1px solid var(--logo-tint-border)' },
   iconSm: { fontSize: 18, display: 'block' },
   btnSm: { padding: '5px 9px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   btnSmGreen: { padding: '5px 12px', background: 'linear-gradient(180deg, var(--accent), var(--accent-dk))', color: '#fff', border: '1px solid var(--accent-dk)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '700', boxShadow: 'var(--shadow-sm)' },
   btnPrimary: { padding: '10px 20px', background: 'linear-gradient(180deg, var(--accent), var(--accent-dk))', color: '#fff', border: '1px solid var(--accent-dk)', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: '700', boxShadow: 'var(--shadow-sm)' },
-  btnSecondary: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  btnSecondary: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   btnGray: { padding: '10px 20px', backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
   detailRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--border)', gap: 12 },
   detailLabel: { fontSize: 13, color: 'var(--text-muted)', minWidth: 140 },

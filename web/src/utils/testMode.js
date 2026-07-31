@@ -828,7 +828,7 @@ function mockPhotoTypeMeta(type) {
   const meta = {
     wycena: ['Wycena', '#7f8c12'],
     szkic: ['Szkic', '#766440'],
-    dojazd: ['Dojazd', '#bd701e'],
+    dojazd: ['Dojazd', '#9a5613'],
     przed: ['Przed', '#a0af14'],
     po: ['Po', '#7f8c12'],
   };
@@ -862,7 +862,7 @@ function buildGeneratedMockTaskPhotos(taskId) {
   const templateRows = [
     ['wycena', 'Wycena', 'Widok drzewa i zakresu prac', 'wycena,teren', '#7f8c12'],
     ['szkic', 'Szkic', 'Szkic ciecia narysowany przez wyceniajacego', 'szkic,zakres', '#766440'],
-    ['dojazd', 'Dojazd', 'Brama i dojazd dla ekipy', 'dojazd,posesja', '#bd701e'],
+    ['dojazd', 'Dojazd', 'Brama i dojazd dla ekipy', 'dojazd,posesja', '#9a5613'],
     ['przed', 'Przed', 'Stan przed rozpoczeciem pracy', 'przed,zakres', '#a0af14'],
     ['po', 'Po', 'Efekt po wykonaniu pracy', 'po,odbior', '#7f8c12'],
   ];

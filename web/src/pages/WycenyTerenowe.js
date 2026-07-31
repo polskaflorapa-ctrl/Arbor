@@ -209,7 +209,7 @@ export default function WycenyTerenowe() {
                   <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
                     <Link
                       to={`/wyceny-terenowe/${q.id}`}
-                      style={{ color: 'var(--accent)', fontSize: 14 }}
+                      style={{ color: 'var(--accent-text)', fontSize: 14 }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       Szczegóły · wysyłka oferty →
@@ -259,7 +259,7 @@ export default function WycenyTerenowe() {
                   </div>
                   <div style={{ fontSize: 14, marginTop: 4 }}>{q.klient_nazwa}</div>
                   <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-                    <Link to={`/wyceny-terenowe/${q.id}`} style={{ color: 'var(--accent)', fontSize: 14 }}>
+                    <Link to={`/wyceny-terenowe/${q.id}`} style={{ color: 'var(--accent-text)', fontSize: 14 }}>
                       Szczegóły · wysyłka oferty →
                     </Link>
                     <Link

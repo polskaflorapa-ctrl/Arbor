@@ -21,8 +21,8 @@
   --text-1: #2c2011 !important;
   --text-sub: #5a5040 !important;
   --text-2: #5a5040 !important;
-  --text-muted: #8a8069 !important;
-  --text-3: #8a8069 !important;
+  --text-muted: #6f6555 !important;
+  --text-3: #6f6555 !important;
   --on-accent: #23260a !important;
 
   /* --- Tła i powierzchnie (krem + białe karty) --- */
@@ -62,7 +62,7 @@
   /* --- Statusy w palecie prototypu --- */
   --danger: #c0492f !important;
   --danger-surface: #f6e0d9 !important;
-  --warning: #bd701e !important;
+  --warning: #9a5613 !important;
   --warning-surface: #fae7d2 !important;
   --success: #456b1f !important;
   --success-surface: #e4efd6 !important;
@@ -99,7 +99,7 @@
 #root .arbor-os-shell input[type="checkbox"],
 #root .arbor-os-shell input[type="radio"],
 #root .arbor-os-shell input[type="range"],
-#root .arbor-os-shell progress { accent-color: #a0af14; }
+#root .arbor-os-shell progress { accent-color: var(--accent-text); }
 
 /* Karty/panele modułów (klasy *-panel/*-card/*-wrap) — miękkie rogi + cień
    prototypu tam, gdzie tło/obrys idą z tokenów (nie zahardkodowane inline) */
@@ -246,4 +246,149 @@ html body #root .module-page-header-plain.module-page-header-plain.module-page-h
 html body #root .module-page-header-plain.module-page-header-plain.module-page-header-plain :is(button, a[role='button']):hover {
   border-color: rgba(160, 175, 20, 0.55) !important;
   background: rgba(160, 175, 20, 0.14) !important;
+}
+
+/* =====================================================================
+   TOKEN TEKSTU AKCENTOWEGO.
+
+   Oliwka marki #a0af14 swietnie dziala jako TLO, ale jako kolor TEKSTU na
+   bialej karcie ma kontrast 2.43 przy wymaganym 4.5 — napisy w tym kolorze
+   (np. nazwa oddzialu, liczniki w kartach) praktycznie znikaly.
+
+   `--accent` zostaje niezmieniony (tla, przyciski, obrysy). Tekst akcentowy
+   dostaje wlasny token: ciemna oliwka na jasnym tle (kontrast 5.95),
+   jasna oliwka w ciemnych kontenerach.
+   ===================================================================== */
+
+:root {
+  --accent-text: #5d6a0b;
+}
+
+/* Ciemne powierzchnie — tam tekst akcentowy musi byc JASNY. */
+.command-native-sidebar,
+.pf-sidebar,
+.arbor-sidebar,
+.module-page-header-hero,
+.harmonogram-header,
+.zlecenia-v2-primary,
+.raporty-centrum-hero,
+.raporty-centrum-card,
+.dashboard-command-hero,
+.ref-hero-dark,
+[class*='-command-lead'],
+[data-tone='dark'] {
+  --accent-text: #b4c232;
+}
+
+/* Opisy pod licznikami w CIEMNYCH kafelkach kokpitu/radaru: dziedziczyly token
+   z jasnego motywu (#766440 na brazie = kontrast 2.8) i gasly. Celujemy wylacznie
+   w te ciemne elementy — nadanie tokenow calemu radarowi rozjasnialo takze
+   jasne przyciski, ktore w nim siedza. */
+/* Zwycieska regula ustawia tu `color: var(--arbor-app-muted)`, wiec samo
+   podbicie specyficznosci nie wystarcza — nadpisujemy TOKENY na tych
+   konkretnych ciemnych elementach (dziedzicza w dol). */
+.zlecenia-v2-metrics button,
+[class*='-command-lead'] {
+  --arbor-app-muted: #cbbd9a;
+  --ux-text-2: #cbbd9a;
+  --text-sub: #cbbd9a;
+  --text-2: #cbbd9a;
+  --text-muted: #cbbd9a;
+  --text-3: #cbbd9a;
+}
+
+html body #root .zlecenia-v2-metrics button :is(small, span:not([class])),
+html body #root [class*='-command-lead'] :is(small, span:not([class])) {
+  color: #cbbd9a !important;
+}
+
+/* Przyciski z akcentowym (oliwkowym) tlem: jasny napis ma na nim kontrast ~2.5.
+   Prototyp uzywa tu ciemnego atramentu — czytelnego i zgodnego z marka. */
+html body #root button[style*='background: var(--accent)'],
+html body #root button[style*='background:var(--accent)'],
+html body #root button[style*='background: rgb(160, 175, 20)'],
+html body #root button[style*='background: var(--accent-gradient)'] {
+  color: #23260a !important;
+}
+
+html body #root button[style*='background: var(--accent)'] :is(span, small, strong),
+html body #root button[style*='background: rgb(160, 175, 20)'] :is(span, small, strong) {
+  color: #23260a !important;
+}
+
+/* Kafle Harmonogramu z akcentowym (oliwkowym) tlem: tekst stonowany mial na nim
+   kontrast ~2.3. Na akcencie prototyp uzywa ciemnego atramentu --on-accent. */
+html body #root .harmonogram-radar :is(button, [role='button'])[style*='170, 185, 35'] :is(span, small, strong),
+html body #root .harmonogram-radar :is(button, [role='button'])[style*='var(--accent)'] :is(span, small, strong),
+html body #root [style*='background: rgb(170, 185, 35)'] :is(span, small, strong) {
+  color: #23260a !important;
+}
+
+/* Strażnik: cokolwiek siedzi na AKCENTOWYM (oliwkowym) tle, dostaje ciemny
+   atrament marki. Oliwka jest jasna — jasny napis ma na niej kontrast ~2.4,
+   ciemny atrament ~9. Dotyczy badge'ow, kafli i przyciskow we wszystkich
+   modulach, niezaleznie od tego jak zapisano tlo w danym miejscu. */
+html body #root [style*='background: rgb(170, 185, 35)'],
+html body #root [style*='background: rgb(160, 175, 20)'],
+html body #root [style*='background: #a0af14'],
+html body #root [style*='background: var(--accent)'],
+html body #root [style*='background-color: rgb(160, 175, 20)'],
+html body #root [style*='background-color: var(--accent)'] {
+  color: #23260a !important;
+}
+
+html body #root [style*='background: rgb(170, 185, 35)'] :is(span, small, strong, b, div, p),
+html body #root [style*='background: rgb(160, 175, 20)'] :is(span, small, strong, b, div, p),
+html body #root [style*='background: #a0af14'] :is(span, small, strong, b, div, p),
+html body #root [style*='background: var(--accent)'] :is(span, small, strong, b, div, p),
+html body #root [style*='background-color: var(--accent)'] :is(span, small, strong, b, div, p) {
+  color: #23260a !important;
+}
+
+/* Przyciski z akcentowym GRADIENTEM (var(--accent) -> var(--accent-dk)) mialy
+   bialy napis — na oliwce to kontrast ~2.5. Ciemny atrament marki daje ~9. */
+html body #root [style*='var(--accent), var(--accent-dk)'],
+html body #root [style*='var(--accent),var(--accent-dk)'],
+html body #root [style*='var(--accent-gradient)'] {
+  color: #23260a !important;
+}
+
+/* Harmonogram: kafle dyspozytorni maja oliwkowe tlo i ciemny atrament ustawiony
+   na samym przycisku — ale <small>/<span> w srodku dostaja wlasny, stonowany
+   kolor z regul modulowych i gasna na oliwce. Domykamy potomkow. */
+html body #root .harmonogram-dispatch-panel button:first-of-type :is(span, small, strong, div),
+html body #root .harmonogram-radar > button :is(span, small, strong, div),
+html body #root .harmonogram-slot-board button[style*='160, 175, 20'] :is(span, small, strong, div) {
+  color: #23260a !important;
+}
+
+/* Domkniecie ostatnich przypadkow zmierzonych na zywym UI. */
+
+/* Radar Harmonogramu — wszystkie kafle (button i div), nie tylko przyciski. */
+html body #root .harmonogram-radar.harmonogram-radar.harmonogram-radar > * :is(small, span:not([class])) {
+  color: #cbbd9a !important;
+}
+html body #root .harmonogram-radar.harmonogram-radar.harmonogram-radar > button :is(small, span:not([class])) {
+  color: #23260a !important;
+}
+
+/* Awatar uzytkownika w bocznym pasku: oliwkowy krazek z jasnymi inicjalami
+   (kontrast 2.9). Na oliwce marki wlasciwy jest ciemny atrament. */
+html body #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(.command-native-avatar, [class*='avatar'], button > span:first-child)[style*='160, 175, 20'],
+html body #root :is(.pf-sidebar, .command-native-sidebar) button :is(span, strong)[style*='background'] {
+  color: #23260a !important;
+}
+
+/* Liczniki w panelach dowodzenia: akcent jako tekst na bialej karcie. */
+html body #root [class*='-command-panel'] :is(div, span, strong)[style*='var(--accent)'],
+html body #root [class*='-command-panel'] :is(div, span, strong)[style*='160, 175, 20'] {
+  color: var(--accent-text) !important;
+}
+
+/* Wyjatek od straznika akcentowego: w CIEMNYCH radarach/paskach akcji przyciski
+   maja ciemne tlo (akcent wystepuje u nich tylko w obrysie), wiec ciemny
+   atrament by na nich zgasl — tam napis zostaje jasny. */
+html body #root .fleet-command-radar .fleet-command-actions :is(button, a[role='button']),
+html body #root .fleet-command-radar .fleet-command-actions :is(button, a[role='button']) :is(span, small, strong) {
+  color: #efe9da !important;
 }

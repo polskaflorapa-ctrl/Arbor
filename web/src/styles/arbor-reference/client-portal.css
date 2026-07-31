@@ -71,7 +71,7 @@
 }
 
 #root .client-portal-office-call svg {
-  color: #a0af14;
+  color: var(--accent-text);
 }
 
 #root .client-portal-main {
@@ -105,7 +105,7 @@
 
 #root .client-portal-order-number {
   margin: 0;
-  color: #a0af14;
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
@@ -140,7 +140,7 @@
   padding: 7px 14px;
   border-radius: 10px;
   background: #fae7d2;
-  color: #bd701e;
+  color: #9a5613;
   font-size: 13px;
   font-weight: 800;
   line-height: 1.15;
@@ -253,12 +253,12 @@
 }
 
 #root .client-portal-timeline li.is-done .client-portal-step-dot {
-  border-color: #a0af14;
+  border-color: var(--accent-text);
   background: #a0af14;
 }
 
 #root .client-portal-timeline li.is-current .client-portal-step-dot {
-  border-color: #b4c232;
+  border-color: var(--accent-text);
   background: #b4c232;
 }
 
@@ -302,12 +302,12 @@
 }
 
 #root .client-portal-timeline li.is-next .client-portal-step-copy strong {
-  color: #8a8069;
+  color: #6f6555;
 }
 
 #root .client-portal-step-copy small {
   margin-top: 2px;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12.5px;
   line-height: 1.25;
 }
@@ -492,12 +492,12 @@
 
 #root .client-portal-document-icon.is-green {
   background: #f1f3d6;
-  color: #a0af14;
+  color: var(--accent-text);
 }
 
 #root .client-portal-document-icon.is-orange {
   background: #fae7d2;
-  color: #bd701e;
+  color: #9a5613;
 }
 
 #root .client-portal-document > span:last-child {
@@ -526,7 +526,7 @@
 
 #root .client-portal-footer {
   margin: 6px 0 0;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12px;
   text-align: center;
 }
@@ -576,7 +576,7 @@
   height: 34px;
   margin-bottom: 18px;
   border: 3px solid #e0d9c8;
-  border-top-color: #a0af14;
+  border-top-color: var(--accent-text);
   border-radius: 50%;
   animation: clientPortalSpin 0.8s linear infinite;
 }
@@ -587,7 +587,7 @@
 
 @media (hover: hover) {
   #root .client-portal-office-call:hover {
-    border-color: #b4c232;
+    border-color: var(--accent-text);
     background: #faf8f1;
   }
 

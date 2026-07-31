@@ -72,7 +72,7 @@ export default function CityInput({
                 borderRadius: 999,
                 padding: '2px 8px',
                 background: 'var(--surface-field)',
-                color: 'var(--accent)',
+                color: 'var(--accent-text)',
                 fontSize: 11,
                 cursor: 'pointer',
               }}>

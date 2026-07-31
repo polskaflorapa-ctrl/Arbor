@@ -10,7 +10,7 @@ body.theme-light {
   --command-accent-2: #7f8c12;
   --command-text: #2c2011;
   --command-sub: #5a5040;
-  --command-muted: #8a8069;
+  --command-muted: #6f6555;
   --command-line: rgba(20, 35, 27, 0.1);
   --command-line-strong: rgba(69, 107, 31, 0.22);
   --command-blue: #766440;
@@ -64,7 +64,7 @@ body.theme-light {
 }
 
 .crm-unified-timeline-filters button.is-active {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   color: var(--text);
   font-weight: 800;
@@ -103,7 +103,7 @@ body.theme-light {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--surface);
   border: 1px solid var(--border);
 }
@@ -669,7 +669,7 @@ body.theme-light {
 .phone-widget-panel > footer button {
   border: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -2445,7 +2445,7 @@ body.theme-dark .dashboard-shell {
   --command-surface-soft: #2c2011;
   --command-text: #f0ebdd;
   --command-sub: #e0d9c8;
-  --command-muted: #9a907a;
+  --command-muted: #6f6555;
   --command-line: rgba(154, 144, 122, 0.16);
   --command-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
 }
@@ -3099,13 +3099,13 @@ body.theme-dark .dashboard-main > section:not(.dashboard-decision-strip):not(.da
   --command-green-soft: #f0ebdd;
   --command-blue: #766440;
   --command-blue-soft: #f0ebdd;
-  --command-amber: #bd701e;
+  --command-amber: #9a5613;
   --command-amber-soft: #fae7d2;
   --command-red: #c0492f;
   --command-red-soft: #f0ebdd;
   --command-text: #2c2011;
   --command-sub: #5a5040;
-  --command-muted: #8a8069;
+  --command-muted: #6f6555;
   --command-line: #e0d9c8;
   --command-surface: #ffffff;
   --command-surface-soft: #f0ebdd;
@@ -5174,7 +5174,7 @@ body.theme-dark .dashboard-main > section:not(.dashboard-decision-strip):not(.da
 .accounting-kpi-card [style*="justify-content: center"] {
   justify-content: flex-start !important;
   margin-bottom: 8px !important;
-  color: #8a8069 !important;
+  color: #6f6555 !important;
 }
 
 .accounting-kpi-card [style*="font-weight: bold"] {
@@ -5528,11 +5528,11 @@ body.theme-dark .dashboard-main > section:not(.dashboard-decision-strip):not(.da
 .harmonogram-shell {
   --command-accent: #456b1f;
   --command-blue: #766440;
-  --command-amber: #bd701e;
+  --command-amber: #9a5613;
   --command-red: #c0492f;
   --command-text: #2c2011;
   --command-sub: #5a5040;
-  --command-muted: #8a8069;
+  --command-muted: #6f6555;
   --command-line: #e0d9c8;
   background:
     linear-gradient(90deg, rgba(16, 33, 27, 0.025) 1px, transparent 1px),
@@ -5734,11 +5734,11 @@ body.theme-dark .dashboard-main > section:not(.dashboard-decision-strip):not(.da
 .integrations-shell {
   --command-accent: #456b1f;
   --command-blue: #766440;
-  --command-amber: #bd701e;
+  --command-amber: #9a5613;
   --command-red: #c0492f;
   --command-text: #2c2011;
   --command-sub: #5a5040;
-  --command-muted: #8a8069;
+  --command-muted: #6f6555;
   --command-line: #e0d9c8;
   background:
     linear-gradient(90deg, rgba(16, 33, 27, 0.025) 1px, transparent 1px),

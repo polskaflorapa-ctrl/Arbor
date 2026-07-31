@@ -10,8 +10,8 @@ import BrandLogo from '../components/BrandLogo';
 const DEMO_ACCOUNTS = [
   { label: 'Dyrektor', login: 'dyrektor', haslo: 'ArborDemo2026!', color: '#f1f3d6' },
   { label: 'Kierownik oddziału', login: 'kierownik.waw', haslo: 'ArborDemo2026!', color: '#766440' },
-  { label: 'Brygadzista', login: 'brygadzista.a1', haslo: 'ArborDemo2026!', color: '#bd701e' },
-  { label: 'Pracownik', login: 'pracownik.a1', haslo: 'ArborDemo2026!', color: '#7f8c12' },
+  { label: 'Brygadzista', login: 'brygadzista.a1', haslo: 'ArborDemo2026!', color: '#9a5613' },
+  { label: 'Pracownik', login: 'pracownik.a1', haslo: 'ArborDemo2026!', color: 'var(--accent-text)' },
 ];
 
 const SHOW_DEMO_ACCOUNTS =
@@ -571,7 +571,7 @@ const s = {
     color: 'var(--on-accent)',
   },
   logoText: { margin: 0, fontSize: 26, fontWeight: 850, color: '#2c2011', letterSpacing: '0' },
-  subtitle: { margin: '0 0 34px', fontSize: 16, color: '#8a8069', textAlign: 'left', lineHeight: 1.45 },
+  subtitle: { margin: '0 0 34px', fontSize: 16, color: '#6f6555', textAlign: 'left', lineHeight: 1.45 },
   demoPanel: {
     margin: '30px 0 0',
     padding: 16,
@@ -660,7 +660,7 @@ const s = {
   linkBtn: {
     border: 0,
     background: 'transparent',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 13,
     fontWeight: 800,
     cursor: 'pointer',
@@ -692,13 +692,13 @@ const s = {
     padding: '10px 12px',
     borderRadius: 10,
     background: 'rgba(69, 107, 31, 0.1)',
-    color: 'var(--accent-strong)',
+    color: 'var(--accent-text)',
     fontSize: 13,
     lineHeight: 1.45,
   },
   devLink: {
     display: 'inline-block',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 13,
     fontWeight: 800,
     marginTop: 8,

@@ -150,7 +150,7 @@ export default function MagazynPolskaFlora({
 
             <div style={ui.filters}>
               <label style={ui.search}>
-                <SearchOutlined style={{ color: '#9a907a', fontSize: 20 }} />
+                <SearchOutlined style={{ color: '#6f6555', fontSize: 20 }} />
                 <input style={ui.searchInput} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Szukaj materialu, kategorii albo oddzialu..." />
               </label>
               <select style={ui.filterSelect} value={category} onChange={(event) => setCategory(event.target.value)}>
@@ -213,12 +213,12 @@ const ui = {
   main: { flex: 1, padding: 28, overflowX: 'hidden' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
   title: { margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: '#2c2011' },
-  subtitle: { margin: '6px 0 0', color: '#8a8069', fontSize: 14 },
+  subtitle: { margin: '6px 0 0', color: '#6f6555', fontSize: 14 },
   notice: { borderRadius: 10, padding: '9px 12px', background: '#f0ebdd', color: '#456b1f', fontSize: 13, fontWeight: 700 },
   noticeError: { background: '#f0ebdd', color: '#a3402a' },
   stats: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(150px, 1fr))', gap: 14, marginBottom: 18 },
   statCard: { background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(44, 32, 17, 0.04)' },
-  statLabel: { display: 'flex', alignItems: 'center', gap: 8, color: '#8a8069', textTransform: 'uppercase', fontSize: 12, fontWeight: 900, marginBottom: 8 },
+  statLabel: { display: 'flex', alignItems: 'center', gap: 8, color: '#6f6555', textTransform: 'uppercase', fontSize: 12, fontWeight: 900, marginBottom: 8 },
   statNumber: { display: 'block', fontSize: 26, color: '#2c2011' },
   layout: { display: 'grid', gridTemplateColumns: '360px minmax(0, 1fr)', gap: 18, alignItems: 'start' },
   sideColumn: { display: 'grid', gap: 14 },
@@ -227,15 +227,15 @@ const ui = {
   issuePanel: { display: 'grid', gap: 12, background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 18, boxShadow: '0 8px 24px rgba(44, 32, 17, 0.04)' },
   panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' },
   panelTitle: { margin: 0, color: '#2c2011', fontSize: 17, fontWeight: 900 },
-  panelHint: { margin: '4px 0 0', color: '#8a8069', fontSize: 13 },
+  panelHint: { margin: '4px 0 0', color: '#6f6555', fontSize: 13 },
   panelIcon: { width: 32, height: 32, borderRadius: 10, background: '#f0ebdd', color: '#456b1f', display: 'grid', placeItems: 'center' },
   twoCols: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
   input: { width: '100%', height: 42, border: '1px solid #e0d9c8', borderRadius: 10, padding: '0 12px', outline: 'none', color: '#2c2011', background: '#fff', fontSize: 14, boxSizing: 'border-box' },
   primaryButton: { height: 42, border: 0, borderRadius: 10, background: '#456b1f', color: '#fff', fontWeight: 900, cursor: 'pointer' },
   secondaryButton: { height: 42, border: '1px solid #7f8c12', borderRadius: 10, background: '#f0ebdd', color: '#456b1f', fontWeight: 900, cursor: 'pointer' },
-  warningButton: { height: 42, border: 0, borderRadius: 10, background: '#bd701e', color: '#fff', fontWeight: 900, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  warningButton: { height: 42, border: 0, borderRadius: 10, background: '#9a5613', color: '#fff', fontWeight: 900, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
   issueGrid: { display: 'grid', gridTemplateColumns: 'minmax(210px, 1.2fr) 110px 120px minmax(160px, 1fr) 120px', gap: 10, alignItems: 'center' },
-  available: { margin: 0, color: '#8a8069', fontSize: 13 },
+  available: { margin: 0, color: '#6f6555', fontSize: 13 },
   filters: { display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 220px', gap: 12 },
   search: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: '0 12px' },
   searchInput: { flex: 1, border: 0, outline: 0, height: 44, fontSize: 14, color: '#2c2011' },
@@ -248,11 +248,11 @@ const ui = {
   itemIconWarn: { color: '#995510', background: '#f0ebdd' },
   itemIconDanger: { color: '#a3402a', background: '#f0ebdd' },
   itemTitle: { margin: 0, color: '#2c2011', fontSize: 16, fontWeight: 900 },
-  itemMeta: { margin: '4px 0 0', color: '#8a8069', fontSize: 13 },
+  itemMeta: { margin: '4px 0 0', color: '#6f6555', fontSize: 13 },
   itemStock: { textAlign: 'right', whiteSpace: 'nowrap' },
   itemFooter: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   categoryPill: { borderRadius: 999, padding: '5px 9px', color: '#5a5040', border: '1px solid #e0d9c8', fontSize: 12, fontWeight: 800 },
   warningPill: { borderRadius: 999, padding: '5px 9px', color: '#995510', background: '#fae7d2', fontSize: 12, fontWeight: 900 },
   dangerPill: { borderRadius: 999, padding: '5px 9px', color: '#a3402a', background: '#f6e0d9', fontSize: 12, fontWeight: 900 },
-  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#8a8069' },
+  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#6f6555' },
 };

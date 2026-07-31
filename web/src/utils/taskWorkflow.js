@@ -125,7 +125,7 @@ export function canTransitionTaskStatus(fromStatus, toStatus, options = {}) {
   return getNextTaskStatuses(from, options).includes(to);
 }
 
-export function getTaskStatusColor(status, fallback = '#8a8069') {
+export function getTaskStatusColor(status, fallback = '#6f6555') {
   return TASK_STATUS_COLORS[normalizeTaskStatus(status)] || fallback;
 }
 

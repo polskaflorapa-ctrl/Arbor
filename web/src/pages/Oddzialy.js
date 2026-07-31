@@ -180,7 +180,7 @@ export default function Oddzialy() {
   };
 
   const STATUS_DELEGACJI_KOLOR = {
-    Planowana: '#766440', W_trakcie: '#bd701e',
+    Planowana: '#766440', W_trakcie: '#9a5613',
     Zakonczona: '#7f8c12', Anulowana: '#c0492f'
   };
 
@@ -272,7 +272,7 @@ export default function Oddzialy() {
               key={tab.key}
               variant="ghost"
               size="sm"
-              style={{ padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: activeTab === tab.key ? 'var(--accent)' : '#8a8069', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' }}
+              style={{ padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: activeTab === tab.key ? 'var(--accent-text)' : '#6f6555', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' }}
               onClick={() => setActiveTab(tab.key)}
             >
               {tab.label}
@@ -416,7 +416,7 @@ export default function Oddzialy() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(127, 140, 18, 0.18)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <BusinessOutlined sx={{ fontSize: 36, color: 'var(--accent)', opacity: 0.85 }} />
+                  <BusinessOutlined sx={{ fontSize: 36, color: 'var(--accent-text)', opacity: 0.85 }} />
                   {isDyrektor && (
                     <div style={{ display: 'flex', gap: 6 }}>
                       <Button size="sm" variant="outline" leftIcon={Pencil} onClick={() => handleEdit(o)} aria-label={t('common.edit')} style={{ minHeight: 32, padding: '6px 9px' }} />
@@ -424,7 +424,7 @@ export default function Oddzialy() {
                     </div>
                   )}
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 4 }}>{o.nazwa}</div>
+                <div style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 4 }}>{o.nazwa}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <PlaceOutlined sx={{ fontSize: 16, flexShrink: 0 }} />
                   {o.miasto}
@@ -443,11 +443,11 @@ export default function Oddzialy() {
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-around', margin: '12px 0', padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent)' }}>{o.liczba_ekip || 0}</div>
+                    <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent-text)' }}>{o.liczba_ekip || 0}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ekipy</div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent)' }}>{o.liczba_pracownikow || 0}</div>
+                    <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent-text)' }}>{o.liczba_pracownikow || 0}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pracownicy</div>
                   </div>
                 </div>
@@ -485,7 +485,7 @@ export default function Oddzialy() {
                           {d.zasob_typ === 'wyceniajacy' ? 'Specjalista ds. wyceny' : 'Ekipa'}
                         </span>
                       </strong>
-                      <span style={{ ...S.delegacjaStatus, backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#8a8069' }}>
+                      <span style={{ ...S.delegacjaStatus, backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#6f6555' }}>
                         {d.status}
                       </span>
                     </div>
@@ -546,10 +546,10 @@ function Field({ label, children }) {
 const S = {
   headerBtn: (bg, color = '#fff') => ({ padding: '10px 18px', backgroundColor: bg, color, border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 'bold' }),
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
-  editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
-  formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
+  formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 8 },
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },

@@ -535,7 +535,7 @@ function gpsStatus(row) {
       key: 'online',
       label: 'GPS online',
       meta: age <= 0 ? 'teraz' : `${age} min`,
-      color: 'var(--accent)',
+      color: 'var(--accent-text)',
       bg: 'rgba(127, 140, 18, 0.12)',
       border: 'rgba(127, 140, 18, 0.32)',
     };
@@ -1299,7 +1299,7 @@ export default function Harmonogram() {
           const isToday = ds === dzisiaj;
           return (
             <div key={ds} style={{...styles.dayColHeader, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--surface-field)'}}>
-              <div style={{...styles.dayColDow, color: isToday ? 'var(--accent)' : 'var(--text-muted)'}}>
+              <div style={{...styles.dayColDow, color: isToday ? 'var(--accent-text)' : 'var(--text-muted)'}}>
                 {DNI_KROTKO[d.getDay() === 0 ? 6 : d.getDay() - 1]}
               </div>
               <div style={{
@@ -1475,7 +1475,7 @@ export default function Harmonogram() {
               backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--surface-field)',
               border: isToday ? '2px solid var(--accent)' : '1px solid var(--border)',
             }} onClick={() => { setCurrentDate(data); setWidok('dzien'); }}>
-              <div style={{...styles.miesiacNum, color: isToday ? 'var(--accent)' : 'var(--text)', fontWeight: isToday ? 'bold' : 'normal'}}>
+              <div style={{...styles.miesiacNum, color: isToday ? 'var(--accent-text)' : 'var(--text)', fontWeight: isToday ? 'bold' : 'normal'}}>
                 {data.getDate()}
               </div>
               {zl.slice(0, 3).map(z => (
@@ -1544,7 +1544,7 @@ export default function Harmonogram() {
         {(planErr || planMsg) && (
           <div style={{ marginBottom: 8, fontSize: 13 }}>
             {planErr ? <span style={{ color: 'var(--danger)' }}>{planErr}</span> : null}
-            {planMsg ? <span style={{ color: 'var(--accent)' }}>{planMsg}</span> : null}
+            {planMsg ? <span style={{ color: 'var(--accent-text)' }}>{planMsg}</span> : null}
           </div>
         )}
         {canEdit && !loading ? (
@@ -2068,7 +2068,7 @@ export default function Harmonogram() {
                 .filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial)
                 .map(e => (
                   <div key={e.id} style={styles.legendaItem}>
-                    <div style={{...styles.legendaDot, backgroundColor: e.kolor || 'var(--text-muted)', boxShadow: `0 0 6px ${e.kolor || '#9a907a'}88`}} />
+                    <div style={{...styles.legendaDot, backgroundColor: e.kolor || 'var(--text-muted)', boxShadow: `0 0 6px ${e.kolor || '#6f6555'}88`}} />
                     <span style={styles.legendaLabel}>{e.nazwa}</span>
                   </div>
                 ))}
@@ -2181,11 +2181,11 @@ const styles = {
   readinessHint: { marginBottom: 10, fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 },
   dispatchPanel: { border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, background: '#FFFFFF', boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)', padding: 14, marginBottom: 14 },
   dispatchHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 },
-  dispatchEyebrow: { fontSize: 10, fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 0 },
+  dispatchEyebrow: { fontSize: 10, fontWeight: 900, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: 0 },
   dispatchTitle: { margin: '2px 0 3px', color: 'var(--text)', fontSize: 18, fontWeight: 950, lineHeight: 1.15 },
   dispatchSubtitle: { margin: 0, color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, maxWidth: 720, lineHeight: 1.45 },
   dispatchHeadActions: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' },
-  dispatchLinkBtn: { minHeight: 34, border: '1px solid rgba(69, 107, 31, 0.16)', borderRadius: 8, background: '#ffffff', color: 'var(--accent)', fontWeight: 900, fontSize: 12, padding: '7px 11px', cursor: 'pointer' },
+  dispatchLinkBtn: { minHeight: 34, border: '1px solid rgba(69, 107, 31, 0.16)', borderRadius: 8, background: '#ffffff', color: 'var(--accent-text)', fontWeight: 900, fontSize: 12, padding: '7px 11px', cursor: 'pointer' },
   dispatchLoadedPlan: { border: '1px solid rgba(127, 140, 18, 0.24)', borderRadius: 8, background: 'rgba(127, 140, 18, 0.08)', padding: 12, marginBottom: 12 },
   dispatchLoadedPlanHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 },
   dispatchLoadedPlanTitle: { display: 'block', color: 'var(--text)', fontSize: 14, fontWeight: 950, marginTop: 2 },
@@ -2232,7 +2232,7 @@ const styles = {
   dispatchLoadFill: { display: 'block', height: '100%', borderRadius: 999, minWidth: 2 },
   dispatchTeamBadges: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   dispatchBadge: { display: 'inline-flex', alignItems: 'center', minHeight: 20, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 999, padding: '2px 7px', fontSize: 10, fontWeight: 900, color: 'var(--text-muted)', background: 'var(--surface-field)', maxWidth: '100%' },
-  dispatchBadgeOk: { color: 'var(--accent)', borderColor: 'rgba(127, 140, 18, 0.28)', background: 'rgba(127, 140, 18, 0.12)' },
+  dispatchBadgeOk: { color: 'var(--accent-text)', borderColor: 'rgba(127, 140, 18, 0.28)', background: 'rgba(127, 140, 18, 0.12)' },
   dispatchBadgeWarn: { color: 'var(--warning)', borderColor: 'rgba(189, 112, 30, 0.36)', background: 'rgba(189, 112, 30, 0.12)' },
   dispatchBadgeDanger: { color: 'var(--danger)', borderColor: 'rgba(192, 73, 47, 0.38)', background: 'rgba(192, 73, 47, 0.12)' },
   dispatchQueue: { border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, background: '#ffffff', padding: 12, minWidth: 0, boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)' },
@@ -2241,7 +2241,7 @@ const styles = {
   dispatchQueueItem: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', color: 'var(--text)', padding: 10, textAlign: 'left', cursor: 'pointer', display: 'grid', gap: 4, fontSize: 12 },
   dispatchQueueMeta: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 800 },
   dispatchQueueWarn: { color: 'var(--warning)', fontSize: 11, fontWeight: 900 },
-  dispatchQueueOk: { color: 'var(--accent)', fontSize: 11, fontWeight: 900 },
+  dispatchQueueOk: { color: 'var(--accent-text)', fontSize: 11, fontWeight: 900 },
   dispatchEmpty: { border: '1px dashed var(--border)', borderRadius: 10, padding: 12, color: 'var(--text-muted)', background: 'var(--surface-field)', fontSize: 12, fontWeight: 800 },
   quickPanel: { border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, background: '#ffffff', boxShadow: '0 12px 30px rgba(69, 107, 31, 0.07)', padding: 14, marginBottom: 14 },
   quickPanelHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
@@ -2259,13 +2259,13 @@ const styles = {
   quickTelemetryItem: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', padding: '8px 9px', display: 'grid', gap: 3 },
   quickPhotoStrip: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   quickPhotoChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 999, padding: '3px 8px', fontSize: 10, fontWeight: 950, background: 'var(--surface-field)' },
-  quickPhotoChipReady: { color: 'var(--accent)', borderColor: 'rgba(127, 140, 18, 0.28)', background: 'rgba(127, 140, 18, 0.11)' },
+  quickPhotoChipReady: { color: 'var(--accent-text)', borderColor: 'rgba(127, 140, 18, 0.28)', background: 'rgba(127, 140, 18, 0.11)' },
   quickPhotoChipMissing: { color: 'var(--text-muted)', borderColor: 'rgba(154, 144, 122, 0.22)', background: 'rgba(154, 144, 122, 0.09)' },
   quickBrief: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', padding: '10px 12px', marginBottom: 10 },
   quickMissingWrap: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
   quickActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   quickWarnText: { color: 'var(--warning)' },
-  quickOkText: { color: 'var(--accent)' },
+  quickOkText: { color: 'var(--accent-text)' },
   quickDangerText: { color: 'var(--danger)' },
   quickActionDisabled: { opacity: 0.55, cursor: 'not-allowed', filter: 'grayscale(0.2)' },
   calBody: { display: 'flex', flexDirection: 'column', minHeight: 520, height: '100%' },
@@ -2288,7 +2288,7 @@ const styles = {
   blockSub: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 },
   blockBadges: { display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap', overflow: 'hidden', maxHeight: 20 },
   blockBadge: { display: 'inline-flex', alignItems: 'center', height: 16, padding: '0 5px', borderRadius: 999, fontSize: 9, fontWeight: 900, lineHeight: '16px', whiteSpace: 'nowrap', borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent' },
-  blockBadgeOk: { backgroundColor: 'rgba(127, 140, 18, 0.16)', color: 'var(--accent)', borderColor: 'rgba(127, 140, 18, 0.28)' },
+  blockBadgeOk: { backgroundColor: 'rgba(127, 140, 18, 0.16)', color: 'var(--accent-text)', borderColor: 'rgba(127, 140, 18, 0.28)' },
   blockBadgeWarn: { backgroundColor: 'rgba(189, 112, 30, 0.16)', color: 'var(--warning)', borderColor: 'rgba(189, 112, 30, 0.32)' },
   blockBadgeDanger: { backgroundColor: 'rgba(192, 73, 47, 0.16)', color: 'var(--danger)', borderColor: 'rgba(192, 73, 47, 0.34)' },
   blockBadgeNeutral: { backgroundColor: 'rgba(154, 144, 122, 0.16)', color: 'var(--text-muted)', borderColor: 'rgba(154, 144, 122, 0.24)' },

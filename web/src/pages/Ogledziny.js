@@ -43,9 +43,9 @@ const ZONE_COLOR = {
   'Krakow-POLNOC': '#f1f3d6',
   'Krakow-WSCHOD': '#766440',
   'Krakow-POŁUDNIE': '#7f8c12',
-  'Krakow-ZACHOD': '#bd701e',
+  'Krakow-ZACHOD': '#9a5613',
   'Krakow-NIEJEDNOZNACZNA': '#c0492f',
-  'POZA-KRAKOWEM': '#9a907a',
+  'POZA-KRAKOWEM': '#6f6555',
 };
 
 const ZONE_RULES = {
@@ -473,7 +473,7 @@ export default function Ogledziny() {
     return { x, y };
   };
 
-  const sc = (s) => STATUS_COLOR[s] || '#9a907a';
+  const sc = (s) => STATUS_COLOR[s] || '#6f6555';
   const zoneFor = (o) => zoneOverrides[o.id] || clientZoneDefaults[o.klient_id] || detectKrakowZone(o);
   const listaPoDacie = filterDate
     ? lista.filter((o) => String(o.data_planowana || '').slice(0, 10) === filterDate)
@@ -675,7 +675,7 @@ export default function Ogledziny() {
           <div className="ogledziny-command-panel" style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(153, 85, 16, 0.12)', background: 'linear-gradient(135deg, rgba(250, 248, 241,0.98), #ffffff)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 950, textTransform: 'uppercase' }}>Field evidence</div>
+                <div style={{ fontSize: 10, color: 'var(--accent-text)', fontWeight: 950, textTransform: 'uppercase' }}>Field evidence</div>
                 <h2 style={{ margin: '2px 0 0', fontSize: 20, fontWeight: 950, color: 'var(--text)' }}>Oględziny</h2>
                 <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)', fontWeight: 750 }}>{trasaList.length} rekordów po filtrach</p>
               </div>
@@ -1089,7 +1089,7 @@ export default function Ogledziny() {
                           padding: '2px 8px',
                           borderRadius: 7,
                           background: `${ZONE_COLOR[zoneFor(o)] || '#9a907a'}22`,
-                          color: ZONE_COLOR[zoneFor(o)] || '#9a907a',
+                          color: ZONE_COLOR[zoneFor(o)] || '#6f6555',
                         }}
                       >
                         {ZONE_LABEL[zoneFor(o)] || zoneFor(o)}
@@ -1318,7 +1318,7 @@ export default function Ogledziny() {
                       detail.klient_telefon
                         ? telHref(detail.klient_telefon)
                           ? (
-                              <a href={telHref(detail.klient_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                              <a href={telHref(detail.klient_telefon)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                                 {detail.klient_telefon}
                               </a>
                             )
@@ -1344,7 +1344,7 @@ export default function Ogledziny() {
                       <Row
                         label="GPS"
                         value={
-                          <a href={fieldEventMapUrl(detail)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'none' }}>
+                          <a href={fieldEventMapUrl(detail)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-text)', fontWeight: 700, textDecoration: 'none' }}>
                             Otworz mape
                           </a>
                         }
@@ -1418,7 +1418,7 @@ export default function Ogledziny() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>
                         Wycena #{detail.wycena_id}
                         {detail.wartosc_szacowana && (
-                          <span style={{ color: 'var(--accent)', marginLeft: 8 }}>{fmtPln(detail.wartosc_szacowana)}</span>
+                          <span style={{ color: 'var(--accent-text)', marginLeft: 8 }}>{fmtPln(detail.wartosc_szacowana)}</span>
                         )}
                       </div>
                       {detail.wycena_opis && (
@@ -1427,7 +1427,7 @@ export default function Ogledziny() {
                     </div>
                     {detail.wycena_status && (
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 11,
-                        background: 'rgba(127, 140, 18, 0.15)', color: 'var(--accent)' }}>
+                        background: 'rgba(127, 140, 18, 0.15)', color: 'var(--accent-text)' }}>
                         {detail.wycena_status}
                       </span>
                     )}

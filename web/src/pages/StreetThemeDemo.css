@@ -428,7 +428,7 @@
 }
 
 .street-pitch-active em {
-  color: #7f8c12;
+  color: var(--accent-text);
 }
 
 .street-phone-top,
@@ -454,7 +454,7 @@
 }
 
 .street-score span {
-  color: #7f8c12;
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
@@ -644,7 +644,7 @@
 }
 
 .street-after-window > span {
-  color: #7f8c12;
+  color: var(--accent-text);
   font-weight: 950;
   text-transform: uppercase;
 }
@@ -946,7 +946,7 @@
   place-items: center;
   border-radius: 50%;
   background: #2c2011;
-  color: #7f8c12;
+  color: var(--accent-text);
   font-weight: 950;
 }
 

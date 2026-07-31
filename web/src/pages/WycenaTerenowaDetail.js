@@ -72,7 +72,7 @@ const S = {
     padding: '6px 0',
     border: 'none',
     background: 'none',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     cursor: 'pointer',
     fontSize: 14,
   },
@@ -97,7 +97,7 @@ const S = {
     color: 'var(--text)',
     marginBottom: 12,
   },
-  link: { color: 'var(--accent)', wordBreak: 'break-all' },
+  link: { color: 'var(--accent-text)', wordBreak: 'break-all' },
 };
 
 function canResendClientOfferUi(user) {
@@ -333,7 +333,7 @@ export default function WycenaTerenowaDetail() {
                       Ten sam link akceptacji co wcześniej. Użyj po błędzie Twilio/SMTP lub gdy klient nie dostał wiadomości.
                     </div>
                     {resendMsg ? (
-                      <div style={{ marginTop: 8, fontSize: 13, color: 'var(--accent)' }}>{resendMsg}</div>
+                      <div style={{ marginTop: 8, fontSize: 13, color: 'var(--accent-text)' }}>{resendMsg}</div>
                     ) : null}
                   </div>
                 ) : null}

@@ -5,7 +5,7 @@ export const BRAND_COLORS = Object.freeze({
   lightBrown: '#766440',
   primaryGreen: '#A0AF14',
   lightGreen: '#B4C232',
-  orangeBrown: '#BD701E',
+  orangeBrown: '#9a5613',
 });
 
 // Polska Flora — semantic aliases backed by the approved brand-book palette.
@@ -58,8 +58,8 @@ export const SHADOWS = {
 // CANONICAL SOURCE — must stay in sync with mobile/constants/theme.ts ROLA_COLORS.
 // Covers all 14 employee roles + spelling/diacritic variants.
 export const ROLA_COLORS = {
-  'Prezes':                      '#bd701e',
-  'Dyrektor':                    '#bd701e',
+  'Prezes':                      '#9a5613',
+  'Dyrektor':                    '#9a5613',
   'Dyrektor Sprzedazy':           '#c0492f',
   'Dyrektor Sprzedaży':           '#c0492f',
   'Dyrektor dzialu sprzedaz':     '#c0492f',
@@ -73,12 +73,12 @@ export const ROLA_COLORS = {
   'Wyceniajacy':                 '#995510',
   'Handlowiec':                  '#f1f3d6',
   'Pracownik biurowy':           '#f1f3d6',
-  'Pomocnik':                    '#9a907a',
-  'Pomocnik bez doświadczenia':  '#8a8069',
-  'Magazynier':                  '#bd701e',
+  'Pomocnik':                    '#6f6555',
+  'Pomocnik bez doświadczenia':  '#6f6555',
+  'Magazynier':                  '#9a5613',
 };
 
-export const getRolaColor = (rola) => ROLA_COLORS[rola] || '#8a8069';
+export const getRolaColor = (rola) => ROLA_COLORS[rola] || '#6f6555';
 
 // Wszystkie dostępne role (do dropdownów)
 export const WSZYSTKIE_ROLE = [

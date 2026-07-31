@@ -9,7 +9,7 @@
   --template-brown-deep: #2a1d0f;
   --template-ink: #3b2a18;
   --template-muted: #5a5040;
-  --template-muted-soft: #8a8069;
+  --template-muted-soft: #6f6555;
   --template-paper: #f0ebdd;
   --template-panel: #ffffff;
   --template-card: #f0ebdd;
@@ -17,7 +17,7 @@
   --template-green: #a0af14;
   --template-green-dark: #7f8c12;
   --template-green-soft: #f1f3d6;
-  --template-orange: #bd701e;
+  --template-orange: #9a5613;
   --template-red: #c0492f;
   --template-shadow: 0 10px 26px rgba(59, 42, 24, 0.08);
   min-height: 100vh !important;

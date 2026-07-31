@@ -13,10 +13,10 @@ import LanguageSwitcher from './LanguageSwitcher';
 import BrandLogo from './BrandLogo';
 // ─── Stałe ───────────────────────────────────────────────────────────────────
 const NOTIF_KOLOR = {
-  problem: '#c0492f', potrzebuje_czasu: '#bd701e', skonczylem_wczesniej: 'var(--accent)',
-  pytanie: '#f1f3d6', info: '#9a907a', nowe_zlecenie: 'var(--accent)',
+  problem: '#c0492f', potrzebuje_czasu: '#9a5613', skonczylem_wczesniej: 'var(--accent)',
+  pytanie: '#f1f3d6', info: '#6f6555', nowe_zlecenie: 'var(--accent)',
   potwierdzenie_godzin: 'var(--accent)', raport_dnia_ekipy: 'var(--accent)', kasa_oddzial_nieodebrana: '#c0492f',
-  delegacja: '#bd701e', przypomnienie: '#c0492f',
+  delegacja: '#9a5613', przypomnienie: '#c0492f',
   'Odprawa ekipy': '#5d6a0b', 'Przypomnienie odprawy': '#995510',
 };
 // SVG ikony nawigacji
@@ -471,7 +471,7 @@ export default function Sidebar() {
 
         {/* Logo */}
         <div style={{ ...sb.logo, justifyContent: collapsed ? 'center' : 'flex-start' }}>
-          <div style={{ ...sb.logoIcon, color: 'var(--accent)' }}>
+          <div style={{ ...sb.logoIcon, color: 'var(--accent-text)' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M12 22V12M12 12C12 7 7 3 3 3c0 4 2 8 5 10M12 12C12 7 17 3 21 3c0 4-2 8-5 10"/>
             </svg>
@@ -572,7 +572,7 @@ export default function Sidebar() {
                           >
                             <span
                               className="ios-icon-tile"
-                              style={active ? { color: 'var(--accent)', border: '1px solid var(--border)' } : undefined}
+                              style={active ? { color: 'var(--accent-text)', border: '1px solid var(--border)' } : undefined}
                             >
                               {ICONS[link.icon]}
                             </span>
@@ -617,7 +617,7 @@ export default function Sidebar() {
                                     boxShadow: active ? 'inset 3px 0 0 var(--accent)' : 'none',
                                   }}
                                 >
-                                  <span style={{ ...sb.subNavIcon, color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                  <span style={{ ...sb.subNavIcon, color: active ? 'var(--accent-text)' : 'var(--text-muted)' }}>
                                     {ICONS[link.icon]}
                                   </span>
                                   <span style={sb.subNavLabel}>{t(link.labelKey)}</span>
@@ -652,7 +652,7 @@ export default function Sidebar() {
                     justifyContent: 'center',
                     padding: '10px 0',
                     background: active ? 'var(--nav-active-bg)' : isHov ? 'var(--nav-hover-bg)' : 'transparent',
-                    color: active ? 'var(--accent)' : isHov ? 'var(--text)' : 'var(--text-sub)',
+                    color: active ? 'var(--accent-text)' : isHov ? 'var(--text)' : 'var(--text-sub)',
                     borderLeft: `3px solid ${active ? 'var(--accent)' : 'transparent'}`,
                     fontWeight: active ? 700 : 500,
                   }}
@@ -692,7 +692,7 @@ export default function Sidebar() {
                 >
                   <span
                     className="ios-icon-tile"
-                    style={{ position: 'relative', ...(showNotif ? { color: 'var(--accent)', border: '1px solid var(--border)' } : {}) }}
+                    style={{ position: 'relative', ...(showNotif ? { color: 'var(--accent-text)', border: '1px solid var(--border)' } : {}) }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {ICONS.bell}
@@ -724,7 +724,7 @@ export default function Sidebar() {
                         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('sidebar.noNotifications')}</p>
                       </div>
                     ) : notifList.slice(0, 15).map(n => {
-                      const kolor = NOTIF_KOLOR[n.typ] || '#9a907a';
+                      const kolor = NOTIF_KOLOR[n.typ] || '#6f6555';
                       return (
                         <div key={n.id}
                           onClick={() => openNotification(n)}
@@ -799,7 +799,7 @@ export default function Sidebar() {
                     justifyContent: 'center',
                     padding: '10px 0',
                     background: showNotif ? 'var(--nav-active-bg)' : 'transparent',
-                    color: showNotif ? 'var(--accent)' : 'var(--text-sub)',
+                    color: showNotif ? 'var(--accent-text)' : 'var(--text-sub)',
                     borderLeft: `3px solid ${showNotif ? 'var(--accent)' : 'transparent'}`,
                     cursor: 'pointer',
                   }}
@@ -825,7 +825,7 @@ export default function Sidebar() {
                         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('sidebar.noNotifications')}</p>
                       </div>
                     ) : notifList.slice(0, 15).map(n => {
-                      const kolor = NOTIF_KOLOR[n.typ] || '#9a907a';
+                      const kolor = NOTIF_KOLOR[n.typ] || '#6f6555';
                       return (
                         <div key={n.id}
                           onClick={() => openNotification(n)}
@@ -929,7 +929,7 @@ const pfSb = {
     color: '#ffffff',
   },
   logoName: { fontSize: 18, lineHeight: 1.05, fontWeight: 800, color: '#ffffff' },
-  logoSub: { marginTop: 3, fontSize: 10, color: '#9a907a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' },
+  logoSub: { marginTop: 3, fontSize: 10, color: '#6f6555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' },
   nav: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 10px' },
   navItem: {
     width: '100%',
@@ -984,7 +984,7 @@ const pfSb = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'linear-gradient(135deg, #7f8c12, #456b1f)',
+    background: 'linear-gradient(135deg, #a0af14, #8d9c13)',
     color: '#ffffff',
     fontSize: 12,
     fontWeight: 900,

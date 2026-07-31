@@ -471,7 +471,7 @@ export default function PayrollM11() {
                   background: 'var(--surface-field)',
                 }}
               >
-                <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>
+                <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--accent-text)' }}>
                   {rep.report_date} · {rep.team_nazwa || `${t('payrollM11.team')} #${rep.team_id}`}
                   {rep.approved_at ? (
                     <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>

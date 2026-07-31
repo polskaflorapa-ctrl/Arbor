@@ -111,7 +111,7 @@ export default function EkipyPolskaFlora({
                     </div>
                     <div style={{ ...ui.stat, background: '#f0ebdd' }}>
                       <strong style={{ color: '#456b1f' }}>{card.value ? `${money.format(card.value / 1000)}k` : '-'}</strong>
-                      <span style={{ color: '#7f8c12' }}>Wartosc zl</span>
+                      <span style={{ color: 'var(--accent-text)' }}>Wartosc zl</span>
                     </div>
                   </div>
 
@@ -121,7 +121,7 @@ export default function EkipyPolskaFlora({
                       <p style={ui.leaderLabel}>Brygadzista</p>
                       <p style={ui.leaderName}>{card.leader ? personName(card.leader) : 'Nieprzypisany'}</p>
                     </div>
-                    <PhoneOutlined style={{ color: '#bd701e', marginLeft: 'auto', fontSize: 18 }} />
+                    <PhoneOutlined style={{ color: '#9a5613', marginLeft: 'auto', fontSize: 18 }} />
                   </div>
                 </button>
               );
@@ -193,7 +193,7 @@ const ui = {
   main: { flex: 1, padding: 28, overflowX: 'hidden' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 24 },
   title: { margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: '#2c2011' },
-  subtitle: { margin: '6px 0 0', color: '#8a8069', fontSize: 14 },
+  subtitle: { margin: '6px 0 0', color: '#6f6555', fontSize: 14 },
   headerActions: { display: 'flex', alignItems: 'center', gap: 10 },
   primaryButton: { border: 0, borderRadius: 10, background: '#456b1f', color: '#fff', padding: '10px 14px', fontWeight: 800, cursor: 'pointer' },
   notice: { borderRadius: 10, padding: '9px 12px', background: '#f0ebdd', color: '#456b1f', fontSize: 13, fontWeight: 700 },
@@ -204,18 +204,18 @@ const ui = {
   teamIdentity: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
   iconBox: { width: 48, height: 48, borderRadius: 12, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg, #7f8c12, #456b1f)' },
   cardTitle: { margin: 0, fontSize: 16, color: '#2c2011', fontWeight: 800 },
-  metaLine: { margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 4, color: '#8a8069', fontSize: 12 },
+  metaLine: { margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 4, color: '#6f6555', fontSize: 12 },
   tinyIcon: { fontSize: 14 },
   badge: { padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' },
   badgeOk: { background: '#e4efd6', color: '#456b1f' },
-  badgeMuted: { background: '#f0ebdd', color: '#8a8069' },
+  badgeMuted: { background: '#f0ebdd', color: '#6f6555' },
   stats: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 },
   stat: { borderRadius: 10, padding: '10px 8px', background: '#f0ebdd', textAlign: 'center' },
   leader: { display: 'flex', alignItems: 'center', gap: 10, borderRadius: 10, padding: 12, background: '#f0ebdd' },
   leaderAvatar: { width: 32, height: 32, borderRadius: 999, display: 'grid', placeItems: 'center', color: '#995510', background: '#fae7d2' },
-  leaderLabel: { margin: 0, color: '#bd701e', fontSize: 12, fontWeight: 800 },
+  leaderLabel: { margin: 0, color: '#9a5613', fontSize: 12, fontWeight: 800 },
   leaderName: { margin: '2px 0 0', color: '#a3402a', fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  empty: { border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#8a8069' },
+  empty: { border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#6f6555' },
   drawerLayer: { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' },
   backdrop: { position: 'absolute', inset: 0, border: 0, background: 'rgba(44, 32, 17, 0.42)' },
   drawer: { position: 'relative', width: 'min(100%, 440px)', background: '#fff', height: '100%', overflowY: 'auto', boxShadow: '-24px 0 60px rgba(44, 32, 17, 0.22)' },
@@ -229,11 +229,11 @@ const ui = {
   list: { display: 'grid', gap: 8 },
   memberRow: { display: 'flex', alignItems: 'center', gap: 10, borderRadius: 10, background: '#f0ebdd', padding: 12 },
   memberLeader: { background: '#f0ebdd', border: '1px solid #fae7d2' },
-  initials: { width: 38, height: 38, borderRadius: 999, display: 'grid', placeItems: 'center', background: '#9a907a', color: '#fff', fontWeight: 900 },
-  initialsLeader: { background: '#bd701e' },
+  initials: { width: 38, height: 38, borderRadius: 999, display: 'grid', placeItems: 'center', background: '#6f6555', color: '#fff', fontWeight: 900 },
+  initialsLeader: { background: '#9a5613' },
   memberName: { display: 'block', color: '#2c2011', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  memberMeta: { margin: '2px 0 0', color: '#8a8069', fontSize: 12 },
+  memberMeta: { margin: '2px 0 0', color: '#6f6555', fontSize: 12 },
   rolePill: { marginLeft: 'auto', borderRadius: 6, padding: '3px 6px', background: '#fae7d2', color: '#a3402a', fontSize: 10, fontWeight: 900 },
-  mutedText: { margin: 0, color: '#9a907a', fontSize: 14, textAlign: 'center', padding: 14 },
+  mutedText: { margin: 0, color: '#6f6555', fontSize: 14, textAlign: 'center', padding: 14 },
   assetBox: { display: 'grid', gap: 8, borderRadius: 12, background: '#f0ebdd', padding: 14, color: '#5a5040', fontSize: 14 },
 };

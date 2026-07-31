@@ -11,7 +11,7 @@ body.theme-light {
   --cc-fg: #2c2011;
   --cc-surface: #ffffff;
   --cc-surface-2: #f0ebdd;
-  --cc-muted: #8a8069;
+  --cc-muted: #6f6555;
   --cc-border: #e0d9c8;
   --cc-danger: #c0492f;
   --cc-warning: #995510;
@@ -82,10 +82,10 @@ body.theme-dark {
   --cc-fg: #f0ebdd;
   --cc-surface: #2c2011;
   --cc-surface-2: #2c2011;
-  --cc-muted: #9a907a;
+  --cc-muted: #6f6555;
   --cc-border: rgba(226, 232, 240, 0.16);
   --cc-danger: #f6e0d9;
-  --cc-warning: #bd701e;
+  --cc-warning: #9a5613;
   --cc-success: #e4efd6;
   --cc-info: #f1f3d6;
   --cc-ring: rgba(241, 243, 214, 0.32);

@@ -1729,7 +1729,7 @@ export default function CrmPipeline() {
                       <span style={{ fontWeight: 800, fontSize: 12 }}>{event.workflow_name || `Workflow #${event.workflow_id || '—'}`}</span>
                       <span style={{
                         fontSize: 11,
-                        color: event.status === 'error' ? 'var(--danger)' : event.status === 'skipped' ? 'var(--text-muted)' : 'var(--accent)',
+                        color: event.status === 'error' ? 'var(--danger)' : event.status === 'skipped' ? 'var(--text-muted)' : 'var(--accent-text)',
                         fontWeight: 800,
                       }}>
                         {workflowEventStatusLabel(event.status)}
@@ -1826,7 +1826,7 @@ export default function CrmPipeline() {
                     </Button>
                   ) : null}
                   {a.type === 'task' && a.completed_at ? (
-                    <div style={{ fontSize: 11, color: 'var(--accent)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--accent-text)' }}>
                       {t('crm.pipeline.activities.done', { defaultValue: 'Wykonane' })}: {formatActivityWhen(a.completed_at, lng)}
                     </div>
                   ) : null}

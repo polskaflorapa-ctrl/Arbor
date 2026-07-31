@@ -1705,7 +1705,7 @@ export default function Integracje() {
                         style={{
                           ...styles.retryBtn,
                           borderColor: rollbackConfirmId === h.id ? '#c0492f' : 'var(--accent)',
-                          color: rollbackConfirmId === h.id ? '#c0492f' : 'var(--accent)',
+                          color: rollbackConfirmId === h.id ? '#c0492f' : 'var(--accent-text)',
                           opacity: isRollbackAllowed(h) ? 1 : 0.45,
                           cursor: isRollbackAllowed(h) ? 'pointer' : 'not-allowed',
                         }}
@@ -1733,7 +1733,7 @@ const styles = {
   main: { flex: 1, padding: 24 },
   metrics: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 },
   metricCard: { background: 'var(--surface-glass)', borderRadius: 8, padding: 12, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
-  metricValue: { fontWeight: 800, fontSize: 22, color: 'var(--accent)' },
+  metricValue: { fontWeight: 800, fontSize: 22, color: 'var(--accent-text)' },
   metricLabel: { fontSize: 12, color: 'var(--text-muted)' },
   filters: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginBottom: 12 },
   input: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
@@ -1752,7 +1752,7 @@ const styles = {
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { textAlign: 'left', fontSize: 12, padding: 8, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' },
   td: { fontSize: 13, padding: 8, borderBottom: '1px solid var(--border)' },
-  retryBtn: { padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--accent)', background: 'var(--surface-field)', cursor: 'pointer', fontWeight: 700 },
+  retryBtn: { padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--accent-text)', background: 'var(--surface-field)', cursor: 'pointer', fontWeight: 700 },
   checkboxAction: { display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 },
   empty: { padding: 18, color: 'var(--text-muted)' },
   trendRow: { display: 'flex', alignItems: 'flex-end', gap: 10, minHeight: 130 },

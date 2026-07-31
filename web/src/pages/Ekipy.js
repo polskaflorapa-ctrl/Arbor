@@ -60,9 +60,9 @@ export default function Ekipy() {
   const [filtrOddzial, setFiltrOddzial] = useState('');
   const [hoveredEkipa, setHoveredEkipa] = useState(null);
   const KOLORY_EKIP = [
-    '#7f8c12', '#bd701e', '#c0492f', '#766440',
+    '#7f8c12', '#9a5613', '#c0492f', '#766440',
     '#766440', '#c0492f', '#766440', '#c0492f',
-    '#8a8069', '#c0492f', '#7f8c12', '#8a8069',
+    '#6f6555', '#c0492f', '#7f8c12', '#6f6555',
   ];
   const [form, setForm] = useState({ nazwa: '', brygadzista_id: '', oddzial_id: '', kolor: '#7f8c12' });
   const [formCzlonek, setFormCzlonek] = useState({ user_id: '', rola: 'Pomocnik' });
@@ -554,7 +554,7 @@ export default function Ekipy() {
             <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
               Dodaj nową ekipę
             </button>
-            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/ranking-brygad')}>
+            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--accent-text)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/ranking-brygad')}>
               Ranking brygad
             </button>
           </div>
@@ -568,7 +568,7 @@ export default function Ekipy() {
             animation: 'slideIn 0.3s ease forwards',
             border: '1px solid var(--glass-border)',
           }}>
-            <h3 style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 16 }}>
               {editEkipa ? t('pages.ekipy.formEditTitle') : t('pages.ekipy.formNewTitle')}
             </h3>
             <form onSubmit={handleSubmit}>
@@ -665,8 +665,8 @@ export default function Ekipy() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
                       width: 14, height: 14, borderRadius: '50%',
-                      backgroundColor: assetProblems.length ? '#c0492f' : (e.kolor || '#8a8069'),
-                      boxShadow: `0 0 8px ${assetProblems.length ? '#c0492f' : (e.kolor || '#8a8069')}88`,
+                      backgroundColor: assetProblems.length ? '#c0492f' : (e.kolor || '#6f6555'),
+                      boxShadow: `0 0 8px ${assetProblems.length ? '#c0492f' : (e.kolor || '#6f6555')}88`,
                       flexShrink: 0,
                     }} />
                     <div>
@@ -719,10 +719,10 @@ export default function Ekipy() {
                 </div>
                 {e.brygadzista_imie && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-sub)', marginBottom: 6 }}>
-                    <span style={{ backgroundColor: '#7f8c12', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold' }}>Brygadzista</span>
+                    <span style={{ backgroundColor: 'var(--accent-text)', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold' }}>Brygadzista</span>
                     {e.brygadzista_imie} {e.brygadzista_nazwisko}
                     {e.procent_wynagrodzenia && (
-                      <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 8, fontSize: 12, fontWeight: 'bold' }}>
+                      <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent-text)', padding: '2px 8px', borderRadius: 8, fontSize: 12, fontWeight: 'bold' }}>
                         {e.procent_wynagrodzenia}%
                       </span>
                     )}
@@ -742,7 +742,7 @@ export default function Ekipy() {
               animation: 'fadeIn 0.3s ease forwards',
             }}>
               <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: 22, fontWeight: 'bold', color: 'var(--accent)', margin: 0, marginBottom: 4 }}>
+                <h2 style={{ fontSize: 22, fontWeight: 'bold', color: 'var(--accent-text)', margin: 0, marginBottom: 4 }}>
                   {ekipaDetail.nazwa}
                 </h2>
                 <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{ekipaDetail.oddzial_nazwa}</span>
@@ -798,7 +798,7 @@ export default function Ekipy() {
                           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                             📞{' '}
                             {telHref(ekipaDetail.brygadzista_telefon) ? (
-                              <a href={telHref(ekipaDetail.brygadzista_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                              <a href={telHref(ekipaDetail.brygadzista_telefon)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                                 {ekipaDetail.brygadzista_telefon}
                               </a>
                             ) : (
@@ -818,10 +818,10 @@ export default function Ekipy() {
                           style={{
                             width: 60, padding: '6px 8px', borderRadius: 8,
                             border: '2px solid var(--accent)', fontSize: 14, fontWeight: 'bold',
-                            color: 'var(--accent)', textAlign: 'center', outline: 'none',
+                            color: 'var(--accent-text)', textAlign: 'center', outline: 'none',
                           }}
                         />
-                        <span style={{ fontWeight: 'bold', color: 'var(--accent)', fontSize: 16 }}>%</span>
+                        <span style={{ fontWeight: 'bold', color: 'var(--accent-text)', fontSize: 16 }}>%</span>
                         <button
                           onClick={() => zmienProcent(ekipaDetail.brygadzista_id, brygadzistaProcent)}
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--accent-dk)'}
@@ -846,7 +846,7 @@ export default function Ekipy() {
                     <button
                       onClick={() => setShowAddCzlonek(!showAddCzlonek)}
                         disabled={memberSaving}
-                      style={{ padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' }}>
+                      style={{ padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' }}>
                       {showAddCzlonek ? '✕ Anuluj' : '+ Dodaj'}
                     </button>
                   )}
@@ -901,14 +901,14 @@ export default function Ekipy() {
                       width: 38, height: 38, borderRadius: 19,
                         background: 'var(--accent-surface)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', flexShrink: 0,
+                      fontSize: 13, fontWeight: 'bold', color: 'var(--accent-text)', flexShrink: 0,
                     }}>
                       {c.imie?.[0]}{c.nazwisko?.[0]}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: '600', color: 'var(--text)' }}>{c.imie} {c.nazwisko}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2 }}>
-                        <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{getRoleDisplayName(c.rola)}</span>
+                        <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent-text)', padding: '1px 6px', borderRadius: 4 }}>{getRoleDisplayName(c.rola)}</span>
                         <span>{t('pages.ekipy.hourlyRate', { rate: c.stawka_godzinowa || 0 })}</span>
                       </div>
                     </div>
@@ -1106,10 +1106,10 @@ function KalkulatorWynagrodzenia({ ekipa }) {
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, marginTop: 4 }}>
-            <span style={{ fontWeight: 'bold', fontSize: 14, color: 'var(--accent)' }}>
+            <span style={{ fontWeight: 'bold', fontSize: 14, color: 'var(--accent-text)' }}>
               {t('pages.ekipy.brygadzistaEarnings', { pct: form.procent_brygadzisty })}
             </span>
-            <span style={{ fontWeight: 'bold', fontSize: 20, color: 'var(--accent)' }}>{fmt(wynik.wynagrodzenieB)} PLN</span>
+            <span style={{ fontWeight: 'bold', fontSize: 20, color: 'var(--accent-text)' }}>{fmt(wynik.wynagrodzenieB)} PLN</span>
           </div>
         </div>
       )}

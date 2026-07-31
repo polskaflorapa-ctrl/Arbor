@@ -15,16 +15,16 @@ import { CheckSquare, Plus, Save, Trash2, X } from 'lucide-react';
 
 // ─── Kolory ról (fallback jeśli brak w DB) ───────────────────
 const DEFAULT_ROLE_COLORS = {
-  Prezes: '#bd701e',
-  Dyrektor: '#bd701e',
-  Administrator: '#bd701e',
+  Prezes: '#9a5613',
+  Dyrektor: '#9a5613',
+  Administrator: '#9a5613',
   Kierownik: '#766440',
   Brygadzista: '#7f8c12',
   Specjalista: '#766440',
-  Wyceniający: '#9a907a',
-  Pomocnik: '#9a907a',
-  'Pomocnik bez doświadczenia': '#8a8069',
-  Magazynier: '#bd701e',
+  Wyceniający: '#6f6555',
+  Pomocnik: '#6f6555',
+  'Pomocnik bez doświadczenia': '#6f6555',
+  Magazynier: '#9a5613',
 };
 
 // ─── Grupy uprawnień (schemat) ───────────────────────────────
@@ -113,7 +113,7 @@ export default function ZarzadzajRolami() {
     setSelected(r);
     setEditForm({
       nazwa: r.nazwa,
-      kolor: r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#9a907a',
+      kolor: r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#6f6555',
       opis: r.opis || '',
       poziom: r.poziom || 1,
       aktywna: r.aktywna !== false,
@@ -212,7 +212,7 @@ export default function ZarzadzajRolami() {
             <div style={S.center}>Ładowanie...</div>
           ) : (
             role.map(r => {
-              const color = r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#9a907a';
+              const color = r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#6f6555';
               return (
                 <div
                   className="roles-admin-role-row"
@@ -260,8 +260,8 @@ export default function ZarzadzajRolami() {
         <div className="roles-admin-editor" style={S.editor}>
           {!form ? (
             <div className="roles-admin-empty" style={S.emptyEditor}>
-              <SettingsOutlined sx={{ fontSize: 48, color: '#8a8069' }} />
-              <p style={{ color: '#8a8069', marginTop: 12 }}>
+              <SettingsOutlined sx={{ fontSize: 48, color: '#6f6555' }} />
+              <p style={{ color: '#6f6555', marginTop: 12 }}>
                 {t('pages.role.pickOrCreate')}
               </p>
             </div>
@@ -369,7 +369,7 @@ export default function ZarzadzajRolami() {
                             type="button"
                             size="sm"
                             variant={allOn ? 'danger' : 'outline'}
-                            style={{ ...S.btnTiny, color: allOn ? '#c0492f' : '#7f8c12' }}
+                            style={{ ...S.btnTiny, color: allOn ? '#c0492f' : '#5d6a0b' }}
                             onClick={() => setGroupAll(group, !allOn, form, setForm)}
                           >
                             {allOn ? t('pages.role.deselectGroup') : t('pages.role.selectGroup')}
@@ -381,16 +381,16 @@ export default function ZarzadzajRolami() {
                               type="checkbox"
                               checked={!!form.uprawnienia[p.key]}
                               onChange={() => togglePerm(p.key, form, setForm)}
-                              style={{ accentColor: '#7f8c12', width: 15, height: 15 }}
+                              style={{ accentColor: 'var(--accent-text)', width: 15, height: 15 }}
                             />
                             <span style={{
                               ...S.permLabel,
-                              color: form.uprawnienia[p.key] ? '#f0ebdd' : '#8a8069',
+                              color: form.uprawnienia[p.key] ? '#f0ebdd' : '#6f6555',
                             }}>
                               {p.label}
                             </span>
                             {form.uprawnienia[p.key] && (
-                              <span style={S.permOn}><CheckOutlined sx={{ fontSize: 14, color: '#7f8c12' }} /></span>
+                              <span style={S.permOn}><CheckOutlined sx={{ fontSize: 14, color: 'var(--accent-text)' }} /></span>
                             )}
                           </label>
                         ))}
@@ -454,7 +454,7 @@ function PermissionSummary({ uprawnienia, kolor }) {
 
   return (
     <div className="roles-admin-summary" style={S.summaryBox}>
-      <span style={{ color: '#9a907a', fontSize: 12, marginBottom: 6, display: 'block' }}>
+      <span style={{ color: '#6f6555', fontSize: 12, marginBottom: 6, display: 'block' }}>
         Aktywne uprawnienia ({active.length}):
       </span>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -619,5 +619,5 @@ const S = {
     background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8,
     padding: '10px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer',
   },
-  center: { display: 'flex', justifyContent: 'center', padding: 24, color: '#8a8069' },
+  center: { display: 'flex', justifyContent: 'center', padding: 24, color: '#6f6555' },
 };

@@ -270,14 +270,14 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpe
 
 const toneStyle = {
   danger: { borderLeftColor: '#c0492f' },
-  warning: { borderLeftColor: '#bd701e' },
+  warning: { borderLeftColor: '#9a5613' },
   info: { borderLeftColor: '#f1f3d6' },
   neutral: { borderLeftColor: '#e0d9c8' },
 };
 
 const markerTone = {
   danger: { background: '#c0492f' },
-  warning: { background: '#bd701e' },
+  warning: { background: '#9a5613' },
   info: { background: '#f1f3d6' },
   neutral: { background: '#e0d9c8' },
 };

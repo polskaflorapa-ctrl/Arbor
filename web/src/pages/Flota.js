@@ -54,12 +54,12 @@ function dueAlert(kind, value, now) {
     return { key: kind.key, state: 'expired', label: `${kind.label} po terminie`, detail: `${Math.abs(health.days)} dni po terminie`, color: '#c0492f' };
   }
   if (health.state === 'soon') {
-    return { key: kind.key, state: 'soon', label: `${kind.label} za ${health.days} dni`, detail: fmtDate(value), color: '#bd701e' };
+    return { key: kind.key, state: 'soon', label: `${kind.label} za ${health.days} dni`, detail: fmtDate(value), color: '#9a5613' };
   }
   if (health.state === 'missing') {
     return { key: kind.key, state: 'missing', label: `Brak daty: ${kind.label}`, detail: 'uzupelnij karte', color: '#5a5040' };
   }
-  return { key: kind.key, state: 'ok', label: `${kind.label} OK`, detail: fmtDate(value), color: '#7f8c12' };
+  return { key: kind.key, state: 'ok', label: `${kind.label} OK`, detail: fmtDate(value), color: 'var(--accent-text)' };
 }
 
 function documentDueAlert(doc, now = new Date()) {
@@ -70,7 +70,7 @@ function documentDueAlert(doc, now = new Date()) {
     return { key: `doc-${doc.id}`, state: 'expired', label: `${label} po terminie`, detail: `${Math.abs(health.days)} dni po terminie`, color: '#c0492f' };
   }
   if (health.state === 'soon') {
-    return { key: `doc-${doc.id}`, state: 'soon', label: `${label} za ${health.days} dni`, detail: fmtDate(doc.wazny_do), color: '#bd701e' };
+    return { key: `doc-${doc.id}`, state: 'soon', label: `${label} za ${health.days} dni`, detail: fmtDate(doc.wazny_do), color: '#9a5613' };
   }
   return null;
 }
@@ -1116,10 +1116,10 @@ export default function Flota() {
 
   const STATUS_KOLOR = {
     Dostepny: '#7f8c12',
-    'W uzyciu': '#bd701e',
+    'W uzyciu': '#9a5613',
     Niedostepny: '#5a5040',
     'Dostępny':    '#7f8c12',
-    'W użyciu':    '#bd701e',
+    'W użyciu':    '#9a5613',
     'W naprawie':  '#c0492f',
     'Niedostępny': '#5a5040',
   };
@@ -1347,9 +1347,9 @@ export default function Flota() {
   const kpiItems = useMemo(() => ([
     { key: 'veh',   label: t('pages.flota.kpiVehicles'),  value: filtrPojazdy.length, color: '#f1f3d6' },
     { key: 'eq',    label: t('pages.flota.kpiEquipment'), value: filtrSprzet.length,  color: '#f1f3d6' },
-    { key: 'alerts', label: 'Alerty zasobow', value: resourceAlertCount, color: resourceAlertCount ? '#c0492f' : '#7f8c12' },
-    { key: 'overdue', label: 'Po terminie', value: overdueResourceCount, color: overdueResourceCount ? '#c0492f' : '#7f8c12' },
-    { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => ['Dostepny', 'Dostępny'].includes(x.status)).length, color: '#7f8c12' },
+    { key: 'alerts', label: 'Alerty zasobow', value: resourceAlertCount, color: resourceAlertCount ? '#c0492f' : '#5d6a0b' },
+    { key: 'overdue', label: 'Po terminie', value: overdueResourceCount, color: overdueResourceCount ? '#c0492f' : '#5d6a0b' },
+    { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => ['Dostepny', 'Dostępny'].includes(x.status)).length, color: 'var(--accent-text)' },
     { key: 'rep',   label: t('pages.flota.kpiInRepair'),  value: naprawy.length,       color: '#c0492f' },
   ]), [t, filtrPojazdy, filtrSprzet, naprawy.length, resourceAlertCount, overdueResourceCount]);
 
@@ -1623,7 +1623,7 @@ export default function Flota() {
               style={{
                 padding: '10px 18px', border: 'none', backgroundColor: 'transparent',
                 cursor: 'pointer', fontSize: 14, fontWeight: '500',
-                color: activeTab === tab.key ? 'var(--accent)' : 'var(--text-muted)',
+                color: activeTab === tab.key ? 'var(--accent-text)' : 'var(--text-muted)',
                 borderBottomWidth: 2,
                 borderBottomStyle: 'solid',
                 borderBottomColor: activeTab === tab.key ? 'var(--accent)' : 'transparent',
@@ -2932,7 +2932,7 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose, pojazdy = []
 const S = {
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
-  formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
+  formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 16 },
   quickRow: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 8 },
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
@@ -2969,7 +2969,7 @@ const S = {
   repairFocusTitle: { display: 'block', fontSize: 15, fontWeight: 950, color: 'var(--text)', marginTop: 2 },
   repairFocusDetail: { display: 'block', fontSize: 12, fontWeight: 750, color: 'var(--text-sub)', marginTop: 3 },
   repairFocusActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' },
-  primarySoftBtn: { padding: '8px 11px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.28)', background: 'rgba(69, 107, 31, 0.12)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  primarySoftBtn: { padding: '8px 11px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.28)', background: 'rgba(69, 107, 31, 0.12)', color: 'var(--accent-text)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   repairsHeader: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   repairsHeaderChip: { fontSize: 11, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 8px', background: 'var(--surface-field)' },
   repairsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },
@@ -2984,7 +2984,7 @@ const S = {
     gap: 8,
   },
   repairTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  repairType: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '3px 9px', borderRadius: 8, fontSize: 11, fontWeight: 700 },
+  repairType: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent-text)', padding: '3px 9px', borderRadius: 8, fontSize: 11, fontWeight: 700 },
   repairStatus: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: 700 },
   repairRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   repairLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0, fontWeight: 700 },
@@ -3001,7 +3001,7 @@ const S = {
   maintenanceSecondaryBtn: { padding: '8px 11px', borderRadius: 8, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', backgroundColor: 'var(--surface-field)', backgroundImage: 'none', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   maintenanceFilters: { display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 10 },
   maintenanceFilterBtn: { borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 999, backgroundColor: 'var(--surface-field)', backgroundImage: 'none', color: 'var(--text-sub)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 850 },
-  maintenanceFilterBtnActive: { borderColor: 'rgba(69, 107, 31, 0.38)', backgroundColor: 'rgba(69, 107, 31, 0.12)', backgroundImage: 'none', color: 'var(--accent)' },
+  maintenanceFilterBtnActive: { borderColor: 'rgba(69, 107, 31, 0.38)', backgroundColor: 'rgba(69, 107, 31, 0.12)', backgroundImage: 'none', color: 'var(--accent-text)' },
   maintenanceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 },
   maintenanceMetric: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 10, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
   maintenanceTopList: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 10 },
@@ -3015,13 +3015,13 @@ const S = {
   assetHistoryButton: { display: 'grid', gridTemplateColumns: '1fr', gap: 2, textAlign: 'left', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', padding: '7px 9px', minWidth: 0 },
   assetPhotoPanel: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap', minWidth: 0 },
   assetPhotoButton: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
-  assetUploadButton: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.3)', background: 'rgba(69, 107, 31, 0.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  assetUploadButton: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.3)', background: 'rgba(69, 107, 31, 0.1)', color: 'var(--accent-text)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   assetThumbWrap: { position: 'relative', display: 'inline-flex' },
   assetThumbLink: { display: 'inline-flex', width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-field)' },
   assetThumb: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
   assetThumbDelete: { position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: 999, border: '1px solid rgba(192, 73, 47, 0.4)', background: 'var(--surface-glass)', color: 'var(--danger)', cursor: 'pointer', fontSize: 10, lineHeight: 1, padding: 0 },
   assetDocumentChip: { display: 'inline-grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 4, maxWidth: 150, border: '1px solid rgba(69, 107, 31, 0.24)', borderRadius: 8, background: 'rgba(69, 107, 31, 0.08)', padding: '5px 6px', minWidth: 0 },
-  assetDocumentLink: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)', fontSize: 11, fontWeight: 900, textDecoration: 'none' },
+  assetDocumentLink: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent-text)', fontSize: 11, fontWeight: 900, textDecoration: 'none' },
   assetDocumentDelete: { border: 'none', background: 'transparent', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 900, padding: 0 },
   assetDocSelect: { minWidth: 82, maxWidth: 130, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 800 },
   assetDocDateInput: { width: 126, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 800 },
@@ -3072,14 +3072,14 @@ const S = {
   protocolHistory: { display: 'grid', gap: 5, borderTop: '1px solid var(--border)', paddingTop: 7 },
   protocolHistoryRow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(120px, auto) auto', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--text-sub)' },
   invoiceInput: { minWidth: 0, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', fontSize: 12 },
-  invoiceUploadBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap', padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.3)', background: 'rgba(69, 107, 31, 0.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  invoiceUploadBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap', padding: '7px 9px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.3)', background: 'rgba(69, 107, 31, 0.1)', color: 'var(--accent-text)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   invoiceLinks: { display: 'flex', flexDirection: 'column', gap: 4 },
   invoiceLinkRow: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, alignItems: 'center', minWidth: 0 },
   partLinkRow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, alignItems: 'center', minWidth: 0 },
-  invoiceLink: { color: 'var(--accent)', fontSize: 12, fontWeight: 800, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  invoiceLink: { color: 'var(--accent-text)', fontSize: 12, fontWeight: 800, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   invoiceDeleteBtn: { border: '1px solid rgba(192, 73, 47, 0.28)', borderRadius: 7, background: 'rgba(192, 73, 47, 0.08)', color: 'var(--danger)', cursor: 'pointer', padding: '4px 7px', fontSize: 11, fontWeight: 900 },
   repairFilterBar: { display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 8 },
   repairFilterBtn: { border: '1px solid var(--border)', borderRadius: 999, background: 'var(--surface-glass)', color: 'var(--text-sub)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 850 },
-  repairFilterBtnActive: { border: '1px solid rgba(69, 107, 31, 0.38)', background: 'rgba(69, 107, 31, 0.12)', color: 'var(--accent)' },
+  repairFilterBtnActive: { border: '1px solid rgba(69, 107, 31, 0.38)', background: 'rgba(69, 107, 31, 0.12)', color: 'var(--accent-text)' },
   repairFilterExportBtn: { marginLeft: 'auto', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', padding: '6px 10px', fontSize: 12, fontWeight: 900 },
 };

@@ -40,7 +40,7 @@ const UI_COLORS = {
   warning: '#995510',
   info: '#766440',
   danger: '#c0492f',
-  muted: '#8a8069',
+  muted: '#6f6555',
 };
 
 function isTaskCancelled(z) {
@@ -721,7 +721,7 @@ export default function Raporty() {
         {/* KPI */}
         <div className="raporty-kpis" style={styles.kpiRow}>
           <div style={{ ...styles.kpi, borderTopColor: 'var(--accent)' }}>
-            <div style={styles.kpiIcon}><AssignmentOutlined sx={{ fontSize: 26, color: 'var(--accent)' }} /></div>
+            <div style={styles.kpiIcon}><AssignmentOutlined sx={{ fontSize: 26, color: 'var(--accent-text)' }} /></div>
             <div style={styles.kpiNum}>{filtrowane.length}</div>
             <div style={styles.kpiLabel}>{t('pages.raporty.kpiAllTasks')}</div>
           </div>
@@ -741,7 +741,7 @@ export default function Raporty() {
             <div style={styles.kpiLabel}>{t('pages.raporty.kpiNew')}</div>
           </div>
           <div style={{ ...styles.kpi, borderTopColor: 'var(--accent-dk)' }}>
-            <div style={styles.kpiIcon}><AttachMoney sx={{ fontSize: 26, color: 'var(--accent-dk)' }} /></div>
+            <div style={styles.kpiIcon}><AttachMoney sx={{ fontSize: 26, color: 'var(--accent-text)' }} /></div>
             <div style={styles.kpiNum}>{formatCurrency(sumaWartosc)}</div>
             <div style={styles.kpiLabel}>{t('pages.raporty.kpiTotalValue')}</div>
           </div>
@@ -788,7 +788,7 @@ export default function Raporty() {
             <div style={styles.card}>
               <div style={styles.cardTitle}>{t('pages.raporty.cardStatusTitle')}</div>
               {[
-                { key: 'Zakonczone', label: t('taskStatus.Zakonczone'), count: zakonczone.length, color: 'var(--accent)' },
+                { key: 'Zakonczone', label: t('taskStatus.Zakonczone'), count: zakonczone.length, color: 'var(--accent-text)' },
                 { key: 'W_Realizacji', label: t('taskStatus.W_Realizacji'), count: wRealizacji.length, color: UI_COLORS.warning },
                 { key: 'Nowe', label: t('taskStatus.Nowe'), count: nowe.length, color: UI_COLORS.info },
                 { key: 'Wycena_Terenowa', label: t('taskStatus.Wycena_Terenowa'), count: wycenaTerenowa.length, color: '#766440' },
@@ -822,7 +822,7 @@ export default function Raporty() {
                 return (
                   <div key={item.typ} style={styles.typRow}>
                     <div style={styles.typLabel}>
-                      <span style={styles.typIcon}><TypeIcon sx={{ fontSize: 18, color: 'var(--accent)' }} /></span>
+                      <span style={styles.typIcon}><TypeIcon sx={{ fontSize: 18, color: 'var(--accent-text)' }} /></span>
                       {t(`serviceType.${item.typ}`, { defaultValue: item.typ })}
                     </div>
                     <div style={styles.typRight}>
@@ -851,7 +851,7 @@ export default function Raporty() {
                   >
                     <div style={styles.reportTaskTop}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--text)' }}>
-                        <BusinessOutlined sx={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
+                        <BusinessOutlined sx={{ fontSize: 18, color: 'var(--accent-text)', flexShrink: 0 }} />
                         {o.nazwa}
                       </span>
                       <button type="button" style={styles.viewBtn} aria-label={t('common.details')}>
@@ -989,7 +989,7 @@ export default function Raporty() {
                   >
                     <div style={styles.reportTaskTop}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--text)' }}>
-                        <GroupsOutlined sx={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
+                        <GroupsOutlined sx={{ fontSize: 18, color: 'var(--accent-text)', flexShrink: 0 }} />
                         {e.nazwa}
                       </span>
                       <span style={styles.reportMetaValue}>{e.oddzial_nazwa || '-'}</span>
@@ -1021,7 +1021,7 @@ export default function Raporty() {
           <div style={styles.card}>
             <div style={styles.cardTitle}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                <LeaderboardOutlined sx={{ fontSize: 22, color: 'var(--accent)' }} />
+                <LeaderboardOutlined sx={{ fontSize: 22, color: 'var(--accent-text)' }} />
                 {t('pages.raporty.brygadzisci.title')}
               </span>
             </div>
@@ -1171,7 +1171,7 @@ export default function Raporty() {
                 <div key={`funnel-${row.oddzialId}`} style={styles.reportMetricCard}>
                   <div style={styles.reportTaskTop}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--text)' }}>
-                      <BusinessOutlined sx={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
+                      <BusinessOutlined sx={{ fontSize: 18, color: 'var(--accent-text)', flexShrink: 0 }} />
                       {row.oddzialNazwa}
                     </span>
                   </div>
@@ -1408,10 +1408,10 @@ const styles = {
   kpiLabel: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
   tabs: { display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid rgba(69, 107, 31, 0.13)', flexWrap: 'wrap', background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, padding: 6, boxShadow: '0 10px 24px rgba(69, 107, 31, 0.045)' },
   tab: { padding: '9px 14px', border: '1px solid transparent', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '700', color: 'var(--text-muted)', borderRadius: 8, transition: 'all 0.2s' },
-  tabActive: { color: 'var(--accent)', border: '1px solid rgba(69, 107, 31, 0.22)', backgroundColor: 'var(--accent-surface)' },
+  tabActive: { color: 'var(--accent-text)', border: '1px solid rgba(69, 107, 31, 0.22)', backgroundColor: 'var(--accent-surface)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
   card: { background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, padding: 20, boxShadow: '0 12px 30px rgba(69, 107, 31, 0.065)', marginBottom: 20 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
+  cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   sumWartosc: { fontSize: 13, fontWeight: 'normal', color: 'var(--text-muted)', marginLeft: 8 },
   statusRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' },
   statusInfo: { display: 'flex', alignItems: 'center', gap: 8 },
@@ -1427,13 +1427,13 @@ const styles = {
   typIcon: { display: 'inline-flex', alignItems: 'center', flexShrink: 0 },
   typRight: { display: 'flex', gap: 16, alignItems: 'center' },
   typCount: { fontSize: 13, color: 'var(--text-muted)' },
-  typWartosc: { fontSize: 13, fontWeight: '600', color: 'var(--accent)' },
+  typWartosc: { fontSize: 13, fontWeight: '600', color: 'var(--accent-text)' },
   tableScroll: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 600 },
   th: { padding: '12px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--text-muted)', textAlign: 'left', fontSize: 13, fontWeight: '700' },
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   badge: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
-  idBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 6, fontSize: 13, fontWeight: '600' },
+  idBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', padding: '2px 8px', borderRadius: 6, fontSize: 13, fontWeight: '600' },
   gray: { color: 'var(--text-muted)', fontStyle: 'italic' },
   viewBtn: { padding: '6px 10px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
   loading: { textAlign: 'center', padding: 40, color: 'var(--text-muted)' },
@@ -1471,7 +1471,7 @@ const styles = {
   funnelDivider: { borderTop: '1px solid var(--border)', marginTop: 2, paddingTop: 2 },
   funnelLeakRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 2 },
   reportDate: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
-  reportValue: { fontSize: 13, color: 'var(--accent)', fontWeight: 800 },
+  reportValue: { fontSize: 13, color: 'var(--accent-text)', fontWeight: 800 },
   monthBarTrack: { width: '100%', height: 8, backgroundColor: 'var(--surface-field)', borderRadius: 999, overflow: 'hidden' },
   monthBarFill: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--accent-dk), var(--accent))' },
   analyticsTitleRow: { marginTop: 20, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
@@ -1487,7 +1487,7 @@ const styles = {
   analyticsTdDay: { padding: '8px 6px', color: 'var(--text-sub)', fontSize: 12, borderBottom: '1px solid var(--border)', textAlign: 'center' },
   analyticsDayMatrix: { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(34px, 1fr))', gap: 6, maxWidth: 360 },
   analyticsDayCell: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 8, background: 'var(--surface-field)', color: 'var(--text-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' },
-  analyticsDayCellActive: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 8, background: 'var(--accent-surface)', color: 'var(--accent)', fontSize: 10, fontFamily: 'var(--font-mono)', boxShadow: '0 0 0 2px rgba(69, 107, 31, 0.1)' },
+  analyticsDayCellActive: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 8, background: 'var(--accent-surface)', color: 'var(--accent-text)', fontSize: 10, fontFamily: 'var(--font-mono)', boxShadow: '0 0 0 2px rgba(69, 107, 31, 0.1)' },
   analyticsGoalsGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 },
   goalCard: { background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, padding: 10, boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)' },
   goalTitle: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },
@@ -1496,6 +1496,6 @@ const styles = {
   goalSaveBtn: { marginTop: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   telephonyGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 10 },
   btnRowInline: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' },
-  smallActionBtn: { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--logo-tint-border)', backgroundColor: 'var(--surface-field)', color: 'var(--accent-dk)', fontSize: 11, fontWeight: 700, cursor: 'pointer' },
+  smallActionBtn: { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--logo-tint-border)', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', fontSize: 11, fontWeight: 700, cursor: 'pointer' },
 };
  

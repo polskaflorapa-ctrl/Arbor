@@ -346,7 +346,7 @@ export default function NoweZlecenie() {
                       {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
                     </select>
                   ) : (
-                    <div style={{ ...S.input, color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ ...S.input, color: 'var(--accent-text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {oddzialy.find(o => o.id === parseInt(form.oddzial_id))?.nazwa || '-'}
                     </div>
                   )}
@@ -389,7 +389,7 @@ export default function NoweZlecenie() {
                           }}
                         >
                           <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: e.kolor || 'var(--text-muted)', flexShrink: 0 }} />
-                          <span style={{ fontSize: 11, fontWeight: 600, color: form.ekipa_id === String(e.id) ? (e.kolor || 'var(--accent)') : 'var(--text-muted)' }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: form.ekipa_id === String(e.id) ? (e.kolor || 'var(--accent-text)') : 'var(--text-muted)' }}>
                             {e.nazwa}
                           </span>
                         </div>
@@ -564,7 +564,7 @@ const S = {
   toggleBtnActive: {
     border: '1px solid var(--accent)',
     background: 'var(--accent-surface)',
-    color: 'var(--accent-dk)',
+    color: 'var(--accent-text)',
   },
   actionBar: {
     display: 'flex',

@@ -2617,7 +2617,7 @@ export default function Telefonia() {
                           <div style={s.agentHealthTop}>
                             <span style={{
                               ...s.agentHealthDot,
-                              background: tone === 'ok' ? '#7f8c12' : tone === 'bad' ? '#c0492f' : '#bd701e',
+                              background: tone === 'ok' ? '#7f8c12' : tone === 'bad' ? '#c0492f' : '#9a5613',
                             }}
                             />
                             <span>{branchIntegrationStatusLabel(row)} / {readiness.percent}%</span>
@@ -2774,7 +2774,7 @@ export default function Telefonia() {
                     <div style={s.agentHealthTop}>
                       <span style={{
                         ...s.agentHealthDot,
-                        background: item.tone === 'ok' ? '#7f8c12' : item.tone === 'bad' ? '#c0492f' : '#bd701e',
+                        background: item.tone === 'ok' ? '#7f8c12' : item.tone === 'bad' ? '#c0492f' : '#9a5613',
                       }}
                       />
                       <span>{item.label}</span>
@@ -2991,7 +2991,7 @@ export default function Telefonia() {
                 </div>
                 <div style={s.agentStatusRow}>
                   <span>Status</span>
-                  <strong style={{ color: agentIntegration?.status === 'active' ? '#7f8c12' : 'var(--text-muted)' }}>
+                  <strong style={{ color: agentIntegration?.status === 'active' ? '#5d6a0b' : 'var(--text-muted)' }}>
                     {agentIntegration?.status === 'active' ? 'Aktywny' : agentIntegration?.status === 'paused' ? 'Pauza' : 'Niepodlaczony'}
                   </strong>
                 </div>
@@ -3218,7 +3218,7 @@ export default function Telefonia() {
                           ) : null}
                         </td>
                         <td style={s.td}>
-                          <span style={{ ...s.badge, background: 'rgba(127, 140, 18, 0.12)', color: 'var(--accent)' }}>
+                          <span style={{ ...s.badge, background: 'rgba(127, 140, 18, 0.12)', color: 'var(--accent-text)' }}>
                             {x.ogledziny_status || x.crm_stage || 'zapisano'}
                           </span>
                         </td>
@@ -3890,11 +3890,11 @@ export default function Telefonia() {
             </div>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Wyslane</div>
-              <div style={{ ...s.kpiValue, color: '#7f8c12' }}>{stats.sent}</div>
+              <div style={{ ...s.kpiValue, color: 'var(--accent-text)' }}>{stats.sent}</div>
             </div>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Dostarczone</div>
-              <div style={{ ...s.kpiValue, color: '#7f8c12' }}>{stats.delivered}</div>
+              <div style={{ ...s.kpiValue, color: 'var(--accent-text)' }}>{stats.delivered}</div>
             </div>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Bledy dostawy</div>
@@ -4296,7 +4296,7 @@ const s = {
     padding: '5px 8px',
     border: '1px solid var(--accent)',
     background: 'rgba(127, 140, 18, 0.12)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     borderRadius: 8,
     fontSize: 12,
     cursor: 'pointer',
@@ -4331,7 +4331,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid rgba(69, 107, 31, 0.22)',
     background: 'rgba(69, 107, 31, 0.08)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontFamily: 'var(--font-mono)',
     fontSize: 11,
     fontWeight: 800,
@@ -4964,7 +4964,7 @@ const s = {
     padding: '4px 8px',
     borderRadius: 999,
     background: 'rgba(127, 140, 18, 0.12)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     fontWeight: 800,
   },
@@ -5058,7 +5058,7 @@ const s = {
     borderRadius: 8,
     border: '1px solid var(--border)',
     background: 'var(--surface-field)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontWeight: 700,
     textDecoration: 'none',
     fontSize: 13,
@@ -5066,7 +5066,7 @@ const s = {
   telLinkSmall: {
     fontSize: 12,
     fontWeight: 600,
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     textDecoration: 'none',
   },
   sectionTitle: {

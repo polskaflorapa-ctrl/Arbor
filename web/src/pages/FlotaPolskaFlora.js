@@ -111,7 +111,7 @@ export default function FlotaPolskaFlora({
 
         <div style={ui.filters}>
           <label style={ui.searchBox}>
-            <SearchOutlined style={{ color: '#9a907a', fontSize: 20 }} />
+            <SearchOutlined style={{ color: '#6f6555', fontSize: 20 }} />
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Szukaj po nazwie lub numerze rejestracyjnym..." style={ui.input} />
           </label>
           <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} style={ui.select}>
@@ -211,7 +211,7 @@ const ui = {
   main: { flex: 1, padding: 28, overflowX: 'hidden' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
   title: { margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: '#2c2011' },
-  subtitle: { margin: '6px 0 0', color: '#8a8069', fontSize: 14 },
+  subtitle: { margin: '6px 0 0', color: '#6f6555', fontSize: 14 },
   headerActions: { display: 'flex', alignItems: 'center', gap: 10 },
   primaryButton: { border: 0, borderRadius: 10, background: '#456b1f', color: '#fff', padding: '10px 14px', fontWeight: 800, cursor: 'pointer' },
   notice: { borderRadius: 10, padding: '9px 12px', background: '#f0ebdd', color: '#456b1f', fontSize: 13, fontWeight: 700 },
@@ -232,10 +232,10 @@ const ui = {
   cardTitle: { margin: 0, fontSize: 16, color: '#2c2011', fontWeight: 800 },
   plate: { display: 'inline-block', marginTop: 6, borderRadius: 6, background: '#f0ebdd', padding: '3px 7px', color: '#5a5040', fontFamily: 'monospace', fontSize: 12, fontWeight: 900 },
   status: { display: 'inline-flex', alignItems: 'center', gap: 5, borderRadius: 999, padding: '5px 9px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
-  assetMeta: { display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12, color: '#8a8069', fontSize: 12 },
+  assetMeta: { display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12, color: '#6f6555', fontSize: 12 },
   tinyIcon: { fontSize: 14, verticalAlign: 'middle', marginRight: 4 },
   warning: { display: 'flex', alignItems: 'center', gap: 7, marginTop: 12, borderRadius: 10, background: '#f0ebdd', border: '1px solid #fae7d2', color: '#995510', padding: '9px 10px', fontSize: 12, fontWeight: 800 },
-  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#8a8069' },
+  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#6f6555' },
   drawerLayer: { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' },
   backdrop: { position: 'absolute', inset: 0, border: 0, background: 'rgba(44, 32, 17, 0.42)' },
   drawer: { position: 'relative', width: 'min(100%, 430px)', background: '#fff', height: '100%', overflowY: 'auto', boxShadow: '-24px 0 60px rgba(44, 32, 17, 0.22)' },

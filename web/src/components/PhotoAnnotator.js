@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Save, Trash2, X } from 'lucide-react';
 import { Button } from './ui/Button';
 
-const COLORS = ['#c0492f', '#bd701e', '#bd701e', '#7f8c12', '#766440', '#766440', '#FFFFFF', '#000000'];
+const COLORS = ['#c0492f', '#9a5613', '#9a5613', '#7f8c12', '#766440', '#766440', '#FFFFFF', '#000000'];
 
 /**
  * Prosty edytor: zdjęcie + rysowanie po canvasie, eksport do JPEG (base64).

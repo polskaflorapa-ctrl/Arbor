@@ -127,7 +127,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--accent)',
+              color: 'var(--accent-text)',
               flexShrink: 0,
               boxShadow: isHero ? 'none' : 'var(--shadow-sm)',
             }}
@@ -140,7 +140,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
             <div
               style={{
                 marginBottom: 6,
-                color: 'var(--accent)',
+                color: 'var(--accent-text)',
                 fontSize: 11,
                 fontWeight: 900,
                 letterSpacing: 0,

@@ -9,7 +9,7 @@ body.theme-light #root {
   --brand-light-brown: #766440;
   --brand-primary-green: #a0af14;
   --brand-light-green: #b4c232;
-  --brand-orange-brown: #bd701e;
+  --brand-orange-brown: #9a5613;
   --brand-white: #ffffff;
   --brand-paper: #f0ebdd;
   --brand-paper-soft: #f0ebdd;
@@ -79,7 +79,7 @@ body.theme-light #root {
   --pf-brown-orange: var(--brand-orange-brown) !important;
   --pf-ink: var(--brand-dark-brown) !important;
   --pf-muted: var(--brand-light-brown) !important;
-  --pf-muted-2: #bd701e !important;
+  --pf-muted-2: #9a5613 !important;
   --pf-paper: var(--brand-paper) !important;
   --pf-paper-2: var(--brand-paper-deep) !important;
   --pf-card: #ffffff !important;

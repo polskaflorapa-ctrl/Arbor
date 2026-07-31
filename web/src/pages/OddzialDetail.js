@@ -47,15 +47,15 @@ function writeOverrides(data) {
 }
 
 const ROLA_KOLOR = {
-  'Dyrektor':                   '#bd701e',
-  'Administrator':              '#bd701e',
+  'Dyrektor':                   '#9a5613',
+  'Administrator':              '#9a5613',
   'Kierownik':                  '#766440',
   'Brygadzista':                '#7f8c12',
   'Specjalista':                '#766440',
-  'Wyceniający':                '#9a907a',
-  'Pomocnik':                   '#9a907a',
-  'Pomocnik bez doświadczenia': '#8a8069',
-  'Magazynier':                 '#bd701e',
+  'Wyceniający':                '#6f6555',
+  'Pomocnik':                   '#6f6555',
+  'Pomocnik bez doświadczenia': '#6f6555',
+  'Magazynier':                 '#9a5613',
 };
 
 export default function OddzialDetail() {
@@ -329,7 +329,7 @@ export default function OddzialDetail() {
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 12, animation: 'treeSway 2s ease-in-out infinite' }}>🌳</div>
-        <p style={{ color: 'var(--accent)', fontWeight: '600' }}>Ładowanie...</p>
+        <p style={{ color: 'var(--accent-text)', fontWeight: '600' }}>Ładowanie...</p>
       </div>
     </div>
   );
@@ -343,7 +343,7 @@ export default function OddzialDetail() {
 
         {/* Breadcrumb */}
         <div className="branch-detail-breadcrumb" style={{ display: 'flex', gap: 8, fontSize: 14, marginBottom: 20, alignItems: 'center' }}>
-          <span style={{ color: 'var(--accent)', cursor: 'pointer', fontWeight: '500' }}
+          <span style={{ color: 'var(--accent-text)', cursor: 'pointer', fontWeight: '500' }}
             onClick={() => navigate('/oddzialy')}>← Oddziały</span>
           <span style={{ color: 'var(--text-muted)' }}>/</span>
           <span style={{ color: 'var(--text)', fontWeight: '600' }}>{oddzial.nazwa}</span>
@@ -390,10 +390,10 @@ export default function OddzialDetail() {
         {/* KPI */}
         <div className="branch-detail-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
-            { label: '📋 Nowe', value: statsByStatus(TASK_STATUS.NOWE), color: 'var(--accent)', bg: 'rgba(127, 140, 18, 0.1)' },
-            { label: '📅 Zaplanowane', value: statsByStatus(TASK_STATUS.ZAPLANOWANE), color: 'var(--accent)', bg: 'var(--accent-surface)' },
-            { label: '⚡ W realizacji', value: statsByStatus(TASK_STATUS.W_REALIZACJI), color: '#bd701e', bg: '#fae7d2' },
-            { label: '✅ Zakończone', value: statsByStatus(TASK_STATUS.ZAKONCZONE), color: 'var(--accent)', bg: 'rgba(127, 140, 18, 0.1)' },
+            { label: '📋 Nowe', value: statsByStatus(TASK_STATUS.NOWE), color: 'var(--accent-text)', bg: 'rgba(127, 140, 18, 0.1)' },
+            { label: '📅 Zaplanowane', value: statsByStatus(TASK_STATUS.ZAPLANOWANE), color: 'var(--accent-text)', bg: 'var(--accent-surface)' },
+            { label: '⚡ W realizacji', value: statsByStatus(TASK_STATUS.W_REALIZACJI), color: '#9a5613', bg: '#fae7d2' },
+            { label: '✅ Zakończone', value: statsByStatus(TASK_STATUS.ZAKONCZONE), color: 'var(--accent-text)', bg: 'rgba(127, 140, 18, 0.1)' },
           ].map(k => (
             <div className="branch-detail-kpi" key={k.label} style={{
               background: 'var(--surface-glass)', borderRadius: 8, padding: '14px 16px',
@@ -438,7 +438,7 @@ export default function OddzialDetail() {
               style={{
                 padding: '10px 18px', border: 'none', backgroundColor: 'transparent',
                 cursor: 'pointer', fontSize: 14, fontWeight: '500',
-                color: activeTab === t.key ? 'var(--accent)' : '#8a8069',
+                color: activeTab === t.key ? 'var(--accent-text)' : '#6f6555',
                 borderBottom: activeTab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
                 marginBottom: -2, transition: 'all 0.2s',
               }}
@@ -551,11 +551,11 @@ export default function OddzialDetail() {
                     onMouseLeave={el => { el.currentTarget.style.transform = 'none'; }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
-                        <div style={{ fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 4 }}>👥 {e.nazwa}</div>
+                        <div style={{ fontSize: 16, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 4 }}>👥 {e.nazwa}</div>
                         {e.brygadzista_imie && (
                           <div style={{ fontSize: 12, color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: 6 }}>
                             👷 {e.brygadzista_imie} {e.brygadzista_nazwisko}
-                            {e.procent_wynagrodzenia && <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '1px 8px', borderRadius: 8, fontSize: 11, fontWeight: 'bold' }}>{e.procent_wynagrodzenia}%</span>}
+                            {e.procent_wynagrodzenia && <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent-text)', padding: '1px 8px', borderRadius: 8, fontSize: 11, fontWeight: 'bold' }}>{e.procent_wynagrodzenia}%</span>}
                           </div>
                         )}
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>👷 {e.liczba_czlonkow || 0} pomocników</div>
@@ -574,7 +574,7 @@ export default function OddzialDetail() {
               {selectedEkipa && ekipaDetail ? (
                 <div className="branch-detail-panel branch-detail-team-detail" style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 24, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', animation: 'fadeIn 0.3s ease forwards' }}>
                   <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
-                    <h3 style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent)', margin: 0 }}>{ekipaDetail.nazwa}</h3>
+                    <h3 style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent-text)', margin: 0 }}>{ekipaDetail.nazwa}</h3>
                   </div>
 
                   {ekipaDetail.brygadzista_imie && (
@@ -591,7 +591,7 @@ export default function OddzialDetail() {
                               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                                 📞{' '}
                                 {telHref(ekipaDetail.brygadzista_telefon) ? (
-                                  <a href={telHref(ekipaDetail.brygadzista_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                                  <a href={telHref(ekipaDetail.brygadzista_telefon)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                                     {ekipaDetail.brygadzista_telefon}
                                   </a>
                                 ) : (
@@ -607,8 +607,8 @@ export default function OddzialDetail() {
                             <input type="number" min="1" max="100" step="0.5"
                               value={brygadzistaProcent}
                               onChange={(e) => setBrygadzistaProcent(e.target.value)}
-                              style={{ width: 60, padding: '5px 8px', borderRadius: 8, border: '2px solid var(--accent)', fontSize: 14, fontWeight: 'bold', color: 'var(--accent)', textAlign: 'center', outline: 'none' }} />
-                            <span style={{ fontWeight: 'bold', color: 'var(--accent)' }}>%</span>
+                              style={{ width: 60, padding: '5px 8px', borderRadius: 8, border: '2px solid var(--accent)', fontSize: 14, fontWeight: 'bold', color: 'var(--accent-text)', textAlign: 'center', outline: 'none' }} />
+                            <span style={{ fontWeight: 'bold', color: 'var(--accent-text)' }}>%</span>
                             <button onClick={() => zmienProcent(ekipaDetail.brygadzista_id, brygadzistaProcent)}
                               disabled={rateSaving}
                               style={{ padding: '5px 10px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', opacity: rateSaving ? 0.7 : 1 }}>
@@ -664,13 +664,13 @@ export default function OddzialDetail() {
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 8, marginBottom: 4, transition: 'background 0.15s', animation: `slideIn 0.2s ease ${i * 0.05}s forwards`, opacity: 0 }}
                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-field)'}
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                        <div style={{ width: 36, height: 36, borderRadius: 18, background: 'var(--accent-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', flexShrink: 0 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 18, background: 'var(--accent-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 'bold', color: 'var(--accent-text)', flexShrink: 0 }}>
                           {c.imie?.[0]}{c.nazwisko?.[0]}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 14, fontWeight: '600', color: 'var(--text)' }}>{c.imie} {c.nazwisko}</div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
-                            <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{getRoleDisplayName(c.rola)}</span>
+                            <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent-text)', padding: '1px 6px', borderRadius: 4 }}>{getRoleDisplayName(c.rola)}</span>
                             <span>💰 {c.stawka_godzinowa || 0} PLN/h</span>
                           </div>
                         </div>
@@ -773,7 +773,7 @@ export default function OddzialDetail() {
                       statusState={p.aktywny ? 'success' : 'danger'}
                       statusValue={p.aktywny ? 'Aktywny' : 'Nieaktywny'}
                       icon={
-                        <span style={{ fontSize: 13, fontWeight: 'bold', color: ROLA_KOLOR[p.rola] || '#8a8069', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                        <span style={{ fontSize: 13, fontWeight: 'bold', color: ROLA_KOLOR[p.rola] || '#6f6555', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
                           {p.imie?.[0]}{p.nazwisko?.[0]}
                         </span>
                       }
@@ -783,7 +783,7 @@ export default function OddzialDetail() {
                           label: 'Telefon',
                           value: p.telefon
                             ? telHref(p.telefon)
-                              ? <a href={telHref(p.telefon)} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>{p.telefon}</a>
+                              ? <a href={telHref(p.telefon)} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>{p.telefon}</a>
                               : p.telefon
                             : '—',
                           mono: false,
@@ -800,7 +800,7 @@ export default function OddzialDetail() {
                           <button style={S.editBtn} onClick={() => navigate(`/uzytkownicy/${p.id}`)}>Profil</button>
                           {isDyrektor && (
                             <button
-                              style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#fae7d2' : 'rgba(127, 140, 18, 0.1)', color: p.aktywny ? '#bd701e' : 'var(--accent)' }}
+                              style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#fae7d2' : 'rgba(127, 140, 18, 0.1)', color: p.aktywny ? '#9a5613' : 'var(--accent)' }}
                               onClick={e => toggleAktywny(e, p.id, p.aktywny)}
                             >
                               {p.aktywny ? 'Zablokuj' : 'Aktywuj'}
@@ -861,7 +861,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
           {t('pages.branchAdmin.hint', { defaultValue: 'Włącz lub wyłącz funkcje mobilne dla tego oddziału (zapisywane lokalnie).' })}
         </div>
         {overrideCount > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 8, backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', border: '1px solid rgba(69, 107, 31, 0.22)' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 8, backgroundColor: 'var(--accent-surface)', color: 'var(--accent-text)', border: '1px solid rgba(69, 107, 31, 0.22)' }}>
             {overrideCount} override{overrideCount !== 1 ? 's' : ''}
           </span>
         )}
@@ -889,7 +889,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
                 {feature}
               </span>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0 }}>
-                <span style={{ fontSize: 11, color: enabled ? 'var(--accent)' : '#c0492f', fontWeight: 700 }}>
+                <span style={{ fontSize: 11, color: enabled ? 'var(--accent-text)' : '#c0492f', fontWeight: 700 }}>
                   {enabled
                     ? t('pages.branchAdmin.featureEnabled', { defaultValue: 'Włączona' })
                     : t('pages.branchAdmin.featureDisabled', { defaultValue: 'Wyłączona' })}
@@ -902,7 +902,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFeature(feature); } }}
                   style={{
                     width: 36, height: 20, borderRadius: 10, cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
-                    backgroundColor: enabled ? 'var(--accent)' : '#9a907a',
+                    backgroundColor: enabled ? 'var(--accent)' : '#6f6555',
                     border: '1px solid var(--border)',
                     outline: 'none',
                   }}
@@ -981,8 +981,8 @@ function KalkulatorWynagrodzenia({ ekipa }) {
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10 }}>
-            <span style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--accent)' }}>💰 Wynagrodzenie brygadzisty ({form.procent_brygadzisty}%)</span>
-            <span style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent)' }}>{fmt(wynik.wynagrodzenieB)} PLN</span>
+            <span style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--accent-text)' }}>💰 Wynagrodzenie brygadzisty ({form.procent_brygadzisty}%)</span>
+            <span style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent-text)' }}>{fmt(wynik.wynagrodzenieB)} PLN</span>
           </div>
         </div>
       )}
@@ -1001,12 +1001,12 @@ function Field({ label, children }) {
 
 const S = {
   addBtn: { padding: '8px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
-  addSmallBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
-  editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  addSmallBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
+  editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
-  detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
+  detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
-  formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
+  formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 8 },
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },

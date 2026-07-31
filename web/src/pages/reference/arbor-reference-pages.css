@@ -67,7 +67,7 @@
 }
 
 .ref-logo-copy small {
-  color: #a0af14;
+  color: var(--accent-text);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -170,7 +170,7 @@
 }
 
 .ref-sidebar-foot strong {
-  color: #a0af14;
+  color: var(--accent-text);
   font-size: 13px;
 }
 
@@ -195,7 +195,7 @@
 .ref-title-block small {
   display: block;
   margin-bottom: 6px;
-  color: #7f8c12;
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 850;
   letter-spacing: 0.08em;
@@ -214,7 +214,7 @@
 .ref-title-block p {
   max-width: 660px;
   margin: 10px 0 0;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 14px;
   line-height: 1.45;
 }
@@ -243,7 +243,7 @@
 }
 
 .ref-button.is-primary {
-  border-color: #a0af14;
+  border-color: var(--accent-text);
   background: #a0af14;
   color: #23260a;
 }
@@ -267,7 +267,7 @@
 }
 
 .ref-hero-dark small {
-  color: #a0af14;
+  color: var(--accent-text);
   font-weight: 850;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -321,7 +321,7 @@
 }
 
 .ref-kpi small {
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12px;
   font-weight: 800;
 }
@@ -338,7 +338,7 @@
 .ref-kpi span {
   display: block;
   margin-top: 8px;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12.5px;
 }
 
@@ -411,12 +411,12 @@
 }
 
 .ref-step.is-done .ref-step-dot {
-  border-color: #7f8c12;
+  border-color: var(--accent-text);
   background: #7f8c12;
 }
 
 .ref-step.is-current .ref-step-dot {
-  border-color: #a0af14;
+  border-color: var(--accent-text);
   background: #a0af14;
 }
 
@@ -428,7 +428,7 @@
 .ref-step small {
   display: block;
   margin-top: 2px;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12.5px;
 }
 
@@ -458,7 +458,7 @@
 .ref-list-row small {
   display: block;
   margin-top: 2px;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12px;
 }
 
@@ -595,7 +595,7 @@
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: #8a8069;
+  color: #6f6555;
   font: inherit;
   font-size: 11px;
   font-weight: 850;
@@ -651,7 +651,7 @@
 
 .ref-deck-metric strong {
   display: block;
-  color: #a0af14;
+  color: var(--accent-text);
   font-size: 42px;
   line-height: 1;
 }

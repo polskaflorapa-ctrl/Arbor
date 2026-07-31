@@ -41,7 +41,7 @@ function cockpitTone(tone) {
   if (tone === 'danger') return { color: 'var(--danger)', bg: 'rgba(192, 73, 47, 0.12)', border: 'rgba(192, 73, 47, 0.24)' };
   if (tone === 'warning') return { color: 'var(--warning)', bg: 'rgba(189, 112, 30, 0.13)', border: 'rgba(189, 112, 30, 0.26)' };
   if (tone === 'ok') return { color: 'var(--success)', bg: 'rgba(127, 140, 18, 0.12)', border: 'rgba(127, 140, 18, 0.24)' };
-  return { color: 'var(--accent)', bg: 'var(--accent-surface)', border: 'var(--border)' };
+  return { color: 'var(--accent-text)', bg: 'var(--accent-surface)', border: 'var(--border)' };
 }
 
 function gpsLabel(status, ageMin) {
@@ -664,7 +664,7 @@ export default function Kierownik() {
           <div style={styles.cockpitHeader}>
             <div>
               <div style={styles.cockpitTitleRow}>
-                <MyLocationOutlined sx={{ fontSize: 20, color: 'var(--accent)' }} />
+                <MyLocationOutlined sx={{ fontSize: 20, color: 'var(--accent-text)' }} />
                 <h2 style={styles.cockpitTitle}>Cockpit kierownika</h2>
               </div>
               <p style={styles.cockpitSub}>Dzisiejsze blokady, gotowosc ekip i zadania do interwencji.</p>
@@ -741,7 +741,7 @@ export default function Kierownik() {
           >
             <div style={styles.planRealHeader}>
               <div style={styles.cockpitSectionTitle}>
-                <BoltOutlined sx={{ fontSize: 18, color: 'var(--accent)' }} />
+                <BoltOutlined sx={{ fontSize: 18, color: 'var(--accent-text)' }} />
                 Wynik dispatchera dnia
               </div>
               <span style={styles.planRealDate}>{cockpitDate}</span>
@@ -805,7 +805,7 @@ export default function Kierownik() {
           <div style={styles.riskReportBand}>
             <div style={styles.planRealHeader}>
               <div style={styles.cockpitSectionTitle}>
-                <ReportProblemOutlined sx={{ fontSize: 18, color: (cockpitRiskCounts.critical || 0) > 0 ? 'var(--danger)' : 'var(--accent)' }} />
+                <ReportProblemOutlined sx={{ fontSize: 18, color: (cockpitRiskCounts.critical || 0) > 0 ? 'var(--danger)' : 'var(--accent-text)' }} />
                 Raport ryzyk dnia
               </div>
               <button type="button" style={styles.compactActionBtn} onClick={copyRiskReport}>
@@ -1390,19 +1390,19 @@ export default function Kierownik() {
                 onClick={() => setFiltrOddzial(filtrOddzial === o.id.toString() ? '' : o.id.toString())}
               >
                 <div style={{ ...styles.oddzialNazwa, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <BusinessOutlined sx={{ fontSize: 20, color: 'var(--accent)' }} />
+                  <BusinessOutlined sx={{ fontSize: 20, color: 'var(--accent-text)' }} />
                   {o.nazwa}
                 </div>
                 <div style={{ ...styles.oddzialStats, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <AssignmentOutlined sx={{ fontSize: 16 }} />
                     {o.nowe}
                   </span>
-                  <span style={{ color: '#bd701e', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ color: '#9a5613', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <BoltOutlined sx={{ fontSize: 16 }} />
                     {o.w_realizacji}
                   </span>
-                  <span style={{ color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <CheckCircleOutline sx={{ fontSize: 16 }} />
                     {o.zakonczone}
                   </span>
@@ -1478,7 +1478,7 @@ export default function Kierownik() {
                       <div style={{ ...styles.klientTel, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <LocalPhoneOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
                         {telHref(z.klient_telefon) ? (
-                          <a href={telHref(z.klient_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                          <a href={telHref(z.klient_telefon)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                             {z.klient_telefon}
                           </a>
                         ) : (
@@ -1616,7 +1616,7 @@ const styles = {
   planActionNumber: { width: 72, minHeight: 30, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 700 },
   planActionSelect: { minHeight: 30, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 700 },
   planActionNote: { width: 130, minHeight: 30, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12 },
-  planActionBtn: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(69, 107, 31, 0.24)', background: 'var(--accent-surface)', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 850, whiteSpace: 'nowrap' },
+  planActionBtn: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(69, 107, 31, 0.24)', background: 'var(--accent-surface)', color: 'var(--accent-text)', cursor: 'pointer', fontSize: 11, fontWeight: 850, whiteSpace: 'nowrap' },
   planActionGhost: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   planRealEmpty: { padding: '10px 0 2px', color: 'var(--text-muted)', fontSize: 12 },
   recommendationsBand: { marginBottom: 14, padding: '12px 0 2px', borderTop: '1px solid var(--border)' },
@@ -1660,7 +1660,7 @@ const styles = {
   reasonLabel: { color: 'var(--text)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   reasonTrack: { height: 8, borderRadius: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', overflow: 'hidden' },
   reasonFill: { display: 'block', height: '100%', borderRadius: 8, background: 'var(--accent)' },
-  reasonCount: { color: 'var(--accent)', fontSize: 12 },
+  reasonCount: { color: 'var(--accent-text)', fontSize: 12 },
   issuePills: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   issuePill: { borderRadius: 8, padding: '4px 8px', background: 'rgba(189, 112, 30, 0.13)', color: 'var(--warning)', fontSize: 11, fontWeight: 850 },
   issuePillMuted: { borderRadius: 8, padding: '4px 8px', background: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 750 },
@@ -1677,14 +1677,14 @@ const styles = {
   cockpitTaskClient: { color: 'var(--text-sub)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   cockpitChips: { display: 'flex', gap: 5, flexWrap: 'wrap' },
   cockpitChip: { borderRadius: 999, padding: '2px 7px', background: 'rgba(189, 112, 30, 0.13)', color: 'var(--warning)', fontSize: 10, fontWeight: 800 },
-  cockpitTaskBtn: { justifySelf: 'start', marginTop: 2, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 850 },
+  cockpitTaskBtn: { justifySelf: 'start', marginTop: 2, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--accent-text)', cursor: 'pointer', fontSize: 11, fontWeight: 850 },
   teamLine: { minHeight: 38, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center', borderTop: '1px solid var(--border)', padding: '7px 0' },
   teamName: { minWidth: 0, color: 'var(--text)', fontSize: 12, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   teamMeta: { color: 'var(--text-sub)', fontSize: 11, whiteSpace: 'nowrap' },
   gpsPill: { minWidth: 58, textAlign: 'center', borderRadius: 999, padding: '3px 7px', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap' },
   cockpitSecondaryBtn: { marginTop: 10, width: '100%', minHeight: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
+  title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent-text)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 'clamp(12px, 3vw, 14px)' },
   headerRight: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
   addBtn: { minHeight: 38, padding: '9px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 900, transition: 'all 0.2s', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 },
@@ -1698,7 +1698,7 @@ const styles = {
   filtrLabel: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
   filtrSelect: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
-  filtrCount: { marginLeft: 'auto', fontSize: 13, color: 'var(--accent)', fontWeight: '600' },
+  filtrCount: { marginLeft: 'auto', fontSize: 13, color: 'var(--accent-text)', fontWeight: '600' },
   tableWrap: { background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, overflow: 'auto', boxShadow: '0 10px 24px rgba(69, 107, 31, 0.06)' },
   cardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   cardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 },
@@ -1720,12 +1720,12 @@ const styles = {
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 900 },
   th: { padding: '12px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--text-muted)', textAlign: 'left', fontSize: 13, fontWeight: '700', position: 'sticky', top: 0 },
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' },
-  idBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: 13, fontWeight: '600' },
+  idBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: 13, fontWeight: '600' },
   klientNazwa: { fontWeight: '600', color: 'var(--text)' },
-  klientTel: { fontSize: 11, color: 'var(--accent)', marginTop: 2 },
+  klientTel: { fontSize: 11, color: 'var(--accent-text)', marginTop: 2 },
   miasto: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 },
   badge: { padding: '3px 10px', borderRadius: 999, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
-  oddzialBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: 12 },
+  oddzialBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: 12 },
   priorytetBadge: (priorytet) => ({
     display: 'inline-block',
     fontSize: 10,
@@ -1733,10 +1733,10 @@ const styles = {
     borderRadius: 4,
     marginTop: 4,
     backgroundColor: priorytet === 'Pilny' ? '#f0ebdd' : priorytet === 'Wysoki' ? '#fae7d2' : 'rgba(127, 140, 18, 0.1)',
-    color: priorytet === 'Pilny' ? '#c0492f' : priorytet === 'Wysoki' ? '#bd701e' : 'var(--accent)'
+    color: priorytet === 'Pilny' ? '#c0492f' : priorytet === 'Wysoki' ? '#9a5613' : 'var(--accent-text)'
   }),
   select: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: 'var(--text)', minWidth: 130 },
-  detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
+  detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
   emptyIcon: { fontSize: 48, marginBottom: 12, opacity: 0.5 }
 };

@@ -76,7 +76,7 @@ export default function KadryDokumentyPolskaFlora({
             <section className="hr-docs-panel" style={ui.panel}>
               <div className="hr-docs-toolbar" style={ui.toolbar}>
                 <label style={ui.search}>
-                  <SearchOutlined style={{ color: '#9a907a', fontSize: 20 }} />
+                  <SearchOutlined style={{ color: '#6f6555', fontSize: 20 }} />
                   <input
                     style={ui.searchInput}
                     value={query}
@@ -174,7 +174,7 @@ const ui = {
   main: { flex: 1, padding: 28, overflowX: 'hidden' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
   title: { margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: '#2c2011' },
-  subtitle: { margin: '6px 0 0', color: '#8a8069', fontSize: 14, maxWidth: 760 },
+  subtitle: { margin: '6px 0 0', color: '#6f6555', fontSize: 14, maxWidth: 760 },
   headerActions: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   primaryButton: { height: 40, border: 0, borderRadius: 10, background: '#456b1f', color: '#fff', padding: '0 14px', fontWeight: 900, cursor: 'pointer' },
   secondaryButton: { height: 40, border: '1px solid #e0d9c8', borderRadius: 10, background: '#fff', color: '#5a5040', padding: '0 12px', fontWeight: 900, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 },
@@ -182,7 +182,7 @@ const ui = {
   stat: { background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(44, 32, 17, 0.04)' },
   statLabel: { display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', fontSize: 12, fontWeight: 900, marginBottom: 8 },
   statValue: { display: 'block', fontSize: 27, lineHeight: 1.1 },
-  statHint: { display: 'block', marginTop: 6, color: '#8a8069', fontSize: 12 },
+  statHint: { display: 'block', marginTop: 6, color: '#6f6555', fontSize: 12 },
   panel: { background: '#fff', border: '1px solid #f0ebdd', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(44, 32, 17, 0.04)' },
   toolbar: { display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) 180px 180px 140px', gap: 10, marginBottom: 14 },
   search: { display: 'flex', alignItems: 'center', gap: 8, border: '1px solid #e0d9c8', borderRadius: 10, padding: '0 12px', background: '#fff' },
@@ -196,7 +196,7 @@ const ui = {
   person: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
   avatar: { width: 42, height: 42, borderRadius: 999, background: 'linear-gradient(135deg, #7f8c12, #456b1f)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 900 },
   cardTitle: { margin: 0, color: '#2c2011', fontSize: 16, fontWeight: 900 },
-  cardMeta: { margin: '4px 0 0', color: '#8a8069', fontSize: 13 },
+  cardMeta: { margin: '4px 0 0', color: '#6f6555', fontSize: 13 },
   statusBadge: { borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
   badgeOk: { color: '#456b1f', background: '#e4efd6' },
   badgeWarn: { color: '#995510', background: '#fae7d2' },
@@ -206,5 +206,5 @@ const ui = {
   cardActions: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 },
   rowButton: { height: 34, border: '1px solid #e0d9c8', borderRadius: 9, background: '#fff', color: '#456b1f', padding: '0 12px', fontWeight: 900, cursor: 'pointer' },
   rowPrimary: { height: 34, border: 0, borderRadius: 9, background: '#456b1f', color: '#fff', padding: '0 12px', fontWeight: 900, cursor: 'pointer' },
-  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#8a8069' },
+  empty: { display: 'grid', placeItems: 'center', gap: 8, border: '1px solid #f0ebdd', borderRadius: 12, background: '#fff', padding: 36, textAlign: 'center', color: '#6f6555' },
 };

@@ -16,8 +16,8 @@ import { BellOff, Check, CheckCheck, Plus, Send, Trash2, X } from 'lucide-react'
 
 
 const TYP_META = [
-  { value: 'skonczylem_wczesniej', labelKey: 'pages.powiadomienia.reqDoneEarlyLabel', descKey: 'pages.powiadomienia.reqDoneEarlyDesc', color: 'var(--accent)', bg: 'rgba(127, 140, 18, 0.1)' },
-  { value: 'potrzebuje_czasu', labelKey: 'pages.powiadomienia.reqNeedTimeLabel', descKey: 'pages.powiadomienia.reqNeedTimeDesc', color: '#bd701e', bg: '#fae7d2' },
+  { value: 'skonczylem_wczesniej', labelKey: 'pages.powiadomienia.reqDoneEarlyLabel', descKey: 'pages.powiadomienia.reqDoneEarlyDesc', color: 'var(--accent-text)', bg: 'rgba(127, 140, 18, 0.1)' },
+  { value: 'potrzebuje_czasu', labelKey: 'pages.powiadomienia.reqNeedTimeLabel', descKey: 'pages.powiadomienia.reqNeedTimeDesc', color: '#9a5613', bg: '#fae7d2' },
   { value: 'problem', labelKey: 'pages.powiadomienia.reqProblemLabel', descKey: 'pages.powiadomienia.reqProblemDesc', color: '#c0492f', bg: '#f0ebdd' },
   { value: 'pytanie', labelKey: 'pages.powiadomienia.reqQuestionLabel', descKey: 'pages.powiadomienia.reqQuestionDesc', color: '#766440', bg: '#f1f3d6' },
   { value: 'info', labelKey: 'pages.powiadomienia.reqInfoLabel', descKey: 'pages.powiadomienia.reqInfoDesc', color: 'var(--text-muted)', bg: 'var(--border)' },
@@ -347,7 +347,7 @@ export default function Powiadomienia() {
                         <span style={styles.notifOd}>
                           {n.od_kogo ? `${t('sidebar.fromPrefix')} ${n.od_kogo}` : t('pages.powiadomienia.fromSystem')}
                         </span>
-                        <span style={{...styles.notifStatus, color: n.status === 'Nowe' ? '#bd701e' : '#7f8c12'}}>
+                        <span style={{...styles.notifStatus, color: n.status === 'Nowe' ? '#9a5613' : '#5d6a0b'}}>
                           {n.status === 'Nowe'
                             ? t('pages.powiadomienia.statusNew')
                             : isRouteBrief ? 'Potwierdzona' : t('pages.powiadomienia.statusRead')}
@@ -408,13 +408,13 @@ const styles = {
   container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
   main: { flex: 1, padding: '24px', overflowX: 'hidden' },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
+  title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent-text)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 'clamp(12px, 3vw, 14px)' },
   headerRight: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
-  readAllBtn: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border)' } },
+  readAllBtn: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border)' } },
   addBtn: { padding: '10px 20px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-1px)' } },
   formBox: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)' },
-  formTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--border)' },
+  formTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--border)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, marginBottom: 16 },
   field: { display: 'flex', flexDirection: 'column', gap: 8 },
   label: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
@@ -437,8 +437,8 @@ const styles = {
   routeBriefNotice: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: '10px 12px', border: '1px solid #e4efd6', borderRadius: 8, background: '#f0ebdd', color: '#5d6a0b', fontSize: 13 },
   card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 },
-  unreadBadge: { backgroundColor: '#bd701e', color: '#fff', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: '600' },
+  cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent-text)', display: 'flex', alignItems: 'center', gap: 8 },
+  unreadBadge: { backgroundColor: '#9a5613', color: '#fff', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: '600' },
   loading: { textAlign: 'center', padding: 40, color: 'var(--text-muted)' },
   empty: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
   emptyIcon: { display: 'none' },
@@ -452,11 +452,11 @@ const styles = {
   notifTyp: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   notifTresc: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 8, fontStyle: 'italic', backgroundColor: 'var(--surface-glass)', padding: '8px 12px', borderRadius: 8 },
   routeBriefMeta: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8, padding: '7px 9px', borderRadius: 8, border: '1px solid #e4efd6', background: '#f0ebdd', color: '#5d6a0b', fontSize: 12 },
-  notifTask: { fontSize: 12, color: 'var(--accent)', cursor: 'pointer', marginBottom: 8, display: 'inline-block', backgroundColor: 'var(--surface-field)', padding: '4px 10px', borderRadius: 6, '&:hover': { textDecoration: 'underline' } },
+  notifTask: { fontSize: 12, color: 'var(--accent-text)', cursor: 'pointer', marginBottom: 8, display: 'inline-block', backgroundColor: 'var(--surface-field)', padding: '4px 10px', borderRadius: 6, '&:hover': { textDecoration: 'underline' } },
   notifFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 8 },
   notifTime: { fontSize: 11, color: 'var(--text-muted)' },
   notifActions: { display: 'flex', gap: 8 },
-  readBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border)' } },
+  readBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border)' } },
   confirmBriefBtn: { padding: '5px 10px', backgroundColor: '#e4efd6', color: '#5d6a0b', border: '1px solid #f1f3d6', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 800, transition: 'all 0.2s' },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: '#c0492f', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: '#f6e0d9' } }
 };

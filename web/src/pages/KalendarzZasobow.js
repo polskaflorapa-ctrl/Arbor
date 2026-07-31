@@ -16,11 +16,11 @@ const DAY_TIME_LABEL_W = 76;
 const DAY_TEAM_COL_W = 248;
 const MIN_VISIBLE_GAP_MINUTES = 45;
 const TASK_STATUS_COLOR = {
-  Do_Zatwierdzenia: '#bd701e',
+  Do_Zatwierdzenia: '#9a5613',
   Zaplanowane: '#7f8c12',
   W_Realizacji: '#766440',
-  Zakonczone: '#8a8069',
-  Anulowane: '#9a907a',
+  Zakonczone: '#6f6555',
+  Anulowane: '#6f6555',
 };
 const ACTIVE_TASK_STATUSES = new Set(['Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji']);
 const CLOSED_TASK_STATUSES = new Set(['Zakonczone', 'Anulowane']);
@@ -46,9 +46,9 @@ const MIESIACE = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze',
 
 const STATUS_COLOR = {
   Zarezerwowane: '#766440',
-  Wydane:        '#bd701e',
+  Wydane:        '#9a5613',
   Zwrócone:      '#7f8c12',
-  Anulowane:     '#8a8069',
+  Anulowane:     '#6f6555',
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -686,7 +686,7 @@ const mStyles = {
   textarea: { width: '100%', minHeight: 84, resize: 'vertical', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
   modalHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   subtle: { marginTop: 4, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35 },
-  statusPill: { padding: '4px 8px', borderRadius: 999, background: 'rgba(127, 140, 18, 0.14)', color: 'var(--accent)', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
+  statusPill: { padding: '4px 8px', borderRadius: 999, background: 'rgba(127, 140, 18, 0.14)', color: 'var(--accent-text)', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   fieldPackagePanel: {
     border: '1px solid rgba(127, 140, 18, 0.28)',
     borderRadius: 8,
@@ -728,7 +728,7 @@ const mStyles = {
     whiteSpace: 'nowrap',
   },
   fieldPackagePillOk: {
-    color: '#7f8c12',
+    color: 'var(--accent-text)',
     border: '1px solid rgba(127, 140, 18, 0.36)',
     background: 'rgba(127, 140, 18, 0.12)',
   },
@@ -2219,7 +2219,7 @@ export default function KalendarzZasobow() {
   };
 
   const renderTaskCard = (task) => {
-    const color = TASK_STATUS_COLOR[task.status] || '#8a8069';
+    const color = TASK_STATUS_COLOR[task.status] || '#6f6555';
     const photoTotal = taskPhotoTotal(task);
     const hasBrief = Boolean(taskWorkBrief(task));
     const equipmentLabel = taskEquipmentLabel(rezerwacje, task);
@@ -2302,7 +2302,7 @@ export default function KalendarzZasobow() {
   );
 
   const renderDayTaskBlock = (task) => {
-    const color = TASK_STATUS_COLOR[task.status] || '#8a8069';
+    const color = TASK_STATUS_COLOR[task.status] || '#6f6555';
     const start = clamp(timeToMinutes(taskTime(task)), DAY_START_HOUR * 60, DAY_END_HOUR * 60 - 15);
     const duration = Math.max(30, Math.round(taskHours(task) * 60));
     const top = ((start - DAY_START_HOUR * 60) / 60) * DAY_HOUR_HEIGHT + 4;
@@ -2350,7 +2350,7 @@ export default function KalendarzZasobow() {
 
     const left   = colStart * COL_W + 2;
     const width  = spanDays * COL_W - 4;
-    const color  = STATUS_COLOR[rez.status] || '#8a8069';
+    const color  = STATUS_COLOR[rez.status] || '#6f6555';
     const isAnulowana = rez.status === 'Anulowane';
     const taskLabel = rez.task_id ? `#${rez.task_id} ${rez.task_klient_nazwa || ''}`.trim() : '';
     const barLabel = taskLabel || rez.ekipa_nazwa || rez.status || '';
@@ -2695,7 +2695,7 @@ export default function KalendarzZasobow() {
                         fontSize: 11, flexShrink: 0,
                       }}>
                         {(i === 0 || firstOfMonth) && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-text)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
                             {MIESIACE[d.getMonth()]}
                           </span>
                         )}
@@ -2947,7 +2947,7 @@ export default function KalendarzZasobow() {
                     fontSize: 11, flexShrink: 0,
                   }}>
                     {(i === 0 || firstOfMonth) && (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-text)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
                         {MIESIACE[d.getMonth()]}
                       </span>
                     )}
@@ -3221,7 +3221,7 @@ const st = {
     border: '1px solid rgba(127, 140, 18, 0.38)',
     borderRadius: 8,
     background: 'rgba(127, 140, 18, 0.13)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '8px 10px',
     fontSize: 12,
     fontWeight: 900,
@@ -3319,7 +3319,7 @@ const st = {
   },
   opsAlertAction: {
     marginTop: 'auto',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 11,
     fontWeight: 950,
   },
@@ -3361,7 +3361,7 @@ const st = {
     fontWeight: 900,
   },
   queueSummaryOk: {
-    color: '#7f8c12',
+    color: 'var(--accent-text)',
   },
   queueSummaryWarn: {
     color: '#995510',
@@ -3389,7 +3389,7 @@ const st = {
   queueFilterBtnActive: {
     border: '1px solid rgba(127, 140, 18, 0.42)',
     background: 'rgba(127, 140, 18, 0.14)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
   },
   queueList: {
     display: 'grid',
@@ -3426,7 +3426,7 @@ const st = {
     fontWeight: 950,
   },
   queueReadyPillOk: {
-    color: '#7f8c12',
+    color: 'var(--accent-text)',
     border: '1px solid rgba(127, 140, 18, 0.35)',
     background: 'rgba(127, 140, 18, 0.12)',
   },
@@ -3475,7 +3475,7 @@ const st = {
   queueActionBtnPrimary: {
     border: '1px solid rgba(127, 140, 18, 0.42)',
     background: 'rgba(127, 140, 18, 0.14)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
   },
   queueEmpty: {
     border: '1px dashed var(--border)',
@@ -3652,7 +3652,7 @@ const st = {
     border: '1px solid rgba(127, 140, 18, 0.34)',
     borderRadius: 7,
     background: 'rgba(127, 140, 18, 0.1)',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     padding: '4px 7px',
     fontSize: 10,
     lineHeight: 1,
@@ -3666,7 +3666,7 @@ const st = {
   dayTeamHeaderMeta: {
     display: 'inline-flex',
     marginTop: 4,
-    color: '#7f8c12',
+    color: 'var(--accent-text)',
     fontSize: 10,
     fontWeight: 900,
   },
@@ -3753,7 +3753,7 @@ const st = {
     boxShadow: '0 0 0 2px rgba(192, 73, 47, 0.16), 0 2px 8px rgba(0,0,0,0.22)',
   },
   dayTaskTime: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 11,
     fontWeight: 900,
     lineHeight: 1.2,
@@ -3804,7 +3804,7 @@ const st = {
     border: '1px dashed rgba(127, 140, 18, 0.48)',
     borderRadius: 8,
     background: 'rgba(127, 140, 18, 0.08)',
-    color: '#7f8c12',
+    color: 'var(--accent-text)',
     fontSize: 10,
     fontWeight: 900,
     display: 'flex',

@@ -21,10 +21,10 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 
 const STATUS_KOLOR = {
-  Nieoplacona: '#bd701e',
+  Nieoplacona: '#9a5613',
   Oplacona: '#7f8c12',
   Przeterminowana: '#c0492f',
-  Anulowana: '#9a907a',
+  Anulowana: '#6f6555',
 };
 
 export default function Ksiegowosc() {
@@ -295,7 +295,7 @@ export default function Ksiegowosc() {
             <div style={styles.kpiNum}>{fmt(stats.oplacone)} PLN</div>
             <div style={styles.kpiLabel}>Opłacone</div>
           </div>
-          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #bd701e'}}>
+          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #9a5613'}}>
             <div style={styles.kpiIcon}><HourglassEmptyOutlined style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{fmt(stats.nieoplacone)} PLN</div>
             <div style={styles.kpiLabel}>Nieopłacone</div>
@@ -393,7 +393,7 @@ export default function Ksiegowosc() {
                     actions={
                       <>
                         <select
-                          style={{...styles.statusSelect, borderColor: STATUS_KOLOR[f.status] || '#9a907a'}}
+                          style={{...styles.statusSelect, borderColor: STATUS_KOLOR[f.status] || '#6f6555'}}
                           value={f.status}
                           onChange={e => zmienStatus(f.id, e.target.value)}
                         >
@@ -563,11 +563,11 @@ export default function Ksiegowosc() {
                 </div>
                 <div style={styles.sumaRow}>
                   <span>VAT:</span>
-                  <span style={{fontWeight: '600', color: '#bd701e'}}>{fmt(sumaVat)} PLN</span>
+                  <span style={{fontWeight: '600', color: '#9a5613'}}>{fmt(sumaVat)} PLN</span>
                 </div>
                 <div style={{...styles.sumaRow, borderTop: '2px solid var(--border)', paddingTop: 8, marginTop: 4}}>
                   <span style={{fontSize: 16, fontWeight: 'bold'}}>Do zapłaty:</span>
-                  <span style={{fontSize: 20, fontWeight: 'bold', color: 'var(--accent)'}}>{fmt(sumaBrutto)} PLN</span>
+                  <span style={{fontSize: 20, fontWeight: 'bold', color: 'var(--accent-text)'}}>{fmt(sumaBrutto)} PLN</span>
                 </div>
               </div>
             </div>
@@ -677,7 +677,7 @@ const styles = {
   container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
   main: { flex: 1, padding: '24px', overflowX: 'hidden' },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
+  title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent-text)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 'clamp(12px, 3vw, 14px)' },
   headerRight: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
   addBtn: { padding: '10px 20px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(69, 107, 31, 0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s' },
@@ -688,15 +688,15 @@ const styles = {
   kpiLabel: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
   tabs: { display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid var(--border)', flexWrap: 'wrap' },
   tab: { padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: 'var(--text-muted)', borderBottom: '2px solid transparent', marginBottom: -2 },
-  tabActive: { color: 'var(--accent)', borderBottom: '2px solid var(--accent)' },
+  tabActive: { color: 'var(--accent-text)', borderBottom: '2px solid var(--accent)' },
   card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 24, marginBottom: 16, boxShadow: 'var(--shadow-md)' },
-  cardTitle: { fontSize: 15, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
+  cardTitle: { fontSize: 15, fontWeight: 'bold', color: 'var(--accent-text)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   filtryRow: { display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' },
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 6 },
   filtrLabel: { fontSize: 12, fontWeight: '600', color: 'var(--text-sub)' },
   filtrSelect: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: '#c0492f', border: '1px solid #f6e0d9', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
-  filtrCount: { fontSize: 13, color: 'var(--accent)', fontWeight: '600', marginLeft: 'auto' },
+  filtrCount: { fontSize: 13, color: 'var(--accent-text)', fontWeight: '600', marginLeft: 'auto' },
   tableWrap: { overflowX: 'auto', borderRadius: 8, border: '1px solid var(--glass-border)' },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 900 },
   th: { padding: '10px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--text-muted)', textAlign: 'left', fontSize: 12, fontWeight: '700' },
@@ -714,8 +714,8 @@ const styles = {
     backgroundColor: 'var(--surface-field)',
     color: 'var(--text)',
   },
-  platBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: '600' },
-  pdfBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600', transition: 'all 0.2s' },
+  platBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: '600' },
+  pdfBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600', transition: 'all 0.2s' },
   empty: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
   emptyIcon: { fontSize: 48, marginBottom: 12, opacity: 0.5 },
   emptySub: { fontSize: 12, marginTop: 4, opacity: 0.7 },
@@ -724,7 +724,7 @@ const styles = {
   label: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
   input: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' },
   inputSm: { padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
-  addPozBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
+  addPozBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent-text)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   delBtn: { padding: '4px 8px', backgroundColor: 'rgba(192, 73, 47, 0.1)', color: '#c0492f', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 },
   sumaBox: { backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', maxWidth: 340, marginLeft: 'auto', marginTop: 16 },
   sumaRow: { display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 14, color: 'var(--text-sub)' },

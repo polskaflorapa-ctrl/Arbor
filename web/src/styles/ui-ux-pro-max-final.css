@@ -6,13 +6,13 @@
   --ux-panel-3: #2c2011;
   --ux-text: #f0ebdd;
   --ux-text-2: #e0d9c8;
-  --ux-muted: #9a907a;
+  --ux-muted: #6f6555;
   --ux-border: rgba(154, 144, 122, 0.24);
   --ux-border-strong: rgba(226, 232, 240, 0.34);
   --ux-accent: #7f8c12;
   --ux-accent-2: #f1f3d6;
   --ux-blue: #766440;
-  --ux-amber: #bd701e;
+  --ux-amber: #9a5613;
   --ux-red: #c0492f;
   --ux-ring: rgba(127, 140, 18, 0.36);
   --ux-radius: 8px;
@@ -36,7 +36,7 @@
   --pf-green: #a0af14;
   --pf-green-soft: #b4c232;
   --pf-olive: #766440;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-ink: #2c2011;
   --pf-muted: #5a5040;
   --pf-paper: #f0ebdd;
@@ -996,7 +996,7 @@ body.theme-light #root .explore-shell.explore-command-shell {
     linear-gradient(135deg, rgba(160, 175, 20, 0.18), rgba(255, 255, 255, 0) 48%),
     linear-gradient(90deg, #3b2a18, #995510) !important;
   color: #f0ebdd !important;
-  border-left-color: #a0af14 !important;
+  border-left-color: var(--accent-text) !important;
 }
 
 #root .clients-command-strip,
@@ -1218,7 +1218,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root input::placeholder,
 #root textarea::placeholder {
-  color: #9a907a !important;
+  color: #6f6555 !important;
   opacity: 1;
 }
 
@@ -2862,7 +2862,7 @@ body.theme-dark #root .arbor-sidebar {
   inset: 10px auto 10px 8px;
   width: 2px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #7f8c12, #766440, #bd701e);
+  background: linear-gradient(180deg, #7f8c12, #766440, #9a5613);
   opacity: 0.72;
   pointer-events: none;
 }
@@ -2903,7 +2903,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .zlecenia-data-card input[type='checkbox'] {
   width: 18px;
   height: 18px;
-  accent-color: #7f8c12;
+  accent-color: var(--accent-text);
 }
 
 #root .zlecenia-data-card :is(button, a):hover,
@@ -3124,7 +3124,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
 }
@@ -3255,7 +3255,7 @@ body.theme-dark #root .arbor-sidebar {
   --command-amber: var(--pf-orange);
   --command-text: #2c2011;
   --command-sub: #995510;
-  --command-muted: #8a8069;
+  --command-muted: #6f6555;
   --command-line: var(--pf-line);
   background:
     linear-gradient(90deg, rgba(59, 42, 24, 0.035) 1px, transparent 1px),
@@ -3340,7 +3340,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: rgba(59, 42, 24, 0.12);
@@ -3627,7 +3627,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   background:
@@ -3920,7 +3920,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   background:
@@ -4201,7 +4201,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   background:
@@ -4573,7 +4573,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: rgba(59, 42, 24, 0.12);
@@ -5242,7 +5242,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: rgba(59, 42, 24, 0.12);
@@ -5715,7 +5715,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-brown-soft: #995510;
   --pf-olive: #a0af14;
   --pf-olive-soft: #b4c232;
-  --pf-orange: #bd701e;
+  --pf-orange: #9a5613;
   --pf-paper: #f0ebdd;
   --pf-line: rgba(59, 42, 24, 0.14);
   --pf-shadow: rgba(59, 42, 24, 0.12);
@@ -6366,7 +6366,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-admin-green: #a0af14;
   --pf-admin-soft: #b4c232;
   --pf-admin-olive: #766440;
-  --pf-admin-orange: #bd701e;
+  --pf-admin-orange: #9a5613;
   --pf-admin-ink: #2c2011;
   --pf-admin-muted: #995510;
   --pf-admin-line: rgba(59, 42, 24, 0.14);
@@ -6756,7 +6756,7 @@ body.theme-dark #root .arbor-sidebar {
   --pf-org-green: #a0af14;
   --pf-org-soft: #b4c232;
   --pf-org-olive: #766440;
-  --pf-org-orange: #bd701e;
+  --pf-org-orange: #9a5613;
   --pf-org-ink: #2c2011;
   --pf-org-line: rgba(59, 42, 24, 0.14);
   --pf-org-shadow: 0 22px 54px rgba(59, 42, 24, 0.12);
@@ -7395,14 +7395,14 @@ body.theme-dark #root .arbor-sidebar {
   --arbor-brown: #2c2011;
   --arbor-brown-2: #3b2a18;
   --arbor-ink: #2c2011;
-  --arbor-muted: #8a8069;
+  --arbor-muted: #6f6555;
   --arbor-soft: #f0ebdd;
   --arbor-paper: #faf8f1;
   --arbor-panel: #fffdf8;
   --arbor-line: #e6ddc9;
   --arbor-green: #a0af14;
   --arbor-green-2: #7f8c12;
-  --arbor-orange: #bd701e;
+  --arbor-orange: #9a5613;
   --arbor-red: #c0492f;
   --arbor-shadow: 0 18px 42px rgba(44, 32, 17, 0.09);
   min-height: 100vh;
@@ -7689,7 +7689,7 @@ body.theme-dark #root .arbor-sidebar {
   gap: 8px;
   min-height: 42px;
   padding: 0 12px;
-  color: #8a8069;
+  color: #6f6555;
 }
 
 #root .arbor-os-search input {
@@ -7710,7 +7710,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 2px 5px;
   border-radius: 6px;
   background: rgba(44, 32, 17, 0.08);
-  color: #8a8069;
+  color: #6f6555;
   font-size: 11px;
   font-family: inherit;
   font-weight: 900;
@@ -7776,7 +7776,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .arbor-os-range-row p {
   margin: 0;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 15px;
   font-weight: 800;
 }
@@ -7805,7 +7805,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .arbor-os-kpi-card span {
-  color: #8a8069;
+  color: #6f6555;
   font-size: 13px;
   font-weight: 900;
 }
@@ -7819,7 +7819,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .arbor-os-kpi-card small {
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12px;
   font-weight: 800;
 }
@@ -7869,7 +7869,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .arbor-os-panel-head p {
   margin: 4px 0 0;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 13px;
   font-weight: 800;
 }
@@ -7949,7 +7949,7 @@ body.theme-dark #root .arbor-sidebar {
 
 #root .arbor-os-queue-card small {
   grid-column: 1 / 2;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 13px;
   font-weight: 700;
 }
@@ -7957,7 +7957,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .arbor-os-queue-card em {
   grid-column: 2 / 3;
   grid-row: 1 / 2;
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12px;
   font-style: normal;
   font-weight: 800;
@@ -8060,7 +8060,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .arbor-os-team-list small {
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12px;
   font-weight: 700;
 }
@@ -8121,7 +8121,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .arbor-os-field-table small,
 #root .arbor-os-field-table span,
 #root .arbor-os-field-table em {
-  color: #8a8069;
+  color: #6f6555;
   font-size: 13px;
   font-style: normal;
   font-weight: 750;
@@ -8267,7 +8267,7 @@ body.theme-dark #root .arbor-sidebar {
 #root .arbor-os-readiness-list small,
 #root .arbor-os-money-grid small,
 #root .arbor-os-money-preview small {
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12px;
   font-weight: 800;
 }
@@ -8309,7 +8309,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .arbor-os-ops-grid span {
-  color: #8a8069;
+  color: #6f6555;
   font-size: 13px;
   font-weight: 900;
 }
@@ -8321,7 +8321,7 @@ body.theme-dark #root .arbor-sidebar {
 }
 
 #root .arbor-os-ops-grid small {
-  color: #8a8069;
+  color: #6f6555;
   font-size: 12px;
   font-weight: 750;
 }
@@ -8334,7 +8334,7 @@ body.theme-dark #root .arbor-sidebar {
   padding: 18px;
   border-radius: 12px;
   background: #f0ebdd;
-  color: #8a8069;
+  color: #6f6555;
   font-weight: 850;
   text-align: center;
 }
@@ -8498,7 +8498,7 @@ body.theme-dark #root .arbor-sidebar {
   --arbor-app-brown: #2c2011;
   --arbor-app-brown-2: #3b2a18;
   --arbor-app-ink: #2c2011;
-  --arbor-app-muted: #8a8069;
+  --arbor-app-muted: #6f6555;
   --arbor-app-paper: #faf8f1;
   --arbor-app-soft: #f0ebdd;
   --arbor-app-panel: #fffdf8;
@@ -8506,7 +8506,7 @@ body.theme-dark #root .arbor-sidebar {
   --arbor-app-line: #e6ddc9;
   --arbor-app-green: #a0af14;
   --arbor-app-green-2: #7f8c12;
-  --arbor-app-orange: #bd701e;
+  --arbor-app-orange: #9a5613;
   --arbor-app-red: #c0492f;
   --arbor-app-shadow: 0 18px 42px rgba(44, 32, 17, 0.09);
 }

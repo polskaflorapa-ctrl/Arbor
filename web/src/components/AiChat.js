@@ -284,7 +284,7 @@ function TypingDots() {
     <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '2px 0' }}>
       {[0, 1, 2].map(i => (
         <div key={i} style={{
-          width: 6, height: 6, borderRadius: '50%', backgroundColor: '#7f8c12',
+          width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--accent-text)',
           animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
           opacity: 0.7,
         }} />
@@ -317,11 +317,11 @@ const S = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text, #f0ebdd)' },
-  headerSub: { fontSize: 11, color: '#7f8c12', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 },
-  dot: { width: 6, height: 6, borderRadius: '50%', backgroundColor: '#7f8c12', display: 'inline-block' },
+  headerSub: { fontSize: 11, color: 'var(--accent-text)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 },
+  dot: { width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--accent-text)', display: 'inline-block' },
   clearBtn: {
     background: 'none', border: '1px solid var(--border, #5d6a0b)', borderRadius: 8,
-    color: 'var(--text-muted, #8a8069)', cursor: 'pointer', padding: '5px 8px',
+    color: 'var(--text-muted, #6f6555)', cursor: 'pointer', padding: '5px 8px',
     display: 'flex', alignItems: 'center',
   },
   keyWarning: {
@@ -357,7 +357,7 @@ const S = {
   },
   suggBtn: {
     background: 'var(--surface-field)', border: '1px solid var(--border)',
-    borderRadius: 8, color: 'var(--text-sub, #9a907a)', fontSize: 11,
+    borderRadius: 8, color: 'var(--text-sub, #6f6555)', fontSize: 11,
     padding: '5px 10px', cursor: 'pointer', transition: 'all 0.15s',
   },
   inputRow: {

@@ -10,7 +10,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 
-const COLORS = ['#c0492f', '#bd701e', '#bd701e', '#7f8c12', '#766440', '#766440', '#FFFFFF', '#000000'];
+const COLORS = ['#c0492f', '#9a5613', '#9a5613', '#7f8c12', '#766440', '#766440', '#FFFFFF', '#000000'];
 
 function dataUrlToBlob(dataUrl) {
   const [head, b64] = dataUrl.split(',');
@@ -256,7 +256,7 @@ export default function WycenaRysuj() {
                 style={{ display: 'none' }}
                 onChange={(e) => loadLocalFile(e.target.files?.[0])}
               />
-              <span style={{ textDecoration: 'underline', color: 'var(--accent)' }}>{t('draw.pickImage')}</span>
+              <span style={{ textDecoration: 'underline', color: 'var(--accent-text)' }}>{t('draw.pickImage')}</span>
             </label>
           )}
         </div>

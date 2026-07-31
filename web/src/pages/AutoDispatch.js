@@ -9,7 +9,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { localDateKey } from '../utils/localDateKey';
 
 const TEAM_COLORS = [
-  '#7f8c12','#766440','#c0492f','#bd701e','#766440',
+  '#7f8c12','#766440','#c0492f','#9a5613','#766440',
   '#766440','#a3402a','#5d6a0b','#a3402a','#766440',
 ];
 
@@ -58,7 +58,7 @@ function money(value) {
 
 const PRIORITY_COLOR = {
   high: '#c0492f',
-  medium: '#bd701e',
+  medium: '#9a5613',
   low: '#766440',
 };
 
@@ -1818,14 +1818,14 @@ const s = {
   workflowStepBlocked:{ background: '#f0ebdd', borderColor: '#f6e0d9' },
   workflowStepPending:{ background: '#f0ebdd', borderColor: '#f0ebdd' },
   workflowStepIndex:{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900 },
-  workflowStepIndexDone:{ background: '#7f8c12', color: '#fff' },
+  workflowStepIndexDone:{ background: '#5d6a0b', color: '#fff' },
   workflowStepIndexActive:{ background: '#766440', color: '#fff' },
   workflowStepIndexBlocked:{ background: '#c0492f', color: '#fff' },
-  workflowStepIndexPending:{ background: '#f0ebdd', color: '#8a8069' },
+  workflowStepIndexPending:{ background: '#f0ebdd', color: '#6f6555' },
   workflowStepText:{ minWidth: 0, display: 'grid', gap: 1, color: 'var(--text)', fontSize: 12, lineHeight: 1.25 },
   workflowStepDetail:{ color: 'var(--text-sub)', overflowWrap: 'anywhere' },
   errorBox: { padding: '12px 16px', borderRadius: 8, background: '#f6e0d9', color: '#c0492f', marginBottom: 16, fontSize: 14 },
-  successBox:{ padding: '12px 16px', borderRadius: 8, background: '#e4efd6', color: '#7f8c12', marginBottom: 16, fontSize: 14, fontWeight: 600 },
+  successBox:{ padding: '12px 16px', borderRadius: 8, background: '#e4efd6', color: 'var(--accent-text)', marginBottom: 16, fontSize: 14, fontWeight: 600 },
   preflightBox:{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '12px 14px', borderRadius: 8, background: '#f0ebdd', border: '1px solid #fae7d2', color: '#a3402a', marginBottom: 16 },
   preflightText:{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, lineHeight: 1.4 },
   preflightActions:{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' },
@@ -1850,7 +1850,7 @@ const s = {
   dispatchGateDetail:{ color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   dispatchGateBtn:{ flexShrink: 0, padding: '7px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 900 },
   dispatchGateBtnBad:{ border: '1px solid #c0492f', background: '#fff', color: '#a3402a' },
-  dispatchGateBtnWarn:{ border: '1px solid #bd701e', background: '#fff', color: '#a3402a' },
+  dispatchGateBtnWarn:{ border: '1px solid #9a5613', background: '#fff', color: '#a3402a' },
   dispatchGateBtnReady:{ border: '1px solid #7f8c12', background: '#fff', color: '#456b1f' },
   advisorGrid:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 18, alignItems: 'start' },
   advisorColumn:{ minWidth: 0 },
@@ -1913,7 +1913,7 @@ const s = {
   handoffActions:{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', flexShrink: 0 },
   copyDayBriefBtn:{ flexShrink: 0, border: '1px solid var(--accent)', background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   refreshBriefStatusBtn:{ flexShrink: 0, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
-  remindAllBriefBtn:{ flexShrink: 0, border: '1px solid #bd701e', background: '#f0ebdd', color: '#a3402a', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
+  remindAllBriefBtn:{ flexShrink: 0, border: '1px solid #9a5613', background: '#f0ebdd', color: '#a3402a', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   sendAllBriefBtn:{ flexShrink: 0, border: '1px solid #7f8c12', background: '#f0ebdd', color: '#456b1f', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   manualDispatchBrief:{ width: '100%', minHeight: 96, marginTop: 10, borderRadius: 8, border: '1px solid var(--border)', background: '#fff', color: 'var(--text)', padding: 10, fontSize: 12, lineHeight: 1.45, resize: 'vertical' },
   content:  { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' },
@@ -1937,11 +1937,11 @@ const s = {
   routeReceiptPanel:{ borderTop: '1px solid var(--border-light, var(--border))', padding: '8px 12px 10px 16px', display: 'grid', gap: 7, background: 'rgba(255,255,255,0.42)' },
   routeReceiptHeader:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   routeReceiptTitle:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
-  routeReminderBtn:{ border: '1px solid #bd701e', background: '#f0ebdd', color: '#a3402a', borderRadius: 8, padding: '5px 8px', fontSize: 11, fontWeight: 900, cursor: 'pointer' },
+  routeReminderBtn:{ border: '1px solid #9a5613', background: '#f0ebdd', color: '#a3402a', borderRadius: 8, padding: '5px 8px', fontSize: 11, fontWeight: 900, cursor: 'pointer' },
   routeReceiptList:{ display: 'flex', flexWrap: 'wrap', gap: 7 },
   routeReceiptItem:{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%', border: '1px solid #fae7d2', background: '#f0ebdd', color: '#a3402a', borderRadius: 8, padding: '5px 7px', fontSize: 11, fontWeight: 850, lineHeight: 1.2 },
   routeReceiptItemDone:{ borderColor: '#e4efd6', background: '#f0ebdd', color: '#456b1f' },
-  routeReceiptDot:{ width: 7, height: 7, borderRadius: '50%', background: '#bd701e', flexShrink: 0 },
+  routeReceiptDot:{ width: 7, height: 7, borderRadius: '50%', background: '#9a5613', flexShrink: 0 },
   routeReceiptDotDone:{ width: 7, height: 7, borderRadius: '50%', background: '#7f8c12', flexShrink: 0 },
   routeReceiptName:{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   routeReceiptState:{ flexShrink: 0, color: 'inherit', opacity: 0.82 },
@@ -1961,5 +1961,5 @@ const s = {
   unassignedAddr:{ fontSize: 12, color: 'var(--text-sub)', margin: '4px 0' },
   reasonBadge:{ fontSize: 10, background: '#f6e0d9', color: '#c0492f', borderRadius: 4, padding: '2px 6px', display: 'inline-block', fontWeight: 600 },
   empty:    { textAlign: 'center', padding: '56px 20px', color: 'var(--text-sub)', background: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.13)', borderRadius: 8, boxShadow: '0 10px 24px rgba(69, 107, 31, 0.055)' },
-  emptyIcon:{ fontSize: 18, fontWeight: 950, marginBottom: 10, color: 'var(--accent)' },
+  emptyIcon:{ fontSize: 18, fontWeight: 950, marginBottom: 10, color: 'var(--accent-text)' },
 };

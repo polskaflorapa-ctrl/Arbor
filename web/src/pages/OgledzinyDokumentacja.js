@@ -73,7 +73,7 @@ export default function OgledzinyDokumentacja() {
       marginBottom: 16,
       border: 'none',
       background: 'none',
-      color: 'var(--accent)',
+      color: 'var(--accent-text)',
       cursor: 'pointer',
       fontSize: 14,
       padding: 0,

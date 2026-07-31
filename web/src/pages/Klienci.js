@@ -348,7 +348,7 @@ export default function Klienci() {
                     {k.telefon && (
                       <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>
                         {telHref(k.telefon) ? (
-                          <a href={telHref(k.telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                          <a href={telHref(k.telefon)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                             {k.telefon}
                           </a>
                         ) : (
@@ -370,12 +370,12 @@ export default function Klienci() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     {Number(k.liczba_zlecen) > 0 && (
-                      <span style={{ fontSize: 10, background: 'var(--accent-surface)', color: 'var(--accent-dk)', border: '1px solid var(--logo-tint-border)', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, background: 'var(--accent-surface)', color: 'var(--accent-text)', border: '1px solid var(--logo-tint-border)', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
                         {k.liczba_zlecen} zleceń
                       </span>
                     )}
                     {Number(k.liczba_ogledzen) > 0 && (
-                      <span style={{ fontSize: 10, background: 'var(--accent-surface)', color: 'var(--accent-dk)', border: '1px solid var(--logo-tint-border)', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, background: 'var(--accent-surface)', color: 'var(--accent-text)', border: '1px solid var(--logo-tint-border)', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
                         {k.liczba_ogledzen} ogl.
                       </span>
                     )}
@@ -440,7 +440,7 @@ export default function Klienci() {
                       detail.telefon
                         ? telHref(detail.telefon)
                           ? (
-                              <a href={telHref(detail.telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                              <a href={telHref(detail.telefon)} style={{ color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                                 {detail.telefon}
                               </a>
                             )
@@ -580,7 +580,7 @@ export default function Klienci() {
                           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                             {fmt(z.data_planowana)}
                             {z.ekipa_nazwa && <span style={{ marginLeft: 8 }}>· {z.ekipa_nazwa}</span>}
-                            {z.wartosc_planowana && <span style={{ marginLeft: 8, color: 'var(--accent)', fontWeight: 600 }}>{fmtPln(z.wartosc_planowana)}</span>}
+                            {z.wartosc_planowana && <span style={{ marginLeft: 8, color: 'var(--accent-text)', fontWeight: 600 }}>{fmtPln(z.wartosc_planowana)}</span>}
                           </div>
                         </div>
                         <span style={{ ...badge, background: taskStatusColor(z.status) + '22', color: taskStatusColor(z.status) }}>
@@ -716,7 +716,7 @@ const btn = {
   },
   secondary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: '#ffffff', color: 'var(--accent-dk)', border: '1px solid rgba(69, 107, 31, 0.18)',
+    background: '#ffffff', color: 'var(--accent-text)', border: '1px solid rgba(69, 107, 31, 0.18)',
     borderRadius: 8, fontSize: 12, fontWeight: 850, cursor: 'pointer',
   },
   secondaryGhost: {
@@ -776,7 +776,7 @@ const badge = {
 const miniPill = {
   fontSize: 10,
   background: 'rgba(69, 107, 31, 0.08)',
-  color: 'var(--accent-dk)',
+  color: 'var(--accent-text)',
   border: '1px solid rgba(69, 107, 31, 0.18)',
   borderRadius: 6,
   padding: '2px 6px',

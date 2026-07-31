@@ -244,7 +244,7 @@ export default function CrmDashboard() {
                             alignItems: 'center',
                             border: '1px solid var(--accent)',
                             borderRadius: 8,
-                            color: 'var(--accent)',
+                            color: 'var(--accent-text)',
                             display: 'inline-flex',
                             fontSize: 13,
                             fontWeight: 800,

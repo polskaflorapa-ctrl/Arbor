@@ -15,7 +15,7 @@ const s = {
     marginBottom: 16,
     boxShadow: 'var(--shadow-md)',
   },
-  title: { fontSize: 15, fontWeight: 700, color: 'var(--accent)', marginBottom: 12 },
+  title: { fontSize: 15, fontWeight: 700, color: 'var(--accent-text)', marginBottom: 12 },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: { textAlign: 'left', padding: '8px 6px', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' },
   td: { padding: '8px 6px', borderBottom: '1px solid var(--border)' },

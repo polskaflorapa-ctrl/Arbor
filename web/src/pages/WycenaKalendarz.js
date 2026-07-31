@@ -16,7 +16,7 @@ const MIESIAC = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
 const DNI = ['Pn','Wt','Śr','Cz','Pt','Sb','Nd'];
 
 const STATUS_KOLOR = {
-  oczekuje: '#bd701e',
+  oczekuje: '#9a5613',
   rezerwacja_wstepna: '#7f8c12',
   do_specjalisty: '#f1f3d6',
   zatwierdzono: '#7f8c12',
@@ -489,9 +489,9 @@ export default function WycenaKalendarz() {
                   {' · '}
                   Termin SLA: {fmtSlaDue(row.due_at)}
                   {row.sla_reminder_sent_at ? (
-                    <span style={{ color: '#9a907a' }}> · Cron: przypomnienie wysłane</span>
+                    <span style={{ color: '#6f6555' }}> · Cron: przypomnienie wysłane</span>
                   ) : (
-                    <span style={{ color: '#bd701e' }}> · Cron: jeszcze bez przypomnienia</span>
+                    <span style={{ color: '#9a5613' }}> · Cron: jeszcze bez przypomnienia</span>
                   )}
                 </div>
               </button>
@@ -562,7 +562,7 @@ export default function WycenaKalendarz() {
                   }}
                   onClick={() => setSelectedDay(d)}
                 >
-                  <span style={{ ...S.dayNum, ...(isToday ? { color: 'var(--accent)', fontWeight: 'bold' } : {}), ...(isSel ? { color: '#fff', fontWeight: 'bold' } : {}) }}>{d}</span>
+                  <span style={{ ...S.dayNum, ...(isToday ? { color: 'var(--accent-text)', fontWeight: 'bold' } : {}), ...(isSel ? { color: '#fff', fontWeight: 'bold' } : {}) }}>{d}</span>
                   {(showDots || showOg) && (
                     <div style={{ ...S.dotRow, flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                       {showOg && (
@@ -571,7 +571,7 @@ export default function WycenaKalendarz() {
                       {showDots && (
                         <div style={{ ...S.dotRow, justifyContent: 'center' }}>
                           {listW.slice(0, 3).map((w, wi) => (
-                            <div key={wi} style={{ ...S.dot, backgroundColor: STATUS_KOLOR[w.status_akceptacji] || '#8a8069' }} />
+                            <div key={wi} style={{ ...S.dot, backgroundColor: STATUS_KOLOR[w.status_akceptacji] || '#6f6555' }} />
                           ))}
                         </div>
                       )}
@@ -679,7 +679,7 @@ export default function WycenaKalendarz() {
                   const q = dataQualityFlags(w);
                   return (q.noPin || q.noGps || q.staleGps) ? (
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                      {q.noPin ? <span style={{ ...S.metaChip, color: '#bd701e' }}>Brak pinezki klienta</span> : null}
+                      {q.noPin ? <span style={{ ...S.metaChip, color: '#9a5613' }}>Brak pinezki klienta</span> : null}
                       {q.noGps ? <span style={{ ...S.metaChip, color: '#c0492f' }}>Brak GPS ekipy</span> : null}
                       {q.staleGps ? <span style={{ ...S.metaChip, color: '#c0492f' }}>Stary GPS ({q.gpsAge} min)</span> : null}
                     </div>
@@ -730,7 +730,7 @@ export default function WycenaKalendarz() {
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>Sprzęt</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {SPRZET_POLA.filter(s => w[s.key]).map(s => (
-                            <span key={s.key} style={{ padding: '3px 8px', borderRadius: 6, background: 'var(--accent-soft, rgba(160, 175, 20, 0.14))', color: 'var(--accent)', fontSize: 12, fontWeight: 600 }}>
+                            <span key={s.key} style={{ padding: '3px 8px', borderRadius: 6, background: 'var(--accent-soft, rgba(160, 175, 20, 0.14))', color: 'var(--accent-text)', fontSize: 12, fontWeight: 600 }}>
                               {s.label}
                             </span>
                           ))}
@@ -817,7 +817,7 @@ export default function WycenaKalendarz() {
                 </div>
               ) : null}
               {reserveRuleWarning ? (
-                <div style={{ fontSize: 12, color: '#bd701e' }}>{reserveRuleWarning}</div>
+                <div style={{ fontSize: 12, color: '#9a5613' }}>{reserveRuleWarning}</div>
               ) : null}
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 Najpierw pokazujemy sloty z ETA, potem bez ETA.
@@ -848,7 +848,7 @@ export default function WycenaKalendarz() {
                 ))}
               </div>
               {(reserveDraft.slots || []).some((s) => s.eta_minutes == null) ? (
-                <div style={{ fontSize: 11, color: '#bd701e', marginTop: 4 }}>Sloty bez ETA (niższy priorytet):</div>
+                <div style={{ fontSize: 11, color: '#9a5613', marginTop: 4 }}>Sloty bez ETA (niższy priorytet):</div>
               ) : null}
               <div style={S.ekipyGrid}>
                 {(reserveDraft.slots || []).filter((s) => s.eta_minutes == null).map((slotObj) => (
@@ -951,10 +951,10 @@ const S = {
     background: 'var(--surface-glass)',
     border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-sm)', position: 'relative', zIndex: 1
   },
-  backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
+  backBtn: { background: 'none', border: 'none', color: 'var(--accent-text)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
   headerTitle: { fontSize: 24, fontWeight: 850, color: 'var(--text)' },
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
-  addBtn: { padding: '10px 20px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(228, 239, 214, 0.5)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  addBtn: { padding: '10px 20px', backgroundColor: 'var(--accent-text)', color: '#456b1f', border: '1px solid rgba(228, 239, 214, 0.5)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
   linkBtn: {
     padding: '8px 12px',
     background: '#ffffff',
@@ -1019,7 +1019,7 @@ const S = {
   dayPanelCount: { fontSize: 13, color: '#456b1f', backgroundColor: 'rgba(69, 107, 31, 0.08)', padding: '3px 10px', borderRadius: 8, border: '1px solid rgba(69, 107, 31, 0.18)', fontWeight: 850 },
 
   empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, background: '#f0ebdd', borderRadius: 8, border: '1px dashed rgba(69, 107, 31, 0.18)', boxShadow: 'none' },
-  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(69, 107, 31, 0.28)', borderRadius: 8, fontWeight: 950, cursor: 'pointer' },
+  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: 'var(--accent-text)', color: '#456b1f', border: '1px solid rgba(69, 107, 31, 0.28)', borderRadius: 8, fontWeight: 950, cursor: 'pointer' },
 
   wycenaCard: { background: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, border: '1px solid rgba(69, 107, 31, 0.14)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
   wycenaTop: { display: 'flex', gap: 12, justifyContent: 'space-between' },
@@ -1042,7 +1042,7 @@ const S = {
 
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
   formSection: { backgroundColor: '#f0ebdd', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid rgba(69, 107, 31, 0.14)' },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 4 },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: 'var(--accent-text)', marginBottom: 4 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   fieldWrap: { display: 'flex', flexDirection: 'column', gap: 4 },
   label: { fontSize: 12, fontWeight: 900, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: 0 },
@@ -1068,5 +1068,5 @@ const S = {
 
   formBtns: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 },
   cancelBtn: { padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid rgba(69, 107, 31, 0.16)', borderRadius: 8, color: '#456b1f', cursor: 'pointer', fontSize: 14, fontWeight: 850 },
-  submitBtn: { padding: '10px 24px', backgroundColor: '#7f8c12', color: '#456b1f', border: '1px solid rgba(69, 107, 31, 0.28)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  submitBtn: { padding: '10px 24px', backgroundColor: 'var(--accent-text)', color: '#456b1f', border: '1px solid rgba(69, 107, 31, 0.28)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 };

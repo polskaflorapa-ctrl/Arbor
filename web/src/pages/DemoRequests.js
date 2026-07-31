@@ -448,7 +448,7 @@ const styles = {
   filterButtonActive: {
     borderColor: 'color-mix(in srgb, var(--accent) 46%, var(--border))',
     backgroundColor: 'color-mix(in srgb, var(--accent) 12%, var(--bg-card))',
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
   },
   emptyState: {
     padding: 28,
@@ -506,7 +506,7 @@ const styles = {
   link: {
     display: 'block',
     marginTop: 3,
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontWeight: 800,
     textDecoration: 'none',
   },
@@ -591,7 +591,7 @@ const styles = {
     border: 0,
     background: 'transparent',
     padding: 0,
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 12,
     fontWeight: 900,
     textDecoration: 'none',

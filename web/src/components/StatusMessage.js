@@ -3,7 +3,7 @@ import { formatStatusMessage } from '../utils/statusMessage';
 const PALETTE = {
   success: {
     backgroundColor: 'var(--accent-surface)',
-    color: 'var(--accent-dk)',
+    color: 'var(--accent-text)',
     border: '1px solid var(--logo-tint-border)',
   },
   warning: {

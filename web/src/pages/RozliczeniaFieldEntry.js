@@ -26,7 +26,7 @@ const VALID_TABS = new Set(TABS.map((tab) => tab.key));
 const STATUS_COLOR = {
   Potwierdzone: '#7f8c12',
   Odrzucone:    '#c0492f',
-  Oczekuje:     '#bd701e',
+  Oczekuje:     '#9a5613',
 };
 
 const OPERATIONAL_COST_CATEGORIES = [
@@ -316,7 +316,7 @@ export default function RozliczeniaFieldEntry() {
             padding: '10px 14px', borderRadius: 8, marginBottom: 14,
             background: msg.type === 'ok' ? 'rgba(127, 140, 18, 0.12)' : 'rgba(192, 73, 47, 0.12)',
             border: `1px solid ${msg.type === 'ok' ? '#4ade8044' : '#f8717144'}`,
-            color: msg.type === 'ok' ? '#7f8c12' : '#c0492f',
+            color: msg.type === 'ok' ? '#5d6a0b' : '#c0492f',
             fontSize: 13, fontWeight: 600,
           }}>
             {msg.text}
@@ -352,7 +352,7 @@ export default function RozliczeniaFieldEntry() {
             {loadingTask ? '…' : 'Wczytaj'}
           </button>
           {taskData?.task && (
-            <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
+            <span style={{ fontSize: 13, color: 'var(--accent-text)', fontWeight: 600 }}>
               {taskData.task.klient_nazwa} — {taskData.task.adres}, {taskData.task.miasto}
             </span>
           )}
@@ -367,7 +367,7 @@ export default function RozliczeniaFieldEntry() {
               onClick={() => setTab(t.key)}
               style={{
                 padding: '8px 18px', border: 'none', background: 'none',
-                color: tab === t.key ? 'var(--accent)' : 'var(--text-muted)',
+                color: tab === t.key ? 'var(--accent-text)' : 'var(--text-muted)',
                 fontWeight: tab === t.key ? 700 : 500, fontSize: 13,
                 borderBottom: `2px solid ${tab === t.key ? 'var(--accent)' : 'transparent'}`,
                 cursor: 'pointer', transition: 'all 0.15s',
@@ -406,7 +406,7 @@ export default function RozliczeniaFieldEntry() {
                     width: 38, height: 38, borderRadius: '50%',
                     background: 'var(--accent-surface)', display: 'flex',
                     alignItems: 'center', justifyContent: 'center',
-                    fontSize: 13, fontWeight: 700, color: 'var(--accent)',
+                    fontSize: 13, fontWeight: 700, color: 'var(--accent-text)',
                     flexShrink: 0,
                   }}>
                     {p.imie?.[0]}{p.nazwisko?.[0]}
@@ -472,8 +472,8 @@ export default function RozliczeniaFieldEntry() {
                       borderRadius: 8, padding: '6px 12px',
                       display: 'flex', flexDirection: 'column', justifyContent: 'center',
                     }}>
-                      <div style={{ fontSize: 11, color: '#7f8c12', fontWeight: 600 }}>Koszt</div>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: '#7f8c12' }}>
+                      <div style={{ fontSize: 11, color: 'var(--accent-text)', fontWeight: 600 }}>Koszt</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-text)' }}>
                         {fmt(parseFloat(p.godziny) * parseFloat(p.stawka_godzinowa))} PLN
                       </div>
                     </div>
@@ -493,7 +493,7 @@ export default function RozliczeniaFieldEntry() {
                     <button
                       type="button"
                       onClick={() => zatwierdz(p.id, 'Potwierdzone')}
-                      style={{ ...actionBtn, background: 'rgba(127, 140, 18, 0.1)', color: '#7f8c12', border: '1px solid rgba(127, 140, 18, 0.3)' }}
+                      style={{ ...actionBtn, background: 'rgba(127, 140, 18, 0.1)', color: 'var(--accent-text)', border: '1px solid rgba(127, 140, 18, 0.3)' }}
                     >
                       Zatwierdź
                     </button>
@@ -582,7 +582,7 @@ export default function RozliczeniaFieldEntry() {
                       padding: '8px 20px', borderRadius: 8, fontWeight: 700, fontSize: 14,
                       border: `1px solid ${vatStawka === v ? 'var(--accent)' : 'var(--border)'}`,
                       background: vatStawka === v ? 'var(--accent-surface)' : 'var(--surface-glass)',
-                      color: vatStawka === v ? 'var(--accent)' : 'var(--text-muted)',
+                      color: vatStawka === v ? 'var(--accent-text)' : 'var(--text-muted)',
                       cursor: 'pointer',
                     }}
                   >
@@ -787,7 +787,7 @@ export default function RozliczeniaFieldEntry() {
                   <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
                     Wynagrodzenie brygadzisty ({wynik.procent_brygadzisty}%)
                   </span>
-                  <span style={{ fontSize: 24, fontWeight: 900, color: '#7f8c12' }}>
+                  <span style={{ fontSize: 24, fontWeight: 900, color: 'var(--accent-text)' }}>
                     {fmt(wynik.wynagrodzenie_brygadzisty)} PLN
                   </span>
                 </div>
@@ -817,10 +817,10 @@ export default function RozliczeniaFieldEntry() {
             {overview && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
                 {[
-                  { label: 'Dziś', value: `${fmt(overview.pay_today)} PLN`, color: 'var(--accent)' },
+                  { label: 'Dziś', value: `${fmt(overview.pay_today)} PLN`, color: 'var(--accent-text)' },
                   { label: 'Tydzień', value: `${fmt(overview.pay_week)} PLN`, color: '#f1f3d6' },
-                  { label: 'Miesiąc', value: `${fmt(overview.pay_month)} PLN`, color: '#7f8c12' },
-                  { label: 'Godz./miesiąc', value: `${parseFloat(overview.hours_month || 0).toFixed(1)} h`, color: '#bd701e' },
+                  { label: 'Miesiąc', value: `${fmt(overview.pay_month)} PLN`, color: 'var(--accent-text)' },
+                  { label: 'Godz./miesiąc', value: `${parseFloat(overview.hours_month || 0).toFixed(1)} h`, color: '#9a5613' },
                 ].map((k) => (
                   <div key={k.label} style={{
                     background: 'var(--surface-glass)', border: '1px solid var(--border)',
@@ -838,8 +838,8 @@ export default function RozliczeniaFieldEntry() {
               <>
                 {/* Podsumowanie dnia */}
                 <div style={{ background: 'rgba(127, 140, 18, 0.08)', border: '1px solid rgba(127, 140, 18, 0.25)', borderRadius: 12, padding: 20, marginBottom: 16, textAlign: 'center' }}>
-                  <div style={{ fontSize: 12, color: '#7f8c12', marginBottom: 6 }}>Zarobek dnia ({dayData.data})</div>
-                  <div style={{ fontSize: 32, fontWeight: 900, color: '#7f8c12' }}>
+                  <div style={{ fontSize: 12, color: 'var(--accent-text)', marginBottom: 6 }}>Zarobek dnia ({dayData.data})</div>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--accent-text)' }}>
                     {fmt(dayData.podsumowanie.wynagrodzenie_brygadzisty)} PLN
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
@@ -859,7 +859,7 @@ export default function RozliczeniaFieldEntry() {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                           <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{z.klient_nazwa}</span>
-                          <span style={{ fontWeight: 800, color: '#7f8c12', fontSize: 14 }}>
+                          <span style={{ fontWeight: 800, color: 'var(--accent-text)', fontSize: 14 }}>
                             {z.wynagrodzenie_brygadzisty ? `${fmt(z.wynagrodzenie_brygadzisty)} PLN` : 'Brak rozliczenia'}
                           </span>
                         </div>
