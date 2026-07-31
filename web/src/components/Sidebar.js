@@ -1018,7 +1018,7 @@ const sb = {
     borderRight: 'none',
     transition: 'width 0.25s ease',
     overflow: 'hidden',
-    boxShadow: '22px 0 60px rgba(2,6,23,0.42)',
+    boxShadow: '22px 0 60px rgba(42, 29, 15,0.42)',
   },
   collapseBtn: {
     position: 'absolute', right: -13, top: 28, width: 26, height: 26,
@@ -1062,7 +1062,7 @@ const sb = {
     padding: '10px',
     borderRadius: 12,
     border: `1px solid ${NAV_BORDER}`,
-    background: 'linear-gradient(135deg, rgba(2,6,23,0.76), rgba(44, 32, 17,0.9))',
+    background: 'linear-gradient(135deg, rgba(42, 29, 15,0.76), rgba(44, 32, 17,0.9))',
   },
   quickTitle: {
     margin: '0 0 8px',
@@ -1114,7 +1114,7 @@ const sb = {
     fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif',
     color: NAV_MUTED, letterSpacing: '0.09em', textTransform: 'uppercase',
   },
-  navGroupInset: { margin: 0, border: `1px solid ${NAV_BORDER}`, background: 'rgba(2,6,23,0.38)', borderRadius: 12 },
+  navGroupInset: { margin: 0, border: `1px solid ${NAV_BORDER}`, background: 'rgba(42, 29, 15,0.38)', borderRadius: 12 },
   navItem: {
     display: 'flex', alignItems: 'center', borderRadius: 10, cursor: 'pointer',
     fontSize: 13, fontWeight: 500, transition: 'background 0.12s ease, color 0.12s ease',

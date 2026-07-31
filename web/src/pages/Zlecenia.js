@@ -10363,7 +10363,7 @@ const s = {
     gap: 9,
     border: '1px solid rgba(154, 144, 122, 0.16)',
     borderRadius: 8,
-    background: 'rgba(2,6,23,0.42)',
+    background: 'rgba(42, 29, 15,0.42)',
     color: '#f0ebdd',
     padding: 9,
     cursor: 'pointer',

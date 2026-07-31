@@ -558,7 +558,134 @@ html body #root#root#root :is(.hr-docs-header, .bi-dashboard-topbar, .operator-t
 }
 
 /* Paski akcji w tych naglowkach maja JASNE przyciski — tam atrament. */
-html body #root#root#root :is(.bi-dashboard-actions, .kierownik-cockpit-panel) button,
-html body #root#root#root :is(.bi-dashboard-actions, .kierownik-cockpit-panel) button :is(span, small) {
+/* Tylko BI — pasek akcji Kierownika siedzi na CIEMNYM panelu, wiec jego
+   przyciski dostaja jasny napis (regula nizej). */
+html body #root#root#root .bi-dashboard-actions button,
+html body #root#root#root .bi-dashboard-actions button :is(span, small) {
   color: #2c2011 !important;
+}
+
+/* Ostatnia grupa tego samego wzorca: kafle z jasnym, kremowym tekstem, ktorym
+   warstwa referencyjna wybielila tlo (BI, statystyki Kalendarza Wycen, panele
+   Mapy Live). Przywracamy ciemne tlo — tekst w nich jest jasny z zalozenia. */
+html body #root#root#root :is(.bi-kpi-card, .wycena-calendar-hero-stats > div,
+  .mapa-live-hero, .mapa-live-command-map-panel > div) {
+  border: 1px solid rgba(160, 175, 20, 0.22) !important;
+  background: linear-gradient(135deg, #3b2a18 0%, #2a1d0f 100%) !important;
+  color: #efe9da !important;
+}
+
+html body #root#root#root :is(.bi-kpi-card, .wycena-calendar-hero-stats,
+  .mapa-live-hero, .mapa-live-command-map-panel) :is(h1, h2, h3, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root#root#root :is(.bi-kpi-card, .wycena-calendar-hero-stats,
+  .mapa-live-hero, .mapa-live-command-map-panel) :is(p, small, span, div) {
+  color: #fae7d2 !important;
+}
+
+/* Przycisk akcji w cockpicie kierownika stoi na ciemnym panelu. */
+html body #root#root#root .kierownik-cockpit-panel button[style*='250, 231, 210'],
+html body #root#root#root .kierownik-cockpit-panel > div > div > button {
+  color: #f0ebdd !important;
+}
+
+/* Mapa Live — centrum dowodzenia jest ciemne, ale naglowki i opisy w
+   zagniezdzonych divach bez klas dziedziczyly atrament z jasnego motywu. */
+html body #root#root#root .mapa-live-command-center :is(h1, h2, h3, strong, b) {
+  color: #f0ebdd !important;
+}
+html body #root#root#root .mapa-live-command-center :is(p, small, span, div) {
+  color: #fae7d2 !important;
+}
+
+/* ...ale kafle KPI i panel mapy stoja na JASNYM tle wewnatrz tego centrum. */
+html body #root#root#root .mapa-live-command-kpis > div :is(span, small),
+html body #root#root#root .mapa-live-command-map-panel > div :is(span, small) {
+  color: #fae7d2 !important;
+}
+
+/* Jasne przyciski w ciemnych panelach kierownika/mapy: atrament na jasnym tle. */
+html body #root#root#root :is(.kierownik-cockpit-panel, .mapa-live-command-center)
+  button:not([style*='rgba(255']):not([style*='var(--accent)']) {
+  color: #2c2011 !important;
+}
+
+/* Wewnetrzne warstwy ciemnych hero/paneli mialy wlasne biale tlo (z reguly
+   kart), przez co jasny tekst na nich gasl mimo ciemnego rodzica.
+   Czynimy je przezroczystymi — tlo ma dawac kontener. */
+/* UWAGA: bez `.kierownik-cockpit-panel` — tam wlasnie te warstwy NIOSA ciemne
+   tlo kafli cockpitu, wiec ich wyzerowanie rozjasnialo caly widok (66 bledow). */
+html body #root#root#root :is(.wycena-calendar-hero, .mapa-live-command-center) > div:not([class]),
+html body #root#root#root :is(.wycena-calendar-hero, .mapa-live-command-center) > div:not([class]) > div:not([class]) {
+  background: transparent !important;
+  border-color: rgba(160, 175, 20, 0.18) !important;
+}
+
+/* CRM Unified Inbox i Eksploruj: ich tla pozostaja JASNE mimo wczesniejszych
+   prob (pasek i karty w nim maja wlasne biale powierzchnie), wiec zamiast
+   walczyc o ciemne tlo dopasowujemy TEKST — atrament i stonowany braz.
+   Odwrotnie niz w Raportach czy Kierowniku, gdzie ciemne tlo dalo sie
+   przywrocic i lepiej pasowalo do reszty. */
+html body #root#root#root :is(.crm-inbox-command-strip, .crm-inbox-command-lead,
+  .crm-inbox-command-card, .explore-hero) :is(h1, h2, h3, strong, b) {
+  color: #2c2011 !important;
+}
+
+html body #root#root#root :is(.crm-inbox-command-strip, .crm-inbox-command-lead,
+  .crm-inbox-command-card, .explore-hero) :is(p, small, span, div:not([class])) {
+  color: #5a5040 !important;
+}
+
+html body #root#root#root .explore-eyebrow {
+  color: #5d6a0b !important;
+}
+
+/* Pasek akcji CRM stoi na JASNYM tle — tam atrament; przyciski akcentowe
+   dostaja ciemny atrament marki. */
+html body #root#root#root .crm-kommo-actions button,
+html body #root#root#root .crm-kommo-actions button :is(span, small) {
+  color: #2c2011 !important;
+}
+
+html body #root#root#root .crm-kommo-actions button[style*='160, 175, 20'],
+html body #root#root#root .crm-kommo-actions button[style*='var(--accent)'],
+html body #root#root#root .crm-kommo-actions button[style*='160, 175, 20'] :is(span, small),
+html body #root#root#root .crm-kommo-mark {
+  color: #23260a !important;
+}
+
+/* Panel statusu w Eksploruj stoi na ciemnym tle — tekst musi byc jasny. */
+html body #root#root#root .explore-status-panel.explore-status-panel.explore-status-panel :is(strong, b, h1, h2, h3) {
+  color: #f0ebdd !important;
+}
+html body #root#root#root .explore-status-panel.explore-status-panel.explore-status-panel :is(span, small, p, div) {
+  color: #fae7d2 !important;
+}
+
+/* Pusty stan Eksploruj i naglowek Kalendarza Wycen stoja na BIALYM. */
+html body #root#root#root .explore-empty :is(p, span, small),
+html body #root#root#root .wycena-calendar-hero > div > div > h1 {
+  color: #5a5040 !important;
+}
+
+/* Przycisk "Generuj plan" siedzi na ciemnym panelu kierownika. */
+html body #root#root#root .kierownik-cockpit-panel button[style*='44, 32, 17'],
+html body #root#root#root .kierownik-cockpit-panel.kierownik-cockpit-panel div > div > button,
+html body #root#root#root .kierownik-cockpit-panel.kierownik-cockpit-panel button {
+  color: #f0ebdd !important;
+}
+
+/* Cockpit kierownika jest ciemny, a elementy w nim uzywaja inline
+   `color: var(--text)`. Zamiast scigac kazdy z osobna, nadpisujemy tokeny
+   tekstu w obrebie panelu — dziedzicza w dol i obejmuja takze inline. */
+.kierownik-cockpit-panel,
+#root .arbor-os-shell .kierownik-cockpit-panel {
+  --text: #f0ebdd !important;
+  --text-1: #f0ebdd !important;
+  --text-sub: #cbbd9a !important;
+  --text-2: #cbbd9a !important;
+  --text-muted: #b5a67f !important;
+  --text-3: #b5a67f !important;
 }
