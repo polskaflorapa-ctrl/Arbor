@@ -19,6 +19,7 @@ import './styles/polska-flora-brand.css';
 import './styles/arbor-os-template.css';
 import './styles/login-animated.css';
 import './styles/module-prototype-skin.css';
+import './styles/motion.css';
 import reportWebVitals from './reportWebVitals';
 import { BUILD_STAMP } from './buildStamp';
 

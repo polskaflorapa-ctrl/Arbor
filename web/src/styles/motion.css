@@ -1,0 +1,226 @@
+/* =====================================================================
+   Polska Flora — WARSTWA RUCHU.
+
+   Pomiar na module Floty: 540 widocznych elementow, z czego JEDEN mial
+   jakakolwiek animacje. Karty pojawialy sie natychmiast i nie reagowaly
+   na kursor — interfejs sprawial wrazenie martwego.
+
+   Ten plik dodaje ruch tam, gdzie niesie znaczenie:
+     - tresc wchodzi kaskadowo, zamiast wyskakiwac naraz,
+     - karty i wiersze odpowiadaja na kursor (uniesienie + cieplejszy cien),
+     - liczby i wskazniki maja swoje wejscie,
+     - stany ladowania migoca zamiast stac.
+
+   Zasady: tylko `transform` i `opacity` (GPU, bez przeliczania ukladu),
+   krotkie czasy (180-420 ms), jedna krzywa (`--pf-ease`), pelne
+   poszanowanie `prefers-reduced-motion`.
+   ===================================================================== */
+
+:root {
+  --pf-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --pf-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --pf-szybko: 180ms;
+  --pf-srednio: 280ms;
+  --pf-wolno: 420ms;
+}
+
+/* --- Wejscie tresci ------------------------------------------------- */
+
+@keyframes pf-wejscie {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pf-wejscie-skala {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Naglowek modulu wchodzi pierwszy, potem sekcje tresci. */
+html body #root :is(.module-page-header, [class*='-command-strip'], [class*='-topbar'], .warehouse-header, .hr-docs-header, .ref-topbar) {
+  animation: pf-wejscie var(--pf-wolno) var(--pf-ease) both;
+}
+
+/* Kafle i karty — kaskada, zeby oko wodzilo po tresci zamiast dostac
+   wszystko naraz. Opoznienia sa krotkie: pelny rzad ustawia sie w ~0.3 s. */
+html body #root :is([class*='-card'], [class*='-tile'], [class*='-kpi'], [class*='-panel'], [class*='-metric']):not(button):not(.pf-sidebar):not(.command-native-sidebar) {
+  animation: pf-wejscie-skala var(--pf-srednio) var(--pf-ease-out) both;
+}
+
+html body #root [class*='-grid'] > *:nth-child(1),
+html body #root [class*='-kpis'] > *:nth-child(1) { animation-delay: 0ms; }
+html body #root [class*='-grid'] > *:nth-child(2),
+html body #root [class*='-kpis'] > *:nth-child(2) { animation-delay: 45ms; }
+html body #root [class*='-grid'] > *:nth-child(3),
+html body #root [class*='-kpis'] > *:nth-child(3) { animation-delay: 90ms; }
+html body #root [class*='-grid'] > *:nth-child(4),
+html body #root [class*='-kpis'] > *:nth-child(4) { animation-delay: 135ms; }
+html body #root [class*='-grid'] > *:nth-child(5),
+html body #root [class*='-kpis'] > *:nth-child(5) { animation-delay: 180ms; }
+html body #root [class*='-grid'] > *:nth-child(6),
+html body #root [class*='-kpis'] > *:nth-child(6) { animation-delay: 225ms; }
+html body #root [class*='-grid'] > *:nth-child(n + 7) { animation-delay: 270ms; }
+
+/* Wiersze list wchodza szybciej — jest ich duzo. */
+html body #root :is([class*='-row'], [class*='-item'], tbody tr):not(thead tr) {
+  animation: pf-wejscie var(--pf-szybko) var(--pf-ease-out) both;
+}
+
+/* --- Odpowiedz na kursor -------------------------------------------- */
+
+html body #root :is([class*='-card'], [class*='-tile'], [class*='-panel']):not(button):not(.pf-sidebar):not(.command-native-sidebar) {
+  transition:
+    transform var(--pf-szybko) var(--pf-ease),
+    box-shadow var(--pf-srednio) var(--pf-ease),
+    border-color var(--pf-szybko) var(--pf-ease);
+}
+
+html body #root :is([class*='-card'], [class*='-tile']):not(button):not([class*='-command-lead']):hover {
+  transform: translate3d(0, -3px, 0);
+  border-color: rgba(160, 175, 20, 0.42);
+  box-shadow: 0 18px 38px rgba(43, 29, 15, 0.16);
+}
+
+/* Klikalne kafle daja wyrazniejsza odpowiedz. */
+html body #root button:is([class*='-card'], [class*='-tile']):hover {
+  transform: translate3d(0, -3px, 0);
+  box-shadow: 0 20px 42px rgba(43, 29, 15, 0.2);
+}
+
+html body #root button:is([class*='-card'], [class*='-tile']):active {
+  transform: translate3d(0, -1px, 0) scale(0.995);
+}
+
+/* Wiersze list — podswietlenie zamiast unoszenia (nie rozsadza tabeli). */
+html body #root :is([class*='-row'], tbody tr):hover {
+  background-color: rgba(160, 175, 20, 0.06);
+  transition: background-color var(--pf-szybko) var(--pf-ease);
+}
+
+/* --- Przyciski ------------------------------------------------------- */
+
+html body #root button,
+html body #root a[role='button'] {
+  transition:
+    transform var(--pf-szybko) var(--pf-ease),
+    box-shadow var(--pf-szybko) var(--pf-ease),
+    background-color var(--pf-szybko) var(--pf-ease),
+    border-color var(--pf-szybko) var(--pf-ease),
+    filter var(--pf-szybko) var(--pf-ease);
+}
+
+html body #root button:hover:not(:disabled) {
+  transform: translate3d(0, -1px, 0);
+  filter: saturate(1.06);
+}
+
+html body #root button:active:not(:disabled) {
+  transform: translate3d(0, 0, 0) scale(0.985);
+}
+
+html body #root button:disabled {
+  filter: saturate(0.5);
+  opacity: 0.6;
+}
+
+/* --- Pola formularza -------------------------------------------------- */
+
+html body #root :is(input, select, textarea) {
+  transition:
+    box-shadow var(--pf-srednio) var(--pf-ease),
+    border-color var(--pf-szybko) var(--pf-ease),
+    transform var(--pf-szybko) var(--pf-ease);
+}
+
+html body #root :is(input, select, textarea):focus,
+html body #root :is(input, select, textarea):focus-visible {
+  box-shadow: 0 0 0 3px rgba(160, 175, 20, 0.26);
+  transform: translate3d(0, -1px, 0);
+}
+
+/* --- Liczby i wskazniki ---------------------------------------------- */
+
+@keyframes pf-licznik {
+  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+html body #root :is([class*='-card'], [class*='-tile'], [class*='-kpi'], [class*='-metric']) strong {
+  animation: pf-licznik var(--pf-srednio) var(--pf-ease-out) both;
+  animation-delay: 120ms;
+}
+
+/* Paski postepu wypelniaja sie plynnie zamiast skakac. */
+html body #root [class*='progress'] > *,
+html body #root progress {
+  transition: width var(--pf-wolno) var(--pf-ease), transform var(--pf-wolno) var(--pf-ease);
+}
+
+/* --- Stany ladowania -------------------------------------------------- */
+
+@keyframes pf-migotanie {
+  from { background-position: -420px 0; }
+  to   { background-position: 420px 0; }
+}
+
+html body #root :is([class*='skeleton'], [class*='loading'], [aria-busy='true']) {
+  background-image: linear-gradient(
+    90deg,
+    rgba(160, 175, 20, 0) 0%,
+    rgba(160, 175, 20, 0.14) 45%,
+    rgba(160, 175, 20, 0) 90%
+  );
+  background-size: 420px 100%;
+  background-repeat: no-repeat;
+  animation: pf-migotanie 1.15s linear infinite;
+}
+
+/* --- Boczny pasek ----------------------------------------------------- */
+
+html body #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(a, button) {
+  transition:
+    background-color var(--pf-szybko) var(--pf-ease),
+    color var(--pf-szybko) var(--pf-ease),
+    padding-left var(--pf-szybko) var(--pf-ease);
+}
+
+html body #root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) :is(a, button):hover {
+  padding-left: 18px;
+}
+
+/* --- Plywajace panele -------------------------------------------------- */
+
+@keyframes pf-panel-wejscie {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+html body #root [data-draggable-panel] {
+  animation: pf-panel-wejscie var(--pf-srednio) var(--pf-ease-out) both;
+}
+
+/* Przycisk asystenta: okragly, z delikatnym oddechem — wczesniej byl
+   plaskim kwadratem, ktory nie wygladal na klikalny. */
+@keyframes pf-oddech {
+  0%, 100% { box-shadow: 0 8px 28px rgba(69, 107, 31, 0.22), 0 0 0 0 rgba(160, 175, 20, 0.34); }
+  50%      { box-shadow: 0 10px 32px rgba(69, 107, 31, 0.26), 0 0 0 10px rgba(160, 175, 20, 0); }
+}
+
+html body #root button[style*='border-radius: 50%'][style*='position: fixed'],
+html body #root button[style*='borderRadius: 50%'][style*='position: fixed'] {
+  border-radius: 50% !important;
+  animation: pf-oddech 3.4s ease-in-out infinite;
+}
+
+/* --- Dostepnosc: pelne wyciszenie ruchu -------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html body #root *,
+  html body #root *::before,
+  html body #root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
