@@ -180,7 +180,10 @@ export default function AiChat() {
                 </div>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={clearChat} style={S.clearBtn} leftIcon={RotateCcw} title="Wyczyść rozmowę" aria-label="Wyczyść rozmowę" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Button variant="ghost" size="sm" onClick={clearChat} style={S.clearBtn} leftIcon={RotateCcw} title="Wyczyść rozmowę" aria-label="Wyczyść rozmowę" />
+              <Button variant="ghost" size="sm" onClick={() => setOpen(false)} style={S.clearBtn} leftIcon={X} title="Zamknij czat" aria-label="Zamknij czat" />
+            </div>
           </div>
 
           {/* Ostrzeżenie brak klucza */}

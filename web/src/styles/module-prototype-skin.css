@@ -606,9 +606,11 @@ html body #root#root#root .mapa-live-command-map-panel > div :is(span, small) {
   color: #fae7d2 !important;
 }
 
-/* Jasne przyciski w ciemnych panelach kierownika/mapy: atrament na jasnym tle. */
+/* Jasne przyciski w ciemnych panelach kierownika/mapy: atrament na jasnym tle.
+   Wykluczamy przyciski BEZ tla (`background: transparent`) — te leza wprost
+   na ciemnym panelu i atrament na nich gasnie (kontrast 1.06). */
 html body #root#root#root :is(.kierownik-cockpit-panel, .mapa-live-command-center)
-  button:not([style*='rgba(255']):not([style*='var(--accent)']) {
+  button:not([style*='rgba(255']):not([style*='var(--accent)']):not([style*='transparent']) {
   color: #2c2011 !important;
 }
 
@@ -708,4 +710,133 @@ html body #root [class*='-shell'] > main:not(.pf-sidebar):not(.command-native-si
   width: auto !important;
   max-width: none !important;
   box-sizing: border-box !important;
+}
+
+/* Cockpit kierownika miesza przyciski na bialym tle (atrament — poprawnie)
+   z przyciskami PRZEZROCZYSTYMI, lezacymi wprost na ciemnym panelu. Ten drugi
+   rodzaj ma inline `color: var(--text-sub)`, wiec zamiast licytowac sie
+   o specyficznosc podajemy tu wlasciwa wartosc tokenu — inline sam rozwiaze
+   sie na jasny. Przyciski na bialym tle uzywaja `var(--text)` i zostaja ciemne. */
+.kierownik-cockpit-panel {
+  --text-sub: #efe9da;
+  --text-2: #efe9da;
+}
+
+/* =====================================================================
+   JEDNOLITY NAGLOWEK MODULU.
+
+   Moduly mialy piec roznych naglowkow: Ekipy/Flota/Oddzialy ciemny pasek
+   (`module-page-header-hero`), Klienci/Raporty/Uzytkownicy jasne panele,
+   Magazyn i Pulpit zaden. Kazdy ekran wygladal inaczej.
+
+   Ten blok sprowadza wszystkie paski naglowkowe do jednego wygladu:
+   ciemny brazowy pasek prototypu Polska Flora z jasnym tytulem — tego,
+   ktory juz mialy Zlecenia, Flota i Ekipy.
+   ===================================================================== */
+
+html body #root#root#root :is(
+  .clients-command-strip,
+  .ref-topbar,
+  .users-header-panel,
+  .hr-docs-header,
+  .bi-dashboard-topbar,
+  .crm-kommo-topbar,
+  .crm-inbox-command-strip,
+  .operator-tasks-header,
+  .field-settlements-header,
+  .harmonogram-header,
+  .warehouse-header,
+  .ogledziny-command-panel
+) {
+  margin-bottom: 24px !important;
+  padding: 18px 20px !important;
+  border: 1px solid rgba(160, 175, 20, 0.22) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #3b2a18 0%, #2a1d0f 100%) !important;
+  box-shadow: 0 16px 40px rgba(43, 29, 15, 0.22) !important;
+  color: #efe9da !important;
+}
+
+html body #root#root#root :is(
+  .clients-command-strip, .ref-topbar, .users-header-panel, .hr-docs-header,
+  .bi-dashboard-topbar, .crm-kommo-topbar, .crm-inbox-command-strip,
+  .operator-tasks-header, .field-settlements-header, .harmonogram-header,
+  .warehouse-header, .ogledziny-command-panel
+) :is(h1, h2, h3, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root#root#root :is(
+  .clients-command-strip, .ref-topbar, .users-header-panel, .hr-docs-header,
+  .bi-dashboard-topbar, .crm-kommo-topbar, .crm-inbox-command-strip,
+  .operator-tasks-header, .field-settlements-header, .harmonogram-header,
+  .warehouse-header, .ogledziny-command-panel
+) :is(p, small, span, div:not([class])) {
+  color: #fae7d2 !important;
+}
+
+/* Przyciski w pasku naglowka — jednakowe we wszystkich modulach. */
+html body #root#root#root :is(
+  .clients-command-strip, .ref-topbar, .users-header-panel, .hr-docs-header,
+  .bi-dashboard-topbar, .crm-kommo-topbar, .crm-inbox-command-strip,
+  .operator-tasks-header, .field-settlements-header, .harmonogram-header,
+  .warehouse-header, .ogledziny-command-panel
+) :is(button, a[role='button']):not([style*='transparent']) {
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #f0ebdd !important;
+}
+
+/* Wyjatek: niektore paski naglowkowe zawieraja KARTY z wlasnym, jasnym tlem
+   (np. kafle statystyk u Klientow). Jasny tekst z reguly wyzej gasl na nich —
+   wewnatrz takich kart obowiazuje atrament. */
+html body #root#root#root :is(
+  .clients-command-strip, .ref-topbar, .users-header-panel, .hr-docs-header,
+  .bi-dashboard-topbar, .crm-kommo-topbar, .crm-inbox-command-strip,
+  .operator-tasks-header, .field-settlements-header, .harmonogram-header,
+  .warehouse-header, .ogledziny-command-panel
+) :is([class*='-command-card'], [class*='-kpi-card'], [class*='-stat-card']) :is(strong, b, h1, h2, h3) {
+  color: #2c2011 !important;
+}
+
+html body #root#root#root :is(
+  .clients-command-strip, .ref-topbar, .users-header-panel, .hr-docs-header,
+  .bi-dashboard-topbar, .crm-kommo-topbar, .crm-inbox-command-strip,
+  .operator-tasks-header, .field-settlements-header, .harmonogram-header,
+  .warehouse-header, .ogledziny-command-panel
+) :is([class*='-command-card'], [class*='-kpi-card'], [class*='-stat-card']) :is(span, small, p) {
+  color: #5a5040 !important;
+}
+
+/* Przelaczniki okresu w BI maja wlasne, biale tlo — atrament, nie krem. */
+html body #root#root#root .bi-dashboard-periods.bi-dashboard-periods.bi-dashboard-periods button,
+html body #root#root#root .bi-dashboard-periods.bi-dashboard-periods.bi-dashboard-periods button :is(span, small) {
+  color: #2c2011 !important;
+}
+
+/* Wariant `plain` naglowka to ten sam komponent co `hero`, tylko chudszy —
+   ale renderowal sie jasno, przez co Telefonia, Ksiegowosc i Integracje
+   wygladaly inaczej niz reszta. Dostaje ten sam ciemny pasek. */
+html body #root#root#root .module-page-header-plain {
+  padding: 18px 20px !important;
+  border: 1px solid rgba(160, 175, 20, 0.22) !important;
+  border-bottom: 1px solid rgba(160, 175, 20, 0.22) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #3b2a18 0%, #2a1d0f 100%) !important;
+  box-shadow: 0 16px 40px rgba(43, 29, 15, 0.22) !important;
+  color: #efe9da !important;
+}
+
+html body #root#root#root .module-page-header-plain :is(h1, h2, h3, strong, b) {
+  color: #f0ebdd !important;
+}
+
+html body #root#root#root .module-page-header-plain :is(p, small, span) {
+  color: #fae7d2 !important;
+}
+
+html body #root#root#root .module-page-header-plain :is(button, a[role='button']):not([style*='transparent']) {
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #f0ebdd !important;
 }

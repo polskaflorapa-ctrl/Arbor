@@ -63,7 +63,9 @@ export default function MagazynPolskaFlora({
     <div className="app-shell warehouse-shell warehouse-polska-flora-shell" style={ui.shell}>
       <Sidebar />
       <main className="app-main warehouse-main warehouse-polska-flora-main" style={ui.main}>
-        <div style={ui.header}>
+        {/* `warehouse-header` — wspolna klasa paska naglowka, zeby Magazyn
+            wygladal tak samo jak pozostale moduly. */}
+        <div className="warehouse-header" style={ui.header}>
           <div>
             <h1 style={ui.title}>Magazyn</h1>
             <p style={ui.subtitle}>Stany materialow, przyjecia i rozchod na zlecenie • {filtered.length} pozycji</p>

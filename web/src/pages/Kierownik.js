@@ -1617,7 +1617,9 @@ const styles = {
   planActionSelect: { minHeight: 30, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 700 },
   planActionNote: { width: 130, minHeight: 30, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12 },
   planActionBtn: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(69, 107, 31, 0.24)', background: 'var(--accent-surface)', color: 'var(--accent-text)', cursor: 'pointer', fontSize: 11, fontWeight: 850, whiteSpace: 'nowrap' },
-  planActionGhost: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
+  // Przycisk bez tla lezy wprost na ciemnym panelu kokpitu — stonowany braz
+  // mial na nim kontrast 1.06. Jasny napis daje ~11.
+  planActionGhost: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(239, 233, 218, 0.32)', background: 'transparent', color: '#efe9da', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   planRealEmpty: { padding: '10px 0 2px', color: 'var(--text-muted)', fontSize: 12 },
   recommendationsBand: { marginBottom: 14, padding: '12px 0 2px', borderTop: '1px solid var(--border)' },
   recommendationsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },

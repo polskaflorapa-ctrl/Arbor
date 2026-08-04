@@ -90,7 +90,7 @@
 }
 
 #root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
-  :is(.module-page-header, .module-page-header-plain, [class*='hero'], [class*='Hero']):not(.module-page-header-hero) {
+  :is(.module-page-header, [class*='hero'], [class*='Hero']):not(.module-page-header-hero):not(.module-page-header-plain) {
   /* .module-page-header-hero wykluczony: to CIEMNY hero prototypu (jego tresc ma
      bialy tekst i przyciski rgba(255,255,255,.12)). Bialo-kartowe tlo z tej reguly
      czynilo naglowek modulu niewidocznym — bialy na bialym. Stylowany nizej. */
@@ -123,7 +123,7 @@
 }
 
 #root :is(.app-main, .command-content-main, [class*='-main']):not(.login-card):not(.landing-main):not(.arbor-os-main):not(.client-portal-main)
-  :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card']):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar):not(.route-loading-card):not(.module-page-header-hero):not(.zlecenia-v2-primary):not(.clients-command-lead, .users-command-lead):not(.crew-att-command-lead):not(.field-quotes-command-lead):not(.field-quote-detail-command-lead):not(.inspection-doc-command-lead):not(.dashboard-command-hero):not(.wycena-calendar-hero):not(.branch-detail-hero):not(.clients-client-hero):not(.ogledziny-detail-hero):not(.inspection-doc-hero) {
+  :is(.ios-inset, .modern-data-stack, .modern-data-row, .MuiPaper-root, .MuiCard-root, .MuiTableContainer-root, [class*='panel'], [class*='Panel'], [class*='card'], [class*='Card']):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar):not(.route-loading-card):not(.module-page-header-hero):not(.module-page-header-plain):not(.zlecenia-v2-primary):not(.clients-command-lead, .users-command-lead):not(.crew-att-command-lead):not(.field-quotes-command-lead):not(.field-quote-detail-command-lead):not(.inspection-doc-command-lead):not(.dashboard-command-hero):not(.wycena-calendar-hero):not(.branch-detail-hero):not(.clients-client-hero):not(.ogledziny-detail-hero):not(.inspection-doc-hero) {
   border: 1px solid var(--pf-line) !important;
   border-radius: 18px !important;
   background: var(--pf-card) !important;

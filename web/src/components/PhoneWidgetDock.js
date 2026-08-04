@@ -13,6 +13,7 @@ import { useEffect } from 'react';
  */
 
 const KLUCZ = 'pf-phone-widget-pos';
+const KLUCZ_UKRYTY = 'pf-phone-widget-hidden';
 const SELEKTORY = [
   '[id*="zdrm"]', '[class*="zdrm"]',
   '[id*="zadarma"]', '[class*="zadarma"]',
@@ -55,6 +56,36 @@ function ustawPozycje(el, poz) {
   el.style.setProperty('z-index', '8800', 'important');
 }
 
+function pokazPrzyciskPrzywracania(el) {
+  if (document.querySelector('[data-pf-phone-restore]')) return;
+  const wroc = document.createElement('button');
+  wroc.type = 'button';
+  wroc.setAttribute('data-pf-phone-restore', '1');
+  wroc.title = 'Pokaz telefon';
+  wroc.setAttribute('aria-label', 'Pokaz telefon');
+  wroc.textContent = '☎';
+  Object.assign(wroc.style, {
+    position: 'fixed', left: '18px', bottom: '18px',
+    width: '44px', height: '44px', borderRadius: '50%',
+    border: '1px solid rgba(160, 175, 20, 0.45)',
+    background: 'linear-gradient(135deg, #3b2a18, #2a1d0f)',
+    color: '#efe9da', fontSize: '18px', cursor: 'pointer', zIndex: '8800',
+    boxShadow: '0 8px 22px rgba(43, 29, 15, 0.28)',
+  });
+  wroc.addEventListener('click', () => {
+    el.style.setProperty('display', '', 'important');
+    wroc.remove();
+    try { window.localStorage.removeItem(KLUCZ_UKRYTY); } catch { /* nic */ }
+  });
+  document.body.appendChild(wroc);
+}
+
+function ukryj(el) {
+  el.style.setProperty('display', 'none', 'important');
+  try { window.localStorage.setItem(KLUCZ_UKRYTY, '1'); } catch { /* nic */ }
+  pokazPrzyciskPrzywracania(el);
+}
+
 function dodajUchwyt(el) {
   if (el.querySelector('[data-pf-phone-handle]')) return;
 
@@ -84,6 +115,28 @@ function dodajUchwyt(el) {
     borderRadius: '999px', background: 'rgba(239, 233, 218, 0.7)',
   });
   uchwyt.appendChild(chwyt);
+
+  // Zamkniecie — softphone nie mial zadnego sposobu schowania i potrafil
+  // zaslaniac interfejs. Po zamknieciu zostaje maly przycisk przywracania.
+  const zamknij = document.createElement('button');
+  zamknij.type = 'button';
+  zamknij.setAttribute('data-pf-phone-close', '1');
+  zamknij.textContent = '✕';
+  zamknij.title = 'Zamknij telefon';
+  zamknij.setAttribute('aria-label', 'Zamknij telefon');
+  Object.assign(zamknij.style, {
+    position: 'absolute', top: '-1px', right: '2px',
+    width: '20px', height: '20px', lineHeight: '18px', padding: '0',
+    borderRadius: '6px', border: '1px solid rgba(239, 233, 218, 0.35)',
+    background: 'transparent', color: '#efe9da',
+    fontSize: '11px', cursor: 'pointer', zIndex: '2',
+  });
+  zamknij.addEventListener('pointerdown', (e) => e.stopPropagation());
+  zamknij.addEventListener('click', (e) => {
+    e.stopPropagation();
+    ukryj(el);
+  });
+  uchwyt.appendChild(zamknij);
 
   let start = null;
   uchwyt.addEventListener('pointerdown', (e) => {
@@ -125,6 +178,10 @@ function zadokuj(el) {
   el.dataset.pfDocked = '1';
   ustawPozycje(el, wGranicach(...Object.values(wczytajPozycje() || DOMYSLNA()), el));
   dodajUchwyt(el);
+  // Uzytkownik mogl zamknac telefon w poprzedniej sesji.
+  try {
+    if (window.localStorage.getItem(KLUCZ_UKRYTY) === '1') ukryj(el);
+  } catch { /* nic */ }
 }
 
 export default function PhoneWidgetDock() {
