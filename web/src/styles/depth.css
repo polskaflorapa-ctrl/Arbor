@@ -1,0 +1,122 @@
+/* =====================================================================
+   Polska Flora — GLEBIA I WYKONCZENIE.
+
+   Pomiar kart w module Floty: cien `0 1px 2px rgba(59,42,24,0.06)` —
+   praktycznie plaski, tlo jednolicie biale, bez zadnego modelowania.
+   Stad wrazenie plaskiego, przestarzalego interfejsu: elementy nie mialy
+   warstw, wszystko lezalo na jednym poziomie.
+
+   Ten plik dokłada glebie, nie zmieniajac kolorow tresci:
+     - cienie WARSTWOWE (bliski kontakt + daleka miekka poswiata),
+     - delikatne modelowanie tla kart (biel -> ciepla kosc sloniowa),
+     - swietlny akcent przy gornej krawedzi (jak odbicie swiatla),
+     - wyrazniejsza hierarchia: powierzchnie nosne vs. tresc.
+
+   Cienie sa CIEPŁE (braz marki, nie czern) — chlodny cien na kremowym
+   papierze wyglada brudno.
+   ===================================================================== */
+
+:root {
+  /* Skala glebi — kazdy poziom to kontakt + rozproszenie. */
+  --pf-glebia-1:
+    0 1px 2px rgba(43, 29, 15, 0.05),
+    0 4px 10px rgba(43, 29, 15, 0.05);
+  --pf-glebia-2:
+    0 1px 2px rgba(43, 29, 15, 0.06),
+    0 8px 20px rgba(43, 29, 15, 0.08),
+    0 16px 36px rgba(43, 29, 15, 0.05);
+  --pf-glebia-3:
+    0 2px 4px rgba(43, 29, 15, 0.07),
+    0 14px 32px rgba(43, 29, 15, 0.11),
+    0 28px 60px rgba(43, 29, 15, 0.07);
+  /* Odbicie swiatla przy gornej krawedzi — nadaje karcie grubosc. */
+  --pf-swiatlo: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* --- Karty i kafle: warstwa + modelowanie --------------------------- */
+
+html body #root#root#root :is([class*='-card'], [class*='-tile'], [class*='-panel']):not(button):not(.pf-sidebar):not(.command-native-sidebar):not(.arbor-sidebar):not([class*='-command-lead']) {
+  box-shadow: 0 1px 2px rgba(43,29,15,0.05), 0 4px 10px rgba(43,29,15,0.05), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+}
+
+/* Subtelny spadek jasnosci ku dolowi — karta przestaje byc plaska plama.
+   Roznica jest minimalna (255 -> 250), wiec nie rusza kontrastu tekstu. */
+html body #root#root#root :is([class*='-card'], [class*='-tile']):not(button):not([class*='-command-lead']):not([style*='linear-gradient']) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(250, 248, 241, 0.55) 100%) !important;
+}
+
+/* Uniesiona karta ma glebszy cien — ruch w gore czytelny takze bez animacji. */
+html body #root#root#root :is([class*='-card'], [class*='-tile']):not(button):not([class*='-command-lead']):hover {
+  box-shadow: 0 1px 2px rgba(43,29,15,0.06), 0 8px 20px rgba(43,29,15,0.08), 0 16px 36px rgba(43,29,15,0.05), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+}
+
+/* Klikalne kafle: mocniejsza odpowiedz. */
+html body #root#root#root button:is([class*='-card'], [class*='-tile']):hover {
+  box-shadow: 0 2px 4px rgba(43,29,15,0.07), 0 14px 32px rgba(43,29,15,0.11), 0 28px 60px rgba(43,29,15,0.07), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+}
+
+/* --- Panele nosne (sekcje tresci) ------------------------------------ */
+
+html body #root#root#root :is([class*='-panel'], [class*='-surface'], [class*='-board']):not(button):not(.pf-sidebar):not(.command-native-sidebar) {
+  box-shadow: 0 1px 2px rgba(43,29,15,0.05), 0 4px 10px rgba(43,29,15,0.05) !important;
+}
+
+/* --- Ciemne paski naglowkowe: glebia bez rozjasniania ---------------- */
+
+html body #root#root#root :is(
+  .module-page-header-hero, .module-page-header-plain, .clients-command-strip,
+  .ref-topbar, .users-header-panel, .hr-docs-header, .bi-dashboard-topbar,
+  .crm-kommo-topbar, .crm-inbox-command-strip, .operator-tasks-header,
+  .field-settlements-header, .harmonogram-header, .warehouse-header
+) {
+  box-shadow:
+    0 2px 6px rgba(43, 29, 15, 0.12),
+    0 18px 44px rgba(43, 29, 15, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+}
+
+/* --- Boczny pasek: oddzielenie od tresci ------------------------------ */
+
+html body #root#root#root :is(.pf-sidebar, .command-native-sidebar, .arbor-sidebar) {
+  box-shadow: 14px 0 44px rgba(43, 29, 15, 0.2) !important;
+}
+
+/* --- Pola formularza: wklesniecie zamiast plaskiej ramki -------------- */
+
+html body #root#root#root :is(input, select, textarea):not([type='checkbox']):not([type='radio']):not([type='range']) {
+  box-shadow: inset 0 1px 2px rgba(43, 29, 15, 0.05) !important;
+}
+
+html body #root#root#root :is(input, select, textarea):focus,
+html body #root#root#root :is(input, select, textarea):focus-visible {
+  box-shadow:
+    inset 0 1px 2px rgba(43, 29, 15, 0.04),
+    0 0 0 3px rgba(160, 175, 20, 0.26),
+    0 6px 16px rgba(43, 29, 15, 0.08) !important;
+}
+
+/* --- Przyciski: warstwa zamiast plaskiej plamy ------------------------ */
+
+html body #root#root#root button:not(:disabled):not([style*='transparent']) {
+  box-shadow: 0 1px 2px rgba(43,29,15,0.05), 0 4px 10px rgba(43,29,15,0.05), inset 0 1px 0 rgba(255,255,255,0.24) !important;
+}
+
+html body #root#root#root button:not(:disabled):not([style*='transparent']):hover {
+  box-shadow: 0 1px 2px rgba(43,29,15,0.06), 0 8px 20px rgba(43,29,15,0.08), 0 16px 36px rgba(43,29,15,0.05), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+}
+
+html body #root#root#root button:not(:disabled):active {
+  box-shadow: inset 0 2px 5px rgba(43, 29, 15, 0.16) !important;
+}
+
+/* --- Plywajace panele: wyraznie ponad trescia ------------------------- */
+
+html body #root#root#root [data-draggable-panel] {
+  box-shadow: 0 2px 4px rgba(43,29,15,0.07), 0 14px 32px rgba(43,29,15,0.11), 0 28px 60px rgba(43,29,15,0.07) !important;
+}
+
+/* --- Plakietki statusu: lekkie wypuklenie ----------------------------- */
+
+html body #root#root#root :is([class*='badge'], [class*='pill'], [class*='status'], [class*='chip']):not(button) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 2px rgba(43, 29, 15, 0.05) !important;
+}
