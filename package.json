@@ -157,7 +157,7 @@
       "js-yaml": "4.2.0"
     },
     "shell-quote": "1.8.4",
-    "uuid": "11.1.1",
+    "uuid": "14.0.1",
     "xcode@3.0.1": {
       "uuid": "11.1.1"
     },
@@ -171,6 +171,6 @@
     "expo-router": "~56.2.19",
     "react-native-safe-area-context": "~5.7.0",
     "serverless-http": "^4.0.0",
-    "uuid": "11.1.1"
+    "uuid": "14.0.1"
   }
 }
