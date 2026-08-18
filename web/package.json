@@ -20,7 +20,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-i18next": "^17.0.11",
-    "react-router-dom": "6.30.4",
+    "react-router-dom": "7.18.2",
     "web-vitals": "^6.0.1"
   },
   "devDependencies": {
@@ -58,7 +58,7 @@
   },
   "overrides": {
     "react-router": "6.30.4",
-    "react-router-dom": "6.30.4"
+    "react-router-dom": "7.18.2"
   },
   "browserslist": {
     "production": [
